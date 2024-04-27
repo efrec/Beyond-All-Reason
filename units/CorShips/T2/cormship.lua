@@ -195,7 +195,8 @@ return {
 					number = "8",
 					speceffect = "split",
 					splitexplosionceg = "genericshellexplosion-medium",
-					when = "yvel<0",
+					when = "altitude<splitat",
+					splitat = 300
 				},
 				damage = {
 					commanders = 500,

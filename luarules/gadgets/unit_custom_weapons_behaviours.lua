@@ -12,16 +12,27 @@ end
 
 local random = math.random
 
-local SpSetProjectileVelocity = Spring.SetProjectileVelocity
-local SpSetProjectileTarget = Spring.SetProjectileTarget
+-- local SpSetProjectileVelocity = Spring.SetProjectileVelocity
+-- local SpSetProjectileTarget = Spring.SetProjectileTarget
 
-local SpGetProjectileVelocity = Spring.GetProjectileVelocity
 local SpGetProjectileOwnerID = Spring.GetProjectileOwnerID
-local SpGetUnitStates = Spring.GetUnitStates
+local SpGetProjectilePosition = Spring.GetProjectilePosition
 local SpGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
-local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
 local SpGetProjectileTarget = Spring.GetProjectileTarget
-local SpGetUnitIsDead = Spring.GetUnitIsDead
+local SpGetProjectileVelocity = Spring.GetProjectileVelocity
+-- local SpGetUnitIsDead = Spring.GetUnitIsDead
+local SpGetUnitPosition = Spring.GetUnitPosition
+local SpGetUnitStates = Spring.GetUnitStates
+local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
+local SpGetGroundHeight = Spring.GetGroundHeight
+
+local GAME_SPEED = 30
+local g = Game.gravity
+local g_f = g / GAME_SPEED / GAME_SPEED
+local xmax = Game.mapSizeX
+local zmax = Game.mapSizeZ
+local targetedGround = string.byte('g')
+local targetedUnit = string.byte('u')
 
 if gadgetHandler:IsSyncedCode() then
 
@@ -188,6 +199,10 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
+	local ymin, ymax = Spring.GetGroundExtremes()
+	ymin = ymin > 0 and ymin or 0
+	local nframe = Spring.GetGameFrame()
+
 	checkingFunctions.split = {}
 	checkingFunctions.split["yvel<0"] = function (proID)
 		local _,vy,_ = Spring.GetProjectileVelocity(proID)
@@ -196,6 +211,80 @@ if gadgetHandler:IsSyncedCode() then
 		else
 			return false
 		end
+	end
+	checkingFunctions.split["altitude<splitat"] = function (proID)
+		-- We want to get the airburst height of a ballistic weapon without allowing early split.
+		-- That is, in the case we are firing over a high barrier toward a lower, distant target,
+		-- split at the lowest absolute ypos where (altitude - ypos) changes to a negative sign.
+		local pvx, pvy, pvz = SpGetProjectileVelocity(proID)
+		if pvy >= 0 then return false end
+
+		local infos = projectiles[proID]
+		local splitat = infos.splitat * 1 or 50
+
+		local px, py, pz = SpGetProjectilePosition(proID)
+		local pel = SpGetGroundHeight(px, pz) or 0
+
+		local tx, ty, tz, tel, -- Ballistic impact/target location.
+		      nx, ny, nz, nel, -- Next predicted location.
+			  frames, mid      -- Game frames logic.
+		local targetType, target = SpGetProjectileTarget(proID)
+
+		if targetType == targetedGround then
+			ny  = py + pvy - 0.5 * g
+			tx, ty, tz = target[1], target[2], target[3]
+			nel = SpGetGroundHeight(px + pvx, pz + pvz) or 0
+			tel = ty or 0
+		else
+			frames = 5
+			-- Run long checks less often than "per-projectile per-frame". That's bad.
+			-- Use the projectile ID as a pseudorandom seed; it should be good enough.
+			if (nframe + proID) % frames ~= 0 then return false end
+
+			-- Get the next position after the next `frames` frames.
+			nx = px + pvx * frames
+			ny = py + (pvy - g * frames / 2) * frames
+			nz = pz + pvz * frames
+			nel = SpGetGroundHeight(nx, nz) or 0
+
+			-- Predict the ballistic impact location.
+			-- Bound the search to after `frames`.
+			local ttimin = frames
+			-- Bound the search to a maximum projectile lifetime.
+			local ttimax = math.min(
+				pvx == 0 and 0 or pvx > 0 and (xmax - px) / pvx or -1 * px / pvx, -- x extremes
+				(g * math_sqrt((2*(py - ymin)*g + pvy*pvy)/g/g) + pvy)/g,         -- y extremes
+				pvz == 0 and 0 or pvz > 0 and (zmax - pz) / pvz or -1 * pz / pvz  -- z extremes
+			)
+			ttimax = ttimax > 2 * ttimin and ttimax or 2 * ttimin
+			-- Bisection is an odd choice for our search method. But it'll do.
+			local pos, hei
+			for _ = 1, 20 do
+				mid = ttimin + (ttimax - ttimin) / 2
+				pos = py + pvy * mid + 0.5 * g * mid * mid
+				hei = SpGetGroundHeight(px + pvx * mid, pz + pvz * mid)
+				if pos - hei < 0 then ttimax = mid else ttimin = mid end
+				if ttimax - ttimin <= frames then break end -- frames as a tolerance
+			end
+			mid = ttimin + (ttimax - ttimin) / 2
+			tx = px + pvx * mid
+			tz = pz + pvz * mid
+			tel = SpGetGroundHeight(tx, tz) or 0
+		end
+
+		-- Assuming the projectile will not be splitting underwater:
+		if pel < 0 then pel = 0 end
+		if nel < 0 then nel = 0 end
+		if tel < 0 then tel = 0 end
+		-- Spring.Echo("Curr/Pred/Targ: "..string.format("%.1f | ", pel)..string.format("%.1f | ", nel)..string.format("%.1f", tel))
+
+		-- Decide whether to airburst based on a reasonable guess.
+		if py - pel < splitat or ny + (py - ny) / 2 - nel < splitat then
+			-- Check for firing over a wall/barrier:
+			if pel - tel > splitat then return false end
+			return true
+		end
+		return false
 	end
 
 	checkingFunctions.torpwaterpen = {}
