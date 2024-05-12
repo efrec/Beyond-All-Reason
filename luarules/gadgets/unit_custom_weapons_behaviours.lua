@@ -254,6 +254,12 @@ if gadgetHandler:IsSyncedCode() then
 		local ttyp, target = SpGetProjectileTarget(proID)
 		local ny, nel, tel
 
+		-- todo: Change to a timed-fuse method by calculating the time-to-impact,
+		-- todo: then set the projectile to split on a countdown using GameFrame.
+		-- todo: This can also be smoothed out using mod(frame + id, resolution).
+		local timed  = infos.timed or false
+		local frames = 5
+
 		-- Ground-targeting is ideal since the engine pre-determines the impact site.
 		-- Place Target On Ground by Itanthias is a good solution for non-homing airbursts.
 		-- To use it, set `customparams={place_target_on_ground=true}` on the weapondef.
@@ -262,20 +268,15 @@ if gadgetHandler:IsSyncedCode() then
 			nel = max(0, SpGetGroundHeight(px + pvx, pz + pvz))
 			tel = max(0, target[2])
 
-		-- Otherwise, determine the ballistic impact location all by our lonesome.
-		-- todo: Change to a timed-fuse method by calculating the time-to-impact,
-		-- todo: then set the projectile to split on a countdown using GameFrame.
-		-- todo: This can also be smoothed out using mod(frame + id, resolution).
-		else
+		elseif not timed then
 			-- Reduce our resolution by some amount.
-			local frames = 6
 			if (SpGetGameFrame() + proID) % frames ~= 0 then return false end
 
-			-- Next position at exactly time = `frames`.
+			-- Get the next position at exactly time = `frames`.
 			ny  = py + (pvy - g * frames / 2) * frames
 			nel = max(0, SpGetGroundHeight(px + pvx * frames, pz + pvz * frames))
 
-			-- Estimate time-to-impact; bisection search for ground-trajectory intercept.
+			-- Estimate the time-to-impact; bisection search for ground-trajectory intercept.
 			local ttimin = frames
 			local ttimax = frames + 6 * GAME_SPEED
 			local mid, pos
@@ -289,6 +290,55 @@ if gadgetHandler:IsSyncedCode() then
 			-- Our estimate is the projectile position at time = midpoint (which we update).
 			mid = (ttimin + ttimax) / 2
 			tel = max(0, SpGetGroundHeight(px + pvx * mid, pz + pvz * mid))
+
+		else
+			local active = active_projectiles[proID]
+			-- In case you launch a thousand projectiles with timed fusing at the same time,
+			-- we stagger the trajectory calculations across frames.
+			if not active then
+				active_projectiles[proID] = {
+					seed  = proID % frames,
+					fuse = -1
+				}
+				active = active_projectiles[proID]
+			end
+			if active.seed ~= 0 then
+				active.seed = active.seed - 1
+				return false
+			end
+
+			-- We use another countdown to detect when to airburst.
+			if active.fuse ~= -1 then
+				if active.fuse ~= 0 then
+					active.fuse = active.fuse - 1
+					return false
+				end
+				return true
+			end
+
+			-- Estimate the time to impact and set the timed fusing.
+			local ttimin = frames
+			local ttimax = frames + 30 * GAME_SPEED -- todo: this lookahead is way too long for many maps
+			local mid, pos
+			for _ = 1, 10 do
+				mid = (ttimin + ttimax) / 2
+				pos = py + (pvy + g * mid / 2) * mid
+				tel = max(0, SpGetGroundHeight(px + pvx * mid, pz + pvz * mid))
+				if pos - tel < 0 then ttimax = mid else ttimin = mid end
+				if ttimax - ttimin <= frames then break end -- frames as a tolerance
+			end
+			mid = (ttimin + ttimax) / 2
+			tel = max(0, SpGetGroundHeight(px + pvx * mid, pz + pvz * mid))
+
+			-- By inverse kinematics we have two known quantities:
+			-- delta(y) = projectile_y - target_y + splitat, and
+			-- delta(y) = velocity_y * time + 0.5 * gravity * time^2, which has zero to two solutions for a given delta(y).
+			-- We can assume that zero solutions isn't an issue, so:
+			local del = py - tel + splitat
+			local tt1 = (math_sqrt(2*g*del + py*py) - py) / g -- I think
+			local tt2 = (py - math_sqrt(2*g*del + py*py)) / g
+			active.fuse = math.round(max(tt1, tt2))
+			return active.fuse == 0
 		end
 
 		return splitat > pel - tel           and  -- Terrain is level with the impact site.
