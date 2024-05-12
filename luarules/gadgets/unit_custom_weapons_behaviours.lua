@@ -11,10 +11,12 @@ function gadget:GetInfo()
 end
 
 local random    = math.random
+local max       = math.max
 local math_sqrt = math.sqrt
 local cos       = math.cos
 local sin       = math.sin
 
+local SpGetGameFrame            = Spring.GetGameFrame
 local SpGetProjectileDefID      = Spring.GetProjectileDefID
 local SpGetProjectileOwnerID    = Spring.GetProjectileOwnerID
 local SpGetProjectilePosition   = Spring.GetProjectilePosition
@@ -52,6 +54,8 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
+	local GAME_SPEED   = 30
+	local g            = Game.gravity
 	local targetGround = string.byte('g')
 	local targetUnit   = string.byte('u')
 
@@ -214,7 +218,7 @@ if gadgetHandler:IsSyncedCode() then
 			speed = {nvx, nvy, nvz},
 			owner = ownerID,
 			ttl = 3000,
-			gravity = -Game.gravity/3600,
+			gravity = -g/3600,
 			model = infos.model,
 			cegTag = infos.cegtag,
 		}
@@ -235,6 +239,62 @@ if gadgetHandler:IsSyncedCode() then
 		local _,vy,_ = SpGetProjectileVelocity(proID)
 		return vy < 0
 	end
+	checkingFunctions.split["altitude<splitat"] = function (proID)
+		-- We want to get the airburst height of a ballistic weapon without allowing early split.
+		-- That is, in the case we are firing over a high barrier toward a lower, distant target,
+		-- split at the lowest possible ypos where the projectile falls below the splitat height.
+		local pvx, pvy, pvz = SpGetProjectileVelocity(proID)
+		if pvy > 0 then return false end
+
+		local infos = projectiles[proID]
+		local splitat = tonumber(infos.splitat) or 50
+
+		local px, py, pz   = SpGetProjectilePosition(proID)
+		local pel          = SpGetGroundHeight(px, pz)
+		local ttyp, target = SpGetProjectileTarget(proID)
+		local ny, nel, tel
+
+		-- Ground-targeting is ideal since the engine pre-determines the impact site.
+		-- Place Target On Ground by Itanthias is a good solution for non-homing airbursts.
+		-- To use it, set `customparams={place_target_on_ground=true}` on the weapondef.
+		if ttyp == targetGround then
+			ny  = py + pvy - 0.5 * g
+			nel = max(0, SpGetGroundHeight(px + pvx, pz + pvz))
+			tel = max(0, target[2])
+
+		-- Otherwise, determine the ballistic impact location all by our lonesome.
+		-- todo: Change to a timed-fuse method by calculating the time-to-impact,
+		-- todo: then set the projectile to split on a countdown using GameFrame.
+		-- todo: This can also be smoothed out using mod(frame + id, resolution).
+		else
+			-- Reduce our resolution by some amount.
+			local frames = 6
+			if (SpGetGameFrame() + proID) % frames ~= 0 then return false end
+
+			-- Next position at exactly time = `frames`.
+			ny  = py + (pvy - g * frames / 2) * frames
+			nel = max(0, SpGetGroundHeight(px + pvx * frames, pz + pvz * frames))
+
+			-- Estimate time-to-impact; bisection search for ground-trajectory intercept.
+			local ttimin = frames
+			local ttimax = frames + 6 * GAME_SPEED
+			local mid, pos
+			for _ = 1, 8 do
+				mid = (ttimin + ttimax) / 2
+				pos = py + (pvy + g * mid / 2) * mid
+				tel = max(0, SpGetGroundHeight(px + pvx * mid, pz + pvz * mid))
+				if pos - tel < 0 then ttimax = mid else ttimin = mid end
+				if ttimax - ttimin <= frames then break end -- frames as a tolerance
+			end
+			-- Our estimate is the projectile position at time = midpoint (which we update).
+			mid = (ttimin + ttimax) / 2
+			tel = max(0, SpGetGroundHeight(px + pvx * mid, pz + pvz * mid))
+		end
+
+		return splitat > pel - tel           and  -- Terrain is level with the impact site.
+		       splitat > py - pel             or  -- Projectile is below the split height.
+		       splitat > (py + ny) / 2 - nel      -- Or will be before the next update.
+	end
 
 	applyingFunctions.split = function (proID)
 		local px, py, pz = SpGetProjectilePosition(proID)
@@ -248,10 +308,10 @@ if gadgetHandler:IsSyncedCode() then
 				speed = {vx - vw*(random(-100,100)/880), vy - vw*(random(-100,100)/440), vz - vw*(random(-100,100)/880)},
 				owner = ownerID,
 				ttl = 3000,
-				gravity = -Game.gravity/900,
+				gravity = -g/900,
 				model = infos.model,
 				cegTag = infos.cegtag,
-				}
+			}
 			SpSpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
 		end
 		SpSpawnCEG(infos.splitexplosionceg, px, py, pz,0,0,0,0,0)
