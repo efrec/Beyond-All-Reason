@@ -201,6 +201,38 @@ if gadgetHandler:IsSyncedCode() then
 		return vy < 0
 	end
 
+	checkingFunctions.split["altitude<split"] = function (proID)
+		local active = active_projectiles[proID]
+		if not active then -- The projectile was just fired.
+			local infos  = projectiles[proID]
+			local split = infos.split
+			local _, py, _ = SpGetProjectilePosition(proID)
+			local _, vy, _ = SpGetProjectileVelocity(proID)
+			local kind, target = SpGetProjectileTarget(proID)
+			local ty
+			if kind == targetGround then
+				ty = target[2] -- target is a position
+			else
+				_, ty, _ = SpGetUnitPosition(target, true) -- target is an ID
+			end
+
+			-- Calculate and set the split timing.
+			-- todo: It's possible to fire and need instantly to split; this calc can only handle the future.
+			local dy = py - ty + split
+			local time = sqrt(vy * vy - 2 * mapG * dy)
+			local time = round(max((vy + time) / mapG, (vy - time) / mapG)) -- Quadratics (can) have two solutions.
+			active_projectiles[proID] = time -- todo: Should this be min(time, timeToLive)?
+			return time == 0
+
+		-- The timed fuse is set. We are waiting to split.
+		elseif active > 0 then
+			active = active - 1
+			return false
+		elseif active == 0 then -- Do a backflip.
+			return true
+		end
+	end
+
 	applyingFunctions.split = function (proID)
 		local px, py, pz = SpGetProjectilePosition(proID)
 		local vx, vy, vz = SpGetProjectileVelocity(proID)
