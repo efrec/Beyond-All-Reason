@@ -222,7 +222,7 @@ if gadgetHandler:IsSyncedCode() then
 		local _, py, _ = SpGetProjectilePosition(proID)
 		local _, vy, _ = SpGetProjectileVelocity(proID)
 
-		-- Quadratics can have zero to two solutions; we need exactly one, obviously.
+		-- Quadratics can have 0 to 2 solutions, any of which can be in the past. We need exactly one, in the future.
 		-- Resolve cases when the projectile is fired too low:
 		local peakd, peakt
 		if vy > 0 then      -- Wait at least until the projectile levels out.
@@ -240,7 +240,6 @@ if gadgetHandler:IsSyncedCode() then
 
 		-- Change the reference frame to the peak of the trajectory; leaving only one solution.
 		py = py + peakd -- and vy = 0
-
 		peakt = round(peakt + sqrt(2 * (split - py) / mapG)) -- probably
 		active_projectiles[proID] = peakt -- todo: min(time, timeToLive - 1)
 		return peakt == 0
