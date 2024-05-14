@@ -202,35 +202,48 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	checkingFunctions.split["altitude<split"] = function (proID)
+		-- Check whether the timed fusing is set.
 		local active = active_projectiles[proID]
-		if not active then -- The projectile was just fired.
-			local infos  = projectiles[proID]
-			local split = infos.split
-			local _, py, _ = SpGetProjectilePosition(proID)
-			local _, vy, _ = SpGetProjectileVelocity(proID)
-			local kind, target = SpGetProjectileTarget(proID)
-			local ty
-			if kind == targetGround then
-				ty = target[2] -- target is a position
-			else
-				_, ty, _ = SpGetUnitPosition(target, true) -- target is an ID
+		if active ~= nil then
+			if active >= 1 then
+				active = active - 1
+				return false
 			end
-
-			-- Calculate and set the split timing.
-			-- todo: It's possible to fire and need instantly to split; this calc can only handle the future.
-			local dy = py - ty + split
-			local time = sqrt(vy * vy - 2 * mapG * dy)
-			local time = round(max((vy + time) / mapG, (vy - time) / mapG)) -- Quadratics (can) have two solutions.
-			active_projectiles[proID] = time -- todo: Should this be min(time, timeToLive)?
-			return time == 0
-
-		-- The timed fuse is set. We are waiting to split.
-		elseif active > 0 then
-			active = active - 1
-			return false
-		elseif active == 0 then -- Do a backflip.
 			return true
 		end
+
+		-- The projectile was just fired and needs its fusing set.
+		-- Ignoring any lead prediction, uncertainty, etc. when targeting units:
+		local kind, target = SpGetProjectileTarget(proID) -- `target` can be a position or an ID
+		local ty = (kind == targetGround) and target[2] or (SpGetUnitPosition(target, true))[2]
+		local infos = projectiles[proID]
+		local split = infos.split + ty
+
+		local _, py, _ = SpGetProjectilePosition(proID)
+		local _, vy, _ = SpGetProjectileVelocity(proID)
+
+		-- Quadratics can have zero to two solutions; we need exactly one, obviously.
+		-- Resolve cases when the projectile is fired too low:
+		local peakd, peakt
+		if vy > 0 then      -- Wait at least until the projectile levels out.
+			peakt = vy / mapG
+			peakd = vy * peakt - 0.5 * mapG * peakt * peakt
+			if py + peakd <= split then
+				active_projectiles[proID] = round(peakt)
+				return peakt < 0.5
+			end
+		elseif vy <= 0 then -- Downward trajectories can split immediately.
+			if py <= split then return true end -- todo: Maybe wait one frame? Does this cause cleanup issues?
+			peakt = vy / mapG -- Traveling backward in time
+			peakd = vy * peakt - 0.5 * mapG * peakt * peakt
+		end
+
+		-- Change the reference frame to the peak of the trajectory; leaving only one solution.
+		py = py + peakd -- and vy = 0
+
+		peakt = round(peakt + sqrt(2 * (split - py) / mapG)) -- probably
+		active_projectiles[proID] = peakt -- todo: min(time, timeToLive - 1)
+		return peakt == 0
 	end
 
 	applyingFunctions.split = function (proID)
