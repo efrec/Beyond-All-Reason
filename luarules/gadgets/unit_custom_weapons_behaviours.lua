@@ -205,11 +205,8 @@ if gadgetHandler:IsSyncedCode() then
 		-- Check whether the timed fusing is set.
 		local active = active_projectiles[proID]
 		if active ~= nil then
-			if active >= 1 then
-				active = active - 1
-				return false
-			end
-			return true
+			active = active - 1
+			return active == 0
 		end
 
 		-- The projectile was just fired and needs its fusing set.
