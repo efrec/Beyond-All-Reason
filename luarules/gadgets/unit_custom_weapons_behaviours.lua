@@ -237,7 +237,7 @@ if gadgetHandler:IsSyncedCode() then
 
 		-- Change the reference frame to the peak of the trajectory; leaving only one solution.
 		-- py = py + peakd -- vy = 0 -- Both simplify out of the below:
-		peakt = round(peakt + sqrt(2 * (split - peakd) / mapG)) -- probably
+		peakt = round(peakt + sqrt(2 * (peakd - split) / mapG)) -- probably
 		active_projectiles[proID] = peakt -- todo: min(time, timeToLive - 1)
 		return peakt == 0
 	end
