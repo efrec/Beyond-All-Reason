@@ -229,7 +229,7 @@ if gadgetHandler:IsSyncedCode() then
 				active_projectiles[proID] = round(peakt)
 				return peakt < 0.5
 			end
-		elseif vy <= 0 then -- Downward trajectories can split immediately.
+		else -- if vy <= 0  -- Downward trajectories can split immediately.
 			if py <= split then return true end -- todo: Maybe wait one frame? Does this cause cleanup issues?
 			peakt = vy / mapG -- Traveling backward in time
 			peakd = vy * peakt - 0.5 * mapG * peakt * peakt
