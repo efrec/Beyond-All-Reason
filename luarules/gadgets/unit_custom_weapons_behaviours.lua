@@ -277,30 +277,39 @@ if gadgetHandler:IsSyncedCode() then
 	-- 1.0: Spawned projectiles follow parent path almost exactly.
 
 	applyingFunctions.disperse = function (proID)
-		local spawnCEG, middleDefID, spawnDefID, spawnType, spawnCount, spawnSpeed, radius, momentum
+		local ownerID = Spring.GetProjectileOwnerID(proID)
+		local px, py, pz = Spring.GetProjectilePosition(proID)
+		local vx, vy, vz, vw = Spring.GetProjectileVelocity(proID)
 		local tx, ty, tz
 		do
-			local infos = projectiles[proID]
-			local weaponDef = WeaponDefNames[tostring(infos.disperse_def)]
-			spawnCEG = infos.disperse_ceg
-			middleDefID = WeaponDefNames[tostring(infos.disperse_middleDef)].id
-			spawnDefID = weaponDef.id
-			spawnType = weaponDef.type
-			spawnCount = tonumber(infos.disperse_number)
-			spawnSpeed = weaponDef.startvelocity or 0
-			spawnSpeed = math.clamp(spawnSpeed + (vw - spawnSpeed) * momentum, 1, weaponDef.maxVelocity)
-			radius = tonumber(infos.disperse_radius)
-			momentum = tonumber(infos.disperse_momentum)
-
 			local targeting, target = SpGetProjectileTarget(proID)
 			if targeting == string.byte('u')
 			then tx, ty, tz = Spring.GetUnitPosition(target)
 			else tx, ty, tz = target[1], target[2], target[3] end
 		end
 
-		local ownerID = Spring.GetProjectileOwnerID(proID)
-		local px, py, pz = Spring.GetProjectilePosition(proID)
-		local vx, vy, vz, vw = Spring.GetProjectileVelocity(proID)
+		local spawnCEG, middleDefID, spawnDefID, spawnType, spawnCount, spawnSpeed, momentum, radius
+		do
+			local infos = projectiles[proID]
+			local weaponDef = WeaponDefNames[tostring(infos.disperse_def)]
+			if not weaponDef then
+				Spring.Echo('disperse did not find weaponDef named '..infos.disperse_def)
+				return
+			end
+			spawnCEG = infos.disperse_ceg
+			middleDefID = infos.disperse_middleDef and WeaponDefNames[tostring(infos.disperse_middleDef)]
+			spawnDefID = weaponDef.id
+			spawnType = weaponDef.type
+			spawnSpeed = weaponDef.startvelocity or 0
+			spawnCount = tonumber(infos.disperse_number)
+			momentum = tonumber(infos.disperse_momentum)
+			radius = tonumber(infos.disperse_radius)
+
+			middleDefID = middleDefID and middleDefID.id or nil
+			-- spawnSpeed = math.clamp(spawnSpeed + (vw - spawnSpeed) * momentum, 1, weaponDef.weaponVelocity) -- i dunno the internal name for maxVelocity
+			spawnSpeed = spawnSpeed + (vw - spawnSpeed) * momentum
+		end
+
 		local spawnParams = {
 			pos     = { px, py, pz },
 			speed   = { 0, 0, 0 },
