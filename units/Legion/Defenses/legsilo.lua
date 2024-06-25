@@ -1,3 +1,27 @@
+local soloArea = 1920
+local mirvArea = 1080
+local mirvEdge = 0.25
+local mirvSpread = 0.4
+local middle = false
+
+-- For even damage @ number = 6, no middleDef: radius = (aoe / 2) / (2 - edge).
+-- I increased that by a factor to prefer area coverage over high or consistent damage.
+-- The net effective aoe (diameter) is then: aoe * (1 + 1 / (2 - edge)) * factor.
+local function setMirvRadius()
+	local radius = mirvArea / 2
+	if middle then
+		radius = radius * (1 + 1 / (2 - mirvEdge)) -- ish
+	else
+		radius = radius / (2 - mirvEdge)
+	end
+	radius = radius * (1 + mirvSpread)
+	local radiusNet = radius + mirvArea
+	if radiusNet <= soloArea then
+		Spring.Echo('legsilo_mirv is a weaker area weapon than its solo nuclear counterpart.')
+	end
+	return radius
+end
+
 return {
 	legsilo = {
 		maxacc = 0,
@@ -36,6 +60,8 @@ return {
 			unitgroup = 'nuke',
 			model_author = "Tharsy",
 			normaltex = "unittextures/leg_normal.dds",
+			-- onoffable = true,
+			-- onoffname = "mirv",
 			removewait = true,
 			subfolder = "corbuildings/landdefenceoffence",
 			techlevel = 2,
@@ -101,7 +127,7 @@ return {
 		},
 		weapondefs = {
 			legicbm = {
-				areaofeffect = 1920,
+				areaofeffect = soloArea,
 				avoidfeature = false,
 				avoidfriendly = false,
 				cegtag = "NUKETRAIL",
@@ -109,7 +135,7 @@ return {
 				collidefeature = false,
 				collidefriendly = false,
 				commandfire = true,
-				craterareaofeffect = 1920,
+				craterareaofeffect = soloArea,
 				craterboost = 2.4,
 				cratermult = 1.2,
 				edgeeffectiveness = 0.45,
@@ -149,10 +175,64 @@ return {
 				weaponvelocity = 1600,
 				customparams = {
 					place_target_on_ground = "true",
+					speceffect = "disperse",
+					when = "ypos<altitude",
+					disperse_altitude = 900,
+					disperse_ceg = "genericshellexplosion-medium",
+					disperse_def = "legsilo_mirv",
+					disperse_middleDef = middle and "legsilo_mirv" or nil, --
+					disperse_momentum = 0.75,
+					disperse_number = 6,
+					disperse_radius = setMirvRadius(),
 				},
 				damage = {
 					commanders = 2500,
 					default = 11500,
+				},
+			},
+			mirv = {
+				areaofeffect = mirvArea,
+				burnblow = true,
+				cegtag = "missiletrailmedium",
+				collideenemy = false,
+				collidefeature = false,
+				collidefriendly = true,
+				craterareaofeffect = mirvArea * (1 - mirvEdge * mirvEdge),
+				craterboost = 2.4,
+				cratermult = 1.2,
+				edgeeffectiveness = mirvEdge,
+				explosiongenerator = "custom:newnuke",
+				firestarter = 100,
+				flighttime = 10,
+				impulseboost = 0.5,
+				impulsefactor = 0.5,
+				model = "cormissile.s3o",
+				name = "Nuclear MIRV Warhead",
+				range = 720,
+				smoketrail = true,
+				smokePeriod = 4,
+				smoketime = 80,
+				smokesize = 20,
+				smokecolor = 0.75,
+				smokeTrailCastShadow = true,
+				soundhit = "nukearm",
+				soundhitwet = "nukewater",
+				soundstart = "packolau",
+				soundhitwetvolume = 33,
+				soundtrigger = true,
+				startvelocity = 500,
+				texture1 = "null",
+				texture2 = "railguntrail",
+				tolerance = 4000,
+				-- tracks = true,
+				-- turnrate = 3500,
+				weaponacceleration = 500,
+				weapontimer = 2,
+				weapontype = "MissileLauncher",
+				weaponvelocity = 1500,
+				damage = {
+					commanders = ((2500)) / 1.2, -- idk
+					default = ((9500)) / 1.2, -- idk
 				},
 			},
 			nuclear_launch = {
