@@ -230,25 +230,152 @@ if gadgetHandler:IsSyncedCode() then
 		Spring.DeleteProjectile(proID)
 	end
 
-	applyingFunctions.torpwaterpen = function (proID)
-		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
-		--if target is close under the shooter, however, this resetting makes the torp always miss, unless it has amazing tracking
-		--needs special case handling (and there's no point having it visually on top of water for an UW target anyway)
-		
-		local bypass = false
-		local targetType, targetID = Spring.GetProjectileTarget(proID)
-		
-		if (targetType ~= nil) and (targetID ~= nil) and (targetType ~= 103) then--ground attack borks it; skip
-			local unitPosX, unitPosY, unitPosZ = Spring.GetUnitPosition(targetID)
-			if (unitPosY ~= nil) and unitPosY<-10 then
-				bypass = true
-				Spring.SetProjectileVelocity(proID,vx/1.3,vy/6,vz/1.3)--apply brake without fully halting, otherwise it will overshoot very close targets before tracking can reorient it
+	---- For Legion nukes
+	-- Changing out "split" for "disperse", which will spread projectiles evenly.
+	-- We want a change in target position equal to a "dispersion radius".
+	-- This works very differently for ballistic and non-ballistic projectiles.
+	-- And I added an optional middle projectile because you never know.
+
+	checkingFunctions.disperse = {}
+	checkingFunctions.disperse["ypos<altitude"] = function (proID)
+		local altitude = active_projectiles[proID]
+
+		if not altitude then
+			-- Check if the base unit has a MIRV ability command toggle.
+			-- todo: Spring.FindUnitCmdDesc(unitID, CMD_SOME_WEAPON_TOGGLE)
+			local yesItDoes = true
+			local butItIsToggledOff = true
+			if yesItDoes and not butItIsToggledOff then
+				projectiles[proID] = nil
+				return false
+			end
+
+			-- Force targeting onto the ground to get a consistent target elevation.
+			local elevation
+			local targeting, target = Spring.GetProjectileTarget(proID)
+			if targeting == string.byte('u') then
+				local ux, uy, uz = Spring.GetUnitPosition(target)
+				Spring.SetProjectileTarget(proID, ux, uy, uz)
+				elevation = uy
+			else
+				elevation = target[2]
+			end
+			altitude = math.max(0, elevation) + tonumber(projectiles[proID].disperse_altitude)
+			active_projectiles[proID] = altitude
+		end
+
+		local _, vy, _ = Spring.GetProjectileVelocity(proID)
+		if vy >= 0 then return false end
+
+		local _, py, _ = Spring.GetProjectilePosition(proID)
+		return py <= altitude
+	end
+
+	-- Momentum sits within a range, the extremes of which are maybe useless.
+	-- Rather than restart to test momentum, hardcode a value and /luarules reload.
+	-- 0.0: Spawned projectiles mostly ignore parent momentum.
+	-- 1.0: Spawned projectiles follow parent path almost exactly.
+
+	applyingFunctions.disperse = function (proID)
+		local spawnCEG, middleDefID, spawnDefID, spawnType, spawnCount, spawnSpeed, radius, momentum
+		local tx, ty, tz
+		do
+			local infos = projectiles[proID]
+			local weaponDef = WeaponDefNames[tostring(infos.disperse_def)]
+			spawnCEG = infos.disperse_ceg
+			middleDefID = WeaponDefNames[tostring(infos.disperse_middleDef)].id
+			spawnDefID = weaponDef.id
+			spawnType = weaponDef.type
+			spawnCount = tonumber(infos.disperse_number)
+			spawnSpeed = weaponDef.startvelocity or 0
+			spawnSpeed = math.clamp(spawnSpeed + (vw - spawnSpeed) * momentum, 1, weaponDef.maxVelocity)
+			radius = tonumber(infos.disperse_radius)
+			momentum = tonumber(infos.disperse_momentum)
+
+			local targeting, target = SpGetProjectileTarget(proID)
+			if targeting == string.byte('u')
+			then tx, ty, tz = Spring.GetUnitPosition(target)
+			else tx, ty, tz = target[1], target[2], target[3] end
+		end
+
+		local ownerID = Spring.GetProjectileOwnerID(proID)
+		local px, py, pz = Spring.GetProjectilePosition(proID)
+		local vx, vy, vz, vw = Spring.GetProjectileVelocity(proID)
+		local spawnParams = {
+			pos     = { px, py, pz },
+			speed   = { 0, 0, 0 },
+			owner   = ownerID,
+			ttl     = 300,
+			gravity = -Game.gravity/900,
+		}
+
+		-- Handle projectiles along the main trajectory.
+		if middleDefID then
+			spawnParams.speed[1] = vx / vw * spawnSpeed
+			spawnParams.speed[2] = vy / vw * spawnSpeed
+			spawnParams.speed[3] = vz / vw * spawnSpeed
+			local spawnID = Spring.SpawnProjectile(middleDefID, spawnParams) or 0
+			Spring.SetProjectileTarget(spawnID, tx, ty, tz)
+		end
+		Spring.SpawnCEG(spawnCEG, px,py,pz, 0,0,0, 0,0)
+		Spring.DeleteProjectile(proID)
+
+		-- Handle projectiles along the dispersion trajectories.
+		local interval = 2 * math.pi / spawnCount
+		local rotation = interval * math.random()
+
+		if spawnType == "MissileLauncher" then
+			-- Constrain the angle between the main and dispersion trajectories.
+			local rx, ry, rz = px - tx, py - ty, pz - tz
+			local rw = math.sqrt(rx*rx + ry*ry + rz*rz)
+			local angleDepartureMin = math.atan2(radius / 2 * (1.001 - momentum*momentum), rw)
+			local angleDepartureMax = math.atan2(radius * 2 * (1.001 - momentum*momentum), rw)
+			Spring.Echo(string.format('dispersion min/max: %.2f/%.2f', angleDepartureMin, angleDepartureMax))
+
+			-- For each spawned projectile, probe for a trajectory that satisfies our constraints.
+			local cosr, sinr, vx2, vy2, vz2, vw2, angle
+			for _ = 1, spawnCount do
+				-- Target a point along an approximate circle around the target location. -- todo: circle => sphere?
+				rotation = rotation + interval
+				cosr = math.cos(rotation)
+				sinr = math.sin(rotation)
+				rx = tx + cosr * radius
+				rz = tz + sinr * radius
+				ry = math.max(0, Spring.GetGroundHeight(rx, rz))
+				-- Determine the angle between the parent and spawn directions.
+				vx2, vy2, vz2 = rx - px, ry - py, rz - pz
+				vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
+				angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
+				-- Reduce undershooting and overshooting of the target ring, as possible.
+				-- We shrink toward the center to minimize overshooting, especially, bc it is a range advantage.
+				if angle < angleDepartureMin or angle > angleDepartureMax then
+					local steps = 1
+					repeat
+						Spring.Echo('angle before '..steps..' shift: '..angle)
+						rx = tx + cosr * (radius * (1.00 - 0.10 * steps)) -- Shave 10% off the radius each step,
+						rz = tz + sinr * (radius * (1.00 - 0.10 * steps)) -- and recalculate from the new position.
+						ry = math.max(0, Spring.GetGroundHeight(rx, rz))
+						vx2, vy2, vz2 = rx - px, ry - py, rz - pz
+						vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
+						angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
+						steps = steps + 1
+					until steps == 5
+					   or (angle >= angleDepartureMin and angle <= angleDepartureMax)
+				end
+				Spring.Echo(string.format('angle/min/max: %.2f/%.2f/%.2f', angle, angleDepartureMin, angleDepartureMax))
+				-- Fire ze missiles.
+				spawnParams.speed[1] = vx2 / vw2 * spawnSpeed
+				spawnParams.speed[2] = vy2 / vw2 * spawnSpeed
+				spawnParams.speed[3] = vz2 / vw2 * spawnSpeed
+				local spawnID = Spring.SpawnProjectile(spawnDefID, spawnParams) or 0
+				Spring.SetProjectileTarget(spawnID, rx, ry, rz) -- todo: test on weapon with a turnRate
 			end
 		end
-		
-		if not bypass then
-			Spring.SetProjectileVelocity(proID,vx,0,vz)
-		end
+	end
+
+	applyingFunctions.torpwaterpen = function (proID)
+		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
+        Spring.SetProjectileVelocity(proID,vx,0,vz)
     end
 
 	applyingFunctions.cannonwaterpen = function (proID)
