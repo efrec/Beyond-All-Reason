@@ -348,13 +348,15 @@ if gadgetHandler:IsSyncedCode() then
 				-- (2) Get two unit vectors a, b forming an orthogonal basis r, a, b.
 				-- For angles φ in (0,π/2) and θ in [0,2π), these give the direction:
 				-- d = r + tan(φ) (a cosθ + b sinθ).
-				-- (3) By pinning ay, we can reuse θ as the angle along the dispersion radius.
-				local ax = math.cos(rotation)
-				local az = math.sin(rotation)
+				-- (3) By pinning ay, we can reuse θ to find the angle along the dispersion radius.
+				local anglePerpendicularInXZ = math.atan2(rz, rx) + math.pi / 2
+				local ax = math.cos(anglePerpendicularInXZ)
+				local az = math.sin(anglePerpendicularInXZ)
 				local bx = ry * az - 0  * rz -- ay == 0
 				local by = rx * az - ax * rz
 				local bz = rx * 0  - ax * ry -- ay == 0
 				local angleTan = math.tan(angleDeparture)
+				rotation = rotation + anglePerpendicularInXZ
 
 				local cosr, sinr, dx, dy, dz, cx, cy, cz
 				for _ = 1, spawnCount do
