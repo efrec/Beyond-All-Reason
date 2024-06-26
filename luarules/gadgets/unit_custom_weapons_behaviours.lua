@@ -288,7 +288,7 @@ if gadgetHandler:IsSyncedCode() then
 			else tx, ty, tz = target[1], target[2], target[3] end
 		end
 
-		local spawnCEG, middleDefID, spawnDefID, spawnType, spawnCount, spawnSpeed, momentum, radius
+		local spawnCEG, middleDefID, spawnDefID, spawnType, spawnCount, spawnSpeed, turnRate, momentum, radius
 		do
 			local infos = projectiles[proID]
 			local weaponDef = WeaponDefNames[tostring(infos.disperse_def)]
@@ -302,6 +302,7 @@ if gadgetHandler:IsSyncedCode() then
 			spawnType = weaponDef.type
 			spawnSpeed = weaponDef.startvelocity or 0
 			spawnCount = tonumber(infos.disperse_number)
+			turnRate = spawnDefID.turnRate or false
 			momentum = tonumber(infos.disperse_momentum)
 			radius = tonumber(infos.disperse_radius)
 
@@ -334,50 +335,93 @@ if gadgetHandler:IsSyncedCode() then
 		local rotation = interval * math.random()
 
 		if spawnType == "MissileLauncher" then
-			-- Constrain the angle between the main and dispersion trajectories.
-			local rx, ry, rz = px - tx, py - ty, pz - tz
-			local rw = math.sqrt(rx*rx + ry*ry + rz*rz)
-			local angleDepartureMin = math.atan2(radius / 2 * (1.001 - momentum*momentum), rw)
-			local angleDepartureMax = math.atan2(radius * 2 * (1.001 - momentum*momentum), rw)
-			Spring.Echo(string.format('dispersion min/max: %.2f/%.2f', angleDepartureMin, angleDepartureMax))
+			if turnRate then -- todo: completely untested a billion percent fake math is fake
+				-- Assume the projectile will navigate to the destination independently.
+				-- Split along a fixed dispersion angle and target along a fixed circle.
+				local rx, ry, rz = tx - px, ty - py, tz - pz
+				local rw = math.sqrt(rx*rx + ry*ry + rz*rz)
+				local angleDeparture = math.atan2(radius * (1.001 - momentum*momentum), rw)
 
-			-- For each spawned projectile, probe for a trajectory that satisfies our constraints.
-			local cosr, sinr, vx2, vy2, vz2, vw2, angle
-			for _ = 1, spawnCount do
-				-- Target a point along an approximate circle around the target location. -- todo: circle => sphere?
-				rotation = rotation + interval
-				cosr = math.cos(rotation)
-				sinr = math.sin(rotation)
-				rx = tx + cosr * radius
-				rz = tz + sinr * radius
-				ry = math.max(0, Spring.GetGroundHeight(rx, rz))
-				-- Determine the angle between the parent and spawn directions.
-				vx2, vy2, vz2 = rx - px, ry - py, rz - pz
-				vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
-				angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
-				-- Reduce undershooting and overshooting of the target ring, as possible.
-				-- We shrink toward the center to minimize overshooting, especially, bc it is a range advantage.
-				if angle < angleDepartureMin or angle > angleDepartureMax then
-					local steps = 1
-					repeat
-						Spring.Echo('angle before '..steps..' shift: '..angle)
-						rx = tx + cosr * (radius * (1.00 - 0.10 * steps)) -- Shave 10% off the radius each step,
-						rz = tz + sinr * (radius * (1.00 - 0.10 * steps)) -- and recalculate from the new position.
-						ry = math.max(0, Spring.GetGroundHeight(rx, rz))
-						vx2, vy2, vz2 = rx - px, ry - py, rz - pz
-						vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
-						angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
-						steps = steps + 1
-					until steps == 5
-					   or (angle >= angleDepartureMin and angle <= angleDepartureMax)
+				-- Parameterize the departure direction and target location.
+				-- (1) Get the main trajectory's direction as a unit vector.
+				rx, ry, rz = rx / rw, ry / rw, rz / rw
+				-- (2) Get two unit vectors a, b forming an orthogonal basis r, a, b.
+				-- For angles φ in (0,π/2) and θ in [0,2π), these give the direction:
+				-- d = r + tan(φ) (a cosθ + b sinθ).
+				-- (3) By pinning ay, we can reuse θ as the angle along the dispersion radius.
+				local ax = math.cos(rotation)
+				local az = math.sin(rotation)
+				local bx = ry * az - 0  * rz -- ay == 0
+				local by = rx * az - ax * rz
+				local bz = rx * 0  - ax * ry -- ay == 0
+				local angleTan = math.tan(angleDeparture)
+
+				local cosr, sinr, dx, dy, dz, cx, cy, cz
+				for _ = 1, spawnCount do
+					rotation = rotation + interval
+					cosr = math.cos(rotation)
+					sinr = math.sin(rotation)
+					-- Direction along both the rotation and departure angles.
+					dx = rx + angleTan * (ax * cosr + bx * sinr)
+					dy = ry + angleTan * (            by * sinr) -- ay == 0
+					dz = rz + angleTan * (az * cosr + bz * sinr)
+					-- Target location is a point along a circle drawn in XZ.
+					cx = tx + cosr * radius
+					cz = tz + sinr * radius
+					cy = math.max(0, Spring.GetGroundHeight(cx, cz))
+
+					spawnParams.speed[1] = dx * spawnSpeed
+					spawnParams.speed[2] = dy * spawnSpeed
+					spawnParams.speed[3] = dz * spawnSpeed
+					local spawnID = Spring.SpawnProjectile(spawnDefID, spawnParams) or 0
+					Spring.SetProjectileTarget(spawnID, cx, cy, cz)
 				end
-				Spring.Echo(string.format('angle/min/max: %.2f/%.2f/%.2f', angle, angleDepartureMin, angleDepartureMax))
-				-- Fire ze missiles.
-				spawnParams.speed[1] = vx2 / vw2 * spawnSpeed
-				spawnParams.speed[2] = vy2 / vw2 * spawnSpeed
-				spawnParams.speed[3] = vz2 / vw2 * spawnSpeed
-				local spawnID = Spring.SpawnProjectile(spawnDefID, spawnParams) or 0
-				Spring.SetProjectileTarget(spawnID, rx, ry, rz) -- todo: test on weapon with a turnRate
+			else
+				-- We're launching rockets, not missiles, so we do a lot more work.
+				-- Constrain the angle between the main and dispersion trajectories.
+				local rx, ry, rz = px - tx, py - ty, pz - tz
+				local rw = math.sqrt(rx*rx + ry*ry + rz*rz)
+				local angleDepartureMin = math.atan2(radius / 2 * (1.001 - momentum*momentum), rw)
+				local angleDepartureMax = math.atan2(radius * 2 * (1.001 - momentum*momentum), rw)
+				Spring.Echo(string.format('dispersion min/max: %.2f/%.2f', angleDepartureMin, angleDepartureMax))
+
+				-- For each spawned projectile, probe for a trajectory that satisfies our constraints.
+				local cosr, sinr, vx2, vy2, vz2, vw2, angle
+				for _ = 1, spawnCount do
+					-- Target a point along an approximate circle around the target location. -- todo: circle => sphere?
+					rotation = rotation + interval
+					cosr = math.cos(rotation)
+					sinr = math.sin(rotation)
+					rx = tx + cosr * radius
+					rz = tz + sinr * radius
+					ry = math.max(0, Spring.GetGroundHeight(rx, rz))
+					-- Determine the angle between the parent and spawn directions.
+					vx2, vy2, vz2 = rx - px, ry - py, rz - pz
+					vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
+					angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
+					-- Reduce undershooting and overshooting of the target ring, as possible.
+					-- We shrink toward the center to minimize overshooting, especially, bc it is a range advantage.
+					if angle < angleDepartureMin or angle > angleDepartureMax then
+						local steps = 1
+						repeat
+							Spring.Echo('angle before '..steps..' shift: '..angle)
+							rx = tx + cosr * (radius * (1.00 - 0.10 * steps)) -- Shave 10% off the radius each step,
+							rz = tz + sinr * (radius * (1.00 - 0.10 * steps)) -- and recalculate from the new position.
+							ry = math.max(0, Spring.GetGroundHeight(rx, rz))
+							vx2, vy2, vz2 = rx - px, ry - py, rz - pz
+							vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
+							angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
+							steps = steps + 1
+						until steps == 5
+						or (angle >= angleDepartureMin and angle <= angleDepartureMax)
+					end
+					Spring.Echo(string.format('angle/min/max: %.2f/%.2f/%.2f', angle, angleDepartureMin, angleDepartureMax))
+					spawnParams.speed[1] = vx2 / vw2 * spawnSpeed
+					spawnParams.speed[2] = vy2 / vw2 * spawnSpeed
+					spawnParams.speed[3] = vz2 / vw2 * spawnSpeed
+					local spawnID = Spring.SpawnProjectile(spawnDefID, spawnParams) or 0
+					Spring.SetProjectileTarget(spawnID, rx, ry, rz)
+				end
 			end
 		end
 	end
