@@ -297,12 +297,12 @@ if gadgetHandler:IsSyncedCode() then
 				return
 			end
 			spawnCEG = infos.disperse_ceg
-			middleDefID = infos.disperse_middleDef and WeaponDefNames[tostring(infos.disperse_middleDef)]
+			middleDefID = infos.disperse_middledef and WeaponDefNames[tostring(infos.disperse_middledef)]
 			spawnDefID = weaponDef.id
 			spawnType = weaponDef.type
 			spawnSpeed = weaponDef.startvelocity or 0
 			spawnCount = tonumber(infos.disperse_number)
-			turnRate = spawnDefID.turnRate or false
+			turnRate = weaponDef.turnRate or false
 			momentum = tonumber(infos.disperse_momentum)
 			radius = tonumber(infos.disperse_radius)
 
@@ -335,7 +335,7 @@ if gadgetHandler:IsSyncedCode() then
 		local rotation = interval * math.random()
 
 		if spawnType == "MissileLauncher" then
-			if turnRate then -- todo: completely untested a billion percent fake math is fake
+			if turnRate and turnRate > 10 then -- todo: completely untested a billion percent fake math is fake
 				-- Assume the projectile will navigate to the destination independently.
 				-- Split along a fixed dispersion angle and target along a fixed circle.
 				local rx, ry, rz = tx - px, ty - py, tz - pz
@@ -383,14 +383,14 @@ if gadgetHandler:IsSyncedCode() then
 				-- Constrain the angle between the main and dispersion trajectories.
 				local rx, ry, rz = px - tx, py - ty, pz - tz
 				local rw = math.sqrt(rx*rx + ry*ry + rz*rz)
-				local angleDepartureMin = math.atan2(radius / 2 * (1.001 - momentum*momentum), rw)
-				local angleDepartureMax = math.atan2(radius * 2 * (1.001 - momentum*momentum), rw)
+				local angleDepartureMin = math.atan2(radius / 2 * (1.001 - momentum*momentum) / 1.001, rw)
+				local angleDepartureMax = math.atan2(radius * 2 * (1.001 - momentum*momentum) / 1.001, rw)
 				Spring.Echo(string.format('dispersion min/max: %.2f/%.2f', angleDepartureMin, angleDepartureMax))
 
 				-- For each spawned projectile, probe for a trajectory that satisfies our constraints.
 				local cosr, sinr, vx2, vy2, vz2, vw2, angle
 				for _ = 1, spawnCount do
-					-- Target a point along an approximate circle around the target location. -- todo: circle => sphere?
+					-- Target a point along an approximate circle around the target location.
 					rotation = rotation + interval
 					cosr = math.cos(rotation)
 					sinr = math.sin(rotation)
@@ -407,14 +407,14 @@ if gadgetHandler:IsSyncedCode() then
 						local steps = 1
 						repeat
 							Spring.Echo('angle before '..steps..' shift: '..angle)
-							rx = tx + cosr * (radius * (1.00 - 0.10 * steps)) -- Shave 10% off the radius each step,
-							rz = tz + sinr * (radius * (1.00 - 0.10 * steps)) -- and recalculate from the new position.
+							rx = tx + cosr * (radius * (1.00 - 0.125 * steps)) -- Shave 12.5% off the radius each step,
+							rz = tz + sinr * (radius * (1.00 - 0.125 * steps)) -- and recalculate from the new position.
 							ry = math.max(0, Spring.GetGroundHeight(rx, rz))
 							vx2, vy2, vz2 = rx - px, ry - py, rz - pz
 							vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
 							angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
 							steps = steps + 1
-						until steps == 5
+						until steps == 3
 						or (angle >= angleDepartureMin and angle <= angleDepartureMax)
 					end
 					Spring.Echo(string.format('angle/min/max: %.2f/%.2f/%.2f', angle, angleDepartureMin, angleDepartureMax))
