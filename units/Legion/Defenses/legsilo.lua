@@ -3,7 +3,7 @@
 -- In BAR, though, that's debatable. Surviving a nuclear strike isn't even a big deal.
 
 local soloAreaDiameter = 1920
-local mirvAreaDiameter = soloAreaDiameter / 1.75
+local mirvAreaDiameter = soloAreaDiameter / 2
 
 local soloDamage = 11500
 local mirvDamage = soloDamage / 1.2
@@ -12,8 +12,8 @@ local soloEdgeEffectiveness = 0.45
 local mirvEdgeEffectiveness = soloEdgeEffectiveness
 
 local mirvCount = 6
-local mirvHasMiddle = false
-local overlapEffectiveness = 1200 / mirvDamage
+local mirvHasMiddle = true
+local overlapEffectiveness = 1000 / mirvDamage
 local boundingRadius = 40 -- of a unit that _might_ survive a nuke
 
 -- Calc a dispersion radius so that explosions overlap at a given (total) percent effectiveness.
@@ -30,7 +30,6 @@ local function calcDispersionRadius(count, area, edge, rateAtOverlap, middle)
 		-- We get a weighted average:
 		dispersionRadius = distanceAtOverlap * (2 * count - 1) / (count + 2 * (count - 1) * math.tan(math.pi / count))
 	end
-	local mirvAreaDiameterNet = 2 * dispersionRadius + mirvAreaDiameter
 	return dispersionRadius
 end
 local dispersionRadius = calcDispersionRadius(mirvCount, mirvAreaDiameter, mirvEdgeEffectiveness, overlapEffectiveness, mirvHasMiddle)
