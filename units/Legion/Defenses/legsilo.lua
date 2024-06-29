@@ -1,26 +1,48 @@
-local soloArea = 1920
-local mirvArea = 1080
-local mirvEdge = 0.25
-local mirvSpread = 0.4
-local middle = false
+-- The loose goal is to have a nuclear MIRV that's comparable to a single, bigger nuke.
+-- IRL spreading the damage out is much more effective than hitting a concentrated target.
+-- In BAR, though, that's debatable. Surviving a nuclear strike isn't even a big deal.
 
--- For even damage @ number = 6, no middleDef: radius = (aoe / 2) / (2 - edge).
--- I increased that by a factor to prefer area coverage over high or consistent damage.
--- The net effective aoe (diameter) is then: aoe * (1 + 1 / (2 - edge)) * factor.
-local function setMirvRadius()
-	local radius = mirvArea / 2
-	if middle then
-		radius = radius * (1 + 1 / (2 - mirvEdge)) -- ish
+local soloAreaDiameter = 1920
+local mirvAreaDiameter = soloAreaDiameter / 1.75
+
+local soloDamage = 11500
+local mirvDamage = soloDamage / 1.2
+
+local soloEdgeEffectiveness = 0.45
+local mirvEdgeEffectiveness = soloEdgeEffectiveness
+
+local mirvCount = 6
+local mirvHasMiddle = false
+local overlapEffectiveness = 1200 / mirvDamage
+local boundingRadius = 40 -- of a unit that _might_ survive a nuke
+
+-- Calc a dispersion radius so that explosions overlap at a given (total) percent effectiveness.
+-- This lets you compare multiple small explosions with a single larger explosion for balance.
+
+local function calcDispersionRadius(count, area, edge, rateAtOverlap, middle)
+	local areaRadius = area / 2
+	local dispersionRadius
+	local distanceAtOverlap = areaRadius * (2 - rateAtOverlap/2) / (2 - rateAtOverlap * edge) + boundingRadius
+	if not middle then
+		-- We get an exact solution:
+		dispersionRadius = distanceAtOverlap / (2 * math.tan(math.pi / count))
 	else
-		radius = radius / (2 - mirvEdge)
+		-- We get a weighted average:
+		dispersionRadius = distanceAtOverlap * (2 * count - 1) / (count + 2 * (count - 1) * math.tan(math.pi / count))
 	end
-	radius = radius * (1 + mirvSpread)
-	local radiusNet = radius + mirvArea
-	if radiusNet <= soloArea then
-		Spring.Echo('legsilo_mirv is a weaker area weapon than its solo nuclear counterpart.')
-	end
-	return radius
+	local mirvAreaDiameterNet = 2 * dispersionRadius + mirvAreaDiameter
+	return dispersionRadius
 end
+local dispersionRadius = calcDispersionRadius(mirvCount, mirvAreaDiameter, mirvEdgeEffectiveness, overlapEffectiveness, mirvHasMiddle)
+
+Spring.Echo(string.format(
+	'MIRV test for %s:\n' ..
+	'    diameter solo       : %.0f\n' ..
+	'    diameter mirv, net  : %.0f\n' ..
+	'    diameter mirv, each : %.0f\n' ..
+	'    dispersion radius   : %.0f',
+	"legsilo_mirv", soloAreaDiameter, 2*dispersionRadius+mirvAreaDiameter, mirvAreaDiameter, dispersionRadius
+))
 
 return {
 	legsilo = {
@@ -127,7 +149,7 @@ return {
 		},
 		weapondefs = {
 			legicbm = {
-				areaofeffect = soloArea,
+				areaofeffect = soloAreaDiameter,
 				avoidfeature = false,
 				avoidfriendly = false,
 				cegtag = "NUKETRAIL",
@@ -135,10 +157,10 @@ return {
 				collidefeature = false,
 				collidefriendly = false,
 				commandfire = true,
-				craterareaofeffect = soloArea,
+				craterareaofeffect = soloAreaDiameter,
 				craterboost = 2.4,
 				cratermult = 1.2,
-				edgeeffectiveness = 0.45,
+				edgeeffectiveness = soloEdgeEffectiveness,
 				energypershot = 187500,
 				explosiongenerator = "custom:newnukecor",
 				firestarter = 100,
@@ -180,27 +202,27 @@ return {
 					disperse_altitude = 900,
 					disperse_ceg = "genericshellexplosion-medium",
 					disperse_def = "legsilo_mirv",
-					disperse_middleDef = middle and "legsilo_mirv" or nil, --
+					disperse_middleDef = mirvHasMiddle and "legsilo_mirv" or nil, --
 					disperse_momentum = 0.75,
-					disperse_number = 6,
-					disperse_radius = setMirvRadius(),
+					disperse_number = mirvCount,
+					disperse_radius = dispersionRadius,
 				},
 				damage = {
 					commanders = 2500,
-					default = 11500,
+					default = soloDamage,
 				},
 			},
 			mirv = {
-				areaofeffect = mirvArea,
+				areaofeffect = mirvAreaDiameter,
 				burnblow = true,
 				cegtag = "missiletrailmedium",
 				collideenemy = false,
 				collidefeature = false,
-				collidefriendly = true,
-				craterareaofeffect = mirvArea * (1 - mirvEdge * mirvEdge),
+				collidefriendly = false,
+				craterareaofeffect = mirvAreaDiameter,
 				craterboost = 2.4,
 				cratermult = 1.2,
-				edgeeffectiveness = mirvEdge,
+				edgeeffectiveness = mirvEdgeEffectiveness,
 				explosiongenerator = "custom:newnuke",
 				firestarter = 100,
 				flighttime = 10,
@@ -231,8 +253,8 @@ return {
 				weapontype = "MissileLauncher",
 				weaponvelocity = 1500,
 				damage = {
-					commanders = ((2500)) / 1.2, -- idk
-					default = ((9500)) / 1.2, -- idk
+					commanders = 2500 * mirvDamage / soloDamage,
+					default = mirvDamage,
 				},
 			},
 			nuclear_launch = {
