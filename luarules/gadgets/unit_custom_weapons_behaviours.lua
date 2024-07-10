@@ -238,36 +238,55 @@ if gadgetHandler:IsSyncedCode() then
 
 	checkingFunctions.disperse = {}
 	checkingFunctions.disperse["ypos<altitude"] = function (proID)
-		local altitude = active_projectiles[proID]
-
-		if not altitude then
+		if not active_projectiles[proID] then
 			-- Check if the base unit has a MIRV ability command toggle.
 			-- todo: Spring.FindUnitCmdDesc(unitID, CMD_SOME_WEAPON_TOGGLE)
-			local yesItDoes = true
-			local butItIsToggledOff = true
-			if yesItDoes and not butItIsToggledOff then
-				projectiles[proID] = nil
-				return false
-			end
+			-- local yesItDoes = true
+			-- local butItIsToggledOff = true
+			-- if yesItDoes and butItIsToggledOff then
+			-- 	projectiles[proID] = nil
+			-- 	return false
+			-- end
 
 			-- Force targeting onto the ground to get a consistent target elevation.
-			local elevation
+			local tx, ty, tz
 			local targeting, target = Spring.GetProjectileTarget(proID)
 			if targeting == string.byte('u') then
-				local ux, uy, uz = Spring.GetUnitPosition(target)
-				Spring.SetProjectileTarget(proID, ux, uy, uz)
-				elevation = uy
+				tx, ty, tz = Spring.GetUnitPosition(target)
+				Spring.SetProjectileTarget(proID, tx, ty, tz)
 			else
-				elevation = target[2]
+				tx, ty, tz = target[1], target[2], target[3]
 			end
-			altitude = math.max(0, elevation) + tonumber(projectiles[proID].disperse_altitude)
-			active_projectiles[proID] = altitude
+			local altitude = math.max(0, ty) + tonumber(projectiles[proID].disperse_altitude)
+			active_projectiles[proID] = { tx, altitude, tz, false }
 		end
 
-		local _, vy, _ = Spring.GetProjectileVelocity(proID)
-		if vy >= 0 then return false end
+		local tx, altitude, tz, hasLeveled = unpack(active_projectiles[proID])
+		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
 
-		local _, py, _ = Spring.GetProjectilePosition(proID)
+		-- Handle the StarburstLauncher vertical launch.
+		if not hasLeveled then
+			if vy >= 0 then return false end
+			hasLeveled = true
+		end
+
+		local px, py, pz = Spring.GetProjectilePosition(proID)
+
+		-- Attempt at altitude control.
+		local splitHeight  = tonumber(projectiles[proID].disperse_altitude)
+		local cruiseHeight = Spring.GetGroundHeight(px, pz) + splitHeight * 9
+		local turnDistance = (px-tx)*(px-tx) + (pz-tz)*(pz-tz)
+		local turnRadiusSq = splitHeight * splitHeight * 2.8 * 2.8
+		-- Dive when close to target.
+		if turnDistance < turnRadiusSq then
+			local ay = math.atan2(vy, math.sqrt(vx*vx + vz*vz))
+			local by = math.atan2((altitude - splitHeight) - py, math.sqrt(turnDistance))
+			Spring.SetProjectileVelocity(proID, vx, vy - 0.5 * math.min(1, by/ay), vz)
+		-- Cruise when not.
+		elseif py + vy * 2 <= cruiseHeight then
+			Spring.SetProjectileVelocity(proID, vx, vy + 0.5 / 30 * (cruiseHeight - py) / splitHeight, vz)
+		end
+
 		return py <= altitude
 	end
 
@@ -385,7 +404,7 @@ if gadgetHandler:IsSyncedCode() then
 				local rw = math.sqrt(rx*rx + ry*ry + rz*rz)
 				local angleDepartureMin = math.atan2(radius / 2 * (1.001 - momentum*momentum) / 1.001, rw)
 				local angleDepartureMax = math.atan2(radius * 2 * (1.001 - momentum*momentum) / 1.001, rw)
-				Spring.Echo(string.format('dispersion min/max: %.2f/%.2f', angleDepartureMin, angleDepartureMax))
+				-- Spring.Echo(string.format('dispersion min/max: %.2f/%.2f', angleDepartureMin, angleDepartureMax))
 
 				-- For each spawned projectile, probe for a trajectory that satisfies our constraints.
 				local cosr, sinr, vx2, vy2, vz2, vw2, angle
@@ -406,7 +425,7 @@ if gadgetHandler:IsSyncedCode() then
 					if angle < angleDepartureMin or angle > angleDepartureMax then
 						local steps = 1
 						repeat
-							Spring.Echo('angle before '..steps..' shift: '..angle)
+							-- Spring.Echo('angle before '..steps..' shift: '..angle)
 							rx = tx + cosr * (radius * (1.00 - 0.125 * steps)) -- Shave 12.5% off the radius each step,
 							rz = tz + sinr * (radius * (1.00 - 0.125 * steps)) -- and recalculate from the new position.
 							ry = math.max(0, Spring.GetGroundHeight(rx, rz))
@@ -417,7 +436,7 @@ if gadgetHandler:IsSyncedCode() then
 						until steps == 3
 						or (angle >= angleDepartureMin and angle <= angleDepartureMax)
 					end
-					Spring.Echo(string.format('angle/min/max: %.2f/%.2f/%.2f', angle, angleDepartureMin, angleDepartureMax))
+					-- Spring.Echo(string.format('angle/min/max: %.2f/%.2f/%.2f', angle, angleDepartureMin, angleDepartureMax))
 					spawnParams.speed[1] = vx2 / vw2 * spawnSpeed
 					spawnParams.speed[2] = vy2 / vw2 * spawnSpeed
 					spawnParams.speed[3] = vz2 / vw2 * spawnSpeed
