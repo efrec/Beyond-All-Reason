@@ -13,22 +13,33 @@ local mirvEdgeEffectiveness = soloEdgeEffectiveness
 
 local mirvCount = 6
 local mirvHasMiddle = true
-local overlapEffectiveness = 1000 / mirvDamage
-local boundingRadius = 40 -- of a unit that _might_ survive a nuke
+local overlapEffectiveness = 3000 / mirvDamage
+local boundingRadius = 50 -- of a unit that _might_ survive a nuke
 
 -- Calc a dispersion radius so that explosions overlap at a given (total) percent effectiveness.
 -- This lets you compare multiple small explosions with a single larger explosion for balance.
+-- Note, though, that this overlap test occurs at the nearest halfway point between explosions.
+-- So, in general, there are areas in-between nukes where the effectiveness can be much lower.
 
 local function calcDispersionRadius(count, area, edge, rateAtOverlap, middle)
 	local areaRadius = area / 2
-	local dispersionRadius
 	local distanceAtOverlap = areaRadius * (2 - rateAtOverlap/2) / (2 - rateAtOverlap * edge) + boundingRadius
+	local angleChord = 2 * math.pi / count
+
+	local dispersionRadius
 	if not middle then
-		-- We get an exact solution:
-		dispersionRadius = distanceAtOverlap / (2 * math.tan(math.pi / count))
+		-- We get an exact solution
+		-- Given c = 2 r sin(θ / 2):
+		local chordLength = 2 * distanceAtOverlap
+		dispersionRadius = chordLength / (2 * math.sin(angleChord / 2))
 	else
-		-- We get a weighted average:
-		dispersionRadius = distanceAtOverlap * (2 * count - 1) / (count + 2 * (count - 1) * math.tan(math.pi / count))
+		-- We get a weighted average
+		-- between dispersionRadius and chordLength
+		local countChords = count - 1
+		local countRadial = count
+		-- with: distanceAtOverlap = (dispersionRadius * countRadial + chordLength * countChords) / (countChords + countRadial)
+		--  and: chordLength = 2 * dispersionRadius * sin(θ / 2)
+		dispersionRadius = distanceAtOverlap * (countChords + countRadial) / (2 * countChords * math.sin(angleChord / 2) + countRadial)
 	end
 	return dispersionRadius
 end
