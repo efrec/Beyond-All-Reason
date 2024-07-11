@@ -252,8 +252,9 @@ if gadgetHandler:IsSyncedCode() then
 			active_projectiles[proID] = { tx, altitude, tz, false }
 		end
 
-		local tx, altitude, tz, hasLeveled = unpack(active_projectiles[proID])
+		local tx, splitAt, tz, hasLeveled = unpack(active_projectiles[proID])
 		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
+		local px, py, pz = Spring.GetProjectilePosition(proID)
 
 		-- Handle the StarburstLauncher vertical launch.
 		if hasLeveled == false then
@@ -261,23 +262,39 @@ if gadgetHandler:IsSyncedCode() then
 			active_projectiles[proID][4] = true
 		end
 
-		local px, py, pz = Spring.GetProjectilePosition(proID)
-
-		-- Attempt at altitude control.
+		-- Attempt at altitude control (without a PID)
+		Spring.SetProjectileMoveControl(proID, true) -- aaah
 		local splitHeight  = tonumber(projectiles[proID].disperse_altitude)
-		local cruiseHeight = Spring.GetGroundHeight(px, pz) + splitHeight + 5000
+		-- local cruiseHeight = Spring.GetGroundHeight(px, pz) + splitHeight * 12
+		local cruiseHeight = 200 + splitHeight * 8
 		local diveDistance = (px-tx)*(px-tx) + (pz-tz)*(pz-tz)
-		local diveRadiusSq = splitHeight * splitHeight * (cruiseHeight / splitHeight)
+		local diveRadiusSq = splitHeight * splitHeight * 2.5
 		-- Dive when close to target.
-		if diveDistance < diveRadiusSq then
+		if diveDistance <= diveRadiusSq then
 			local avel = math.atan2(vy, math.sqrt(vx*vx + vz*vz))
-			local apos = math.atan2(altitude - splitHeight - py, math.sqrt(diveDistance))
-			Spring.SetProjectileVelocity(proID, vx, vy + 3/30 * math.min(1, apos/avel), vz)
-			return py <= altitude
+			local apos
+			if diveDistance > splitHeight * splitHeight then
+				apos = math.atan2(splitAt               - py, math.sqrt(diveDistance))
+			else                        -- turn toward ground:
+				apos = math.atan2(splitAt - splitHeight - py, math.sqrt(diveDistance))
+			end
+			vy = vy + 2 * (apos - avel) / (math.pi/4)
 		-- Cruise when not.
-		elseif py + vy * 10 <= cruiseHeight then
-			Spring.SetProjectileVelocity(proID, vx, vy + 0.5 / 30 * (cruiseHeight - py - vy * 10) / splitHeight, vz)
+		-- elseif py + vy * 10 <= cruiseHeight then
+		else
+			-- if py + vy * 10 < cruiseHeight then
+				vy = vy + (cruiseHeight - py - vy * 10) / cruiseHeight / 30 + Game.gravity / 1800
+			-- end
 		end
+
+		local projVelocityMax = 1500 / 30 -- todo
+		local norm = math.sqrt(vx*vx + vy*vy + vz*vz)
+		vx = vx / norm * projVelocityMax
+		vz = vz / norm * projVelocityMax
+		Spring.SetProjectilePosition(proID, px + vx, py + vy, pz + vz)
+		Spring.SetProjectileVelocity(proID, vx, vy - Game.gravity / 900, vz)
+
+		return py <= splitAt
 	end
 
 	-- Momentum sits within a range, the extremes of which are maybe useless.
