@@ -13,13 +13,15 @@ local mirvEdgeEffectiveness = soloEdgeEffectiveness
 
 local mirvCount = 6
 local mirvHasMiddle = true
-local overlapEffectiveness = 3000 / mirvDamage
-local boundingRadius = 50 -- of a unit that _might_ survive a nuke
 
 -- Calc a dispersion radius so that explosions overlap at a given (total) percent effectiveness.
 -- This lets you compare multiple small explosions with a single larger explosion for balance.
 -- Note, though, that this overlap test occurs at the nearest halfway point between explosions.
 -- So, in general, there are areas in-between nukes where the effectiveness can be much lower.
+
+local damageAtOverlap = 2500 -- imo seems to be a good damage baseline
+local boundingRadius = 50 -- of a unit that _might_ survive a nuke (solely bc others don't matter)
+local overlapEffectiveness = damageAtOverlap / mirvDamage
 
 local function calcDispersionRadius(count, area, edge, rateAtOverlap, middle)
 	local areaRadius = area / 2
@@ -29,8 +31,8 @@ local function calcDispersionRadius(count, area, edge, rateAtOverlap, middle)
 	local dispersionRadius
 	if not middle then
 		-- We get an exact solution
-		-- Given c = 2 r sin(θ / 2):
 		local chordLength = 2 * distanceAtOverlap
+		-- Given c = 2 r sin(θ / 2):
 		dispersionRadius = chordLength / (2 * math.sin(angleChord / 2))
 	else
 		-- We get a weighted average
@@ -202,7 +204,7 @@ return {
 				tolerance = 4000,
 				turnrate = 5500,
 				weaponacceleration = 100,
-				weapontimer = 5.5,
+				weapontimer = 7.5,
 				weapontype = "StarburstLauncher",
 				weaponvelocity = 1600,
 				customparams = {
@@ -252,7 +254,7 @@ return {
 				soundstart = "packolau",
 				soundhitwetvolume = 33,
 				soundtrigger = true,
-				startvelocity = 500,
+				startvelocity = 100,
 				texture1 = "null",
 				texture2 = "railguntrail",
 				tolerance = 4000,
@@ -261,7 +263,7 @@ return {
 				weaponacceleration = 500,
 				weapontimer = 2,
 				weapontype = "MissileLauncher",
-				weaponvelocity = 1500,
+				weaponvelocity = 1350,
 				damage = {
 					commanders = 2500 * mirvDamage / soloDamage,
 					default = mirvDamage,

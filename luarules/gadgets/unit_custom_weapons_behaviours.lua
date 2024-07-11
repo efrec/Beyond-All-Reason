@@ -238,17 +238,8 @@ if gadgetHandler:IsSyncedCode() then
 
 	checkingFunctions.disperse = {}
 	checkingFunctions.disperse["ypos<altitude"] = function (proID)
+		-- Force targeting onto the ground to get a consistent target elevation.
 		if not active_projectiles[proID] then
-			-- Check if the base unit has a MIRV ability command toggle.
-			-- todo: Spring.FindUnitCmdDesc(unitID, CMD_SOME_WEAPON_TOGGLE)
-			-- local yesItDoes = true
-			-- local butItIsToggledOff = true
-			-- if yesItDoes and butItIsToggledOff then
-			-- 	projectiles[proID] = nil
-			-- 	return false
-			-- end
-
-			-- Force targeting onto the ground to get a consistent target elevation.
 			local tx, ty, tz
 			local targeting, target = Spring.GetProjectileTarget(proID)
 			if targeting == string.byte('u') then
@@ -265,29 +256,32 @@ if gadgetHandler:IsSyncedCode() then
 		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
 
 		-- Handle the StarburstLauncher vertical launch.
-		if not hasLeveled then
+		if hasLeveled == false then
 			if vy >= 0 then return false end
-			hasLeveled = true
+			active_projectiles[proID][4] = true
 		end
 
 		local px, py, pz = Spring.GetProjectilePosition(proID)
 
 		-- Attempt at altitude control.
 		local splitHeight  = tonumber(projectiles[proID].disperse_altitude)
-		local cruiseHeight = Spring.GetGroundHeight(px, pz) + splitHeight * 9
+		local cruiseHeight = Spring.GetGroundHeight(px, pz) + splitHeight + 5000
 		local turnDistance = (px-tx)*(px-tx) + (pz-tz)*(pz-tz)
-		local turnRadiusSq = splitHeight * splitHeight * 2.8 * 2.8
+		local turnRadiusSq = splitHeight * splitHeight * 3 * 3
+		-- Spring.Echo(string.format('dist/rad = %.0f/%.0f', turnDistance, turnRadiusSq))
 		-- Dive when close to target.
 		if turnDistance < turnRadiusSq then
 			local ay = math.atan2(vy, math.sqrt(vx*vx + vz*vz))
-			local by = math.atan2((altitude - splitHeight) - py, math.sqrt(turnDistance))
-			Spring.SetProjectileVelocity(proID, vx, vy - 0.5 * math.min(1, by/ay), vz)
+			local by = math.atan2(altitude - py, math.sqrt(turnDistance))
+			-- Spring.Echo(string.format('by/ay = %.3f/%.3f = %.3f', by, ay, by/ay))
+			Spring.SetProjectileVelocity(proID, vx, vy + 1/30 * math.min(1, by/ay), vz)
 		-- Cruise when not.
-		elseif py + vy * 2 <= cruiseHeight then
-			Spring.SetProjectileVelocity(proID, vx, vy + 0.5 / 30 * (cruiseHeight - py) / splitHeight, vz)
+		elseif py + vy * 4 <= cruiseHeight then
+			Spring.Echo(string.format('setting cruise vy = %.3f', vy + math.sqrt((cruiseHeight - py) / splitHeight)))
+			Spring.SetProjectileVelocity(proID, vx, vy + math.sqrt((cruiseHeight - py) / splitHeight / 30), vz)
 		end
 
-		return py <= altitude
+		return py <= altitude and turnDistance <= splitHeight * splitHeight
 	end
 
 	-- Momentum sits within a range, the extremes of which are maybe useless.
@@ -296,6 +290,14 @@ if gadgetHandler:IsSyncedCode() then
 	-- 1.0: Spawned projectiles follow parent path almost exactly.
 
 	applyingFunctions.disperse = function (proID)
+		-- Check if the base unit has a MIRV ability command toggle.
+		-- local yesItDoes = true
+		-- local butItIsToggledOff = true
+		-- if yesItDoes and butItIsToggledOff then
+		-- 	projectiles[proID] = nil
+		-- 	return
+		-- end
+
 		local ownerID = Spring.GetProjectileOwnerID(proID)
 		local px, py, pz = Spring.GetProjectilePosition(proID)
 		local vx, vy, vz, vw = Spring.GetProjectileVelocity(proID)
