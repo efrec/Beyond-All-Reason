@@ -266,22 +266,18 @@ if gadgetHandler:IsSyncedCode() then
 		-- Attempt at altitude control.
 		local splitHeight  = tonumber(projectiles[proID].disperse_altitude)
 		local cruiseHeight = Spring.GetGroundHeight(px, pz) + splitHeight + 5000
-		local turnDistance = (px-tx)*(px-tx) + (pz-tz)*(pz-tz)
-		local turnRadiusSq = splitHeight * splitHeight * 3 * 3
-		-- Spring.Echo(string.format('dist/rad = %.0f/%.0f', turnDistance, turnRadiusSq))
+		local diveDistance = (px-tx)*(px-tx) + (pz-tz)*(pz-tz)
+		local diveRadiusSq = splitHeight * splitHeight * (cruiseHeight / splitHeight)
 		-- Dive when close to target.
-		if turnDistance < turnRadiusSq then
-			local ay = math.atan2(vy, math.sqrt(vx*vx + vz*vz))
-			local by = math.atan2(altitude - py, math.sqrt(turnDistance))
-			-- Spring.Echo(string.format('by/ay = %.3f/%.3f = %.3f', by, ay, by/ay))
-			Spring.SetProjectileVelocity(proID, vx, vy + 1/30 * math.min(1, by/ay), vz)
+		if diveDistance < diveRadiusSq then
+			local avel = math.atan2(vy, math.sqrt(vx*vx + vz*vz))
+			local apos = math.atan2(altitude - splitHeight - py, math.sqrt(diveDistance))
+			Spring.SetProjectileVelocity(proID, vx, vy + 3/30 * math.min(1, apos/avel), vz)
+			return py <= altitude
 		-- Cruise when not.
-		elseif py + vy * 4 <= cruiseHeight then
-			Spring.Echo(string.format('setting cruise vy = %.3f', vy + math.sqrt((cruiseHeight - py) / splitHeight)))
-			Spring.SetProjectileVelocity(proID, vx, vy + math.sqrt((cruiseHeight - py) / splitHeight / 30), vz)
+		elseif py + vy * 10 <= cruiseHeight then
+			Spring.SetProjectileVelocity(proID, vx, vy + 0.5 / 30 * (cruiseHeight - py - vy * 10) / splitHeight, vz)
 		end
-
-		return py <= altitude and turnDistance <= splitHeight * splitHeight
 	end
 
 	-- Momentum sits within a range, the extremes of which are maybe useless.
