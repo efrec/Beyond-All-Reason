@@ -16,8 +16,9 @@ if not gadgetHandler:IsSyncedCode() then return false end
 
 --------------------------------------------------------------------------------------------------------------
 --
+--  impactonly = true,
 -- 	customparams = {
--- 		overpen          = true,               -- << This is all you need.
+-- 		overpen          = true,               -- << Required.
 -- 		overpen_decrease = <number> | 0.02,
 -- 		overpen_overkill = <number> | 0.2,
 -- 		overpen_with_def = <string> | this def,
@@ -79,10 +80,13 @@ for weaponDefID, weaponDef in ipairs(WeaponDefs) do
     end
 end
 
--- Diagnose and remove invalid weapon entries. -- todo
+-- Diagnose and remove invalid weapon entries.
 
 for weaponDefID, params in ipairs(weaponParams) do
-
+    local weaponDef = WeaponDefs[weaponDefID]
+    if not weaponDef.impactOnly then
+        weaponParams[weaponDefID] = nil
+    end
 end
 
 -- Keep track of penetrators, ignored targets, remaining damage, and waiting spawns.
