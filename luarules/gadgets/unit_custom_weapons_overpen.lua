@@ -189,7 +189,3 @@ function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weap
         respawnPenetrator(projID, unitID, attackID)
     end
 end
-
-function gadget:ProjectileDestroyed(projID)
-    penetrators[projID] = nil
-end
