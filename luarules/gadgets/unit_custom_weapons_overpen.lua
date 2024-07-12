@@ -190,6 +190,13 @@ end
 --------------------------------------------------------------------------------------------------------------
 -- Gadget call-ins -------------------------------------------------------------------------------------------
 
+function gadget:Initialize()
+    if not next(weaponParams) then
+        Spring.Log(gadget:GetInfo().name, LOG.INFO, "No weapons with over-penetration found. Removing.")
+        gadgetHandler:RemoveGadget(self)
+    end
+end
+
 function gadget:ProjectileCreated(projID, ownerID, weaponDefID)
     if weaponParams[weaponDefID] then
         penetrators[projID] = { weaponParams[weaponDefID], 1, {} }
