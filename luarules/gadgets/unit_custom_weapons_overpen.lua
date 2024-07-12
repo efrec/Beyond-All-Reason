@@ -37,6 +37,7 @@ local impulseModifier = 1.7              -- A coefficient. Increases impulse whe
 
 local overpenDecrease = 0.02             -- A percentage. Additional damage falloff per each over-penetration.
 local overpenOverkill = 0.2              -- A percentage. Additional damage dealt when destroying targets.
+local overpenDuration = 5                -- In seconds. Time-to-live or flight time of re-spawned projectiles.
 
 
 --------------------------------------------------------------------------------------------------------------
@@ -45,13 +46,14 @@ local overpenOverkill = 0.2              -- A percentage. Additional damage deal
 local min  = math.min
 local sqrt = math.sqrt
 
-local spGetProjectilePosition = Spring.GetProjectilePosition
-local spGetProjectileVelocity = Spring.GetProjectileVelocity
-local spGetUnitHealth         = Spring.GetUnitHealth
-local spGetUnitPosition       = Spring.GetUnitPosition
-local spGetUnitRadius         = Spring.GetUnitRadius
-local spDeleteProjectile      = Spring.DeleteProjectile
-local spSpawnProjectile       = Spring.SpawnProjectile
+local spGetProjectilePosition   = Spring.GetProjectilePosition
+local spGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
+local spGetProjectileVelocity   = Spring.GetProjectileVelocity
+local spGetUnitHealth           = Spring.GetUnitHealth
+local spGetUnitPosition         = Spring.GetUnitPosition
+local spGetUnitRadius           = Spring.GetUnitRadius
+local spDeleteProjectile        = Spring.DeleteProjectile
+local spSpawnProjectile         = Spring.SpawnProjectile
 
 local gameSpeed  = Game.gameSpeed
 local mapGravity = -1 * Game.gravity / gameSpeed / gameSpeed
@@ -66,16 +68,26 @@ local weaponParams = {}
 
 for weaponDefID, weaponDef in ipairs(WeaponDefs) do
     if weaponDef.customParams.overpen then
-        local custom = weaponDef.customParams
-
         weaponParams[weaponDefID] = {}
-        weaponParams[weaponDefID].decrease = tonumber(custom.overpen_decrease or overpenDecrease)
-        weaponParams[weaponDefID].overkill = tonumber((custom.overpen_overkill or overpenOverkill) + 1)
-        weaponParams[weaponDefID].damage   = weaponDef.damages[0] or weaponDef.damages[Game.armorTypes.vtol]
-        weaponParams[weaponDefID].penDefID = weaponDefID
+
+        local custom = weaponDef.customParams
+        local params = weaponParams[weaponDefID]
+
+        params.decrease = tonumber(custom.overpen_decrease or overpenDecrease)
+        params.overkill = tonumber((custom.overpen_overkill or overpenOverkill) + 1)
+        params.damage   = weaponDef.damages[0] or weaponDef.damages[Game.armorTypes.vtol]
+        params.lifetime = weaponDef.flighttime or overpenDuration * gameSpeed
+        params.penDefID = weaponDefID
 
         if custom.overpen_with_def then
-            weaponParams[weaponDefID].penDefID = (WeaponDefNames[custom.overpen_with_def] or weaponDef).id
+            local penDefID = (WeaponDefNames[custom.overpen_with_def] or weaponDef).id
+            if penDefID ~= weaponDefID then
+                params.penDefID = penDefID
+                local baseVelocity = weaponDef.weaponvelocity
+                local openVelocity = WeaponDefs[penDefID].weaponvelocity
+                params.velRatio = openVelocity / baseVelocity
+                params.lifetime = WeaponDefs[penDefID].flighttime or weaponDef.flighttime
+            end
         end
     end
 end
@@ -137,6 +149,7 @@ local function respawnPenetrator(projID, unitID, attackID)
 
     local px, py, pz = spGetProjectilePosition(projID)
     local vx, vy, vz = spGetProjectileVelocity(projID)
+    local timeToLive = spGetProjectileTimeToLive(projID)
     spDeleteProjectile(projID)
 
     local _,_,_, ux, uy, uz = spGetUnitPosition(unitID, true)
@@ -153,18 +166,23 @@ local function respawnPenetrator(projID, unitID, attackID)
     data.pos[1] = px + badmove * vx
     data.pos[2] = py + badmove * vy
     data.pos[3] = pz + badmove * vz
-    data.speed[1] = vx -- todo: speed decreases
-    data.speed[2] = vy
-    data.speed[3] = vz
     data.owner = attackID or -1
 
     local penDefID = params[1].penDefID
-    if weaponDefID ~= penDefID then
-        params[1] = weaponParams[penDefID]
-        params[2] = (1 + params[2]) / 2 -- it's weird either way so I'm splitting the difference
+    if params[1].velRatio then
+        vx, vy, vz = vx * params[1].velRatio, vy * params[1].velRatio, vz * params[1].velRatio
+        timeToLive = timeToLive / params[1].lifetime
+        params[1]  = weaponParams[penDefID]
+        params[2]  = (1 + params[2]) / 2 -- Reduces the damage loss when spawning a different weaponDef.
+        timeToLive = timeToLive * params[1].lifetime
     end
-    data.ttl = 300 * params[2] -- todo
 
+    data.speed[1] = vx
+    data.speed[2] = vy
+    data.speed[3] = vz
+    data.ttl = timeToLive
+
+    -- BUGGED: Projectile lights not moving with spawned projectiles.
     spSpawnProjectile(penDefID, data)
 end
 
