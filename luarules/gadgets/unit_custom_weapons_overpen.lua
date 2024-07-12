@@ -142,7 +142,7 @@ local function consumePenetrator(projID, unitID, damage)
         -- Negative overkill can be set to preserve heaps:
         damage = max(health, damage * params[1].overkill)
     else
-        local impulse = (1 + impulseModifier) / (1 + params[2] * impulseModifier)
+        local impulse = params[2] * (1 + impulseModifier) / (1 + params[2] * impulseModifier)
         return damage, impulse
     end
 
