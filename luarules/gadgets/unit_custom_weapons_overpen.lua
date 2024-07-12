@@ -43,6 +43,7 @@ local overpenDuration = 5                -- In seconds. Time-to-live or flight t
 --------------------------------------------------------------------------------------------------------------
 -- Locals ----------------------------------------------------------------------------------------------------
 
+local max  = math.max
 local min  = math.min
 local sqrt = math.sqrt
 
@@ -134,7 +135,8 @@ local function consumePenetrator(projID, unitID, damage)
         if params[2] > damageThreshold then
             spawnFromID[projID] = params
         end
-        damage = math.max(health, damage * params[1].overkill)
+        -- Negative overkill can be set to preserve heaps:
+        damage = max(health, damage * params[1].overkill)
     else
         local impulse = (1 + impulseModifier) / (1 + params[2] * impulseModifier)
         return damage, impulse
