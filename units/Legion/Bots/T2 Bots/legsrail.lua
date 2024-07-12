@@ -141,6 +141,9 @@ return {
 					commanders = 375,
 					default = 750,
 				},
+				customparams = {
+					overpen = true
+				},
 			},
 		},
 		weapons = {
