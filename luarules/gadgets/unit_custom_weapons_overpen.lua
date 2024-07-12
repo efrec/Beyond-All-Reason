@@ -122,7 +122,7 @@ local function consumePenetrator(projID, unitID, damage)
         end
         damage = math.max(health, damage * params[1].overkill)
     else
-        local impulse = params[2] * (1 + impulseModifier) / (1 + params[2] * impulseModifier)
+        local impulse = (1 + impulseModifier) / (1 + params[2] * impulseModifier)
         return damage, impulse
     end
 
