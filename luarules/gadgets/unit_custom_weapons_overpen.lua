@@ -30,7 +30,7 @@ if not gadgetHandler:IsSyncedCode() then return false end
 -- Configuration ---------------------------------------------------------------------------------------------
 
 local damageThreshold = 0.1              -- A percentage. Minimum damage that can overpen; a tad multipurpose.
-local impulseModifier = 1.3              -- A coefficient. Increases impulse when a target stops a penetrator.
+local impulseModifier = 1.2              -- A coefficient. Increases impulse when a target stops a penetrator.
 
 -- Customparam defaults --------------------------------------------------------------------------------------
 
@@ -98,6 +98,8 @@ local spawnCache = {
     gravity = mapGravity,
 }
 
+-- Done this way to preserve "higher number, more impulse":
+impulseModifier = 1 + 1 / impulseModifier
 
 --------------------------------------------------------------------------------------------------------------
 -- Functions -------------------------------------------------------------------------------------------------
@@ -120,7 +122,7 @@ local function consumePenetrator(projID, unitID, damage)
         end
         damage = math.max(health, damage * params[1].overkill)
     else
-        local impulse = min(2, (1 - damageThreshold) + impulseModifier * (damageThreshold / params[2]))
+        local impulse = params[2] * (1 + impulseModifier) / (1 + params[2] * impulseModifier)
         return damage, impulse
     end
 
