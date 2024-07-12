@@ -188,7 +188,8 @@ local function respawnPenetrator(projID, unitID, attackID)
     data.ttl = timeToLive
 
     -- BUGGED: Projectile lights not moving with spawned projectiles.
-    spSpawnProjectile(penDefID, data)
+    local spawnID = spSpawnProjectile(penDefID, data)
+    penetrators[spawnID] = params
 end
 
 
@@ -203,7 +204,7 @@ function gadget:Initialize()
 end
 
 function gadget:ProjectileCreated(projID, ownerID, weaponDefID)
-    if weaponParams[weaponDefID] then
+    if weaponParams[weaponDefID] and not penetrators[projID] then
         penetrators[projID] = { weaponParams[weaponDefID], 1, {} }
     end
 end
