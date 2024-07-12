@@ -76,18 +76,22 @@ for weaponDefID, weaponDef in ipairs(WeaponDefs) do
 
         params.decrease = tonumber(custom.overpen_decrease or overpenDecrease)
         params.overkill = tonumber((custom.overpen_overkill or overpenOverkill) + 1)
-        params.damage   = weaponDef.damages[0] or weaponDef.damages[Game.armorTypes.vtol]
-        params.lifetime = weaponDef.flighttime or overpenDuration * gameSpeed
+        params.damage   = weaponDef.damages[0]
         params.penDefID = weaponDefID
 
         if custom.overpen_with_def then
+            -- The weapon uses separate driver/penetrator projectiles:
             local penDefID = (WeaponDefNames[custom.overpen_with_def] or weaponDef).id
             if penDefID ~= weaponDefID then
                 params.penDefID = penDefID
-                local baseVelocity = weaponDef.weaponvelocity
-                local openVelocity = WeaponDefs[penDefID].weaponvelocity
-                params.velRatio = openVelocity / baseVelocity
-                params.lifetime = WeaponDefs[penDefID].flighttime or weaponDef.flighttime
+
+                local driverVelocity = weaponDef.weaponvelocity
+                local penDefVelocity = WeaponDefs[penDefID].weaponvelocity
+                params.velRatio = penDefVelocity / driverVelocity
+
+                local driverLifetime = weaponDef.flighttime            or overpenDuration * gameSpeed
+                local penDefLifetime = WeaponDefs[penDefID].flighttime or overpenDuration * gameSpeed
+                params.ttlRatio = penDefLifetime / driverLifetime
             end
         end
     end
@@ -173,10 +177,9 @@ local function respawnPenetrator(projID, unitID, attackID)
     local penDefID = params[1].penDefID
     if params[1].velRatio then
         vx, vy, vz = vx * params[1].velRatio, vy * params[1].velRatio, vz * params[1].velRatio
-        timeToLive = timeToLive / params[1].lifetime
+        timeToLive = timeToLive * params[1].ttlRatio
         params[1]  = weaponParams[penDefID]
         params[2]  = (1 + params[2]) / 2 -- Reduces the damage loss when spawning a different weaponDef.
-        timeToLive = timeToLive * params[1].lifetime
     end
 
     data.speed[1] = vx
