@@ -6,7 +6,7 @@ function gadget:GetInfo()
         version = 'alpha',
         date    = '2024-07',
         license = 'GNU GPL, v2 or later',
-        layer   = 10,
+        layer   = 0,
         enabled = true
     }
 end
@@ -183,13 +183,6 @@ end
 function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
     if spawnFromID[projID] then
         respawnPenetrator(projID, unitID, attackID)
-    end
-end
-
-function gadget:Explosion(weaponID, ex, ey, ez, attackID, projID)
-    if weaponParams[projID] then
-        Spring.Echo('[overpen] Need to figure out projectileDefLights and how to expire/remove them.')
-        return true
     end
 end
 
