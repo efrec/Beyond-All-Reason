@@ -121,7 +121,7 @@ local spawnCache = {
 
 local function consumePenetrator(projID, unitID, damage)
     local params = penetrators[projID]
-    if spawnFromID[projID] or params[3][unitID] then
+    if params[3][unitID] then
         return 0, 0
     end
     params[3][unitID] = true
