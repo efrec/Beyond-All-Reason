@@ -75,7 +75,7 @@ for weaponDefID, weaponDef in ipairs(WeaponDefs) do
         local params = weaponParams[weaponDefID]
 
         params.decrease = tonumber(custom.overpen_decrease or overpenDecrease)
-        params.overkill = tonumber((custom.overpen_overkill or overpenOverkill) + 1)
+        params.overkill = (tonumber(custom.overpen_overkill) or overpenOverkill) + 1
         params.damage   = weaponDef.damages[0]
         params.penDefID = weaponDefID
 
