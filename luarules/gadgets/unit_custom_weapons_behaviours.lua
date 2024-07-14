@@ -359,7 +359,7 @@ if gadgetHandler:IsSyncedCode() then
 		local rotation = interval * random()
 
 		if spawnType == "MissileLauncher" then
-			if turnRate and turnRate > 10 then -- todo: completely untested a billion percent fake math is fake
+			if turnRate and turnRate > 10 then
 				-- Assume the projectile will navigate to the destination independently.
 				-- Split along a fixed dispersion angle and target along a fixed circle.
 				local rx, ry, rz = tx - px, ty - py, tz - pz
