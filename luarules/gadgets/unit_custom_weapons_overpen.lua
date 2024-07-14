@@ -32,6 +32,7 @@ if not gadgetHandler:IsSyncedCode() then return false end
 
 local damageThreshold = 0.1              -- A percentage. Minimum damage that can overpen; a tad multipurpose.
 local impulseModifier = 1.7              -- A coefficient. Increases impulse when a target stops a penetrator.
+local preventArmorPen = false            -- When set to `true`, all currently-armored units block penetrators.
 
 -- Customparam defaults --------------------------------------------------------------------------------------
 
@@ -55,6 +56,7 @@ local spGetUnitPosition         = Spring.GetUnitPosition
 local spGetUnitRadius           = Spring.GetUnitRadius
 local spDeleteProjectile        = Spring.DeleteProjectile
 local spSpawnProjectile         = Spring.SpawnProjectile
+local spGetUnitArmored          = Spring.GetUnitArmored
 
 local gameSpeed  = Game.gameSpeed
 local mapGravity = -1 * Game.gravity / gameSpeed / gameSpeed
@@ -133,7 +135,7 @@ local function consumePenetrator(projID, unitID, damage)
     params[3][unitID] = true
 
     local health, healthMax = spGetUnitHealth(unitID)
-    damage = damage * params[2] -- todo: up-armored units
+    damage = damage * params[2]
 
     if damage >= health and damage >= healthMax * damageThreshold then
         params[2] = params[2] - min(health, damage) / params[1].damage - params[1].decrease
@@ -217,7 +219,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 end
 
 function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
-    if spawnFromID[projID] then
+    if spawnFromID[projID] and (not preventArmorPen or not spGetUnitArmored(unitID)) then
         respawnPenetrator(projID, unitID, attackID)
     end
 end
