@@ -11,17 +11,18 @@ function gadget:GetInfo()
 end
 
 local random = math.random
+local sqrt   = math.sqrt
 
-local SpSetProjectileVelocity = Spring.SetProjectileVelocity
-local SpSetProjectileTarget = Spring.SetProjectileTarget
-
-local SpGetProjectileVelocity = Spring.GetProjectileVelocity
-local SpGetProjectileOwnerID = Spring.GetProjectileOwnerID
-local SpGetUnitStates = Spring.GetUnitStates
+local SpGetProjectileOwnerID    = Spring.GetProjectileOwnerID
+local SpGetProjectileTarget     = Spring.GetProjectileTarget
 local SpGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
-local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
-local SpGetProjectileTarget = Spring.GetProjectileTarget
-local SpGetUnitIsDead = Spring.GetUnitIsDead
+local SpGetProjectileVelocity   = Spring.GetProjectileVelocity
+local SpGetUnitIsDead           = Spring.GetUnitIsDead
+local SpGetUnitStates           = Spring.GetUnitStates
+local SpGetUnitWeaponTarget     = Spring.GetUnitWeaponTarget
+
+local SpSetProjectileVelocity   = Spring.SetProjectileVelocity
+local SpSetProjectileTarget     = Spring.SetProjectileTarget
 
 if gadgetHandler:IsSyncedCode() then
 
@@ -29,16 +30,20 @@ if gadgetHandler:IsSyncedCode() then
 	local active_projectiles = {}
 	local checkingFunctions = {}
 	local applyingFunctions = {}
-	local math_sqrt = math.sqrt
 
+	local WeaponDefNames = WeaponDefNames
 	local specialWeaponCustomDefs = {}
-	local weaponDefNamesID = {}
 	for id, def in pairs(WeaponDefs) do
-		weaponDefNamesID[def.name] = id
 		if def.customParams.speceffect then
 			specialWeaponCustomDefs[id] = def.customParams
 		end
 	end
+
+
+	----------------------------------------------------------------------------------------------------------
+	-- Custom weapon behaviours ------------------------------------------------------------------------------
+
+	-- Cruise ------------------------------------------------------------------------------------------------
 
 	checkingFunctions.cruise = {}
 	checkingFunctions.cruise["distance>0"] = function (proID)
@@ -60,9 +65,9 @@ if gadgetHandler:IsSyncedCode() then
 		end
 		local xp,yp,zp = Spring.GetProjectilePosition(proID)
 		local vxp,vyp,vzp = Spring.GetProjectileVelocity(proID)
-		local mag = math_sqrt(vxp*vxp+vyp*vyp+vzp*vzp)
+		local mag = sqrt(vxp*vxp+vyp*vyp+vzp*vzp)
 		local infos = projectiles[proID]
-		if math_sqrt((xp-xx)^2 + (yp-yy)^2 + (zp-zz)^2) > tonumber(infos.lockon_dist) then
+		if sqrt((xp-xx)^2 + (yp-yy)^2 + (zp-zz)^2) > tonumber(infos.lockon_dist) then
 			yg = Spring.GetGroundHeight(xp,zp)
 			nx,ny,nz,slope= Spring.GetGroundNormal(xp,zp)
 			--Spring.Echo(Spring.GetGroundNormal(xp,zp))
@@ -97,42 +102,7 @@ if gadgetHandler:IsSyncedCode() then
 		return false
     end
 
-	checkingFunctions.sector_fire = {}
-	checkingFunctions.sector_fire["always"] = function (proID)
-		-- as soon as the siege projectile is created, pass true on the
-		-- checking function, to go to applying function
-		-- so the unit state is only checked when the projectile is created
-		return true
-	end
-
-	applyingFunctions.sector_fire = function (proID)
-		local ownerID = SpGetProjectileOwnerID(proID)
-		local ownerState = SpGetUnitStates(ownerID)
-		--if ownerState.active == true then
-		local infos = projectiles[proID]
-		--x' = x cos θ − y sin θ
-		--y' = x sin θ + y cos θ
-		local vx, vy, vz = SpGetProjectileVelocity(proID)
-
-		angle_factor = tonumber(infos.spread_angle)*random()-tonumber(infos.spread_angle)*0.5
-		angle_factor = angle_factor*math.pi/180
-		vx_new = vx*math.cos(angle_factor) - vz*math.sin(angle_factor)
-		vz_new = vx*math.sin(angle_factor) + vz*math.cos(angle_factor)
-
-		--vx_new = vx
-		--vz_new = vz
-		--velocity_reduction = 1-math.sqrt(1-tonumber(infos.max_range_reduction))
-		--velocity_floor = (1-velocity_reduction)^2
-		--velocity_factor = random()*(1-velocity_floor)
-		--velocity_factor = math.sqrt(velocity_floor+velocity_factor)
-		velocity_factor = 1-(random()) ^(1+tonumber(infos.max_range_reduction))*tonumber(infos.max_range_reduction) 		
-		vx = vx_new*velocity_factor
-		--vy = vy*velocity_factor
-		vz = vz_new*velocity_factor
-
-		SpSetProjectileVelocity(proID,vx,vy,vz)
-		--end
-    end
+	-- Retarget ----------------------------------------------------------------------------------------------
 
 	checkingFunctions.retarget = {}
 	checkingFunctions.retarget["always"] = function (proID)
@@ -178,15 +148,46 @@ if gadgetHandler:IsSyncedCode() then
 		return false
     end
 
-	checkingFunctions.cannonwaterpen = {}
-	checkingFunctions.cannonwaterpen["ypos<0"] = function (proID)
-		local _,y,_ = Spring.GetProjectilePosition(proID)
-		if y <= 0 then
-			return true
-		else
-			return false
-		end
+	-- Sector fire -------------------------------------------------------------------------------------------
+
+	checkingFunctions.sector_fire = {}
+	checkingFunctions.sector_fire["always"] = function (proID)
+		-- as soon as the siege projectile is created, pass true on the
+		-- checking function, to go to applying function
+		-- so the unit state is only checked when the projectile is created
+		return true
 	end
+
+	applyingFunctions.sector_fire = function (proID)
+		local ownerID = SpGetProjectileOwnerID(proID)
+		local ownerState = SpGetUnitStates(ownerID)
+		--if ownerState.active == true then
+		local infos = projectiles[proID]
+		--x' = x cos θ − y sin θ
+		--y' = x sin θ + y cos θ
+		local vx, vy, vz = SpGetProjectileVelocity(proID)
+
+		angle_factor = tonumber(infos.spread_angle)*random()-tonumber(infos.spread_angle)*0.5
+		angle_factor = angle_factor*math.pi/180
+		vx_new = vx*math.cos(angle_factor) - vz*math.sin(angle_factor)
+		vz_new = vx*math.sin(angle_factor) + vz*math.cos(angle_factor)
+
+		--vx_new = vx
+		--vz_new = vz
+		--velocity_reduction = 1-math.sqrt(1-tonumber(infos.max_range_reduction))
+		--velocity_floor = (1-velocity_reduction)^2
+		--velocity_factor = random()*(1-velocity_floor)
+		--velocity_factor = math.sqrt(velocity_floor+velocity_factor)
+		velocity_factor = 1-(random()) ^(1+tonumber(infos.max_range_reduction))*tonumber(infos.max_range_reduction) 		
+		vx = vx_new*velocity_factor
+		--vy = vy*velocity_factor
+		vz = vz_new*velocity_factor
+
+		SpSetProjectileVelocity(proID,vx,vy,vz)
+		--end
+    end
+
+	-- Split / multi-projectile ------------------------------------------------------------------------------
 
 	checkingFunctions.split = {}
 	checkingFunctions.split["yvel<0"] = function (proID)
@@ -198,20 +199,10 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
-	checkingFunctions.torpwaterpen = {}
-    checkingFunctions.torpwaterpen["ypos<0"] = function (proID)
-        local _,py,_ = Spring.GetProjectilePosition(proID)
-        if py <= 0 then
-            return true
-        else
-            return false
-        end
-    end
-
 	applyingFunctions.split = function (proID)
 		local px, py, pz = Spring.GetProjectilePosition(proID)
 		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
-		local vw = math_sqrt(vx*vx + vy*vy + vz*vz)
+		local vw = sqrt(vx*vx + vy*vy + vz*vz)
 		local ownerID = Spring.GetProjectileOwnerID(proID)
 		local infos = projectiles[proID]
 		for i = 1, tonumber(infos.number) do
@@ -224,7 +215,7 @@ if gadgetHandler:IsSyncedCode() then
 				model = infos.model,
 				cegTag = infos.cegtag,
 				}
-			Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
+			Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
 		end
 		Spring.SpawnCEG(infos.splitexplosionceg, px, py, pz,0,0,0,0,0)
 		Spring.DeleteProjectile(proID)
@@ -268,9 +259,8 @@ if gadgetHandler:IsSyncedCode() then
 		-- local cruiseHeight = Spring.GetGroundHeight(px, pz) + splitHeight * 12
 		local cruiseHeight = 200 + splitHeight * 8
 		local diveDistance = (px-tx)*(px-tx) + (pz-tz)*(pz-tz)
-		local diveRadiusSq = splitHeight * splitHeight * 2.5
 		-- Dive when close to target.
-		if diveDistance <= diveRadiusSq then
+		if diveDistance <= splitHeight * splitHeight * 2.5 then
 			local avel = math.atan2(vy, math.sqrt(vx*vx + vz*vz))
 			local apos
 			if diveDistance > splitHeight * splitHeight then
@@ -358,22 +348,22 @@ if gadgetHandler:IsSyncedCode() then
 			spawnParams.speed[1] = vx / vw * spawnSpeed
 			spawnParams.speed[2] = vy / vw * spawnSpeed
 			spawnParams.speed[3] = vz / vw * spawnSpeed
-			local spawnID = Spring.SpawnProjectile(middleDefID, spawnParams) or 0
-			Spring.SetProjectileTarget(spawnID, tx, ty, tz)
+			local spawnID = Spring.SpawnProjectile(middleDefID, spawnParams)
+			if spawnID then Spring.SetProjectileTarget(spawnID, tx, ty, tz) end
 		end
 		Spring.SpawnCEG(spawnCEG, px,py,pz, 0,0,0, 0,0)
 		Spring.DeleteProjectile(proID)
 
 		-- Handle projectiles along the dispersion trajectories.
 		local interval = 2 * math.pi / spawnCount
-		local rotation = interval * math.random()
+		local rotation = interval * random()
 
 		if spawnType == "MissileLauncher" then
 			if turnRate and turnRate > 10 then -- todo: completely untested a billion percent fake math is fake
 				-- Assume the projectile will navigate to the destination independently.
 				-- Split along a fixed dispersion angle and target along a fixed circle.
 				local rx, ry, rz = tx - px, ty - py, tz - pz
-				local rw = math.sqrt(rx*rx + ry*ry + rz*rz)
+				local rw = sqrt(rx*rx + ry*ry + rz*rz)
 				local angleDeparture = math.atan2(radius * (1.001 - momentum*momentum), rw)
 
 				-- Parameterize the departure direction and target location.
@@ -462,6 +452,48 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
+	-- Water penetration -------------------------------------------------------------------------------------
+
+	checkingFunctions.cannonwaterpen = {}
+	checkingFunctions.cannonwaterpen["ypos<0"] = function (proID)
+		local _,y,_ = Spring.GetProjectilePosition(proID)
+		if y <= 0 then
+			return true
+		else
+			return false
+		end
+	end
+
+	applyingFunctions.cannonwaterpen = function (proID)
+		local px, py, pz = Spring.GetProjectilePosition(proID)
+		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
+		local nvx, nvy, nvz = vx * 0.5, vy * 0.5, vz * 0.5
+		local ownerID = Spring.GetProjectileOwnerID(proID)
+		local infos = projectiles[proID]
+		local projectileParams = {
+			pos = {px, py, pz},
+			speed = {nvx, nvy, nvz},
+			owner = ownerID,
+			ttl = 3000,
+			gravity = -Game.gravity/3600,
+			model = infos.model,
+			cegTag = infos.cegtag,
+		}
+		Spring.SpawnProjectile(weaponDefNames[infos.def].id, projectileParams)
+		Spring.SpawnCEG(infos.waterpenceg, px, py, pz,0,0,0,0,0)
+		Spring.DeleteProjectile(proID)
+	end
+
+	checkingFunctions.torpwaterpen = {}
+    checkingFunctions.torpwaterpen["ypos<0"] = function (proID)
+        local _,py,_ = Spring.GetProjectilePosition(proID)
+        if py <= 0 then
+            return true
+        else
+            return false
+        end
+    end
+
 	applyingFunctions.torpwaterpen = function (proID)
 		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
 		--if target is close under the shooter, however, this resetting makes the torp always miss, unless it has amazing tracking
@@ -483,25 +515,9 @@ if gadgetHandler:IsSyncedCode() then
 		end
     end
 
-	applyingFunctions.cannonwaterpen = function (proID)
-		local px, py, pz = Spring.GetProjectilePosition(proID)
-		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
-		local nvx, nvy, nvz = vx * 0.5, vy * 0.5, vz * 0.5
-		local ownerID = Spring.GetProjectileOwnerID(proID)
-		local infos = projectiles[proID]
-		local projectileParams = {
-			pos = {px, py, pz},
-			speed = {nvx, nvy, nvz},
-			owner = ownerID,
-			ttl = 3000,
-			gravity = -Game.gravity/3600,
-			model = infos.model,
-			cegTag = infos.cegtag,
-		}
-		Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
-		Spring.SpawnCEG(infos.waterpenceg, px, py, pz,0,0,0,0,0)
-		Spring.DeleteProjectile(proID)
-	end
+
+	----------------------------------------------------------------------------------------------------------
+	-- Gadget call-ins ---------------------------------------------------------------------------------------
 
 	function gadget:ProjectileCreated(proID, proOwnerID, weaponDefID)
 		local wDefID = Spring.GetProjectileDefID(proID)
@@ -525,4 +541,5 @@ if gadgetHandler:IsSyncedCode() then
 			end
 		end
 	end
+
 end
