@@ -125,11 +125,12 @@ local spawnCache = {
 
 local function consumePenetrator(projID, unitID, damage)
     local params = penetrators[projID]
+    penetrators[projID] = nil
+
     if params[3][unitID] then
         return 0, 0
     end
     params[3][unitID] = true
-    penetrators[projID] = nil
 
     local health, healthMax = spGetUnitHealth(unitID)
     damage = damage * params[2] -- todo: up-armored units
