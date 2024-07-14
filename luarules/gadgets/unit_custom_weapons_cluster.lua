@@ -336,9 +336,23 @@ end
 -- Gadget callins --------------------------------------------------------------------------------------------
 
 function gadget:Initialize()
+    if not next(dataTable) then
+        Spring.Log(gadget:GetInfo().name, LOG.INFO, "No cluster weapons found. Removing gadget.")
+        gadgetHandler:RemoveGadget(self)
+    end
+
     for wdid, _ in pairs(dataTable) do
         SetWatchExplosion(wdid, true)
     end
+end
+
+function gadget:ShutDown()
+    -- Deref tables from VFS.Include so the GC will collect them.
+    directions = nil
+    for key, _ in pairs(DirectionsUtil) do
+        DirectionsUtil[key] = nil
+    end
+    DirectionsUtil = nil
 end
 
 function gadget:Explosion(weaponDefID, ex, ey, ez, attackerID, projID)

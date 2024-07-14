@@ -42,10 +42,10 @@ local spherePackings = {
 
 --- Produces a array of unrolled float3 vectors representing directions.
 -- This function uses rejection sampling which is efficient but inappropriate for constant-time operations.
--- @tparam[opt] number n count of directions to produce
--- @treturn {float,...} array with length equal to 3n
+-- @tparam[opt] number n count of directions to produce (default 1)
+-- @treturn {number,...} array with length equal to 3n
 DirectionsUtil.GetRandomDirections = function(n)
-    n = n > 1 and n or 1
+    n = (n and n > 1 and n) or 1
     local vecs = {}
     for ii = 1, 3 * (n - 1) + 1, 3 do
         local m1, m2, m3, m4    -- Marsaglia procedure:
@@ -66,8 +66,8 @@ end
 -- Combined distribution arrays ------------------------------------------------------------------------------
 
 --- Fetches a premade direction set from DistributedDirections; otherwise, generates random directions.
--- @tparam[opt] number n count of (unrolled) float3 directions to retrieve
--- @treturn[1] {float,...} array with length equal to 3n
+-- @tparam number n count of (unrolled) float3 directions to retrieve
+-- @treturn[1] {number,...} array with length equal to 3n
 -- @treturn[1] boolean true if the result is random
 -- @treturn[2] nil
 -- @see DirectionsUtil.GetRandomDirections
@@ -88,7 +88,7 @@ end
 -- @tparam number n maximum solution size to add to Directions
 -- @treturn boolean whether provisioning succeeded
 DirectionsUtil.ProvisionDirections = function(n)
-    if n < 2 or n > DIRECTION_SET_SIZE_MAX then return false end
+    if not n or n < 2 or n > DIRECTION_SET_SIZE_MAX then return false end
     local directions = DirectionsUtil.Directions
     if not directions then return false end
     for ii = #directions + 1, n do
