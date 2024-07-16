@@ -22,6 +22,7 @@ if not gadgetHandler:IsSyncedCode() then return false end
 -- 		overpen_decrease = <number> | 0.02,
 -- 		overpen_overkill = <number> | 0.2,
 -- 		overpen_with_def = <string> | this def,
+--      overpen_expl_def = <string> | nil,
 -- 	}
 --
 --------------------------------------------------------------------------------------------------------------
@@ -54,6 +55,7 @@ local spGetProjectileVelocity   = Spring.GetProjectileVelocity
 local spGetUnitHealth           = Spring.GetUnitHealth
 local spGetUnitPosition         = Spring.GetUnitPosition
 local spGetUnitRadius           = Spring.GetUnitRadius
+local spSpawnExplosion          = Spring.SpawnExplosion
 local spDeleteProjectile        = Spring.DeleteProjectile
 local spSpawnProjectile         = Spring.SpawnProjectile
 local spGetUnitArmored          = Spring.GetUnitArmored
@@ -76,10 +78,9 @@ for weaponDefID, weaponDef in ipairs(WeaponDefs) do
         local custom = weaponDef.customParams
         local params = weaponParams[weaponDefID]
 
+        params.damage   = weaponDef.damages[0]
         params.decrease = tonumber(custom.overpen_decrease or overpenDecrease)
         params.overkill = (tonumber(custom.overpen_overkill) or overpenOverkill) + 1
-        params.damage   = weaponDef.damages[0]
-        params.penDefID = weaponDefID
 
         if custom.overpen_with_def then
             -- The weapon uses separate driver/penetrator projectiles:
@@ -96,6 +97,14 @@ for weaponDefID, weaponDef in ipairs(WeaponDefs) do
                 params.ttlRatio = penDefLifetime / driverLifetime
             end
         end
+
+        if custom.overpen_expl_def then
+            -- When the weapon fails to overpen, it explodes (technically twice):
+            local expDefID = (WeaponDefNames[custom.overpen_expl_def] or weaponDef).id
+            if expDefID ~= weaponDefID then
+                params.expDefID = expDefID
+            end
+        end
     end
 end
 
@@ -105,6 +114,20 @@ for weaponDefID, params in ipairs(weaponParams) do
     local weaponDef = WeaponDefs[weaponDefID]
     if not weaponDef.impactOnly then
         weaponParams[weaponDefID] = nil
+    end
+end
+
+-- Cache the table params for SpawnExplosion.
+
+local explosionCaches = {}
+
+for driverDefID, params in ipairs(weaponParams) do
+    if params.expDefID then
+        explosionCaches[params.expDefID] = {
+            weaponDef = params.expDefID,
+            damages   = WeaponDefs[params.expDefID],
+            owner     = -1,
+        }
     end
 end
 
@@ -125,7 +148,7 @@ local spawnCache = {
 --------------------------------------------------------------------------------------------------------------
 -- Functions -------------------------------------------------------------------------------------------------
 
-local function consumePenetrator(projID, unitID, damage)
+local function consumePenetrator(projID, unitID, damage, attackID)
     local params = penetrators[projID]
     penetrators[projID] = nil
 
@@ -143,6 +166,11 @@ local function consumePenetrator(projID, unitID, damage)
             spawnFromID[projID] = params
         end
         damage = max(health, damage * params[1].overkill)
+    elseif params[1].expDefID then
+        local px, py, pz = spGetProjectilePosition(projID)
+        local explosion = explosionCaches[params.expDefID]
+        explosion.owner = attackID
+        spSpawnExplosion(px, py, pz, 0, 0, 0, explosion)
     else
         local impulse = params[2] * (1 + impulseModifier) / (1 + params[2] * impulseModifier)
         return damage, impulse
@@ -176,8 +204,8 @@ local function respawnPenetrator(projID, unitID, attackID)
     data.pos[3] = pz + badmove * vz
     data.owner = attackID or -1
 
-    local penDefID = params[1].penDefID
-    if params[1].velRatio then
+    if params[1].penDefID then
+        penDefID = params[1].penDefID
         vx, vy, vz = vx * params[1].velRatio, vy * params[1].velRatio, vz * params[1].velRatio
         timeToLive = timeToLive * params[1].ttlRatio
         params[1]  = weaponParams[penDefID]
@@ -213,12 +241,12 @@ end
 
 function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
     if penetrators[projID] then
-        return consumePenetrator(projID, unitID, damage)
+        return consumePenetrator(projID, unitID, damage, attackID)
     end
 end
 
 function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
     if spawnFromID[projID] and (not preventArmorPen or not spGetUnitArmored(unitID)) then
-        respawnPenetrator(projID, unitID, attackID)
+        respawnPenetrator(projID, unitID, attackID, weaponDefID)
     end
 end
