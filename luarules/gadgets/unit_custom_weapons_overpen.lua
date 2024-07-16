@@ -16,7 +16,7 @@ if not gadgetHandler:IsSyncedCode() then return false end
 
 --------------------------------------------------------------------------------------------------------------
 --
---  impactonly = true,
+--  impactonly = true,                         -- << Required.
 -- 	customparams = {
 -- 		overpen          = true,               -- << Required.
 -- 		overpen_decrease = <number> | 0.02,
@@ -37,7 +37,7 @@ local preventArmorPen = false            -- When set to `true`, all currently-ar
 -- Customparam defaults --------------------------------------------------------------------------------------
 
 local overpenDecrease = 0.02             -- A percentage. Additional damage falloff per each over-penetration.
-local overpenOverkill = 0.2              -- A percentage. Additional damage dealt when destroying targets.
+local overpenOverkill = 0.2              -- A percentage. Additional damage to destroyed targets; can be < 0.
 local overpenDuration = 5                -- In seconds. Time-to-live or flight time of re-spawned projectiles.
 
 
@@ -142,7 +142,6 @@ local function consumePenetrator(projID, unitID, damage)
         if params[2] > damageThreshold then
             spawnFromID[projID] = params
         end
-        -- Negative overkill can be set to preserve heaps:
         damage = max(health, damage * params[1].overkill)
     else
         local impulse = params[2] * (1 + impulseModifier) / (1 + params[2] * impulseModifier)
