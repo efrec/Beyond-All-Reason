@@ -95,8 +95,8 @@ for wdid, wdef in pairs(WeaponDefs) do
         dataTable[wdid].number  = tonumber(wdef.customParams.number) or defaultSpawnNum
         dataTable[wdid].def     = wdef.customParams.def
         dataTable[wdid].projDef = -1
-        dataTable[wdid].projTtl = defaultSpawnTtl
-        dataTable[wdid].projVel = defaultVelocity
+        dataTable[wdid].projTtl = -1
+        dataTable[wdid].projVel = -1
 
         -- Enforce limits, eg the projectile count, at init.
         dataTable[wdid].number  = min(dataTable[wdid].number, maxSpawnNumber)
