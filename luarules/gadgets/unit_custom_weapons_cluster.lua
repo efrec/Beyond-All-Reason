@@ -4,7 +4,7 @@ function gadget:GetInfo()
         desc    = 'Custom behavior for projectiles that explode and split on impact.',
         author  = 'efrec',
         version = '1.1',
-        date    = '2024-06-07',
+        -date    = '2024-07-15',
         license = 'GNU GPL, v2 or later',
         layer   = 10, -- preempt :Explosion handlers like fx_watersplash.lua that return `true` (not pure fx)
         enabled = true
@@ -16,20 +16,19 @@ if not gadgetHandler:IsSyncedCode() then return false end
 --------------------------------------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------------------------------------
 
--- Default settings ------------------------------------------------------------------------------------------
+-- General settings ------------------------------------------------------------------------------------------
+
+local maxSpawnNumber  = 24                         -- protect game performance against stupid ideas
+local minUnitBounces  = "armpw"                    -- smallest unit (name) that bounces projectiles at all
+local minBulkReflect  = 64000                      -- smallest unit bulk that causes reflection as if terrain
+local deepWaterDepth  = -40                        -- used for the surface deflection on water, lava, ...
+
+-- Customparam defaults --------------------------------------------------------------------------------------
 
 local defaultSpawnDef = "cluster_munition"         -- def used, by default
 local defaultSpawnNum = 5                          -- number of spawned projectiles, by default
 local defaultSpawnTtl = 300                        -- detonate projectiles after time = ttl, by default
 local defaultVelocity = 240                        -- speed of spawned projectiles, by default
-
--- General settings ------------------------------------------------------------------------------------------
-
-local customParamName = "cluster"                  -- in the weapondef, the parameter name to set to `true`
-local maxSpawnNumber  = 24                         -- protect game performance against stupid ideas
-local minUnitBounces  = "armpw"                    -- smallest unit (name) that bounces projectiles at all
-local minBulkReflect  = 64000                      -- smallest unit bulk that causes reflection as if terrain
-local deepWaterDepth  = -40                        -- used for the surface deflection on water, lava, ...
 
 -- CustomParams setup ----------------------------------------------------------------------------------------
 
@@ -67,8 +66,8 @@ local spGetUnitRadius    = Spring.GetUnitRadius
 local spGetUnitsInSphere = Spring.GetUnitsInSphere
 local spSpawnProjectile  = Spring.SpawnProjectile
 
-local GAME_SPEED         = Game.gameSpeed
-local mapGravity         = Game.gravity / GAME_SPEED / GAME_SPEED * -1
+local gameSpeed          = Game.gameSpeed
+local mapGravity         = Game.gravity / gameSpeed / gameSpeed * -1
 
 local SetWatchExplosion  = Script.SetWatchExplosion
 
@@ -76,6 +75,8 @@ local SetWatchExplosion  = Script.SetWatchExplosion
 -- Initialize ------------------------------------------------------------------------------------------------
 
 -- Information table for cluster weapons
+
+local dataTable      = {} -- Info on each cluster weapon
 
 local spawnableTypes = {
     Cannon          = true  ,
@@ -85,19 +86,14 @@ local spawnableTypes = {
     MissileLauncher = false , -- but possible
 }
 
-local dataTable      = {} -- Info on each cluster weapon
-local wDefNamesToIDs = {} -- Says it on the tin
-
 for wdid, wdef in pairs(WeaponDefs) do
-    wDefNamesToIDs[wdef.name] = wdid
-
-    if wdef.customParams and wdef.customParams[customParamName] then
+    if wdef.customParams.cluster then
         dataTable[wdid] = {}
         dataTable[wdid].number  = tonumber(wdef.customParams.number) or defaultSpawnNum
         dataTable[wdid].def     = wdef.customParams.def
         dataTable[wdid].projDef = -1
-        dataTable[wdid].projTtl = defaultSpawnTtl
-        dataTable[wdid].projVel = defaultVelocity / GAME_SPEED
+        dataTable[wdid].projTtl = -1
+        dataTable[wdid].projVel = -1
 
         -- Enforce limits, eg the projectile count, at init.
         dataTable[wdid].number  = min(dataTable[wdid].number, maxSpawnNumber)
@@ -123,15 +119,15 @@ end
 -- Information for cluster munitions
 
 for wdid, data in pairs(dataTable) do
-    local cmdid = wDefNamesToIDs[data.def]
+    local cmdid = WeaponDefNames[data.def]
     local cmdef = WeaponDefs[cmdid]
 
     dataTable[wdid].projDef = cmdid
-    dataTable[wdid].projTtl = cmdef.ttl or defaultSpawnTtl
+    dataTable[wdid].projTtl = cmdef.flighttime or defaultSpawnTtl
 
     -- Range and velocity are closely related so may be in disagreement. Average them (more or less):
-    local projVel = cmdef.projectileSpeed or cmdef.startvelocity
-    projVel = projVel and projVel * GAME_SPEED or defaultVelocity
+    local projVel = cmdef.projectilespeed or cmdef.startvelocity
+    projVel = ((projVel and projVel) or defaultVelocity) / gameSpeed
     if cmdef.range > 10 then
         local rangeVel = sqrt(cmdef.range * abs(mapGravity)) -- inverse range calc for launch @ 45deg
         dataTable[wdid].projVel = (projVel + rangeVel) / 2
@@ -234,10 +230,10 @@ local function GetSurfaceDeflection(ex, ey, ez)
         distance = ey - elevation
         x, y, z, m = spGetGroundNormal(ex, ez, true)
         if m > 1e-2 then
-            distance = distance * cos(m)                       -- Actual distance given a flat plane with slope m.
-            m        = distance * sin(m) / sqrt(x * x + z * z) -- Shift to next ground intercept; normalize {x,z}.
+            distance = distance * cos(m)                   -- Actual distance given a flat plane with slope m.
+            m        = distance * sin(m) / sqrt(x*x + z*z) -- Shift to next ground intercept; normalize {x,z}.
             local xm, zm = ex - x * m, ez - z * m
-            elevation = spGetGroundHeight(xm, zm) -- very likely a higher elevation than the previous
+            elevation = spGetGroundHeight(xm, zm)          -- Very likely a higher elevation than the previous
             x, y, z,_ = spGetGroundNormal(xm, zm, true)
 
             -- Shallow water produces a weaker terrain response,
@@ -269,7 +265,7 @@ local function GetSurfaceDeflection(ex, ey, ez)
             _,_,_,ux,uy,uz = spGetUnitPosition(uid, true)
             radius         = spGetUnitRadius(uid)
             if uy + radius > 0 then
-                ux, uy, uz = ex-ux, ey-uy, ez-uz
+                ux, uy, uz = ex-ux,  ey-uy,  ez-uz
                 distance   = ux*ux + uy*uy + uz*uz -- just going to reuse this var a lot
                 uw         = distance / radius
                 distance   = sqrt(distance)
@@ -279,7 +275,7 @@ local function GetSurfaceDeflection(ex, ey, ez)
                     distance = max(1, distance / radius)
                     -- Even with a bunch of transcendentals, the perf isn't so bad.
                     local th_z = atan2(ux, uz)
-                    local ph_y = atan2(uy, sqrt(ux*ux+uz*uz))
+                    local ph_y = atan2(uy, sqrt(ux*ux + uz*uz))
                     local cosy = cos(ph_y)
                     x = x + bounce / distance * sin(th_z) * cosy
                     y = y + bounce / distance * sin(ph_y)
@@ -295,7 +291,7 @@ local function SpawnClusterProjectiles(data, attackerID, ex, ey, ez, deflection)
     local projNum = data.number
     local projVel = data.projVel
 
-    spawnCache.owner = attackerID or -1
+    spawnCache.owner = attackerID
     spawnCache.ttl   = data.projTtl
 
     -- Initial direction vectors are evenly spaced.
@@ -323,9 +319,9 @@ local function SpawnClusterProjectiles(data, attackerID, ex, ey, ez, deflection)
 
         -- Pre-scatter the projectile and set its initial position.
         spawnCache.pos = {
-            ex + vx * GAME_SPEED / 2,
-            ey + vy * GAME_SPEED / 10 * max(1, 5 * abs(vy) / projVel),
-            ez + vz * GAME_SPEED / 2
+            ex + vx * gameSpeed / 2,
+            ey + vy * gameSpeed / 10 * max(1, 5 * abs(vy) / projVel),
+            ez + vz * gameSpeed / 2
         }
 
         spSpawnProjectile(data.projDef, spawnCache)
@@ -355,9 +351,13 @@ function gadget:ShutDown()
     DirectionsUtil = nil
 end
 
-function gadget:Explosion(weaponDefID, ex, ey, ez, attackerID, projID)
-    if not dataTable[weaponDefID] then return end
-    local weaponData = dataTable[weaponDefID]
-    local deflection = GetSurfaceDeflection(ex, ey, ez)
-    SpawnClusterProjectiles(weaponData, attackerID, ex, ey, ez, deflection)
+function gadget:Explosion(weaponDefID, ex, ey, ez, attackID, projID)
+    if dataTable[weaponDefID] then
+        SpawnClusterProjectiles(
+            dataTable[weaponDefID],
+            attackID,
+            ex, ey, ez,
+            GetSurfaceDeflection(ex, ey, ez)
+        )
+    end
 end
