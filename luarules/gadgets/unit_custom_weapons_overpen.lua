@@ -46,7 +46,6 @@ local overpenDuration = 5                -- In seconds. Time-to-live or flight t
 -- Locals ----------------------------------------------------------------------------------------------------
 
 local max  = math.max
-local min  = math.min
 local sqrt = math.sqrt
 
 local spGetProjectilePosition   = Spring.GetProjectilePosition
@@ -160,8 +159,8 @@ local function consumePenetrator(projID, unitID, damage, attackID)
     local health, healthMax = spGetUnitHealth(unitID)
     damage = damage * params[2]
 
-    if damage >= health and damage >= healthMax * damageThreshold then
-        params[2] = params[2] - min(health, damage) / params[1].damage - params[1].decrease
+    if health and damage >= health and damage >= healthMax * damageThreshold then
+        params[2] = params[2] - health / params[1].damage - params[1].decrease
         if params[2] > damageThreshold then
             spawnFromID[projID] = params
         end
@@ -172,14 +171,13 @@ local function consumePenetrator(projID, unitID, damage, attackID)
         explosion.owner = attackID
         spSpawnExplosion(px, py, pz, 0, 0, 0, explosion)
     else
-        local impulse = params[2] * (1 + impulseModifier) / (1 + params[2] * impulseModifier)
-        return damage, impulse
+        return damage, params[2] * (1 + impulseModifier) / (1 + params[2] * impulseModifier)
     end
 
     return damage
 end
 
-local function respawnPenetrator(projID, unitID, attackID)
+local function respawnPenetrator(projID, unitID, attackID, penDefID)
     local params = spawnFromID[projID]
     spawnFromID[projID] = nil
 
@@ -202,7 +200,7 @@ local function respawnPenetrator(projID, unitID, attackID)
     data.pos[1] = px + badmove * vx
     data.pos[2] = py + badmove * vy
     data.pos[3] = pz + badmove * vz
-    data.owner = attackID or -1
+    data.owner = attackID
 
     if params[1].penDefID then
         penDefID = params[1].penDefID
@@ -230,6 +228,10 @@ function gadget:Initialize()
     if not next(weaponParams) then
         Spring.Log(gadget:GetInfo().name, LOG.INFO, "No weapons with over-penetration found. Removing.")
         gadgetHandler:RemoveGadget(self)
+    end
+
+    for weaponDefID, params in ipairs(weaponParams) do
+        Script.SetWatchProjectile(weaponDefID, true)
     end
 end
 
