@@ -161,8 +161,6 @@ local unitBulk = {} -- How sturdy the unit is. Projectiles scatter less with low
 
 for udid, udef in pairs(UnitDefs) do
     -- Set the unit bulk values.
-    -- todo: We don't even _detect_ walls. "Objectified" units aren't returned by GetUnitsInSphere?
-    -- todo: Seems likely that the same goes for wall-like units, then.
     if udef.armorType == Game.armorTypes.wall or udef.armorType == Game.armorTypes.indestructible then
         unitBulk[udid] = 0.9
     elseif udef.customParams.neutral_when_closed then -- Dragon turrets
