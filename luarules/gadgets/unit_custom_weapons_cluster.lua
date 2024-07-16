@@ -4,10 +4,10 @@ function gadget:GetInfo()
         desc    = 'Custom behavior for projectiles that explode and split on impact.',
         author  = 'efrec',
         version = '1.1',
-        -date    = '2024-07-15',
+        date    = '2024-07-15',
         license = 'GNU GPL, v2 or later',
         layer   = 10, -- preempt :Explosion handlers like fx_watersplash.lua that return `true` (not pure fx)
-        enabled = true
+        enabled = true,
     }
 end
 
@@ -76,8 +76,6 @@ local SetWatchExplosion  = Script.SetWatchExplosion
 
 -- Information table for cluster weapons
 
-local dataTable      = {} -- Info on each cluster weapon
-
 local spawnableTypes = {
     Cannon          = true  ,
     EMGCannon       = true  ,
@@ -86,14 +84,19 @@ local spawnableTypes = {
     MissileLauncher = false , -- but possible
 }
 
+local dataTable      = {} -- Info on each cluster weapon
+local wDefNamesToIDs = {} -- Says it on the tin
+
 for wdid, wdef in pairs(WeaponDefs) do
+    wDefNamesToIDs[wdef.name] = wdid
+
     if wdef.customParams.cluster then
         dataTable[wdid] = {}
         dataTable[wdid].number  = tonumber(wdef.customParams.number) or defaultSpawnNum
         dataTable[wdid].def     = wdef.customParams.def
         dataTable[wdid].projDef = -1
-        dataTable[wdid].projTtl = -1
-        dataTable[wdid].projVel = -1
+        dataTable[wdid].projTtl = defaultSpawnTtl
+        dataTable[wdid].projVel = defaultVelocity
 
         -- Enforce limits, eg the projectile count, at init.
         dataTable[wdid].number  = min(dataTable[wdid].number, maxSpawnNumber)
@@ -119,7 +122,7 @@ end
 -- Information for cluster munitions
 
 for wdid, data in pairs(dataTable) do
-    local cmdid = WeaponDefNames[data.def]
+    local cmdid = wDefNamesToIDs[data.def]
     local cmdef = WeaponDefs[cmdid]
 
     dataTable[wdid].projDef = cmdid
@@ -154,6 +157,7 @@ for wdid, data in pairs(dataTable) do
         dataTable[wdid] = nil
     end
 end
+wDefNamesToIDs = nil
 
 -- Information on units
 
@@ -161,6 +165,8 @@ local unitBulk = {} -- How sturdy the unit is. Projectiles scatter less with low
 
 for udid, udef in pairs(UnitDefs) do
     -- Set the unit bulk values.
+    -- todo: We don't even _detect_ walls. "Objectified" units aren't returned by GetUnitsInSphere?
+    -- todo: Seems likely that the same goes for wall-like units, then.
     if udef.armorType == Game.armorTypes.wall or udef.armorType == Game.armorTypes.indestructible then
         unitBulk[udid] = 0.9
     elseif udef.customParams.neutral_when_closed then -- Dragon turrets
