@@ -287,6 +287,7 @@ if gadgetHandler:IsSyncedCode() then
 		for ii, distance in ipairs(rangeIterator) do
 			local targetID = table.getKeyOf(unitsToRanges, distance)
 			valid = Spring.SetProjectileTarget(proID, targetID)
+			if valid then break end
 		end
 
 		-- When failing to retarget, zip off in a direction.
