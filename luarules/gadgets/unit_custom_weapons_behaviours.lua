@@ -23,6 +23,27 @@ local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
 local SpGetProjectileTarget = Spring.GetProjectileTarget
 local SpGetUnitIsDead = Spring.GetUnitIsDead
 
+do
+	local fcomp_default = function(a, b) return a < b end
+	function bininsertkv(tkv, tvk, key, value, fcomp)
+		local fcomp = fcomp or fcomp_default
+
+		local start, stop, mid, state = 1, #t, 1, 0
+		while start <= stop do
+			mid = math.floor((start + stop) / 2)
+			if fcomp(value, tvk[mid]) then
+				stop, state = mid - 1, 0
+			else
+				start, state = mid + 1, 1
+			end
+		end
+
+		tvk[value] = key
+		tkv[key] = value
+		return (mid + state)
+	end
+end
+
 if gadgetHandler:IsSyncedCode() then
 
 	local projectiles = {}
