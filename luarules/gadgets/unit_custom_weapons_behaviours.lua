@@ -206,30 +206,78 @@ if gadgetHandler:IsSyncedCode() then
             return false
         end
     end
-	
-	
+
 	--a Hornet special, mangle different two things into working as one (they're otherwise mutually exclusive)
 	checkingFunctions.torpwaterpenretarget = {}
     checkingFunctions.torpwaterpenretarget["ypos<0"] = function (proID)
-	
-		checkingFunctions.retarget["always"](proID)--subcontract that part
-	
-        local _,py,_ = Spring.GetProjectilePosition(proID)
-        if py <= 0 then
-			--and delegate that too
-			applyingFunctions.torpwaterpen(proID)
-        else
-            return false
-        end
+		local px, py, pz = Spring.GetProjectilePosition(proID)
+		if py > 0 then return false end -- continue
+
+		local timeToLive = SpGetProjectileTimeToLive(proID)
+		if timeToLive <= 0 then return true end -- apply
+
+		-- Retargeting code notes --
+
+		-- Unit-based retargeting:
+		-- torp will fail to retarget when unit dies;
+		-- with sea AA fairness tweaks, this might cause knife-edge catastrophic performance;
+		-- we don't want units to determine retargeting anyway; players will re-target on AA.
+
+		-- Lua-based retargeting:
+		-- requires new engine version
+		-- torp finds its own target by modified nearest search;
+		-- considers: target in water; target proximity
+		-- doesn't know: target in same body of water
+		-- ignores: owner dead, priority targeting, badtarget, avoidtarget
+		-- hopefully I'm not ignoring cloaking rn?
+
+		-- Nothing changes when the target is alive.
+		local targetTypeInt, targetID = SpGetProjectileTarget(proID)
+		if targetTypeInt == string.byte('u') then
+			if SpGetUnitIsDead(targetID) == false then
+				return false -- continue
+			end
+		end
+
+		-- Retarget when the target is otherwise.
+		local searchArea = WeaponDefs[Spring.GetProjectileDefID(proID)].weaponvelocity * timeToLive -- todo: better than this
+		local vx, vy, vz = Spring.GetProjectileVelocity(proDI)
+		local tx, ty, tz = px + vx*15, py + vy*15, pz + vz*15
+		local allEnemies = Spring.GetUnitsInCylinder(tx, ty, tz, searchArea, -4) -- Enemy units := -4
+
+		local targetable = {}
+		local distToUnit = {}
+		for _, unitID in ipairs(allEnemies) do
+				if not SpGetUnitIsDead(unitID) == false then
+				local physicalMask = Spring.GetUnitPhysicalState(unitID)
+				if physicalMask % 1 == 1 or physicalMask % 2 == 1 then -- INWATER := 1, UNDERWATER := 2
+					local ux, uy, uz = Spring.GetUnitPosition(unitID)
+					local dx, dy, dz = ux-px, uy-py, uz-pz
+					bininsertkv(targetable, distToUnit, unitID, (dx*dx)+(dy*dy)+(dz*dz))
+				end
+			end
+		end
+
+		local valid = false
+		for ii, distance in ipairs(distToUnit) do
+			local targetID = table.getKeyOf(targetable, distance)
+			valid = Spring.SetProjectileTarget(proID, targetID)
+		end
+
+		-- When failing to retarget, zip off in a direction.
+		if not valid then
+			Spring.SetProjectileVelocity(proID, vx * 1.1, vy * 0.5, vz * 1.1) -- todo: better than this
+		end
+
+		return false -- continue
     end
-	
+
 	--fake function
 	applyingFunctions.torpwaterpenretarget = function (proID)
 		return false
-
 	end
 
-	
+
 
 	applyingFunctions.split = function (proID)
 		local px, py, pz = Spring.GetProjectilePosition(proID)
