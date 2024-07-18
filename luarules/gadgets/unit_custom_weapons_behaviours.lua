@@ -25,13 +25,13 @@ local SpGetUnitIsDead = Spring.GetUnitIsDead
 
 do
 	local fcomp_default = function(a, b) return a < b end
-	function bininsertkv(tkv, tvk, key, value, fcomp)
+	function bininsertkv(tkv, tvk, t, key, value, fcomp)
 		local fcomp = fcomp or fcomp_default
 
 		local start, stop, mid, state = 1, #t, 1, 0
 		while start <= stop do
 			mid = math.floor((start + stop) / 2)
-			if fcomp(value, tvk[mid]) then
+			if fcomp(value, tvk[t[mid]]) then
 				stop, state = mid - 1, 0
 			else
 				start, state = mid + 1, 1
@@ -40,6 +40,7 @@ do
 
 		tvk[value] = key
 		tkv[key] = value
+		table.insert(t, value)
 		return (mid + state)
 	end
 end
@@ -266,22 +267,25 @@ if gadgetHandler:IsSyncedCode() then
 		local tx, ty, tz = px + vx*15, py + vy*15, pz + vz*15
 		local allEnemies = Spring.GetUnitsInCylinder(tx, ty, tz, searchArea, -4) -- Enemy units := -4
 
-		local targetable = {}
-		local distToUnit = {}
-		for _, unitID in ipairs(allEnemies) do
-				if not SpGetUnitIsDead(unitID) == false then
-				local physicalMask = Spring.GetUnitPhysicalState(unitID)
-				if physicalMask % 1 == 1 or physicalMask % 2 == 1 then -- INWATER := 1, UNDERWATER := 2
-					local ux, uy, uz = Spring.GetUnitPosition(unitID)
-					local dx, dy, dz = ux-px, uy-py, uz-pz
-					bininsertkv(targetable, distToUnit, unitID, (dx*dx)+(dy*dy)+(dz*dz))
+		local unitsToRanges = {}
+		local rangeIterator = {}
+		do
+			local rangesToUnits = {} -- middleman table
+			for _, unitID in ipairs(allEnemies) do
+					if not SpGetUnitIsDead(unitID) == false then
+					local physicalMask = Spring.GetUnitPhysicalState(unitID)
+					if physicalMask % 1 == 1 or physicalMask % 2 == 1 then -- INWATER := 1, UNDERWATER := 2
+						local ux, uy, uz = Spring.GetUnitPosition(unitID)
+						local dx, dy, dz = ux-px, uy-py, uz-pz
+						bininsertkv(unitsToRanges, rangesToUnits, rangeIterator, unitID, (dx*dx)+(dy*dy)+(dz*dz))
+					end
 				end
 			end
 		end
 
 		local valid = false
-		for ii, distance in ipairs(distToUnit) do
-			local targetID = table.getKeyOf(targetable, distance)
+		for ii, distance in ipairs(rangeIterator) do
+			local targetID = table.getKeyOf(unitsToRanges, distance)
 			valid = Spring.SetProjectileTarget(proID, targetID)
 		end
 
