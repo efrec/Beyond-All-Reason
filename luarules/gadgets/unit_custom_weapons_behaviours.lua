@@ -250,7 +250,7 @@ if gadgetHandler:IsSyncedCode() then
 		-- torp finds its own target by modified nearest search;
 		-- considers: target in water; target proximity
 		-- doesn't know: target in same body of water
-		-- ignores: owner dead, priority targeting, badtarget, avoidtarget
+		-- ignores: owner dead, priority targeting(, avoidtarget?)
 		-- hopefully I'm not ignoring cloaking rn?
 
 		-- Nothing changes when the target is alive.
