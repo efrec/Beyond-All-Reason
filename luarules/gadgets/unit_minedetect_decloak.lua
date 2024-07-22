@@ -36,7 +36,7 @@ local cegSpawnTime = 4
 -- (2) radarDistance
 -- (3) anti-mine weapon range
 -- (4) anti-mine weapon area of effect
--- (5) the inverse detection rate, so very-slow polling rates don't cause issues.
+-- (5) the inverse detection rate, so slow polling rates don't cause issues.
 
 
 --------------------------------------------------------------------------------
@@ -116,8 +116,8 @@ do
 	local unitToIndex = {}
 
 	-- Our grid cells have to be larger than the largest detection radius
-	-- and can be any size larger than that (to prevent making 1 million regions).
-	local gridSize = 128 -- NB: The maximum grid cell count is this value, squared.
+	-- and can be any size larger than that (to prevent making 1M regions).
+	local gridSize = 128 -- NB: The maximum grid cell count is this, squared.
 	local hashSize = -math.huge
 	for unitDefID, detectionRadius in pairs(mineDetectorDefs) do
 		if detectionRadius > hashSize then
@@ -295,14 +295,19 @@ end
 function gadget:Initialize()
 	-- Remove only if there is total certainty that we may do so.
 	if not next(mineUnitDefs) or not next(mineDetectorDefs) then
-		Spring.Log(gadget:GetInfo().name, LOG.INFO, "No mine detectors or sweepers found. Removing gadget.")
+		Spring.Log(gadget:GetInfo().name, LOG.INFO,
+			"No mine detectors or sweepers found. Removing gadget.")
 		gadgetHandler:RemoveGadget(self)
 		return
 	end
 
 	-- Init/restore unit tracking.
 	for _, unitID in ipairs(Spring.GetAllUnits()) do
-		gadget:UnitCreated(unitID, Spring.GetUnitDefID(unitID), Spring.GetUnitTeam(unitID))
+		gadget:UnitCreated(
+			unitID,
+			Spring.GetUnitDefID(unitID),
+			Spring.GetUnitTeam(unitID)
+		)
 	end
 end
 
@@ -342,7 +347,9 @@ function gadget:UnitDestroyed(unitID)
 end
 
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions)
-	if (cmdID == CMD_ONOFF or cmdID == CMD_ON or cmdID == CMD_OFF) and mineDetectorDefs[unitDefID] then
+	if (cmdID == CMD_ONOFF or cmdID == CMD_ON or cmdID == CMD_OFF)
+		and mineDetectorDefs[unitDefID]
+	then
 		return not setMineDetection(
 			unitID, unitDefID,
 			(cmdID == CMD_ON  and ON)  or
