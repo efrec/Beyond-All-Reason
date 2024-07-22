@@ -181,7 +181,7 @@ local options = {
         }
     },
 
-    
+
     {
         key     = "teamffa_start_boxes_shuffle",
         name    = "Shuffle TeamFFA Start Boxes",
@@ -239,8 +239,17 @@ local options = {
 
     {
 		key 	= "no_comtrans",
-		name 	= "Tech 1 Transport Aircraft Can't Carry Commanders",
+		name 	= "T1 transports cant load commanders",
 		desc 	= "Commanders will be too heavy for tech 1 transports to carry. (Tech 2 transports can still carry)",
+		type 	= "bool",
+		section = "options_main",
+		def 	= false,
+	},
+
+	{
+		key 	= "slow_comtrans",
+		name 	= "Slower Transported Commanders",
+		desc 	= "Transports carrying commanders are significantly slower, limiting offensive use and reactive mobility",
 		type 	= "bool",
 		section = "options_main",
 		def 	= false,
