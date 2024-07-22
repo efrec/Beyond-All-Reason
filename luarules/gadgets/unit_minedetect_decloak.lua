@@ -254,7 +254,7 @@ do
 	end
 end
 
-local function detectEnemyMines(unitID, params, gameFrame)
+local function detectEnemyMines(unitID, params)
 	if not (Spring.GetUnitIsStunned(unitID)) then
 		local ux, uy, uz = Spring.GetUnitPosition(unitID) -- from base
 		if not ux then return end -- maybe dead
@@ -314,7 +314,7 @@ end
 function gadget:GameFrame(gameFrame)
 	for unitID, params in pairs(mineDetectors) do
 		if (unitID + gameFrame) % detectionRate == 0 then
-			detectEnemyMines(unitID, params, gameFrame)
+			detectEnemyMines(unitID, params)
 			if (unitID + gameFrame) % cegSpawnTime == 0 then
 				Spring.SpawnCEG(cegSpawnName, ux, uy, uz, 0, 0, 0, 0, 0)
 			end
