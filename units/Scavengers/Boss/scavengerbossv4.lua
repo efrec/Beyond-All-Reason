@@ -1,7 +1,6 @@
 local playerCountScale = 1
 if Spring.Utilities.Gametype.IsScavengers() then
-	playerCountScale = (#Spring.GetTeamList() - 2) /
-		8 -- -2 because scavs and gaia shouldn't count, divided by 8 because we use 8 player games as a baseline
+	playerCountScale = math.min(1, (#Spring.GetTeamList() - 2) / 8) -- -2 because scavs and gaia shouldn't count, divided by 8 because we use 8 player games as a baseline
 end
 
 local baseValues = { --format: {value, multiplier}
@@ -421,7 +420,7 @@ for difficulty, stats in pairs(difficultyParams) do
 			eaterbeam = {
 				areaofeffect = 300,
 				avoidfeature = false,
-				beamtime = 1,
+				beamtime = 1.2,
 				--burst = 2,
 				--burstrate = 0.33,
 				camerashake = 2000,
@@ -443,7 +442,7 @@ for difficulty, stats in pairs(difficultyParams) do
 				noselfdamage = true,
 				--proximitypriority = -0.2,
 				range = 600,
-				reloadtime = 0.33,
+				reloadtime = 0.30,
 				rgbcolor = "0.5 0.2 0.8",
 				rgbcolor2 = "0.6 0.4 0.8",
 				scrollspeed = -5,
@@ -513,7 +512,7 @@ for difficulty, stats in pairs(difficultyParams) do
 				},
 			},
 			turbo_missilelauncher = {
-				areaofeffect = 250,
+				areaofeffect = 350,
 				avoidfeature = false,
 				burnblow = true,
 				burst = 6,
@@ -545,7 +544,7 @@ for difficulty, stats in pairs(difficultyParams) do
 				soundhit = "corban_b",
 				soundhitwet = "splsmed",
 				soundstart = "corban_a",
-				sprayangle = 4000,
+				sprayangle = 6000,
 				startvelocity = 600,
 				texture1 = "null",
 				texture2 = "railguntrail",
