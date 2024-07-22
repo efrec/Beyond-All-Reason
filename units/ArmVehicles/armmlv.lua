@@ -35,6 +35,7 @@ return {
 		movementclass = "TANK2",
 		nochasecategory = "ALL",
 		objectname = "Units/ARMMLV.s3o",
+		onoffable = true,
 		radardistancejam = 64,
 		script = "Units/ARMMLV.cob",
 		seismicsignature = 0,
@@ -63,6 +64,7 @@ return {
 			model_author = "Beherith",
 			normaltex = "unittextures/Arm_normal.dds",
 			subfolder = "armvehicles",
+			onoffname = "minedetection",
 		},
 		featuredefs = {
 			dead = {

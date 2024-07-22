@@ -35,6 +35,7 @@ return {
 		movementclass = "TANK2",
 		nochasecategory = "ALL",
 		objectname = "Units/CORMLV.s3o",
+		onoffable = true,
 		radardistancejam = 64,
 		script = "Units/CORMLV.cob",
 		seismicsignature = 0,
@@ -63,6 +64,7 @@ return {
 			model_author = "Mr Bob",
 			normaltex = "unittextures/cor_normal.dds",
 			subfolder = "corvehicles",
+			onoffname = "minedetection",
 		},
 		featuredefs = {
 			dead = {

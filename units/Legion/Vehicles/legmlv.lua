@@ -35,6 +35,7 @@ return {
 		movementclass = "TANK2",
 		nochasecategory = "ALL",
 		objectname = "Units/legmlv.s3o",
+		onoffable = true,
 		radardistancejam = 64,
 		script = "Units/legmlv.cob",
 		seismicsignature = 0,
@@ -63,6 +64,7 @@ return {
 			model_author = "Tharsis",
 			normaltex = "unittextures/leg_normal.dds",
 			subfolder = "legion/vehicles",
+			onoffname = "minedetection",
 		},
 		featuredefs = {
 			dead = {
