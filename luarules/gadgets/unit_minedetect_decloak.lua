@@ -97,7 +97,7 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 	end
 end
 
--- Keep track of mines, detectors, fake seismic pings, and other post-detection effects.
+-- Keep track of mines and minesweepers.
 
 local mines = {}
 local mineDetectors = {}
