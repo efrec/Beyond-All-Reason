@@ -14,4 +14,9 @@ cmdArray = {
 		action		= "customOnOff.dreadshot",
 		params		= { '1', "customOnOff.overcharge", "customOnOff.dreadshot" }
 	},
+	minedetection = {
+		name		= "Toggle Off/Mine Sweeping",
+		action		= "customOnOff.minedetection",
+		params		= { '1', "customOnOff.mineDetectionOff", "customOnOff.mineDetectionOn" }
+	}
 }

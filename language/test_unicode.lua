@@ -209,6 +209,9 @@ return {
 					gaussCannon = "Gauss Cannon",
 					heavyPlasma = "Heavy Plasma",
 					gauss_tooltip = "Switches between Gauss Cannon and Heavy Plasma Cannon",
+					mineDetectionOff = "Off",
+					mineDetectionOn = "Mine Sweeping",
+					minedetection_tooltip = "Use radar jamming to get close and decloak mines"
 				}
 			},
 			moveGameWindow = {

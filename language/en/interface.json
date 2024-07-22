@@ -284,7 +284,10 @@
 				"gauss_tooltip": "Switches between Gauss Cannon and Heavy Plasma Cannon",
 				"dreadshot": "Normal fire",
 				"overcharge": "Overcharge",
-				"dreadshot_tooltip": "Switches between normal fire and overcharged mode"
+				"dreadshot_tooltip": "Switches between normal fire and overcharged mode",
+				"mineDetectionOff": "Off",
+				"mineDetectionOn": "Mine Sweeping",
+				"minedetection_tooltip": "Use radar jamming to get close and decloak mines"
 			}
 		},
 		"idleBuilders": {
