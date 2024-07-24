@@ -27,7 +27,6 @@ local detectionTime = 10
 --     onoffname             = "minedetection",          -- << Required.
 --     minedetection_radius  = <number> | default radius
 -- }
--- 
 
 
 --------------------------------------------------------------------------------
@@ -94,11 +93,8 @@ end
 local mines = {}
 local mineDetectors = {}
 
+-- Grid spatial indexing with variable-radius range search.
 
---------------------------------------------------------------------------------
--- Local functions -------------------------------------------------------------
-
--- Grid spatial indexing with variable-radius range search:
 local gridRegions = {}
 local unitToIndex = {}
 
@@ -121,6 +117,10 @@ cellSize = math.ceil(math.sqrt(math.max(
 )))
 local rows = math.ceil((Game.mapSizeX + cellSize) / cellSize)
 local cols = math.ceil((Game.mapSizeZ + cellSize) / cellSize)
+
+
+--------------------------------------------------------------------------------
+-- Local functions -------------------------------------------------------------
 
 ---Index your grid
 local round = math.round
@@ -149,7 +149,7 @@ end
 ---Add a unit and its tracking data to its grid cell
 local addTrackedUnit = function(unitID)
 	local allyID  = spGetUnitAllyTeam(unitID)
-	local x, y, z = spGetUnitPosition(unitID)
+	local x, _, z = spGetUnitPosition(unitID)
 	if not x then return end -- born to the abyss, rip
 
 	local index = getRegionIndex(x, z)
@@ -159,7 +159,7 @@ local addTrackedUnit = function(unitID)
 	end
 	table.insert(gridRegions[index], unitID)
 
-	mines[unitID] = { allyID, x, y, z }
+	mines[unitID] = { allyID, x, z }
 end
 
 ---Find and remove a unit from its grid cell
@@ -246,6 +246,7 @@ do
 		table.insert(gridQueries[ii], ii)
 	end
 
+	---Get the regions to search surrounding an x-z coordinate
 	getSearchRegions = function(x, z)
 		local searchRegions = {}
 		for _, index in ipairs(gridQueries[getRegionIndex(x, z)]) do
@@ -255,6 +256,7 @@ do
 	end
 end
 
+---Handle the onoffable toggle state for minesweepers.
 local function setMineDetection(unitID, unitDefID, state)	
 	if state == ON then
 		mineDetectors[unitID] = { spGetUnitAllyTeam(unitID), mineDetectorDefs[unitDefID] }
@@ -299,7 +301,7 @@ function gadget:GameFrame(gameFrame)
 						local mineData = mines[mineID]
 						if allyID ~= mineData[1] then
 							if distSq >= (mineData[2] - ux) * (mineData[2] - ux) +
-										 (mineData[4] - uz) * (mineData[4] - uz)
+										 (mineData[3] - uz) * (mineData[3] - uz)
 							then
 								PokeDecloakUnit(mineID, detectionTime)
 							end
