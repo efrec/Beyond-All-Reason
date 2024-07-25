@@ -292,7 +292,6 @@ function gadget:Initialize()
 end
 
 function gadget:GameFrame(gameFrame)
-	local regions = gridRegions
 	for unitID, params in pairs(mineDetectors) do
 		if (unitID + gameFrame) % detectionRate == 0 then
 			if not (Spring.GetUnitIsStunned(unitID)) then
@@ -300,9 +299,9 @@ function gadget:GameFrame(gameFrame)
 				local spotSq = params[2] * params[2]
 				local ux, uy, uz = Spring.GetUnitPosition(unitID) -- from base
 
-				local indices = getSearchRegions(ux, uz)
-				for ii = 1, #indices do
-					local region = regions[indices[ii]]
+				local regions = getSearchRegions(ux, uz)
+				for ii = 1, #regions do
+					local region = regions[ii]
 					for jj = 1, #region do
 						local mineID   = region[jj]
 						local mineData = mines[mineID]
