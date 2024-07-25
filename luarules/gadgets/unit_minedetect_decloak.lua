@@ -310,8 +310,7 @@ function gadget:GameFrame(gameFrame)
 							local mx, mz = mineData[2], mineData[3]
 							local distSq = (mx-ux)*(mx-ux) + (mz-uz)*(mz-uz)
 							if spotSq >= distSq then
-								local duration = detectionTime * (1 - distSq / (2 * spotSq))
-								PokeDecloakUnit(mineID, duration)
+								PokeDecloakUnit(mineID, detectionTime)
 							end
 						end
 					end
