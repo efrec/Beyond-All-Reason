@@ -14,7 +14,7 @@ end
 if not gadgetHandler:IsSyncedCode() then return false end
 
 
---------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 --
 --  impactonly = true,                         -- << Required.
 -- 	customparams = {
@@ -25,25 +25,25 @@ if not gadgetHandler:IsSyncedCode() then return false end
 --      overpen_expl_def = <string> | nil,
 -- 	}
 --
---------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 
---------------------------------------------------------------------------------------------------------------
--- Configuration ---------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Configuration ---------------------------------------------------------------
 
-local damageThreshold = 0.1              -- A percentage. Minimum damage that can overpen; a tad multipurpose.
-local impulseModifier = 1.7              -- A coefficient. Increases impulse when a target stops a penetrator.
-local preventArmorPen = false            -- When set to `true`, all currently-armored units block penetrators.
+local damageThreshold = 0.1      -- A percentage. Minimum damage that can overpen; a tad multipurpose.
+local impulseModifier = 1.7      -- A coefficient. Increases impulse when a target stops a penetrator.
+local preventArmorPen = false    -- When set to `true`, all currently-armored units block penetrators.
 
--- Customparam defaults --------------------------------------------------------------------------------------
+-- Customparam defaults --------------------------------------------------------
 
-local overpenDecrease = 0.02             -- A percentage. Additional damage falloff per each over-penetration.
-local overpenOverkill = 0.2              -- A percentage. Additional damage to destroyed targets; can be < 0.
-local overpenDuration = 5                -- In seconds. Time-to-live or flight time of re-spawned projectiles.
+local overpenDecrease = 0.02     -- A percentage. Additional damage falloff per each over-penetration.
+local overpenOverkill = 0.2      -- A percentage. Additional damage to destroyed targets; can be < 0.
+local overpenDuration = 5        -- In seconds. Time-to-live or flight time of re-spawned projectiles.
 
 
---------------------------------------------------------------------------------------------------------------
--- Locals ----------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Locals ----------------------------------------------------------------------
 
 local max  = math.max
 local sqrt = math.sqrt
@@ -63,8 +63,8 @@ local gameSpeed  = Game.gameSpeed
 local mapGravity = -1 * Game.gravity / gameSpeed / gameSpeed
 
 
---------------------------------------------------------------------------------------------------------------
--- Setup -----------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Setup -----------------------------------------------------------------------
 
 -- Find all weapons with an over-penetration behavior.
 
@@ -144,8 +144,8 @@ local spawnCache = {
 }
 
 
---------------------------------------------------------------------------------------------------------------
--- Functions -------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Functions -------------------------------------------------------------------
 
 local function consumePenetrator(projID, unitID, damage, attackID)
     local params = penetrators[projID]
@@ -204,10 +204,12 @@ local function respawnPenetrator(projID, unitID, attackID, penDefID)
 
     if params[1].penDefID then
         penDefID = params[1].penDefID
-        vx, vy, vz = vx * params[1].velRatio, vy * params[1].velRatio, vz * params[1].velRatio
+        vx, vy, vz = vx * params[1].velRatio,
+                     vy * params[1].velRatio,
+                     vz * params[1].velRatio
         timeToLive = timeToLive * params[1].ttlRatio
         params[1]  = weaponParams[penDefID]
-        params[2]  = (1 + params[2]) / 2 -- Reduces the damage loss when spawning a different weaponDef.
+        params[2]  = (1 + params[2]) / 2 -- Reduced damage loss.
     end
 
     data.speed[1] = vx
@@ -221,12 +223,13 @@ local function respawnPenetrator(projID, unitID, attackID, penDefID)
 end
 
 
---------------------------------------------------------------------------------------------------------------
--- Gadget call-ins -------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Gadget call-ins -------------------------------------------------------------
 
 function gadget:Initialize()
     if not next(weaponParams) then
-        Spring.Log(gadget:GetInfo().name, LOG.INFO, "No weapons with over-penetration found. Removing.")
+        Spring.Log(gadget:GetInfo().name, LOG.INFO,
+            "No weapons with over-penetration found. Removing.")
         gadgetHandler:RemoveGadget(self)
     end
 
@@ -241,13 +244,15 @@ function gadget:ProjectileCreated(projID, ownerID, weaponDefID)
     end
 end
 
-function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
+function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam,
+    damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
     if penetrators[projID] then
         return consumePenetrator(projID, unitID, damage, attackID)
     end
 end
 
-function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
+function gadget:UnitDamaged(unitID, unitDefID, unitTeam,
+    damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
     if spawnFromID[projID] and (not preventArmorPen or not spGetUnitArmored(unitID)) then
         respawnPenetrator(projID, unitID, attackID, weaponDefID)
     end
