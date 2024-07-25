@@ -123,10 +123,10 @@ local cols = math.ceil((Game.mapSizeZ + cellSize) / cellSize)
 -- Local functions -------------------------------------------------------------
 
 ---Index your grid
-local round = math.round
+local floor = math.floor
 local function getRegionIndex(x, z)
-	return round(1 + x / cellSize) +
-	       round(1 + z / cellSize) * rows
+	return floor(1.5 + x / cellSize) +
+	       floor(1.5 + z / cellSize) * rows
 end
 
 ---Debug your grid
@@ -249,8 +249,10 @@ do
 	---Get the regions to search surrounding an x-z coordinate
 	getSearchRegions = function(x, z)
 		local searchRegions = {}
-		for _, index in ipairs(gridQueries[getRegionIndex(x, z)]) do
-			searchRegions[#searchRegions+1] = gridRegions[index]
+		local regions = gridRegions
+		local indices = gridQueries[getRegionIndex(x, z)]
+		for ii = 1, #indices do
+			searchRegions[#searchRegions+1] = regions[indices[ii]]
 		end
 		return searchRegions
 	end
@@ -290,20 +292,26 @@ function gadget:Initialize()
 end
 
 function gadget:GameFrame(gameFrame)
+	local regions = gridRegions
 	for unitID, params in pairs(mineDetectors) do
 		if (unitID + gameFrame) % detectionRate == 0 then
 			if not (Spring.GetUnitIsStunned(unitID)) then
 				local allyID = params[1]
-				local distSq = params[2] * params[2]
-				local ux, _, uz = Spring.GetUnitPosition(unitID) -- from base
-				for _, region in ipairs(getSearchRegions(ux, uz)) do
-					for _, mineID in ipairs(region) do
+				local spotSq = params[2] * params[2]
+				local ux, uy, uz = Spring.GetUnitPosition(unitID) -- from base
+
+				local indices = getSearchRegions(ux, uz)
+				for ii = 1, #indices do
+					local region = regions[indices[ii]]
+					for jj = 1, #region do
+						local mineID   = region[jj]
 						local mineData = mines[mineID]
 						if allyID ~= mineData[1] then
-							if distSq >= (mineData[2] - ux) * (mineData[2] - ux) +
-										 (mineData[3] - uz) * (mineData[3] - uz)
-							then
-								PokeDecloakUnit(mineID, detectionTime)
+							local mx, mz = mineData[2], mineData[3]
+							local distSq = (mx-ux)*(mx-ux) + (mz-uz)*(mz-uz)
+							if spotSq >= distSq then
+								local duration = detectionTime * (1 - distSq / (2 * spotSq))
+								PokeDecloakUnit(mineID, duration)
 							end
 						end
 					end
