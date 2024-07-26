@@ -59,9 +59,6 @@ local spGetUnitRadius           = Spring.GetUnitRadius
 local spSpawnExplosion          = Spring.SpawnExplosion
 local spSpawnProjectile         = Spring.SpawnProjectile
 
-local gameSpeed  = Game.gameSpeed
-local mapGravity = -1 * Game.gravity / gameSpeed / gameSpeed
-
 
 --------------------------------------------------------------------------------
 -- Setup -----------------------------------------------------------------------
@@ -91,8 +88,8 @@ for weaponDefID, weaponDef in ipairs(WeaponDefs) do
                 local penDefVelocity = WeaponDefs[penDefID].weaponvelocity
                 params.velRatio = penDefVelocity / driverVelocity
 
-                local driverLifetime = weaponDef.flighttime            or overpenDuration * gameSpeed
-                local penDefLifetime = WeaponDefs[penDefID].flighttime or overpenDuration * gameSpeed
+                local driverLifetime = weaponDef.flighttime            or overpenDuration * Game.gameSpeed
+                local penDefLifetime = WeaponDefs[penDefID].flighttime or overpenDuration * Game.gameSpeed
                 params.ttlRatio = penDefLifetime / driverLifetime
             end
         end
@@ -139,8 +136,8 @@ local spawnCache = {
     pos     = { 0, 0, 0 },
     speed   = { 0, 0, 0 },
     owner   = -1,
-    ttl     = gameSpeed * 3,
-    gravity = mapGravity,
+    ttl     = Game.gameSpeed * 3,
+    gravity = -1 * Game.gravity / Game.gameSpeed / Game.gameSpeed,
 }
 
 
