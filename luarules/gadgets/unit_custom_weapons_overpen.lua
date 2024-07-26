@@ -153,12 +153,13 @@ local function consumeDriver(projID, unitID, damage, attackID)
 
     local weaponData = driver[1]
     local damageLeft = driver[2]
-
-    local health, healthMax = spGetUnitHealth(unitID)
     damage = damage * damageLeft
 
+    local health, healthMax = spGetUnitHealth(unitID)
+    if not health then return end
+
     -- Outcomes: (1) overpen (2) exhaust (3) arrest explosion (4) arrest impact.
-    if (health and damage >= health and damage >= healthMax * damageThreshold) then
+    if (damage >= health and damage >= healthMax * damageThreshold) then
         damage = max(health, damage * weaponData.overkill)
         damageLeft = damageLeft - (health / weaponData.damage + weaponData.decrease)
         if damageLeft > damageThreshold then -- Overpen; else, exhaust.
