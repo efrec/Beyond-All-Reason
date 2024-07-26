@@ -32,21 +32,23 @@ if not gadgetHandler:IsSyncedCode() then return false end
 -- Configuration ---------------------------------------------------------------
 
 local damageThreshold = 0.1      -- A percentage. Minimum damage that can overpen; a tad multipurpose.
-local impulseModifier = 1.7      -- A coefficient. Increases impulse when a target stops a penetrator.
-local preventArmorPen = false    -- When set to `true`, all currently-armored units block penetrators.
+local impulseArrested = 1.7      -- A coefficient. Increases impulse when a target stops a penetrator.
 
 -- Customparam defaults --------------------------------------------------------
 
 local overpenDecrease = 0.02     -- A percentage. Additional damage falloff per each over-penetration.
 local overpenOverkill = 0.2      -- A percentage. Additional damage to destroyed targets; can be < 0.
-local overpenDuration = 5        -- In seconds. Time-to-live or flight time of re-spawned projectiles.
+local overpenDuration = 3        -- In seconds. Time-to-live or flight time of re-spawned projectiles.
 
 
 --------------------------------------------------------------------------------
 -- Locals ----------------------------------------------------------------------
 
+local min  = math.min
 local max  = math.max
 local sqrt = math.sqrt
+local cos  = math.cos
+local atan = math.atan
 
 local spGetProjectilePosition   = Spring.GetProjectilePosition
 local spGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
@@ -55,9 +57,7 @@ local spGetUnitHealth           = Spring.GetUnitHealth
 local spGetUnitPosition         = Spring.GetUnitPosition
 local spGetUnitRadius           = Spring.GetUnitRadius
 local spSpawnExplosion          = Spring.SpawnExplosion
-local spDeleteProjectile        = Spring.DeleteProjectile
 local spSpawnProjectile         = Spring.SpawnProjectile
-local spGetUnitArmored          = Spring.GetUnitArmored
 
 local gameSpeed  = Game.gameSpeed
 local mapGravity = -1 * Game.gravity / gameSpeed / gameSpeed
@@ -147,69 +147,77 @@ local spawnCache = {
 --------------------------------------------------------------------------------
 -- Functions -------------------------------------------------------------------
 
-local function consumePenetrator(projID, unitID, damage, attackID)
-    local params = penetrators[projID]
+local function consumeDriver(projID, unitID, damage, attackID)
+    local driver = penetrators[projID]
     penetrators[projID] = nil
 
-    if params[3][unitID] then
-        return 0, 0
-    end
-    params[3][unitID] = true
+    local weaponData = driver[1]
+    local damageLeft = driver[2]
 
     local health, healthMax = spGetUnitHealth(unitID)
-    damage = damage * params[2]
+    damage = damage * damageLeft
 
-    if health and damage >= health and damage >= healthMax * damageThreshold then
-        params[2] = params[2] - health / params[1].damage - params[1].decrease
-        if params[2] > damageThreshold then
-            spawnFromID[projID] = params
+    -- Outcomes: (1) overpen (2) exhaust (3) arrest explosion (4) arrest impact.
+    if (health and damage >= health and damage >= healthMax * damageThreshold) then
+        damage = max(health, damage * weaponData.overkill)
+        damageLeft = damageLeft - (health / weaponData.damage + weaponData.decrease)
+        if damageLeft > damageThreshold then -- Overpen; else, exhaust.
+            driver[2] = damageLeft
+            spawnFromID[projID] = driver
         end
-        damage = max(health, damage * params[1].overkill)
-    elseif params[1].expDefID then
+    elseif weaponData.expDefID then
         local px, py, pz = spGetProjectilePosition(projID)
-        local explosion = explosionCaches[params.expDefID]
+        local explosion = explosionCaches[weaponData.expDefID]
         explosion.owner = attackID
         spSpawnExplosion(px, py, pz, 0, 0, 0, explosion)
     else
-        return damage, params[2] * (1 + impulseModifier) / (1 + params[2] * impulseModifier)
+        -- Enhance the arrest impulse to offset damage decreases:
+        return damage,
+               damageLeft * (1 + impulseArrested             ) /
+                            (1 + impulseArrested * damageLeft)
     end
 
     return damage
 end
 
-local function respawnPenetrator(projID, unitID, attackID, penDefID)
-    local params = spawnFromID[projID]
+local function spawnPenetrator(projID, unitID, attackID, penDefID)
+    local penetrator = spawnFromID[projID]
     spawnFromID[projID] = nil
 
     local px, py, pz = spGetProjectilePosition(projID)
-    local vx, vy, vz = spGetProjectileVelocity(projID)
     local timeToLive = spGetProjectileTimeToLive(projID)
-    spDeleteProjectile(projID)
+    local vx, vy, vz, vw = spGetProjectileVelocity(projID)
 
-    local _,_,_, ux, uy, uz = spGetUnitPosition(unitID, true)
+    local _,_,_, mx, my, mz = spGetUnitPosition(unitID, true)
     local unitRadius = spGetUnitRadius(unitID)
 
-    -- We have an equation of a sphere and a direction vector.
-    -- Now, we can do a bunch of nerd math, sure, or we can be suave gentlecoders.
-    local dx, dy, dz = ux - px + unitRadius / vx / 30,
-                       uy - py + unitRadius / vy / 30,
-                       uz - pz + unitRadius / vz / 30
-    local badmove = sqrt(dx * dx + dy * dy + dz * dz) / 30 -- Close enough. Jk it's bad.
+    -- An exact (raycast-type) solution is expensive in lua; we just estimate.
+    -- We also don't want to move an impossible distance in a sub-frame, anyway.
+    -- A halfway-decent estimate might use something along the lines of:
+    local ex, ey, ez = (mx - px) / unitRadius - vx / vw,
+                       (my - py) / unitRadius - vy / vw,
+                       (mz - pz) / unitRadius - vz / vw
+    -- Move at least a quarter frame and up to two frame's worth (instantly):
+    -- Potential enhancement to spawn projectiles from a queue when move >= 1
+    local move = unitRadius / vw * (cos(atan(ex)) + cos(atan(ey)) + cos(atan(ez))) * (2/3)
+    move = max(0.25, min(2, move))
 
+    -- Spring.MarkerAddPoint(px, py, pz, "point of impact")
     local data = spawnCache
-    data.pos[1] = px + badmove * vx
-    data.pos[2] = py + badmove * vy
-    data.pos[3] = pz + badmove * vz
+    data.pos[1] = px + move * vx
+    data.pos[2] = py + move * vy
+    data.pos[3] = pz + move * vz
     data.owner = attackID
+    -- Spring.MarkerAddPoint(data.pos[1], data.pos[2], data.pos[3], "point of spawn")
 
-    if params[1].penDefID then
-        penDefID = params[1].penDefID
-        vx, vy, vz = vx * params[1].velRatio,
-                     vy * params[1].velRatio,
-                     vz * params[1].velRatio
-        timeToLive = timeToLive * params[1].ttlRatio
-        params[1]  = weaponParams[penDefID]
-        params[2]  = (1 + params[2]) / 2 -- Reduced damage loss.
+    if penetrator[1].penDefID then
+        local driverData = penetrator[1]
+        penDefID = driverData.penDefID
+        timeToLive = timeToLive * driverData.ttlRatio
+        local velRatio = driverData.velRatio
+        vx, vy, vz = vx * velRatio, vy * velRatio, vz * velRatio
+        penetrator[1] = weaponParams[penDefID]
+        penetrator[2] = (1 + penetrator[2]) / 2 -- Reduced damage loss.
     end
 
     data.speed[1] = vx
@@ -219,7 +227,7 @@ local function respawnPenetrator(projID, unitID, attackID, penDefID)
 
     -- BUGGED: Projectile lights not moving with spawned projectiles.
     local spawnID = spSpawnProjectile(penDefID, data)
-    penetrators[spawnID] = params
+    penetrators[spawnID] = penetrator
 end
 
 
@@ -240,20 +248,20 @@ end
 
 function gadget:ProjectileCreated(projID, ownerID, weaponDefID)
     if weaponParams[weaponDefID] and not penetrators[projID] then
-        penetrators[projID] = { weaponParams[weaponDefID], 1, {} }
+        penetrators[projID] = { weaponParams[weaponDefID], 1 }
     end
 end
 
 function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam,
     damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
     if penetrators[projID] then
-        return consumePenetrator(projID, unitID, damage, attackID)
+        return consumeDriver(projID, unitID, damage, attackID)
     end
 end
 
 function gadget:UnitDamaged(unitID, unitDefID, unitTeam,
     damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
-    if spawnFromID[projID] and (not preventArmorPen or not spGetUnitArmored(unitID)) then
-        respawnPenetrator(projID, unitID, attackID, weaponDefID)
+    if spawnFromID[projID] then
+        spawnPenetrator(projID, unitID, attackID, weaponDefID)
     end
 end
