@@ -225,7 +225,6 @@ local function spawnPenetrator(projID, unitID, attackID, penDefID)
     data.speed[3] = vz
     data.ttl = timeToLive
 
-    -- BUGGED: Projectile lights not moving with spawned projectiles.
     local spawnID = spSpawnProjectile(penDefID, data)
     penetrators[spawnID] = penetrator
 end
