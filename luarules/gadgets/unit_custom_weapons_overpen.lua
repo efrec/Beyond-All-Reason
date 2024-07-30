@@ -245,9 +245,6 @@ local function spawnPenetrator(projID, unitID, attackID, penDefID)
     data.speed = { vx, vy, vz }
     data.ttl = timeToLive
 
-    Spring.MarkerAddPoint(px, py, pz)
-    Spring.MarkerAddPoint(data.pos[1], data.pos[2], data.pos[3])
-
     local spawnID = spSpawnProjectile(penDefID, data)
     if penetrator[1] then
         drivers[spawnID] = penetrator
