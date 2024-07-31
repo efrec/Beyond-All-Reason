@@ -507,24 +507,26 @@ if gadgetHandler:IsSyncedCode() then
 		end
 		
 		if not bypass then
-			Spring.SetProjectileVelocity(proID,vx,0,vz)
+			Spring.SetProjectileVelocity(proID,vx,-0.1,vz) -- set a fixed descent speed
 		end
     end
 
 	--a Hornet special, mangle different two things into working as one (they're otherwise mutually exclusive)
 	checkingFunctions.torpwaterpenretarget = {}
     checkingFunctions.torpwaterpenretarget["ypos<0"] = function (proID)
+		-- Check for waterpen
 		if not active_projectiles[proID] then
 			local _, py, _ = Spring.GetProjectilePosition(proID)
 			if py <= 0 then
-				checkingFunctions.retarget["always"](proID) --subcontract that part
+				applyingFunctions.torpwaterpen(proID) --and delegate that too
 			else
 				return false
 			end
 			active_projectiles[proID] = true
 		end
 
-		applyingFunctions.torpwaterpen(proID) --and delegate that too
+		-- Then, begin retargeting
+		checkingFunctions.retarget["always"](proID) --subcontract that part
 		return false -- never run the apply function
     end
 
