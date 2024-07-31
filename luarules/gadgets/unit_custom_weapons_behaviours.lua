@@ -511,6 +511,26 @@ if gadgetHandler:IsSyncedCode() then
 		end
     end
 
+	--a Hornet special, mangle different two things into working as one (they're otherwise mutually exclusive)
+	checkingFunctions.torpwaterpenretarget = {}
+    checkingFunctions.torpwaterpenretarget["ypos<0"] = function (proID)
+	
+		checkingFunctions.retarget["always"](proID)--subcontract that part
+	
+        local _,py,_ = Spring.GetProjectilePosition(proID)
+        if py <= 0 then
+			--and delegate that too
+			applyingFunctions.torpwaterpen(proID)
+        else
+            return false
+        end
+    end
+
+	--fake function
+	applyingFunctions.torpwaterpenretarget = function (proID)
+		return false
+
+	end
 
 	----------------------------------------------------------------------------------------------------------
 	-- Gadget call-ins ---------------------------------------------------------------------------------------
