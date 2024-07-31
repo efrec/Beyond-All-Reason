@@ -229,8 +229,8 @@ if gadgetHandler:IsSyncedCode() then
 
 	checkingFunctions.disperse = {}
 	checkingFunctions.disperse["ypos<altitude"] = function (proID)
-		-- Force targeting onto the ground to get a consistent target elevation.
 		if not active_projectiles[proID] then
+			-- Move targeting onto the ground for consistent target elevation.
 			local tx, ty, tz
 			local targeting, target = Spring.GetProjectileTarget(proID)
 			if targeting == string.byte('u') then
@@ -243,38 +243,35 @@ if gadgetHandler:IsSyncedCode() then
 			active_projectiles[proID] = { tx, altitude, tz, false }
 		end
 
-		local tx, splitAt, tz, hasLeveled = unpack(active_projectiles[proID])
-		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
+		local tx, sy, tz, hasLeveled = unpack(active_projectiles[proID])
 		local px, py, pz = Spring.GetProjectilePosition(proID)
+		local vx, vy, vz, vw = Spring.GetProjectileVelocity(proID)
 
 		-- Handle the StarburstLauncher vertical launch.
 		if hasLeveled == false then
 			if vy >= 0 then return false end
 			active_projectiles[proID][4] = true
+			-- Suspend the engine's control over the missile.
+			Spring.SetProjectileMoveControl(proID, true)
 		end
 
-		-- Attempt at altitude control (without a PID)
-		Spring.SetProjectileMoveControl(proID, true) -- aaah
+		-- Simple high-altitude cruise control program:
 		local splitHeight  = tonumber(projectiles[proID].disperse_altitude)
-		-- local cruiseHeight = Spring.GetGroundHeight(px, pz) + splitHeight * 12
 		local cruiseHeight = 200 + splitHeight * 8
 		local diveDistance = (px-tx)*(px-tx) + (pz-tz)*(pz-tz)
-		-- Dive when close to target.
 		if diveDistance <= splitHeight * splitHeight * 2.5 then
+			-- Dive when close to target.
 			local avel = math.atan2(vy, math.sqrt(vx*vx + vz*vz))
-			local apos
+			local apos -- target pitch angle; depends on distance to target.
 			if diveDistance > splitHeight * splitHeight then
-				apos = math.atan2(splitAt               - py, math.sqrt(diveDistance))
-			else                        -- turn toward ground:
-				apos = math.atan2(splitAt - splitHeight - py, math.sqrt(diveDistance))
+				apos = math.atan2(sy               - py, math.sqrt(diveDistance))
+			else                  -- turn toward ground:
+				apos = math.atan2(sy - splitHeight - py, math.sqrt(diveDistance))
 			end
 			vy = vy + 2 * (apos - avel) / (math.pi/4)
-		-- Cruise when not.
-		-- elseif py + vy * 10 <= cruiseHeight then
 		else
-			-- if py + vy * 10 < cruiseHeight then
-				vy = vy + (cruiseHeight - py - vy * 10) / cruiseHeight / 30 + Game.gravity / 1800
-			-- end
+			-- Cruise when far from target.
+			vy = vy + (cruiseHeight - py - vy * 10) / cruiseHeight / 30 + Game.gravity / 1800
 		end
 
 		local projVelocityMax = 1500 / 30 -- todo
@@ -284,7 +281,7 @@ if gadgetHandler:IsSyncedCode() then
 		Spring.SetProjectilePosition(proID, px + vx, py + vy, pz + vz)
 		Spring.SetProjectileVelocity(proID, vx, vy - Game.gravity / 900, vz)
 
-		return py <= splitAt
+		return py <= sy
 	end
 
 	-- Momentum sits within a range, the extremes of which are maybe useless.
@@ -320,19 +317,18 @@ if gadgetHandler:IsSyncedCode() then
 				Spring.Echo('disperse did not find weaponDef named '..infos.disperse_def)
 				return
 			end
-			spawnCEG = infos.disperse_ceg
-			middleDefID = infos.disperse_middledef and WeaponDefNames[tostring(infos.disperse_middledef)]
 			spawnDefID = weaponDef.id
 			spawnType = weaponDef.type
-			spawnSpeed = weaponDef.startvelocity or 0
+			spawnCEG = infos.disperse_ceg
+			middleDefID = infos.disperse_middledef and WeaponDefNames[infos.disperse_middledef]
+			middleDefID = middleDefID and middleDefID.id or nil
 			spawnCount = tonumber(infos.disperse_number)
-			turnRate = weaponDef.turnRate or false
-			momentum = tonumber(infos.disperse_momentum)
 			radius = tonumber(infos.disperse_radius)
 
-			middleDefID = middleDefID and middleDefID.id or nil
-			-- spawnSpeed = math.clamp(spawnSpeed + (vw - spawnSpeed) * momentum, 1, weaponDef.weaponVelocity) -- i dunno the internal name for maxVelocity
+			spawnSpeed = weaponDef.startvelocity or weaponDef.weaponvelocity or 0
+			momentum = tonumber(infos.disperse_momentum)
 			spawnSpeed = spawnSpeed + (vw - spawnSpeed) * momentum
+			turnRate = weaponDef.turnRate or false
 		end
 
 		local spawnParams = {
@@ -439,7 +435,7 @@ if gadgetHandler:IsSyncedCode() then
 							angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
 							steps = steps + 1
 						until steps == 3
-						or (angle >= angleDepartureMin and angle <= angleDepartureMax)
+						   or (angle >= angleDepartureMin and angle <= angleDepartureMax)
 					end
 					-- Spring.Echo(string.format('angle/min/max: %.2f/%.2f/%.2f', angle, angleDepartureMin, angleDepartureMax))
 					spawnParams.speed[1] = vx2 / vw2 * spawnSpeed
