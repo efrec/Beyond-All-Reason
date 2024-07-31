@@ -17,8 +17,8 @@ if not gadgetHandler:IsSyncedCode() then return false end
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
-local damageThreshold  = 0.1     -- A percentage. Minimum damage that can overpen; a tad multipurpose.
-local explodeThreshold = 0.1     -- A percentage. Minimum damage that detonates, rather than peircing.
+local damageThreshold  = 0.1     -- A percentage. Minimum damage (vs. target health) that can overpen.
+local explodeThreshold = 0.1     -- A percentage. Minimum damage that detonates, rather than piercing.
 local impulseArrested  = 1.7     -- A coefficient. Reduces the impulse falloff when damage is reduced.
 local overpenDuration  = 3       -- In seconds. Time-to-live or flight time of re-spawned projectiles.
 
