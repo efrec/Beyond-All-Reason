@@ -519,10 +519,10 @@ if gadgetHandler:IsSyncedCode() then
 			local _, py, _ = Spring.GetProjectilePosition(proID)
 			if py <= 0 then
 				applyingFunctions.torpwaterpen(proID) --and delegate that too
+				active_projectiles[proID] = true
 			else
 				return false
 			end
-			active_projectiles[proID] = true
 		end
 
 		-- Then, begin retargeting
