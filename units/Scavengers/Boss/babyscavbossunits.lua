@@ -67,8 +67,8 @@ unitsTable['squadarmpw'].metalcost = 1
 unitsTable['squadarmpw'].movestate = 2
 unitsTable['squadarmpw'].power = 50
 unitsTable['squadarmpw'].mass = 50
+unitsTable['squadarmpw'].speed = unitsTable['squadarmpw'].speed*1.5
 unitsTable['squadarmpw'].customparams.i18nfromunit = 'armpw'
-
 
 --Epic Recluse Squad
 unitsTable['squadarmsptkt4'] = VFS.Include('units/Scavengers/Bots/armsptkt4.lua').armsptkt4 --if this filepath is changed, the unit will no longer work!
@@ -109,7 +109,7 @@ unitsTable['squadarmsptkt4'].weapondefs.dronespawner = {
         engagementrange = 1200,
         spawns_surface = "LAND",
         spawnrate = 3,
-        maxunits = 30,
+        maxunits = 20,
         controlradius = 1300,
         decayrate = 0,
         carrierdeaththroe = "death",
@@ -138,6 +138,7 @@ unitsTable['squadarmsptk'].metalcost = 1
 unitsTable['squadarmsptk'].movestate = 2
 unitsTable['squadarmsptk'].power = 500
 unitsTable['squadarmsptk'].mass = 500
+unitsTable['squadarmsptk'].speed = unitsTable['squadarmsptk'].speed*1.5
 unitsTable['squadarmsptk'].customparams.i18nfromunit = 'armsptk'
 
 --Epic Grunt Squad
@@ -208,6 +209,7 @@ unitsTable['squadcorak'].metalcost = 1
 unitsTable['squadcorak'].movestate = 2
 unitsTable['squadcorak'].power = 50
 unitsTable['squadcorak'].mass = 50
+unitsTable['squadcorak'].speed = unitsTable['squadcorak'].speed*1.5
 unitsTable['squadcorak'].customparams.i18nfromunit = 'corak'
 
 --Epic Karganeth Squad
@@ -249,7 +251,7 @@ unitsTable['squadcorkarganetht4'].weapondefs.dronespawner = {
         engagementrange = 1200,
         spawns_surface = "LAND",
         spawnrate = 8,
-        maxunits = 100,
+        maxunits = 10,
         controlradius = 1300,
         decayrate = 0,
         carrierdeaththroe = "death",
@@ -278,6 +280,7 @@ unitsTable['squadcorkarg'].metalcost = 1
 unitsTable['squadcorkarg'].movestate = 2
 unitsTable['squadcorkarg'].power = 1800
 unitsTable['squadcorkarg'].mass = 500
+unitsTable['squadcorkarg'].speed = unitsTable['squadcorkarg'].speed*1.5
 unitsTable['squadcorkarg'].customparams.i18nfromunit = 'corkarg'
 
 

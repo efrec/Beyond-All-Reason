@@ -5,7 +5,7 @@ return {
 		maxdec = 0.02757,
 		buildangle = 16384,
 		energycost = 8000,
-		metalcost = 920,
+		metalcost = 760,
 		buildpic = "legtriariusdrone.DDS",
 		buildtime = 11500,
 		canmove = true,
@@ -38,6 +38,7 @@ return {
 		waterline = 0,
 		customparams = {
 			unitgroup = 'weaponsub',
+			customrange = 700,
 			model_author = "Mr Bob",
 			normaltex = "unittextures/cor_normal.dds",
 			subfolder = "corships",
@@ -139,7 +140,7 @@ return {
 				soundstart = "heatray3",
 				soundstartvolume = 28,
 				soundtrigger = 1,
-				targetmoveerror = 0.1,
+				targetmoveerror = 0.2,
 				thickness = 3.5,
 				turret = true,
 				weapontype = "BeamLaser",
@@ -209,7 +210,7 @@ return {
 				badtargetcategory = "VTOL",
 				def = "heatroy",
 				onlytargetcategory = "SURFACE",
-				fastautoretargeting = true,
+				fastautoretargeting = false,
 			},
 		
 			[2] = {
