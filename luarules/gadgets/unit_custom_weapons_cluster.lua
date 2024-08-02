@@ -4,34 +4,33 @@ function gadget:GetInfo()
         desc    = 'Custom behavior for projectiles that explode and split on impact.',
         author  = 'efrec',
         version = '1.1',
-        date    = '2024-06-07',
+        date    = '2024-08',
         license = 'GNU GPL, v2 or later',
-        layer   = 10, -- preempt :Explosion handlers like fx_watersplash.lua that return `true` (not pure fx)
+        layer   = 10, -- Preempt g:Explosion handlers that may return `true`.
         enabled = true
     }
 end
 
 if not gadgetHandler:IsSyncedCode() then return false end
 
---------------------------------------------------------------------------------------------------------------
--- Configuration ---------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Configuration ---------------------------------------------------------------
 
--- Default settings ------------------------------------------------------------------------------------------
+-- General settings ------------------------------------------------------------
 
-local defaultSpawnDef = "cluster_munition"         -- def used, by default
-local defaultSpawnNum = 5                          -- number of spawned projectiles, by default
-local defaultSpawnTtl = 300                        -- detonate projectiles after time = ttl, by default
-local defaultVelocity = 240                        -- speed of spawned projectiles, by default
+local maxSpawnNumber  = 24                 -- protect game performance against stupid ideas
+local minUnitBounces  = "armpw"            -- smallest unit (name) that bounces projectiles at all
+local minBulkReflect  = 64000              -- smallest unit bulk that causes reflection as if terrain
+local deepWaterDepth  = -40                -- used for the surface deflection on water, lava, ...
 
--- General settings ------------------------------------------------------------------------------------------
+-- Customparam defaults --------------------------------------------------------
 
-local customParamName = "cluster"                  -- in the weapondef, the parameter name to set to `true`
-local maxSpawnNumber  = 24                         -- protect game performance against stupid ideas
-local minUnitBounces  = "armpw"                    -- smallest unit (name) that bounces projectiles at all
-local minBulkReflect  = 64000                      -- smallest unit bulk that causes reflection as if terrain
-local deepWaterDepth  = -40                        -- used for the surface deflection on water, lava, ...
+local defaultSpawnDef = "cluster_munition" -- def used, by default
+local defaultSpawnNum = 5                  -- number of spawned projectiles, by default
+local defaultSpawnTtl = 300                -- detonate projectiles after time = ttl, by default
+local defaultVelocity = 240                -- speed of spawned projectiles, by default
 
--- CustomParams setup ----------------------------------------------------------------------------------------
+-- CustomParams setup ----------------------------------------------------------
 
 --    primary_weapon = {
 --        customparams = {
@@ -45,14 +44,12 @@ local deepWaterDepth  = -40                        -- used for the surface defle
 --       [range       = <number>,]
 --    }
 
---------------------------------------------------------------------------------------------------------------
--- Localize --------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Localize --------------------------------------------------------------------
 
 local DirectionsUtil = VFS.Include("LuaRules/Gadgets/Include/DirectionsUtil.lua")
 
-local abs   = math.abs
 local max   = math.max
-local min   = math.min
 local rand  = math.random
 local sqrt  = math.sqrt
 local cos   = math.cos
@@ -66,14 +63,16 @@ local spGetUnitPosition  = Spring.GetUnitPosition
 local spGetUnitRadius    = Spring.GetUnitRadius
 local spGetUnitsInSphere = Spring.GetUnitsInSphere
 local spSpawnProjectile  = Spring.SpawnProjectile
+local spTraceRayUnits    = Spring.TraceRayUnits
+local spTraceRayGround   = Spring.TraceRayGround
 
-local GAME_SPEED         = Game.gameSpeed
-local mapGravity         = Game.gravity / GAME_SPEED / GAME_SPEED * -1
+local gameSpeed          = Game.gameSpeed
+local mapGravity         = Game.gravity / gameSpeed / gameSpeed * -1
 
 local SetWatchExplosion  = Script.SetWatchExplosion
 
---------------------------------------------------------------------------------------------------------------
--- Initialize ------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Initialize ------------------------------------------------------------------
 
 -- Information table for cluster weapons
 
@@ -86,21 +85,18 @@ local spawnableTypes = {
 }
 
 local dataTable      = {} -- Info on each cluster weapon
-local wDefNamesToIDs = {} -- Says it on the tin
 
 for wdid, wdef in pairs(WeaponDefs) do
-    wDefNamesToIDs[wdef.name] = wdid
-
-    if wdef.customParams and wdef.customParams[customParamName] then
+    if wdef.customParams.cluster then
         dataTable[wdid] = {}
         dataTable[wdid].number  = tonumber(wdef.customParams.number) or defaultSpawnNum
         dataTable[wdid].def     = wdef.customParams.def
         dataTable[wdid].projDef = -1
-        dataTable[wdid].projTtl = defaultSpawnTtl
-        dataTable[wdid].projVel = defaultVelocity / GAME_SPEED
+        dataTable[wdid].projTtl = -1
+        dataTable[wdid].projVel = -1
 
         -- Enforce limits, eg the projectile count, at init.
-        dataTable[wdid].number  = min(dataTable[wdid].number, maxSpawnNumber)
+        dataTable[wdid].number  = math.min(dataTable[wdid].number, maxSpawnNumber)
 
         -- When the cluster munition name isn't specified, search for the default.
         if dataTable[wdid].def == nil then
@@ -123,17 +119,17 @@ end
 -- Information for cluster munitions
 
 for wdid, data in pairs(dataTable) do
-    local cmdid = wDefNamesToIDs[data.def]
-    local cmdef = WeaponDefs[cmdid]
+    local cmdef = WeaponDefNames[data.def]
+    local cmdid = cmdef.id
 
     dataTable[wdid].projDef = cmdid
-    dataTable[wdid].projTtl = cmdef.ttl or defaultSpawnTtl
+    dataTable[wdid].projTtl = cmdef.flighttime or defaultSpawnTtl
 
     -- Range and velocity are closely related so may be in disagreement. Average them (more or less):
-    local projVel = cmdef.projectileSpeed or cmdef.startvelocity
-    projVel = projVel and projVel * GAME_SPEED or defaultVelocity
+    local projVel = cmdef.projectilespeed or cmdef.startvelocity
+    projVel = ((projVel and projVel) or defaultVelocity) / gameSpeed
     if cmdef.range > 10 then
-        local rangeVel = sqrt(cmdef.range * abs(mapGravity)) -- inverse range calc for launch @ 45deg
+        local rangeVel = sqrt(cmdef.range * math.abs(mapGravity)) -- inverse range calc for launch @ 45deg
         dataTable[wdid].projVel = (projVel + rangeVel) / 2
     else
         dataTable[wdid].projVel = projVel
@@ -165,14 +161,12 @@ local unitBulk = {} -- How sturdy the unit is. Projectiles scatter less with low
 
 for udid, udef in pairs(UnitDefs) do
     -- Set the unit bulk values.
-    -- todo: We don't even _detect_ walls. "Objectified" units aren't returned by GetUnitsInSphere?
-    -- todo: Seems likely that the same goes for wall-like units, then.
     if udef.armorType == Game.armorTypes.wall or udef.armorType == Game.armorTypes.indestructible then
         unitBulk[udid] = 0.9
     elseif udef.customParams.neutral_when_closed then -- Dragon turrets
         unitBulk[udid] = 0.8
     else
-        unitBulk[udid] = min(
+        unitBulk[udid] = math.min(
             1.0,
             ((  udef.health ^ 0.5 +                         -- HP is log2-ish but that feels too tryhard
                 udef.metalCost ^ 0.5 *                      -- Steel (metal) is heavier than feathers (energy)
@@ -189,7 +183,18 @@ for udid, _ in pairs(UnitDefs) do
     end
 end
 
+-- Spring.Debug.TableEcho(
+--     {
+--         ['Tick bulk']     = unitBulk[ UnitDefNames["armflea"].id  ],
+--         ['Pawn bulk']     = unitBulk[ UnitDefNames["armpw"].id    ],
+--         ['Gauntlet bulk'] = unitBulk[ UnitDefNames["armguard"].id ],
+--         ['Pulsar bulk']   = unitBulk[ UnitDefNames["armanni"].id  ],
+--         ['Thor bulk']     = unitBulk[ UnitDefNames["armthor"].id  ],
+--     }
+-- )
+
 -- Reusable table for reducing garbage
+-- This was, probably, intended to help generalize to more weapon types.
 
 local spawnCache  = {
     pos     = { 0, 0, 0 },
@@ -208,132 +213,184 @@ for _, data in pairs(dataTable) do
 end
 DirectionsUtil.ProvisionDirections(maxDataNum)
 
---------------------------------------------------------------------------------------------------------------
--- Functions -------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Functions -------------------------------------------------------------------
 
-local function GetSurfaceDeflection(ex, ey, ez)
-    ---- Deflection away from terrain.
+---Deflect the net force of an explosion away from terrain.
+---Used to scatter shrapnel, etc. from an explosive source.
+---@param ex number
+---@param ey number
+---@param ez number
+---@param projectileID number
+---@param count number
+---@param speed number
+---@return number response_x
+---@return number response_y
+---@return number response_z
+local function getTerrainDeflection(ex, ey, ez, projectileID, count, speed)
+    local distance, x, y, z, m
     local elevation = spGetGroundHeight(ex, ez)
-    local x, y, z, m, distance
-    -- Deep water doesn't care much about ground normals.
-    -- Lava might have a shallower "deep" elevation. Idk.
     if elevation < deepWaterDepth then
-        distance = ey - deepWaterDepth / 3 -- compress distance to fixed value
+        -- Guess an equivalent hard-surface distance.
+        -- The response is directly upward.
+        distance = ey - deepWaterDepth / 3 -- Since water is fairly dense.
         x, y, z  = 0, 1, 0
     else
+        -- Get the true elevation above a hard surface.
+        -- And the true direction of the surface response.
         distance = ey - elevation
-        x, y, z, m = spGetGroundNormal(ex, ez, true)
-        if m > 1e-2 then
-            distance = distance * cos(m)                       -- Actual distance given a flat plane with slope m.
-            m        = distance * sin(m) / sqrt(x * x + z * z) -- Shift to next ground intercept; normalize {x,z}.
-            local xm, zm = ex - x * m, ez - z * m
-            elevation = spGetGroundHeight(xm, zm) -- very likely a higher elevation than the previous
-            x, y, z,_ = spGetGroundNormal(xm, zm, true)
+        x, y, z, m = spGetGroundNormal(ex, ez, true) -- Smooth normal, not raw.
 
-            -- Shallow water produces a weaker terrain response,
-            -- but uses a shorter distance (more response overall).
-            if elevation <= 0 then
-                -- compress distance to middle value
-                elevation = max(spGetGroundHeight(xm, zm) / 2, deepWaterDepth / 3)
-                x, z = x * 0.9, z * 0.9
-                if y < 0.999999999 then y = 1 / sqrt(x*x + z*z) end
+        -- Follow slopes upward, toward the shortest distance to ground.
+        -- Note: Walls, cliffs, etc. on flatter maps might be overlooked.
+        local cosm = cos(m)
+        local lenxz = sqrt(x*x + z*z)
+        if distance * cosm > 1 then
+            local dx, dy, dz = cosm * (x / lenxz),
+                               cosm * sin(m) * -1,
+                               cosm * (z / lenxz)
+            local rayDistance = spTraceRayGround(ex, ey, ez, dx, dy, dz, distance)
+            if rayDistance then
+                distance = rayDistance
+                elevation = spGetGroundHeight(ex + dx * distance, ez + dz * distance)
+                x, y, z,_ = spGetGroundNormal(ex + dx * distance, ez + dz * distance, true)
             end
+        end
 
-            distance = min(distance, ey - elevation)
+        -- Surface responses in shallow water ignore some of the ground normal,
+        -- but have a shorter hard-surface distance overall than deep water.
+        if elevation <= 0 then
+            distance = ey - elevation / 2
+            x, y, z = x * 0.87, y / 0.87, z * 0.87
         end
     end
-    distance = sqrt(max(1, distance))
-    x, y, z  = 1.52*x/distance, 1.52*y/distance, 1.52*z/distance
 
-    ---- Deflection away from unit colliders.
-    -- This is used to keep grenades-of-grenades from detonating on contact instead of spreading out.
-    -- We have to check a radius ~ge the largest collider so we are, otherwise, way-too efficient.
-    -- That mostly means not checking and not rotating the unit's collider around in world space.
-    local colliders = spGetUnitsInSphere(ex, ey, ez, 80)
-    local udefid, bounce, ux, uy, uz, uw, radius
-    for _, uid in ipairs(colliders) do
-        udefid = spGetUnitDefID(uid)
-        bounce = unitBulk[udefid]
-        if bounce ~= nil then
-            -- Assuming spherical collider in frictionless vacuum
-            _,_,_,ux,uy,uz = spGetUnitPosition(uid, true)
-            radius         = spGetUnitRadius(uid)
-            if uy + radius > 0 then
-                ux, uy, uz = ex-ux, ey-uy, ez-uz
-                distance   = ux*ux + uy*uy + uz*uz -- just going to reuse this var a lot
-                uw         = distance / radius
-                distance   = sqrt(distance)
+    -- Scale the response direction by the response strength,
+    -- plus extra to deal with the jitter that will be added,
+    -- plus a small shift from the parent projectile's speed.
+    local vx, vy, vz, vw = Spring.GetProjectileVelocity(projectileID)
+    local response = (math.pi / 2 + 1 / (1 + count)) / sqrt(max(1, distance))
+    local momentum = max(0, vw - speed) / speed -- This ignores a lot, so keep it simple.
+    Spring.Echo('[clustermun] vw and speed: ' .. vw .. ', ' .. speed) -- !
 
-                -- We allow wiggle room since our colliders are not spheres
-                if uw <= 1.24 * distance then
-                    distance = max(1, distance / radius)
-                    -- Even with a bunch of transcendentals, the perf isn't so bad.
-                    local th_z = atan2(ux, uz)
-                    local ph_y = atan2(uy, sqrt(ux*ux+uz*uz))
-                    local cosy = cos(ph_y)
-                    x = x + bounce / distance * sin(th_z) * cosy
-                    y = y + bounce / distance * sin(ph_y)
-                    z = z + bounce / distance * cos(th_z) * cosy
+    return response * x + momentum * vx,
+           response * y + momentum * vy * 0.8,
+           response * z + momentum * vz
+end
+
+---Spawn sub-munitions that are flung outward from an explosive source.
+---New projectiles that are in immediate contact with bulky units are deflected away.
+---@param ex number
+---@param ey number
+---@param ez number
+---@param ownerID number|nil
+---@param projectileID number
+---@param count number
+---@param speed number
+---@param timeToLive number|nil
+local function spawnClusterProjectiles(ex, ey, ez, ownerID, projectileID, count, speed, timeToLive)
+    -- Initial direction vectors are evenly spaced.
+    local vecs = directions[count]
+
+    -- These are redirected away from nearby terrain and nudged away from nearby units.
+    local dx, dy, dz = getTerrainDeflection(ex, ey, ez, projectileID, count, speed)
+    local scanNearby = speed * (0.1 * gameSpeed)
+    Spring.Echo('[clustermun] scan length = ' .. scanNearby) -- !
+
+    local vx, vy, vz, vw
+    for ii = 0, (count - 1) do
+        -- Avoid shooting into terrain by adding deflection.
+        -- Since the initial directions are fixed, add some jitter.
+        vx = vecs[3*ii+1] + dx + (rand() * 6 - 3) / count
+        vy = vecs[3*ii+2] + dy + (rand() * 6 - 3) / count
+        vz = vecs[3*ii+3] + dz + (rand() * 6 - 3) / count
+        vw = sqrt(vx*vx + vy*vy + vz*vz)
+
+        -- Find units along this trajectory, if any, and deflect away.
+        local unitImpacted = spTraceRayUnits(ex, ey, ez, vx, vy, vz, scanNearby / vw)
+        local nudge = 0.33
+        for length, unitID in pairs(unitImpacted) do
+            local bounce = unitBulk[spGetUnitDefID(unitID)]
+            if bounce ~= nil then
+                nudge = nudge - bounce -- real programming hours
+                bounce = bounce / (scanNearby / vw / math.max(1, length))
+                local _,_,_, ux, uy, uz = spGetUnitPosition(unitID, true)
+                local dx, dy, dz = (ex + vx / vw * length) - ux,
+                                   (ey + vy / vw * length) - uy,
+                                   (ez + vz / vw * length) - uz
+                local th_z = atan2(dx, dz)
+                local ph_y = atan2(dy, sqrt(dx*dx + dz*dz))
+                local cosy = cos(ph_y)
+                vx = dx + bounce * sin(th_z) * cosy
+                vy = dy + bounce * sin(ph_y)
+                vz = dz + bounce * cos(th_z) * cosy
+                vw = sqrt(vx*vx + vy*vy + vz*vz)
+                -- Let's not keep going tbh:
+                if nudge <= 0 then
+                    break
                 end
             end
         end
-    end
-    return { x, y, z }
-end
 
-local function SpawnClusterProjectiles(data, attackerID, ex, ey, ez, deflection)
-    local projNum = data.number
-    local projVel = data.projVel
+        -- Trace end position.
+        Spring.MarkerAddPoint(
+            ex + vx / vw * length,
+            ey + vy / vw * length,
+            ez + vz / vw * length
+        )
 
-    spawnCache.owner = attackerID or -1
-    spawnCache.ttl   = data.projTtl
+        vx = (vx / vw) * speed
+        vy = (vy / vw) * speed
+        vz = (vz / vw) * speed
 
-    -- Initial direction vectors are evenly spaced.
-    local directions = directions[projNum]
-
-    local vx, vy, vz, norm
-    for ii = 0, (projNum-1) do
-        -- Avoid shooting into terrain by adding deflection.
-        vx = directions[3*ii+1] + deflection[1]
-        vy = directions[3*ii+2] + deflection[2]
-        vz = directions[3*ii+3] + deflection[3]
-
-        -- Since the initial directions are not random, we add jitter.
-        -- Note: Comment this out to test without any randomness.
-        vx = vx + (rand() * 6 - 3) / projNum
-        vy = vy + (rand() * 6 - 3) / projNum
-        vx = vx + (rand() * 6 - 3) / projNum
-
-        -- Set the projectile's velocity vector.
-        norm = sqrt(vx*vx + vy*vy + vz*vz)
-        vx = vx * projVel / norm
-        vy = vy * projVel / norm
-        vz = vz * projVel / norm
-        spawnCache.speed = { vx, vy, vz }
-
-        -- Pre-scatter the projectile and set its initial position.
+        spawnCache.owner = ownerID
         spawnCache.pos = {
-            ex + vx * GAME_SPEED / 2,
-            ey + vy * GAME_SPEED / 10 * max(1, 5 * abs(vy) / projVel),
-            ez + vz * GAME_SPEED / 2
+            ex + vx * gameSpeed / 2,
+            ey + vy * gameSpeed / 2,
+            ez + vz * gameSpeed / 2,
         }
+        spawnCache.speed = { vx, vy, vz }
+        spawnCache.ttl = timeToLive
 
         spSpawnProjectile(data.projDef, spawnCache)
     end
 end
 
---------------------------------------------------------------------------------------------------------------
--- Gadget callins --------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Gadget callins --------------------------------------------------------------
 
 function gadget:Initialize()
+    if not next(dataTable) then
+        Spring.Log(gadget:GetInfo().name, LOG.INFO,
+            "No cluster weapons found. Removing gadget.")
+        gadgetHandler:RemoveGadget(self)
+        return
+    end
+
     for wdid, _ in pairs(dataTable) do
         SetWatchExplosion(wdid, true)
     end
 end
 
-function gadget:Explosion(weaponDefID, ex, ey, ez, attackerID, projID)
-    if not dataTable[weaponDefID] then return end
-    local weaponData = dataTable[weaponDefID]
-    local deflection = GetSurfaceDeflection(ex, ey, ez)
-    SpawnClusterProjectiles(weaponData, attackerID, ex, ey, ez, deflection)
+function gadget:ShutDown()
+    -- Deref tables from VFS.Include so the GC will collect them.
+    directions = nil
+    for key, _ in pairs(DirectionsUtil) do
+        DirectionsUtil[key] = nil
+    end
+    DirectionsUtil = nil
+end
+
+function gadget:Explosion(weaponDefID, ex, ey, ez, attackID, projID)
+    if dataTable[weaponDefID] then
+        local data = dataTable[weaponDefID]
+        spawnClusterProjectiles(
+            ex, ey, ez,
+            attackID,
+            projID,
+            data.projNum,
+            data.projVel,
+            data.projTtl
+        )
+    end
 end
