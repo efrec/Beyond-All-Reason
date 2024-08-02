@@ -240,44 +240,57 @@ if gadgetHandler:IsSyncedCode() then
 				tx, ty, tz = target[1], target[2], target[3]
 			end
 			local altitude = math.max(0, ty) + tonumber(projectiles[proID].disperse_altitude)
-			active_projectiles[proID] = { tx, altitude, tz, false }
+			active_projectiles[proID] = { tx, altitude, tz, speed, false }
 		end
 
-		local tx, sy, tz, hasLeveled = unpack(active_projectiles[proID])
+		local tx, sy, tz, speed, hasLeveled = unpack(active_projectiles[proID])
+
 		local px, py, pz = Spring.GetProjectilePosition(proID)
 		local vx, vy, vz, vw = Spring.GetProjectileVelocity(proID)
 
 		-- Handle the StarburstLauncher vertical launch.
 		if hasLeveled == false then
-			if vy >= 0 then return false end
-			active_projectiles[proID][4] = true
-			-- Suspend the engine's control over the missile.
-			Spring.SetProjectileMoveControl(proID, true)
+			if vy >= 0 then
+				return false -- continue looping
+			else
+				-- Begin the cruise control program.
+				-- Suspend the engine's control over the missile.
+				active_projectiles[proID][5] = true
+				Spring.SetProjectileMoveControl(proID, true)
+			end
 		end
 
 		-- Simple high-altitude cruise control program:
 		local splitHeight  = tonumber(projectiles[proID].disperse_altitude)
-		local cruiseHeight = 200 + splitHeight * 8
 		local diveDistance = (px-tx)*(px-tx) + (pz-tz)*(pz-tz)
+
+		-- Cruise at a much higher altitude to get a smoother downturn.
+		-- todo: Probably clamp to max camera height or something.
+		local cruiseHeight = 200 + splitHeight * 8
+
 		if diveDistance <= splitHeight * splitHeight * 2.5 then
 			-- Dive when close to target.
-			local avel = math.atan2(vy, math.sqrt(vx*vx + vz*vz))
-			local apos -- target pitch angle; depends on distance to target.
+			local pitchCurrent = math.atan2(vy, math.sqrt(vx*vx + vz*vz))
+			local pitchTarget
 			if diveDistance > splitHeight * splitHeight then
-				apos = math.atan2(sy               - py, math.sqrt(diveDistance))
-			else                  -- turn toward ground:
-				apos = math.atan2(sy - splitHeight - py, math.sqrt(diveDistance))
+				-- Dive toward a point very high above the target.
+				pitchTarget = math.atan2(sy               - py, math.sqrt(diveDistance))
+			else
+				-- Dive toward the center of the target circle on the ground.
+				pitchTarget = math.atan2(sy - splitHeight - py, math.sqrt(diveDistance))
 			end
-			vy = vy + 2 * (apos - avel) / (math.pi/4)
+			vy = vy + 2 * (pitchTarget - pitchCurrent) / (math.pi/4)
 		else
 			-- Cruise when far from target.
 			vy = vy + (cruiseHeight - py - vy * 10) / cruiseHeight / 30 + Game.gravity / 1800
 		end
 
+		-- After updating vy, re-constrain vx and vz.
 		local projVelocityMax = 1500 / 30 -- todo
 		local norm = math.sqrt(vx*vx + vy*vy + vz*vz)
 		vx = vx / norm * projVelocityMax
 		vz = vz / norm * projVelocityMax
+
 		Spring.SetProjectilePosition(proID, px + vx, py + vy, pz + vz)
 		Spring.SetProjectileVelocity(proID, vx, vy - Game.gravity / 900, vz)
 
@@ -354,96 +367,106 @@ if gadgetHandler:IsSyncedCode() then
 		local interval = 2 * math.pi / spawnCount
 		local rotation = interval * random()
 
-		if spawnType == "MissileLauncher" then
-			if turnRate and turnRate > 10 then
-				-- Assume the projectile will navigate to the destination independently.
-				-- Split along a fixed dispersion angle and target along a fixed circle.
-				local rx, ry, rz = tx - px, ty - py, tz - pz
-				local rw = sqrt(rx*rx + ry*ry + rz*rz)
-				local angleDeparture = math.atan2(radius * (1.001 - momentum*momentum), rw)
+		-- Note: Rather than keeping both guided and non-guided solutions,
+		-- someone just needs to tell me which one is going to be used.
+		if turnRate and turnRate > 10 then
+			---- Assume the projectile will navigate to the destination independently.
+			-- Split along a fixed dispersion angle and target along a fixed circle.
+			local rx, ry, rz = tx - px, ty - py, tz - pz
+			local rw = sqrt(rx*rx + ry*ry + rz*rz)
+			local angleDeparture = math.atan2(radius * (1.001 - momentum*momentum), rw)
 
-				-- Parameterize the departure direction and target location.
-				-- (1) Get the main trajectory's direction as a unit vector.
-				rx, ry, rz = rx / rw, ry / rw, rz / rw
-				-- (2) Get two unit vectors a, b forming an orthogonal basis r, a, b.
-				-- For angles φ in (0,π/2) and θ in [0,2π), these give the direction:
-				-- d = r + tan(φ) (a cosθ + b sinθ).
-				-- (3) By pinning ay, we can reuse θ to find the angle along the dispersion radius.
-				local anglePerpendicularInXZ = math.atan2(rz, rx) + math.pi / 2
-				local ax = math.cos(anglePerpendicularInXZ)
-				local az = math.sin(anglePerpendicularInXZ)
-				local bx = ry * az - 0  * rz -- ay == 0
-				local by = rx * az - ax * rz
-				local bz = rx * 0  - ax * ry -- ay == 0
-				local angleTan = math.tan(angleDeparture)
-				rotation = rotation + anglePerpendicularInXZ
+			---- Parameterize the departure direction and target location.
+			-- (1) Get the main trajectory's direction as a unit vector.
+			-- (2) Get two unit vectors a, b forming an orthogonal basis r, a, b.
+			--     For angles φ in (0,π/2) and θ in [0,2π), we get the departure vector:
+			--     d = r + tan(φ) (a cosθ + b sinθ).
+			-- (3) Since vector a is in XZ, reuse θ as the angle along the dispersion radius.
 
-				local cosr, sinr, dx, dy, dz, cx, cy, cz
-				for _ = 1, spawnCount do
-					rotation = rotation + interval
-					cosr = math.cos(rotation)
-					sinr = math.sin(rotation)
-					-- Direction along both the rotation and departure angles.
-					dx = rx + angleTan * (ax * cosr + bx * sinr)
-					dy = ry + angleTan * (            by * sinr) -- ay == 0
-					dz = rz + angleTan * (az * cosr + bz * sinr)
-					-- Target location is a point along a circle drawn in XZ.
-					cx = tx + cosr * radius
-					cz = tz + sinr * radius
-					cy = math.max(0, Spring.GetGroundHeight(cx, cz))
+			-- The vector r just needs to be normalized.
+			rx, ry, rz = rx / rw, ry / rw, rz / rw
+			-- The vector a is constrained to the XZ plane, and is perpendicular to r.
+			local anglePerpendicularInXZ = math.atan2(rz, rx) + math.pi / 2
+			local ax = math.cos(anglePerpendicularInXZ)
+			local az = math.sin(anglePerpendicularInXZ)
+			-- The vector b is perpendicular to both vectors a and r.
+			local bx = ry * az - 0  * rz -- eliminate terms since ay == 0
+			local by = rx * az - ax * rz
+			local bz = rx * 0  - ax * ry -- eliminate terms since ay == 0
+			-- Get the projection of the departure vector along the main trajectory.
+			local angleTan = math.tan(angleDeparture)
+			-- Set the initial rotation along the target circle.
+			rotation = rotation + anglePerpendicularInXZ
 
-					spawnParams.speed[1] = dx * spawnSpeed
-					spawnParams.speed[2] = dy * spawnSpeed
-					spawnParams.speed[3] = dz * spawnSpeed
-					local spawnID = Spring.SpawnProjectile(spawnDefID, spawnParams) or 0
-					Spring.SetProjectileTarget(spawnID, cx, cy, cz)
+			---- Rotate in intervals around the target circle to disperse projectiles.
+			local cosr, sinr, dx, dy, dz, cx, cy, cz
+			for _ = 1, spawnCount do
+				rotation = rotation + interval
+				cosr = math.cos(rotation)
+				sinr = math.sin(rotation)
+				-- Direction along both the rotation and departure angles.
+				dx = rx + angleTan * (ax * cosr + bx * sinr)
+				dy = ry + angleTan * (            by * sinr) -- ay == 0
+				dz = rz + angleTan * (az * cosr + bz * sinr)
+				-- Target location is a point along a circle drawn in XZ.
+				cx = tx + cosr * radius
+				cz = tz + sinr * radius
+				cy = math.max(0, Spring.GetGroundHeight(cx, cz))
+
+				spawnParams.speed[1] = dx * spawnSpeed
+				spawnParams.speed[2] = dy * spawnSpeed
+				spawnParams.speed[3] = dz * spawnSpeed
+				local spawnID = Spring.SpawnProjectile(spawnDefID, spawnParams) or 0
+				Spring.SetProjectileTarget(spawnID, cx, cy, cz)
+			end
+		else
+			-- We're launching rockets, not missiles, so we do a lot more work.
+			---- Constrain the angle between the main and dispersion trajectories.
+			local rx, ry, rz = px - tx, py - ty, pz - tz
+			local rw = math.sqrt(rx*rx + ry*ry + rz*rz)
+			local angleDepartureMin = math.atan2(radius / 2 * (1.001 - momentum*momentum) / 1.001, rw)
+			local angleDepartureMax = math.atan2(radius * 2 * (1.001 - momentum*momentum) / 1.001, rw)
+			-- Spring.Echo(string.format('dispersion min/max: %.2f/%.2f', angleDepartureMin, angleDepartureMax))
+
+			---- For each spawned projectile, probe for trajectories to satisfy those constraints.
+			-- Note: "Probing" here can be replaced with a raytrace, once that is lua-accessible.
+			local cosr, sinr, vx2, vy2, vz2, vw2, angle
+			for _ = 1, spawnCount do
+				-- Target a point along an approximate circle around the target location.
+				rotation = rotation + interval
+				cosr = math.cos(rotation)
+				sinr = math.sin(rotation)
+				rx = tx + cosr * radius
+				rz = tz + sinr * radius
+				ry = math.max(0, Spring.GetGroundHeight(rx, rz))
+				-- Determine the angle between the parent and spawn directions.
+				vx2, vy2, vz2 = rx - px, ry - py, rz - pz
+				vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
+				angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
+				---- Reduce undershooting and overshooting of the target ring.
+				-- Shrink toward center to minimize overshooting, especially, bc it is an advantage.
+				if angle < angleDepartureMin or angle > angleDepartureMax then
+					local steps = 1
+					repeat
+						-- Spring.Echo('angle before '..steps..' shift: '..angle)
+						rx = tx + cosr * (radius * (1.00 - 0.125 * steps)) -- Shave 12.5% off the radius each step,
+						rz = tz + sinr * (radius * (1.00 - 0.125 * steps)) -- and recalculate from the new position.
+						ry = math.max(0, Spring.GetGroundHeight(rx, rz))
+						vx2, vy2, vz2 = rx - px, ry - py, rz - pz
+						vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
+						angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
+						steps = steps + 1
+					until steps == 3
+						or (angle >= angleDepartureMin and angle <= angleDepartureMax)
 				end
-			else
-				-- We're launching rockets, not missiles, so we do a lot more work.
-				-- Constrain the angle between the main and dispersion trajectories.
-				local rx, ry, rz = px - tx, py - ty, pz - tz
-				local rw = math.sqrt(rx*rx + ry*ry + rz*rz)
-				local angleDepartureMin = math.atan2(radius / 2 * (1.001 - momentum*momentum) / 1.001, rw)
-				local angleDepartureMax = math.atan2(radius * 2 * (1.001 - momentum*momentum) / 1.001, rw)
-				-- Spring.Echo(string.format('dispersion min/max: %.2f/%.2f', angleDepartureMin, angleDepartureMax))
-
-				-- For each spawned projectile, probe for a trajectory that satisfies our constraints.
-				local cosr, sinr, vx2, vy2, vz2, vw2, angle
-				for _ = 1, spawnCount do
-					-- Target a point along an approximate circle around the target location.
-					rotation = rotation + interval
-					cosr = math.cos(rotation)
-					sinr = math.sin(rotation)
-					rx = tx + cosr * radius
-					rz = tz + sinr * radius
-					ry = math.max(0, Spring.GetGroundHeight(rx, rz))
-					-- Determine the angle between the parent and spawn directions.
-					vx2, vy2, vz2 = rx - px, ry - py, rz - pz
-					vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
-					angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
-					-- Reduce undershooting and overshooting of the target ring, as possible.
-					-- We shrink toward the center to minimize overshooting, especially, bc it is a range advantage.
-					if angle < angleDepartureMin or angle > angleDepartureMax then
-						local steps = 1
-						repeat
-							-- Spring.Echo('angle before '..steps..' shift: '..angle)
-							rx = tx + cosr * (radius * (1.00 - 0.125 * steps)) -- Shave 12.5% off the radius each step,
-							rz = tz + sinr * (radius * (1.00 - 0.125 * steps)) -- and recalculate from the new position.
-							ry = math.max(0, Spring.GetGroundHeight(rx, rz))
-							vx2, vy2, vz2 = rx - px, ry - py, rz - pz
-							vw2 = math.sqrt(vx2*vx2 + vy2*vy2 + vz2*vz2)
-							angle = math.acos((vx*vx2 + vy*vy2 + vz*vz2) / vw / vw2)
-							steps = steps + 1
-						until steps == 3
-						   or (angle >= angleDepartureMin and angle <= angleDepartureMax)
-					end
-					-- Spring.Echo(string.format('angle/min/max: %.2f/%.2f/%.2f', angle, angleDepartureMin, angleDepartureMax))
-					spawnParams.speed[1] = vx2 / vw2 * spawnSpeed
-					spawnParams.speed[2] = vy2 / vw2 * spawnSpeed
-					spawnParams.speed[3] = vz2 / vw2 * spawnSpeed
-					local spawnID = Spring.SpawnProjectile(spawnDefID, spawnParams) or 0
-					Spring.SetProjectileTarget(spawnID, rx, ry, rz)
-				end
+				-- Spring.Echo(string.format('angle/min/max: %.2f/%.2f/%.2f', angle, angleDepartureMin, angleDepartureMax))
+				---- Spawn the projectile, regardless of its fitness to the constraints.
+				-- We've done what we can. Go now with God.
+				spawnParams.speed[1] = vx2 / vw2 * spawnSpeed
+				spawnParams.speed[2] = vy2 / vw2 * spawnSpeed
+				spawnParams.speed[3] = vz2 / vw2 * spawnSpeed
+				local spawnID = Spring.SpawnProjectile(spawnDefID, spawnParams) or 0
+				Spring.SetProjectileTarget(spawnID, rx, ry, rz)
 			end
 		end
 	end
