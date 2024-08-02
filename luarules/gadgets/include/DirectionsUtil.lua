@@ -40,12 +40,12 @@ local spherePackings = {
 --------------------------------------------------------------------------------------------------------------
 -- Randomly distributed arrays -------------------------------------------------------------------------------
 
---- Produces a array of unrolled float3 vectors representing directions.
--- This function uses rejection sampling which is efficient but inappropriate for constant-time operations.
--- @tparam[opt] number n count of directions to produce
--- @treturn {float,...} array with length equal to 3n
+---Produces a array of unrolled float3 vectors representing directions.
+---This function uses rejection sampling which is efficient but inappropriate for constant-time operations.
+---@param n number [opt=1] count of directions to produce
+---@return table {number,...} array with length equal to 3n
 DirectionsUtil.GetRandomDirections = function(n)
-    n = n > 1 and n or 1
+    if not n or n < 1 then n = 1 end
     local vecs = {}
     for ii = 1, 3 * (n - 1) + 1, 3 do
         local m1, m2, m3, m4    -- Marsaglia procedure:
@@ -65,14 +65,13 @@ end
 --------------------------------------------------------------------------------------------------------------
 -- Combined distribution arrays ------------------------------------------------------------------------------
 
---- Fetches a premade direction set from DistributedDirections; otherwise, generates random directions.
--- @tparam[opt] number n count of (unrolled) float3 directions to retrieve
--- @treturn[1] {float,...} array with length equal to 3n
--- @treturn[1] boolean true if the result is random
--- @treturn[2] nil
--- @see DirectionsUtil.GetRandomDirections
+---Fetches a premade direction set from DistributedDirections; otherwise, generates random directions.
+---@param  n number [opt=1] count of (unrolled) float3 directions to retrieve
+---@return table|nil directions float3 number array with length equal to 3n
+---@return boolean|nil random true if the result is random
+---@see DirectionsUtil.GetRandomDirections
 DirectionsUtil.GetDirections = function(n)
-    if not n or n < 1 then return end
+    if not n or n < 1 then n = 1 end
     local distributed = DirectionsUtil.Directions[n]
     if distributed then
         return distributed, false
@@ -85,8 +84,8 @@ DirectionsUtil.GetDirections = function(n)
 end
 
 --- Pad the size of an insufficient direction set by adding randomly generated directions.
--- @tparam number n maximum solution size to add to Directions
--- @treturn boolean whether provisioning succeeded
+---@param n number maximum solution size to add to Directions
+---@return boolean whether provisioning succeeded
 DirectionsUtil.ProvisionDirections = function(n)
     if n < 2 or n > DIRECTION_SET_SIZE_MAX then return false end
     local directions = DirectionsUtil.Directions
