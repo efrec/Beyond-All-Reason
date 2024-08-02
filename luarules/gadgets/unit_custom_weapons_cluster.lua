@@ -65,6 +65,8 @@ local spGetUnitPosition  = Spring.GetUnitPosition
 local spGetUnitRadius    = Spring.GetUnitRadius
 local spGetUnitsInSphere = Spring.GetUnitsInSphere
 local spSpawnProjectile  = Spring.SpawnProjectile
+local spTraceRayUnits    = Spring.TraceRayUnits
+local spTraceRayGround   = Spring.TraceRayGround
 
 local gameSpeed          = Game.gameSpeed
 local mapGravity         = Game.gravity / gameSpeed / gameSpeed * -1
@@ -219,112 +221,142 @@ DirectionsUtil.ProvisionDirections(maxDataNum)
 --------------------------------------------------------------------------------------------------------------
 -- Functions -------------------------------------------------------------------------------------------------
 
-local function GetSurfaceDeflection(ex, ey, ez)
-    ---- Deflection away from terrain.
+---Deflect the net force of an explosion away from terrain.
+---Used to scatter shrapnel, etc. from an explosive source.
+---@param ex number
+---@param ey number
+---@param ez number
+---@param projectileID number
+---@param count number
+---@param speed number
+---@return number response_x
+---@return number response_y
+---@return number response_z
+local function getTerrainDeflection(ex, ey, ez, projectileID, count, speed)
+    local distance, x, y, z, m
     local elevation = spGetGroundHeight(ex, ez)
-    local x, y, z, m, distance
-    -- Deep water doesn't care much about ground normals.
-    -- Lava might have a shallower "deep" elevation. Idk.
     if elevation < deepWaterDepth then
-        distance = ey - deepWaterDepth / 3 -- compress distance to fixed value
+        -- Guess an equivalent hard-surface distance.
+        -- The response is directly upward.
+        distance = ey - deepWaterDepth / 3 -- Since water is fairly dense.
         x, y, z  = 0, 1, 0
     else
+        -- Get the true elevation above a hard surface.
+        -- And the true direction of the surface response.
         distance = ey - elevation
-        x, y, z, m = spGetGroundNormal(ex, ez, true)
-        if m > 1e-2 then
-            distance = distance * cos(m)                   -- Actual distance given a flat plane with slope m.
-            m        = distance * sin(m) / sqrt(x*x + z*z) -- Shift to next ground intercept; normalize {x,z}.
-            local xm, zm = ex - x * m, ez - z * m
-            elevation = spGetGroundHeight(xm, zm)          -- Very likely a higher elevation than the previous
-            x, y, z,_ = spGetGroundNormal(xm, zm, true)
+        x, y, z, m = spGetGroundNormal(ex, ez, true) -- Smooth normal, not raw.
 
-            -- Shallow water produces a weaker terrain response,
-            -- but uses a shorter distance (more response overall).
-            if elevation <= 0 then
-                -- compress distance to middle value
-                elevation = max(spGetGroundHeight(xm, zm) / 2, deepWaterDepth / 3)
-                x, z = x * 0.9, z * 0.9
-                if y < 0.999999999 then y = 1 / sqrt(x*x + z*z) end
+        -- Follow slopes upward, toward the shortest distance to ground.
+        -- Note: Walls, cliffs, etc. on flatter maps might be overlooked.
+        local cosm = cos(m)
+        local lenxz = sqrt(x*x + z*z)
+        if distance * cosm > 1 then
+            local dx, dy, dz = cosm * (x / lenxz),
+                               cosm * sin(m) * -1,
+                               cosm * (z / lenxz)
+            local rayDistance = spTraceRayGround(ex, ey, ez, dx, dy, dz, distance)
+            if rayDistance then
+                distance = rayDistance
+                elevation = spGetGroundHeight(ex + dx * distance, ez + dz * distance)
+                x, y, z,_ = spGetGroundNormal(ex + dx * distance, ez + dz * distance, true)
             end
+        end
 
-            distance = min(distance, ey - elevation)
+        -- Surface responses in shallow water ignore some of the ground normal,
+        -- but have a shorter hard-surface distance overall than deep water.
+        if elevation <= 0 then
+            distance = ey - elevation / 2
+            x, y, z = x * 0.87, y / 0.87, z * 0.87
         end
     end
-    distance = sqrt(max(1, distance))
-    x, y, z  = 1.52*x/distance, 1.52*y/distance, 1.52*z/distance
 
-    ---- Deflection away from unit colliders.
-    -- This is used to keep grenades-of-grenades from detonating on contact instead of spreading out.
-    -- We have to check a radius ~ge the largest collider so we are, otherwise, way-too efficient.
-    -- That mostly means not checking and not rotating the unit's collider around in world space.
-    local colliders = spGetUnitsInSphere(ex, ey, ez, 80)
-    local udefid, bounce, ux, uy, uz, uw, radius
-    for _, uid in ipairs(colliders) do
-        udefid = spGetUnitDefID(uid)
-        bounce = unitBulk[udefid]
-        if bounce ~= nil then
-            -- Assuming spherical collider in frictionless vacuum
-            _,_,_,ux,uy,uz = spGetUnitPosition(uid, true)
-            radius         = spGetUnitRadius(uid)
-            if uy + radius > 0 then
-                ux, uy, uz = ex-ux,  ey-uy,  ez-uz
-                distance   = ux*ux + uy*uy + uz*uz -- just going to reuse this var a lot
-                uw         = distance / radius
-                distance   = sqrt(distance)
+    -- Scale the response direction by the response strength,
+    -- plus extra to deal with the jitter that will be added,
+    -- plus a small shift from the parent projectile's speed.
+    local vx, vy, vz, vw = Spring.GetProjectileVelocity(projectileID)
+    local response = (math.pi / 2 + 1 / (1 + count)) / sqrt(max(1, distance))
+    local momentum = max(0, vw - speed) / speed -- This ignores a lot, so keep it simple.
+    Spring.Echo('[clustermun] vw and speed: ' .. vw .. ', ' .. speed) -- !
 
-                -- We allow wiggle room since our colliders are not spheres
-                if uw <= 1.24 * distance then
-                    distance = max(1, distance / radius)
-                    -- Even with a bunch of transcendentals, the perf isn't so bad.
-                    local th_z = atan2(ux, uz)
-                    local ph_y = atan2(uy, sqrt(ux*ux + uz*uz))
-                    local cosy = cos(ph_y)
-                    x = x + bounce / distance * sin(th_z) * cosy
-                    y = y + bounce / distance * sin(ph_y)
-                    z = z + bounce / distance * cos(th_z) * cosy
+    return response * x + momentum * vx,
+           response * y + momentum * vy * 0.8,
+           response * z + momentum * vz
+end
+
+---Spawn sub-munitions that are flung outward from an explosive source.
+---New projectiles that are in immediate contact with bulky units are deflected away.
+---@param ex number
+---@param ey number
+---@param ez number
+---@param ownerID number|nil
+---@param projectileID number
+---@param count number
+---@param speed number
+---@param timeToLive number|nil
+local function spawnClusterProjectiles(ex, ey, ez, ownerID, projectileID, count, speed, timeToLive)
+    -- Initial direction vectors are evenly spaced.
+    local vecs = directions[count]
+
+    -- These are redirected away from nearby terrain and nudged away from nearby units.
+    local dx, dy, dz = getTerrainDeflection(ex, ey, ez, projectileID, count, speed)
+    local scanNearby = speed * (0.1 * gameSpeed)
+
+    Spring.Echo('[clustermun] scan length = ' .. scanNearby) -- !
+
+    local vx, vy, vz, vw
+    for ii = 0, (count - 1) do
+        -- Avoid shooting into terrain by adding deflection.
+        -- Since the initial directions are fixed, add some jitter.
+        vx = vecs[3*ii+1] + dx + (rand() * 6 - 3) / count
+        vy = vecs[3*ii+2] + dy + (rand() * 6 - 3) / count
+        vz = vecs[3*ii+3] + dz + (rand() * 6 - 3) / count
+        vw = sqrt(vx*vx + vy*vy + vz*vz)
+
+        -- Find units along this trajectory, if any, and deflect away.
+        local unitImpacted = spTraceRayUnits(ex, ey, ez, vx, vy, vz, scanNearby / vw)
+        local nudge = 0.33
+        for length, unitID in pairs(unitImpacted) do
+            local bounce = unitBulk[spGetUnitDefID(unitID)]
+            if bounce ~= nil then
+                nudge = nudge - bounce -- real programming hours
+                bounce = bounce / (scanNearby / vw / math.max(1, length))
+                local _,_,_, ux, uy, uz = spGetUnitPosition(unitID, true)
+                local dx, dy, dz = (ex + vx / vw * length) - ux,
+                                   (ey + vy / vw * length) - uy,
+                                   (ez + vz / vw * length) - uz
+                local th_z = atan2(dx, dz)
+                local ph_y = atan2(dy, sqrt(dx*dx + dz*dz))
+                local cosy = cos(ph_y)
+                vx = dx + bounce * sin(th_z) * cosy
+                vy = dy + bounce * sin(ph_y)
+                vz = dz + bounce * cos(th_z) * cosy
+                vw = sqrt(vx*vx + vy*vy + vz*vz)
+                -- Let's not keep going tbh:
+                if nudge <= 0 then
+                    break
                 end
             end
         end
-    end
-    return { x, y, z }
-end
 
-local function SpawnClusterProjectiles(data, attackerID, ex, ey, ez, deflection)
-    local projNum = data.number
-    local projVel = data.projVel
+        -- Trace end position.
+        Spring.MarkerAddPoint(
+            ex + vx / vw * length,
+            ey + vy / vw * length,
+            ez + vz / vw * length
+        )
 
-    spawnCache.owner = attackerID
-    spawnCache.ttl   = data.projTtl
+        vx = (vx / vw) * speed
+        vy = (vy / vw) * speed
+        vz = (vz / vw) * speed
 
-    -- Initial direction vectors are evenly spaced.
-    local directions = directions[projNum]
-
-    local vx, vy, vz, norm
-    for ii = 0, (projNum-1) do
-        -- Avoid shooting into terrain by adding deflection.
-        vx = directions[3*ii+1] + deflection[1]
-        vy = directions[3*ii+2] + deflection[2]
-        vz = directions[3*ii+3] + deflection[3]
-
-        -- Since the initial directions are not random, we add jitter.
-        -- Note: Comment this out to test without any randomness.
-        vx = vx + (rand() * 6 - 3) / projNum
-        vy = vy + (rand() * 6 - 3) / projNum
-        vx = vx + (rand() * 6 - 3) / projNum
-
-        -- Set the projectile's velocity vector.
-        norm = sqrt(vx*vx + vy*vy + vz*vz)
-        vx = vx * projVel / norm
-        vy = vy * projVel / norm
-        vz = vz * projVel / norm
-        spawnCache.speed = { vx, vy, vz }
-
-        -- Pre-scatter the projectile and set its initial position.
+        spawnCache.owner = ownerID
         spawnCache.pos = {
             ex + vx * gameSpeed / 2,
-            ey + vy * gameSpeed / 10 * max(1, 5 * abs(vy) / projVel),
-            ez + vz * gameSpeed / 2
+            ey + vy * gameSpeed / 2,
+            ez + vz * gameSpeed / 2,
         }
+        spawnCache.speed = { vx, vy, vz }
+        spawnCache.ttl = timeToLive
 
         spSpawnProjectile(data.projDef, spawnCache)
     end
@@ -355,11 +387,14 @@ end
 
 function gadget:Explosion(weaponDefID, ex, ey, ez, attackID, projID)
     if dataTable[weaponDefID] then
-        SpawnClusterProjectiles(
-            dataTable[weaponDefID],
-            attackID,
+        local data = dataTable[weaponDefID]
+        spawnClusterProjectiles(
             ex, ey, ez,
-            GetSurfaceDeflection(ex, ey, ez)
+            attackID,
+            projID,
+            data.projNum,
+            data.projVel,
+            data.projTtl
         )
     end
 end
