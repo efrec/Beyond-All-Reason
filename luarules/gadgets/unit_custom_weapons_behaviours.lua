@@ -325,7 +325,7 @@ if gadgetHandler:IsSyncedCode() then
 			spawnCount = tonumber(infos.disperse_number)
 			radius = tonumber(infos.disperse_radius)
 
-			spawnSpeed = weaponDef.startvelocity or weaponDef.weaponvelocity or 0
+			spawnSpeed = weaponDef.projectilespeed or 0
 			momentum = tonumber(infos.disperse_momentum)
 			spawnSpeed = spawnSpeed + (vw - spawnSpeed) * momentum
 			turnRate = weaponDef.turnRate or false
