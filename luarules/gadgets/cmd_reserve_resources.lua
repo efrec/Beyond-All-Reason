@@ -264,6 +264,8 @@ function gadget:MetaUnitRemoved(unitID, unitDefID, teamID)
 end
 
 function gadget:TeamDied(teamID)
+    -- Not sure this works for all game modes:
+    table.removeFirst(teamList, teamID)
     unitBuildMemo[teamID] = nil
     reservedUnits[teamID] = nil
     reservedMetal[teamID] = 0
