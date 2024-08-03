@@ -84,8 +84,8 @@ local setGadgetActivation -- Fix lexical scoping for cyclical reference, below.
 local function allowBuildStep(unitID, unitDefID, teamID, part)
     if not reservedUnits[teamID][unitID] then
     --  local m, mstore, mpull, mgain, mlose, mshare, msent, mrcvd
-        local m, mstore = spGetTeamResources(teamID, "metal")
-        local e, estore = spGetTeamResources(teamID, "energy")
+        local m, mstore, _, _, _, _, msent = spGetTeamResources(teamID, "metal")
+        local e, estore, _, _, _, _, esent = spGetTeamResources(teamID, "energy")
 
         -- Always prioritize build progress during overflow.
         if msent > 0 and (esent > 0 or reservedEnergy[teamID] < 1) then
