@@ -18,7 +18,7 @@ end
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
-local updateTime = 0.5
+local updateTime = 1.0 -- in seconds
 
 --------------------------------------------------------------------------------
 -- Globals and imports ---------------------------------------------------------
@@ -37,11 +37,9 @@ local spRemoveUnitCmdDesc = Spring.RemoveUnitCmdDesc
 --------------------------------------------------------------------------------
 -- Initialization --------------------------------------------------------------
 
-updateTime = math.floor(Game.gameSpeed * updateTime)
+updateTime = math.ceil(Game.gameSpeed * updateTime - 1)
 
 local RESERVE_NONE, RESERVE_METAL, RESERVE_FULL = "0", "1", "2"
-local PREVENT_NONE, PREVENT_STALL, PREVENT_FULL = "0", "1", "2"
-
 local trackMetal = {
     [RESERVE_METAL] = true,
     [RESERVE_FULL] = true,
@@ -50,10 +48,10 @@ local trackEnergy = {
     [RESERVE_FULL] = true,
 }
 
--- Keep track of player preferences and reserved units, metal, and energy.
+-- Keep track of each team's reserved units, metal, and energy.
 
 local teamList = Spring.GetTeamList()
-local teamPrevent = {}
+
 local reservedUnits = {}
 local reservedMetal = {}
 local reservedEnergy = {}
@@ -71,12 +69,17 @@ local cmdDescReserve = {
 
 -- Each build denial needs to be memoized to speed up g:AllowBuildStep.
 -- It is otherwise too mighty a resource drain to consider using.
+-- Thinking along similar lines, we also suspend the gadget after inactivity.
 
-local gameFrame = 0
 local unitBuildMemo = {}
+local gadgetSuspended = true
+local gameFrame = 0
+local gameFrameSuspend = 0
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
+
+local setGadgetActivation -- Fix lexical scoping for cyclical reference, below.
 
 local function allowBuildStep(unitID, unitDefID, teamID, part)
     if not reservedUnits[teamID][unitID] then
@@ -89,8 +92,6 @@ local function allowBuildStep(unitID, unitDefID, teamID, part)
         end
 
         -- Otherwise, check if the spend is within the resource reserve level.
-        -- Use the team's prevention level to determine when to deny spending.
-        local prevent = teamPrevent[teamID]
         local mreserve = reservedMetal[teamID]
         local ereserve = reservedEnergy[teamID]
 
@@ -98,23 +99,11 @@ local function allowBuildStep(unitID, unitDefID, teamID, part)
         local mcost = unitDef.metalCost * part
         local ecost = unitDef.energyCost * part
 
-        if prevent == PREVENT_FULL then
-            if mstore < mreserve or m - mcost < mreserve or
-                estore < ereserve or e - ecost < ereserve
-            then
-                unitBuildMemo[teamID][unitID] = gameFrame + updateTime
-                return false
-            end
-        elseif prevent == PREVENT_STALL then
-            local mrate = mgain - mlose + (mrcvd - msent) * 0.5
-            local erate = egain - elose + (ercvd - esent) * 0.5
-            -- This is somehow even more lazily concepted:
-            if mstore < mreserve * 0.5 or m + mrate * updateTime * 2 < mreserve or
-                estore < ereserve * 0.5 or e + erate * updateTime * 2 < ereserve
-            then
-                unitBuildMemo[teamID][unitID] = gameFrame + updateTime
-                return false
-            end
+        if mstore < mreserve or m - mcost < mreserve or
+            estore < ereserve or e - ecost < ereserve
+        then
+            unitBuildMemo[teamID][unitID] = gameFrame + updateTime
+            return false
         end
     end
     return true
@@ -146,6 +135,10 @@ local function allowCommand(unitID, unitDefID, teamID, cmdParams)
             if trackEnergy[newLevel] and not trackEnergy[oldLevel] then
                 reservedEnergy[teamID] = reservedEnergy[teamID] + ecost
             end
+            -- Hook back into the call-ins that make the gadget work:
+            if gadgetSuspended == true then
+                setGadgetActivation(true) -- !
+            end
         else
             reservedUnits[teamID][unitID] = nil
             reservedMetal[teamID] = math.max(0, reservedMetal[teamID] - mcost)
@@ -158,40 +151,24 @@ local function allowCommand(unitID, unitDefID, teamID, cmdParams)
     return true -- continue processing
 end
 
---------------------------------------------------------------------------------
--- Gadget call-ins -------------------------------------------------------------
+-- Removable call-ins ----------------------------------------------------------
 
-function gadget:Initialize()
-    gameFrame = Spring.GetGameFrame() or 0
-
-    for ii, teamID in pairs(teamList) do
-        -- Memoization tables use a metatable with weak values.
-        local teamBuildMemo = {}
-        setmetatable(teamBuildMemo, { __mode = "v" })
-
-        -- Each team tracks builds and resources separately.
-        teamPrevent[teamID] = PREVENT_FULL
-        reservedUnits[teamID] = {} -- unitID => { mcost, ecost, remaining, level }
-        unitBuildMemo[teamID] = teamBuildMemo -- unitID => frameEndDisallow
-        reservedMetal[teamID] = 0
-        reservedEnergy[teamID] = 0
-    end
-
-    for _, unitID in ipairs(Spring.GetAllUnits()) do
-        local _, _, _, _, buildProgress = spGetUnitHealth(unitID)
-        if buildProgress < 1 then
-            gadget:UnitCreated(unitID)
+local function active_AllowUnitBuildStep(self, buildID, buildTeam, unitID, unitDefID, part)
+    if part > 0 and reservedMetal[buildTeam] > 0 then
+        local denyUntil = unitBuildMemo[buildTeam][unitID]
+        if denyUntil and denyUntil >= gameFrame then
+            return false -- disallow
+        else
+            return allowBuildStep(unitID, unitDefID, buildTeam, part)
         end
-    end 
+    end
+    return true -- allow
 end
 
-function gadget:GameFrame(frame)
+local function active_GameFrame(self, frame)
     gameFrame = frame
-    for ii, teamID in pairs(teamList) do
-        local prevent = teamPrevent[teamID]
-        if prevent and prevent ~= PREVENT_NONE and frame % (teamID + updateTime) == 0 then
-            -- Recalculate the team's reserve quotas.
-            -- We cannot do this incrementally; can't, shan't, won't.
+    for _, teamID in pairs(teamList) do
+        if (frame + 7 * teamID) % updateTime == 0 then
             local metal, energy = 0, 0
             for unitID, unitData in pairs(reservedUnits[teamID]) do
                 local mcost, ecost, remaining, level = unpack(unitData)
@@ -204,21 +181,64 @@ function gadget:GameFrame(frame)
             reservedEnergy[teamID] = energy
         end
     end
+    if frame >= gameFrameSuspend then
+        gameFrameSuspend = frame + 10 * updateTime
+        for _, teamID in pairs(teamList) do
+            if reservedMetal[teamID] > 0 then
+                -- Gadget needs to remain active.
+                return
+            end
+        end
+        -- Remove active call-ins:
+        setGadgetActivation(false) -- !
+    end
 end
 
----On reclaim, `part` values are negative. On resurrect, they are positive, those values
----being representative of the amount the target will be un-built or re-built per frame.
-function gadget:AllowUnitBuildStep(buildID, buildTeam, unitID, unitDefID, part)
-    if part > 0 and reservedMetal[buildTeam] > 0 then
-        if unitBuildMemo[buildTeam][unitID] and
-            unitBuildMemo[buildTeam][unitID] >= gameFrame
-        then
-            return false -- disallow
-        else
-            return allowBuildStep(unitID, unitDefID, buildTeam, part)
-        end
+---When no players have a construction reserved,
+---cull the AllowUnitBuildStep and GameFrame call-ins.
+setGadgetActivation = function (activate)
+    if activate == true and gadgetSuspended == true then
+        gadget.AllowUnitBuildStep = active_AllowUnitBuildStep
+        gadget.GameFrame = active_GameFrame
+        gadgetHandler:UpdateCallIn("AllowUnitBuildStep", gadget)
+        gadgetHandler:UpdateCallIn("GameFrame", gadget)
+        gadgetSuspended = false
+        gameFrameSuspend = gameFrame + 10 * updateTime
+    elseif activate == false and gadgetSuspended == false then
+        gadget.AllowUnitBuildStep = nil
+        gadget.GameFrame = nil
+        gadgetHandler:UpdateCallIn("AllowUnitBuildStep", gadget)
+        gadgetHandler:UpdateCallIn("GameFrame", gadget)
+        gadgetSuspended = true
+        gameFrameSuspend = 0
     end
-    return true -- allow
+end
+
+--------------------------------------------------------------------------------
+-- Gadget call-ins -------------------------------------------------------------
+
+function gadget:Initialize()
+    gameFrame = Spring.GetGameFrame() or 0
+    gameFrameSuspend = gameFrame + 10 * updateTime
+
+    for ii, teamID in pairs(teamList) do
+        -- Memoization tables use a metatable with weak values.
+        local teamBuildMemo = {}
+        setmetatable(teamBuildMemo, { __mode = "v" })
+
+        -- Each team tracks builds and resources separately.
+        reservedUnits[teamID] = {} -- unitID => { mcost, ecost, remaining, level }
+        unitBuildMemo[teamID] = teamBuildMemo -- unitID => frameEndDisallow
+        reservedMetal[teamID] = 0
+        reservedEnergy[teamID] = 0
+    end
+
+    for _, unitID in ipairs(Spring.GetAllUnits()) do
+        local _, _, _, _, buildProgress = spGetUnitHealth(unitID)
+        if buildProgress < 1 then
+            gadget:UnitCreated(unitID)
+        end
+    end 
 end
 
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions)
@@ -238,12 +258,14 @@ function gadget:UnitFinished(unitID, unitDefID, teamID)
     reservedUnits[teamID][unitID] = nil
 end
 
+-- These could be removable call-ins, as well:
+
 function gadget:MetaUnitRemoved(unitID, unitDefID, teamID)
     reservedUnits[teamID][unitID] = nil
 end
 
 function gadget:TeamDied(teamID)
-    teamPrevent[teamID] = nil
+    unitBuildMemo[teamID] = nil
     reservedUnits[teamID] = nil
     reservedMetal[teamID] = 0
     reservedEnergy[teamID] = 0
