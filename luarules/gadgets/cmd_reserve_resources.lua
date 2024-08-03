@@ -84,8 +84,8 @@ local setGadgetActivation -- Fix lexical scoping for cyclical reference, below.
 local function allowBuildStep(unitID, unitDefID, teamID, part)
     if not reservedUnits[teamID][unitID] then
     --  local m, mstore, mpull, mgain, mlose, mshare, msent, mrcvd
-        local m, mstore, _, _, _, _, msent = spGetTeamResources(teamID, "metal")
-        local e, estore, _, _, _, _, esent = spGetTeamResources(teamID, "energy")
+        local metal,  _, _, _, _, _, msent = spGetTeamResources(teamID, "metal")
+        local energy, _, _, _, _, _, esent = spGetTeamResources(teamID, "energy")
 
         -- Always prioritize build progress during overflow.
         if msent > 0 and (esent > 0 or reservedEnergy[teamID] < 1) then
@@ -100,9 +100,7 @@ local function allowBuildStep(unitID, unitDefID, teamID, part)
         local mcost = unitDef.metalCost * part
         local ecost = unitDef.energyCost * part
 
-        if  mstore < mreserve or m - mcost < mreserve or
-            estore < ereserve or e - ecost < ereserve
-        then
+        if metal - mcost < mreserve or energy - ecost < ereserve then
             unitBuildMemo[teamID][unitID] = gameFrame + updateTime
             return false
         end
