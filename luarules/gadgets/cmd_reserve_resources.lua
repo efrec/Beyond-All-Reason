@@ -103,6 +103,7 @@ local function restartTracking()
         reservedMetal[teamID] = 0
         reservedEnergy[teamID] = 0
     end
+    reservedUnits = {}
 end
 
 local function updateResources(teamID)
@@ -184,6 +185,8 @@ end
 
 -- Removable call-ins ----------------------------------------------------------
 
+---Every factory, nano, constructor, and ressurector is going to call this, every frame.
+---All possible optimization has to be considered, especially to remove this entirely.
 local function active_AllowUnitBuildStep(self, buildID, buildTeam, unitID, unitDefID, part)
     -- Using reservedUnits[unitID] instead of reservedTeams[teamID][unitID] is fast
     -- at the cost of adding a sneaky bad behavior: Players can "reserve" a build
@@ -191,7 +194,7 @@ local function active_AllowUnitBuildStep(self, buildID, buildTeam, unitID, unitD
     -- respecting their own reserve orders. Is this manipulative? Or correct?
     if part > 0 and reservedMetal[buildTeam] > 0 and not reservedUnits[unitID] then
         local denyUntil = unitBuildMemo[buildTeam][unitID]
-        if denyUntil and denyUntil >= gameFrame then
+        if denyUntil ~= nil and denyUntil >= gameFrame then
             return false -- disallow
         else
             return allowBuildStep(unitID, unitDefID, buildTeam, part)
@@ -203,6 +206,7 @@ end
 
 local function active_GameFrame(self, frame)
     gameFrame = frame
+
     -- Recalculate team resources and reserves.
     for _, teamID in pairs(teamList) do
         if (frame + 7 * teamID) % updateTime == 0 then
@@ -219,6 +223,7 @@ local function active_GameFrame(self, frame)
             updateResources(teamID) -- Reflecting again on "ponderously slow"
         end
     end
+
     -- Attempt to suspend the gadget.
     if frame >= gameFrameSuspend then
         gameFrameSuspend = frame + 10 * updateTime
@@ -245,6 +250,7 @@ setGadgetActivation = function (activate)
         gadgetSuspended = false
         gameFrameSuspend = gameFrame + 10 * updateTime
         restartTracking()
+
     elseif activate == false and gadgetSuspended == false then
         gadget.AllowUnitBuildStep = nil
         gadget.GameFrame = nil
