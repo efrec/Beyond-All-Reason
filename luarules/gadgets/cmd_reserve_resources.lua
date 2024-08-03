@@ -257,8 +257,6 @@ function gadget:UnitFinished(unitID, unitDefID, teamID)
     reservedUnits[teamID][unitID] = nil
 end
 
--- These could be removable call-ins, as well:
-
 function gadget:MetaUnitRemoved(unitID, unitDefID, teamID)
     reservedUnits[teamID][unitID] = nil
 end
