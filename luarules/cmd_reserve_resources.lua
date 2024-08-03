@@ -15,11 +15,6 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
--- TODO @efrec
--- + make a buffer of disallowed constructions
--- + and gradually build up its allowed-ness, resetting on an allow
--- + so that a million commands can be at least a little memoized
-
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
@@ -90,7 +85,6 @@ local function allowBuildStep(unitID, unitDefID, teamID, part)
 
         -- Always prioritize build progress during overflow.
         if msent > 0 and (esent > 0 or reservedEnergy[teamID] < 1) then
-            unitBuildMemo[teamID][unitID] = nil
             return true
         end
 
@@ -138,7 +132,6 @@ local function allowCommand(unitID, unitDefID, teamID, cmdParams)
 
         -- Update the reserves tracking.
         local remaining = 1 - (select(5, spGetUnitHealth(unitID)))
-        Spring.Echo('[reserve] amount remaining', remaining)
         local unitDef = UnitDefs[unitDefID]
         local mcost = unitDef.metalCost * remaining
         local ecost = unitDef.energyCost * remaining
@@ -153,14 +146,12 @@ local function allowCommand(unitID, unitDefID, teamID, cmdParams)
             if trackEnergy[newLevel] and not trackEnergy[oldLevel] then
                 reservedEnergy[teamID] = reservedEnergy[teamID] + ecost
             end
-            Spring.Echo('[reserve] after add: ', newLevel, oldLevel, reservedMetal[teamID], reservedEnergy[teamID])
         else
             reservedUnits[teamID][unitID] = nil
             reservedMetal[teamID] = math.max(0, reservedMetal[teamID] - mcost)
             if trackEnergy[oldLevel] then
                 reservedEnergy[teamID] = math.max(0, reservedEnergy[teamID] - ecost)
             end
-            Spring.Echo('[reserve] after remove: ', newLevel, oldLevel, reservedMetal[teamID], reservedEnergy[teamID])
         end
         return false -- consume command
     end
