@@ -235,7 +235,12 @@
 			"sellunit_tooltip": "Toggle currently selected units for sale, allies will be able to buy them",
 			"For Sale": "For Sale",
 			"Not For Sale": "Not For Sale",
-			
+			"reserveResources": "Reserve Resources",
+			"reserveResources_tooltip": "Lock down all other production to focus on building this",
+			"Reserve: None": "Reserve: None",
+			"Reserve: Metal": "Reserve: Metal",
+			"Reserve: All": "Reserve: All",
+
 			"Fire at will": "Fire at will",
 			"Hold fire": "Hold fire",
 			"Return fire": "Return fire",
