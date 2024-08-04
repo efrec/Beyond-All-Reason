@@ -90,7 +90,6 @@ local cmdDescReserve = {
 
 -- Each team cares only about its own resources and reserves:
 local reservedTeamUnits = {} -- teamID => { unitID = { m, e, bt, %done, %reserved } }
---    reservedResources = {} -- teamID => { metal, energy } -- 4 accesses instead of 3?
 local reservedTeamMetal = {}
 local reservedTeamEnerg = {} -- y
 
@@ -105,8 +104,8 @@ local spSetUnitRulesParam = Spring.SetUnitRulesParam
 local spGetUnitRulesParam = Spring.GetUnitRulesParam
 local spSetUnitBuildSpeed = Spring.SetUnitBuildSpeed
 local spGetUnitIsBuilding = Spring.GetUnitIsBuilding
+local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
 local spValidUnitID = Spring.ValidUnitID
-local spGetUnitHealth = Spring.GetUnitHealth
 local spGetTeamInfo = Spring.GetTeamInfo
 local spGetUnitTeam = Spring.GetUnitTeam
 local simSpeed = Game.gameSpeed
@@ -153,7 +152,7 @@ local function updateReserveTracking(teamID)
 		-- We want to use low estimates, since we have some update latency.
 		-- This is the full reserve amount, less the unit's build progress.
 		-- Then remove something like a half-interval as error (eg 29/30 ^ 3).
-		local portion = reserved[5] * (1 - (select(5, spGetUnitHealth(unitID)))) * 0.9
+		local portion = reserved[5] * (1 - (select(2, spGetUnitIsBeingBuilt(unitID)))) * 0.9
 		metal = metal + reserved[1] * portion
 		energy = energy + reserved[2] * portion
 	end
@@ -174,7 +173,7 @@ local function allowCommandReserveResources(unitID, teamID, params)
 
 			-- Update the reserves tracking.
 			local mcost, ecost, btime = unpack(costID[unitID])
-			local incomplete = 1 - (select(5, spGetUnitHealth(unitID)))
+			local incomplete = 1 - (select(2, spGetUnitIsBeingBuilt(unitID)))
 			-- This gets redone in GameFrame, so we don't need to be dead-on.
 			-- Get this close enough to continue its function and move along.
 			local newRate = reserveRate[newLevel]
@@ -199,14 +198,24 @@ function gadget:Initialize()
 	restartReserveTracking()
 
     for _, unitID in ipairs(Spring.GetAllUnits()) do
-		-- Can't just run UnitCreated anymore. Because of reserves.
 		local unitDefID, teamID = Spring.GetUnitDefID(unitID), spGetUnitTeam(unitID)
-        gadget:UnitCreated(unitID, unitDefID, teamID)
-
-		-- So also run UnitFinished on completed units.
-		local beingBuilt, progress = Spring.GetUnitIsBeingBuilt(unitID)
-		if beingBuilt or progress < 1 then
-			gadget:UnitFinished(unitID, unitDefID, teamID)
+		if spGetUnitIsBeingBuilt(unitID) then
+			gadget:UnitCreated(unitID, unitDefID, teamID)
+		else
+			-- Constructor units use their full build speed, by default.
+			if unitBuildSpeed[unitDefID] then
+				canBuild[teamID] = canBuild[teamID] or {}
+				canBuild[teamID][unitID] = true
+				realBuildSpeed[unitID] = unitBuildSpeed[unitDefID] or 0
+			end
+			-- Only units that can assist can use passive build priority.
+			if canPassive[unitDefID] then
+				spInsertUnitCmdDesc(unitID, cmdPassiveDesc)
+				if not passiveCons[teamID] then passiveCons[teamID] = {} end
+				passiveCons[teamID][unitID] = spGetUnitRulesParam(unitID,ruleName) == 1 or nil
+				currentBuildSpeed[unitID] = realBuildSpeed[unitID]
+				spSetUnitBuildSpeed(unitID, currentBuildSpeed[unitID]) -- to handle luarules reloads correctly
+			end
 		end
     end
 
@@ -231,12 +240,14 @@ function gadget:Initialize()
 end
 
 function gadget:UnitCreated(unitID, unitDefID, teamID)
-	-- Constructor units can be set to spend resources passively.
-    if canPassive[unitDefID] or unitBuildSpeed[unitDefID] then
+	-- Constructor units use their full build speed, by default.
+    if unitBuildSpeed[unitDefID] then
         canBuild[teamID] = canBuild[teamID] or {}
         canBuild[teamID][unitID] = true
         realBuildSpeed[unitID] = unitBuildSpeed[unitDefID] or 0
     end
+
+	-- Only units that can assist can use passive build priority.
     if canPassive[unitDefID] then
         spInsertUnitCmdDesc(unitID, cmdPassiveDesc)
         if not passiveCons[teamID] then passiveCons[teamID] = {} end
@@ -253,9 +264,11 @@ end
 function gadget:UnitFinished(unitID, unitDefID, teamID, builderID)
     buildTargetOwners[unitID] = nil
 	costID[unitID] = nil
+
 	-- Completed units must have any reserves ended.
 	reservedTeamUnits[teamID][unitID] = nil
-	spRemoveUnitCmdDesc(unitID, cmdDescReserve)
+	local index = spFindUnitCmdDesc(unitID, CMD_RESERVE_RESOURCES)
+	if index then spRemoveUnitCmdDesc(unitID, index) end
 end
 
 function gadget:UnitGiven(unitID, unitDefID, newTeamID, oldTeamID)
@@ -373,10 +386,12 @@ local function UpdatePassiveBuilders(teamID, interval)
 	end
 
 	-- work through passive cons allocating as much expense as we have left
+	local reservedUnits = reservedTeamUnits[teamID] -- Teams respect only their own reserves.
 	for builderID in pairs(passiveCons[teamID]) do
 		-- find out if we have used up all the expense available to passive builders yet
 		local wouldStall = false
 		local conExpense = passiveConsExpense[builderID]
+		local reservedTarget = reservedUnits[buildTargetOwners[builderID]]
 		-- Changed: No longer gates each resource behind its own stall.
 		-- Stalling in one resource will prevent spending in the other.
 		if conExpense then
@@ -385,7 +400,8 @@ local function UpdatePassiveBuilders(teamID, interval)
 			local newPullMetal = teamStallingMetal - passivePullMetal
 			local newPullEnergy = teamStallingEnergy - passivePullEnergy
 			if passivePullMetal > 0 or passivePullEnergy > 0 then
-				if newPullMetal <= 0 or newPullEnergy <= 0 then
+				-- Reserved builds are never disallowed, even when they would stall. So:
+				if not reservedTarget and (newPullMetal <= 0 or newPullEnergy <= 0) then
 					wouldStall = true
 				else
 					teamStallingMetal = newPullMetal
@@ -395,7 +411,7 @@ local function UpdatePassiveBuilders(teamID, interval)
 		end
 
 		-- turn this passive builder on/off as appropriate
-		local wantedBuildSpeed = (wouldStall or not conExpense) and 0 or realBuildSpeed[builderID]
+		local wantedBuildSpeed = wouldStall and 0 or realBuildSpeed[builderID]
 		if currentBuildSpeed[builderID] ~= wantedBuildSpeed then
 			spSetUnitBuildSpeed(builderID, wantedBuildSpeed)
 			currentBuildSpeed[builderID] = wantedBuildSpeed
