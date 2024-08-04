@@ -69,11 +69,10 @@ local cmdPassiveDesc = {
 -- Units receive this command when created and lose it when finished.
 -- todo: Cheap units should have an on/off; labs, fusions, etc. get more.
 local CMD_RESERVE_RESOURCES = CMD_RESERVE_RESOURCES
-local RESERVE_NONE, RESERVE_25, RESERVE_50, RESERVE_75, RESERVE_100 = 0, 1, 2, 3, 4, 5
+local RESERVE_NONE, RESERVE_25, RESERVE_75, RESERVE_100 = 0, 1, 2, 3, 4
 local reserveRate = {
 	[RESERVE_NONE] = 0.00,
 	[RESERVE_25]   = 0.25,
-	[RESERVE_50]   = 0.5,
 	[RESERVE_75]   = 0.75,
 	[RESERVE_100]  = 1.00,
 }
