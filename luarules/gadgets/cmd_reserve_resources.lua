@@ -7,13 +7,22 @@ function gadget:GetInfo()
 		date    = "2024-08-03",
 		license = "GNU GPL, v2 or later",
 		layer   = 0,
-		enabled = true,
+		enabled = false,
 	}
 end
 
 if not gadgetHandler:IsSyncedCode() then
 	return false
 end
+
+--[[
+
+todo @efrec
++ moving all this proof of concept over to the unit_builder_priority gadget
++ remove any doubt that AllowUnitBuildStep should never be touched again
++ at least until it is done, not like this
+
+]]--
 
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
@@ -24,6 +33,7 @@ local updateTime = 1.5 -- in seconds
 -- Globals and imports ---------------------------------------------------------
 
 VFS.Include('luarules/configs/customcmds.h.lua')
+local CMD_RESERVE_RESOURCES = CMD_RESERVE_RESOURCES
 
 local spGetTeamResources  = Spring.GetTeamResources
 local spGetUnitHealth     = Spring.GetUnitHealth
@@ -67,7 +77,7 @@ local cmdDescReserve = {
     action  = 'reserveResources',
     type    = CMDTYPE.ICON_MODE,
     tooltip = 'Reserve Resources',
-    params  = { 0, 'Reserve: None', 'Reserve: Metal', 'Reserve: All' }
+    params  = { RESERVE_NONE, 'Reserve: None', 'Reserve: Metal', 'Reserve: All' }
 }
 
 -- Each build denial needs to be memoized to speed up g:AllowBuildStep.
@@ -220,8 +230,9 @@ local function active_GameFrame(self, frame)
             end
             reservedMetal[teamID] = metal
             reservedEnergy[teamID] = energy
-            updateResources(teamID) -- Reflecting again on "ponderously slow"
         end
+        -- Probably better to deal with volatility nicely, like so:
+        updateResources(teamID)
     end
 
     -- Attempt to suspend the gadget.
@@ -276,7 +287,7 @@ function gadget:Initialize()
         if buildProgress < 1 then
             gadget:UnitCreated(unitID)
         end
-    end 
+    end
 end
 
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions)
