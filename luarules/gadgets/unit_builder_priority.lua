@@ -67,7 +67,6 @@ local cmdPassiveDesc = {
 }
 
 -- Units receive this command when created and lose it when finished.
--- todo: Cheap units should have an on/off; labs, fusions, etc. get more.
 local CMD_RESERVE_RESOURCES = CMD_RESERVE_RESOURCES
 local RESERVE_NONE, RESERVE_25, RESERVE_75, RESERVE_100 = 0, 1, 2, 3, 4
 local reserveRate = {
@@ -89,7 +88,7 @@ local cmdDescReserve = {
 }
 
 -- Each team cares only about its own resources and reserves:
-local reservedTeamUnits = {} -- teamID => { unitID = { m, e, bt, %done, %reserved } }
+local reservedTeamUnits = {} -- teamID => { unitID = { m, e, bt, %todo, %reserved } }
 local reservedTeamMetal = {}
 local reservedTeamEnerg = {} -- y
 
@@ -325,7 +324,7 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpt
 			end
         end
         return false -- Allowing command causes command queue to be lost if command is unshifted
-	-- Track units still being built (maybe see: costID) and their reserves.
+	-- Track units still being built and their reserves.
 	elseif cmdID == CMD_RESERVE_RESOURCES then
 		return allowCommandReserveResources(unitID, teamID, cmdParams)
     end
@@ -440,7 +439,6 @@ local function GetUpdateInterval(teamID)
 		end
 	end
 	if maxInterval > 6 then maxInterval = 6 end
-	--Spring.Echo("interval: "..maxInterval)
 	return maxInterval
 end
 
