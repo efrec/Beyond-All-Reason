@@ -31,18 +31,6 @@ if not gadgetHandler:IsSyncedCode() then
     return
 end
 
---[[
-
-todo @efrec
-+ use the custom commands thing
-+ change resource costs from hashtable to arrays for fewer allocations
-+ remove resource costs from constructed units on UnitFinished
-+ add a reserve resources command for 25%, 50%, 75%, and 100% cost
-+ if the reserve code is expensive, find a way to sleep it
-
-]]--
-
-
 -- These are supposedly engine-backed:
 local stallMarginInc = 0.20
 local stallMarginSto = 0.01
@@ -66,23 +54,52 @@ resources["metal"] = 1 -- reverse-able
 resources["energy"] = 2
 
 VFS.Include('luarules/configs/customcmds.h.lua')
-local CMD_PRIORITY = CMD_PRIORITY
 
 -- Constructors can restrict their build speeds based on this toggle.
+local CMD_PRIORITY = CMD_PRIORITY
 local cmdPassiveDesc = {
-      id      = CMD_PRIORITY,
-      name    = 'priority',
-      action  = 'priority',
-      type    = CMDTYPE.ICON_MODE,
-      tooltip = 'Builder Mode: Low Priority restricts build when stalling on resources',
-      params  = {1, 'Low Prio', 'High Prio'}
+	id      = CMD_PRIORITY,
+	name    = 'priority',
+	action  = 'priority',
+	type    = CMDTYPE.ICON_MODE,
+	tooltip = 'Builder Mode: Low Priority restricts build when stalling on resources',
+	params  = {1, 'Low Prio', 'High Prio'}
 }
 
+-- Units receive this command when created and lose it when finished.
+-- todo: Cheap units should have an on/off; labs, fusions, etc. get more.
+local CMD_RESERVE_RESOURCES = CMD_RESERVE_RESOURCES
+local RESERVE_NONE, RESERVE_25, RESERVE_50, RESERVE_75, RESERVE_100 = 0, 1, 2, 3, 4, 5
+local reserveRate = {
+	[RESERVE_NONE] = 0.00,
+	[RESERVE_25]   = 0.25,
+	[RESERVE_50]   = 0.5,
+	[RESERVE_75]   = 0.75,
+	[RESERVE_100]  = 1.00,
+}
+local cmdDescReserve = {
+    id      = CMD_RESERVE_RESOURCES,
+    name    = 'reserveResources',
+    action  = 'reserveResources',
+    type    = CMDTYPE.ICON_MODE,
+    tooltip = 'Reserve Resources',
+    params  = {
+		RESERVE_NONE,
+		'Reserve Off', 'Reserve 25%', 'Reserve 50%', 'Reserve 75%', 'Reserve 100%'
+	}
+}
+
+-- Each team cares only about its own resources and reserves:
+local reservedTeamUnits = {} -- teamID => { unitID = { m, e, bt, %done, %reserved } }
+--    reservedResources = {} -- teamID => { metal, energy } -- 4 accesses instead of 3?
+local reservedTeamMetal = {}
+local reservedTeamEnerg = {} -- y
 
 local spInsertUnitCmdDesc = Spring.InsertUnitCmdDesc
 local spFindUnitCmdDesc = Spring.FindUnitCmdDesc
 local spGetUnitCmdDescs = Spring.GetUnitCmdDescs
 local spEditUnitCmdDesc = Spring.EditUnitCmdDesc
+local spRemoveUnitCmdDesc = Spring.RemoveUnitCmdDesc
 local spGetTeamResources = Spring.GetTeamResources
 local spGetTeamList = Spring.GetTeamList
 local spSetUnitRulesParam = Spring.SetUnitRulesParam
@@ -90,6 +107,7 @@ local spGetUnitRulesParam = Spring.GetUnitRulesParam
 local spSetUnitBuildSpeed = Spring.SetUnitBuildSpeed
 local spGetUnitIsBuilding = Spring.GetUnitIsBuilding
 local spValidUnitID = Spring.ValidUnitID
+local spGetUnitHealth = Spring.GetUnitHealth
 local spGetTeamInfo = Spring.GetTeamInfo
 local spGetUnitTeam = Spring.GetUnitTeam
 local simSpeed = Game.gameSpeed
@@ -119,6 +137,62 @@ local function updateTeamList()
 	teamList = spGetTeamList()
 end
 
+local function restartReserveTracking()
+	reservedTeamUnits = {}
+	reservedTeamMetal = {}
+	reservedTeamEnerg = {}
+    for _, teamID in pairs(teamList) do
+		reservedTeamUnits[teamID] = {}
+		reservedTeamMetal[teamID] = 0
+		reservedTeamEnerg[teamID] = 0
+    end
+end
+
+local function updateReserveTracking(teamID)
+	local metal, energy = 0, 0
+	for unitID, reserved in pairs(reservedTeamUnits[teamID]) do
+		-- We want to use low estimates, since we have some update latency.
+		-- This is the full reserve amount, less the unit's build progress.
+		-- Then remove something like a half-interval as error (eg 29/30 ^ 3).
+		local portion = reserved[5] * (1 - (select(5, spGetUnitHealth(unitID)))) * 0.9
+		metal = metal + reserved[1] * portion
+		energy = energy + reserved[2] * portion
+	end
+	reservedTeamMetal[teamID] = metal
+	reservedTeamEnerg[teamID] = energy
+end
+
+local function allowCommandReserveResources(unitID, teamID, params)
+	local index = spFindUnitCmdDesc(unitID, CMD_RESERVE_RESOURCES)
+	if index then
+		local cmdDesc = spGetUnitCmdDescs(unitID, index, index)[1]
+		local oldLevel = tonumber(cmdDesc.params[1])
+		local newLevel = params[1]
+		if newLevel ~= oldLevel then
+			-- Update the unit's command state.
+			cmdDesc.params[1] = newLevel
+			spEditUnitCmdDesc(unitID, index, cmdDesc)
+
+			-- Update the reserves tracking.
+			local mcost, ecost, btime = unpack(costID[unitID])
+			local incomplete = 1 - (select(5, spGetUnitHealth(unitID)))
+			-- This gets redone in GameFrame, so we don't need to be dead-on.
+			-- Get this close enough to continue its function and move along.
+			local newRate = reserveRate[newLevel]
+			local oldRate = reserveRate[oldLevel]
+			reservedTeamMetal[teamID] = reservedTeamMetal[teamID] + mcost * incomplete * (newRate - oldRate)
+			reservedTeamEnerg[teamID] = reservedTeamMetal[teamID] + ecost * incomplete * (newRate - oldRate)
+			if newLevel == RESERVE_NONE then
+				reservedTeamUnits[teamID][unitID] = nil
+			else
+				reservedTeamUnits[teamID][unitID] = { mcost, ecost, btime, incomplete, newRate }
+			end
+			return false -- consume command
+		end
+	end
+	return true -- continue processing
+end
+
 local isTeamSavingMetal = function(_) return false end
 
 function gadget:Initialize()
@@ -126,7 +200,16 @@ function gadget:Initialize()
         gadget:UnitCreated(unitID, Spring.GetUnitDefID(unitID), spGetUnitTeam(unitID))
     end
 	updateTeamList()
-	
+	restartReserveTracking()
+
+	-- Distribute initial update frames; they will drift on their own after.
+	for _, teamID in ipairs(teamList) do
+		local gameFrame = Spring.GetGameFrame()
+		if not updateFrame[teamID] then
+			updateFrame[teamID] = gameFrame + (teamID % 6)
+		end
+	end
+
 	-- huge apologies for intruding on this gadget, but players have requested ability to put everything on hold to buy t2 as soon as possible (Unit Market)
 	if (Spring.GetModOptions().unit_market) then
 		isTeamSavingMetal = function(teamID)
@@ -140,6 +223,7 @@ function gadget:Initialize()
 end
 
 function gadget:UnitCreated(unitID, unitDefID, teamID)
+	-- Constructor units can be set to spend resources passively.
     if canPassive[unitDefID] or unitBuildSpeed[unitDefID] then
         canBuild[teamID] = canBuild[teamID] or {}
         canBuild[teamID][unitID] = true
@@ -153,12 +237,17 @@ function gadget:UnitCreated(unitID, unitDefID, teamID)
         spSetUnitBuildSpeed(unitID, currentBuildSpeed[unitID]) -- to handle luarules reloads correctly
     end
 
+	-- All units can reserve their costs to build.
+	spInsertUnitCmdDesc(unitID, cmdDescReserve)
     costID[unitID] = cost[unitDefID]
 end
 
 function gadget:UnitFinished(unitID, unitDefID, teamID, builderID)
     buildTargetOwners[unitID] = nil
 	costID[unitID] = nil
+	-- Completed units must have any reserves ended.
+	reservedTeamUnits[teamID][unitID] = nil
+	spRemoveUnitCmdDesc(unitID, cmdDescReserve)
 end
 
 function gadget:UnitGiven(unitID, unitDefID, newTeamID, oldTeamID)
@@ -173,6 +262,8 @@ function gadget:UnitGiven(unitID, unitDefID, newTeamID, oldTeamID)
         canBuild[newTeamID][unitID] = true
         canBuild[oldTeamID][unitID] = nil
     end
+
+	reservedTeamUnits[teamID][unitID] = nil
 end
 
 function gadget:UnitTaken(unitID, unitDefID, oldTeamID, newTeamID)
@@ -190,6 +281,8 @@ function gadget:UnitDestroyed(unitID, unitDefID, teamID)
     buildTargetOwners[unitID] = nil
 
     costID[unitID] = nil
+
+	reservedTeamUnits[teamID][unitID] = nil
 end
 
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
@@ -211,6 +304,9 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpt
 			end
         end
         return false -- Allowing command causes command queue to be lost if command is unshifted
+	-- Track units still being built (maybe see: costID) and their reserves.
+	elseif cmdID == CMD_RESERVE_RESOURCES then
+		return allowCommandReserveResources(unitID, teamID, cmdParams)
     end
     return true
 end
@@ -261,11 +357,11 @@ local function UpdatePassiveBuilders(teamID, interval)
 		stor = stor * share
 		-- amount of res available to assign to passive builders (in next interval)
 		-- leave a tiny bit left over to avoid engines own "stall mode"
-		teamStallingMetal = cur - max(inc*stallMarginInc, stor*stallMarginSto) - 1 + (interval)*(nonPassiveConsTotalExpenseMetal+inc+rec-sent)/simSpeed
+		teamStallingMetal = cur - max(inc*stallMarginInc, stor*stallMarginSto) - 1 + (interval)*(nonPassiveConsTotalExpenseMetal+inc+rec-sent)/simSpeed - reservedTeamMetal[teamID]
 
 		cur, stor, _, inc, _, share, sent, rec = spGetTeamResources(teamID, "energy")
 		stor = stor * share
-		teamStallingEnergy = cur - max(inc*stallMarginInc, stor*stallMarginSto) - 1 + (interval)*(nonPassiveConsTotalExpenseEnergy+inc+rec-sent)/simSpeed
+		teamStallingEnergy = cur - max(inc*stallMarginInc, stor*stallMarginSto) - 1 + (interval)*(nonPassiveConsTotalExpenseEnergy+inc+rec-sent)/simSpeed - reservedTeamEnerg[teamID]
 	end
 
 	-- work through passive cons allocating as much expense as we have left
@@ -338,13 +434,12 @@ function gadget:GameFrame(n)
 
 	for i=1, #teamList do
 		local teamID = teamList[i]
-		if not deadTeamList[teamID] and not isTeamSavingMetal(teamID) then -- isnt dead
-			if n == updateFrame[teamID] then
+		if not deadTeamList[teamID] and not isTeamSavingMetal(teamID) then
+			if n >= updateFrame[teamID] then
 				local interval = GetUpdateInterval(teamID)
 				UpdatePassiveBuilders(teamID, interval)
+				updateReserveTracking(teamID)
 				updateFrame[teamID] = n + interval
-			elseif not updateFrame[teamID] or updateFrame[teamID] < n then
-				updateFrame[teamID] = n + GetUpdateInterval(teamID)
 			end
 		end
     end
@@ -352,6 +447,9 @@ end
 
 function gadget:TeamDied(teamID)
 	deadTeamList[teamID] = true
+	reservedTeamUnits[teamID] = {}
+	reservedTeamMetal[teamID] = 0
+	reservedTeamEnerg[teamID] = 0
 end
 
 function gadget:TeamChanged(teamID)
