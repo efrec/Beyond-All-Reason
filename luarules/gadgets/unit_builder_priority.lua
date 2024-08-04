@@ -84,7 +84,7 @@ local cmdDescReserve = {
     tooltip = 'Reserve Resources',
     params  = {
 		RESERVE_NONE,
-		'Reserve Off', 'Reserve 25%', 'Reserve 50%', 'Reserve 75%', 'Reserve 100%'
+		'Reserve Off', 'Reserve 25', 'Reserve 75', 'Reserve 100'
 	}
 }
 
@@ -195,11 +195,29 @@ end
 local isTeamSavingMetal = function(_) return false end
 
 function gadget:Initialize()
-    for _,unitID in pairs(Spring.GetAllUnits()) do
-        gadget:UnitCreated(unitID, Spring.GetUnitDefID(unitID), spGetUnitTeam(unitID))
-    end
 	updateTeamList()
 	restartReserveTracking()
+
+    for _, unitID in ipairs(Spring.GetAllUnits()) do
+		-- Can't run UnitCreated directly anymore. Because of reserves.
+        -- gadget:UnitCreated(unitID, Spring.GetUnitDefID(unitID), spGetUnitTeam(unitID))
+
+		-- So initialize only the passive builders:
+		local unitDefID = Spring.GetUnitDefID(unitID)
+		local teamID = spGetUnitTeam(unitID)
+		if canPassive[unitDefID] or unitBuildSpeed[unitDefID] then
+			canBuild[teamID] = canBuild[teamID] or {}
+			canBuild[teamID][unitID] = true
+			realBuildSpeed[unitID] = unitBuildSpeed[unitDefID] or 0
+		end
+		if canPassive[unitDefID] then
+			spInsertUnitCmdDesc(unitID, cmdPassiveDesc)
+			if not passiveCons[teamID] then passiveCons[teamID] = {} end
+			passiveCons[teamID][unitID] = spGetUnitRulesParam(unitID,ruleName) == 1 or nil
+			currentBuildSpeed[unitID] = realBuildSpeed[unitID]
+			spSetUnitBuildSpeed(unitID, currentBuildSpeed[unitID]) -- to handle luarules reloads correctly
+		end
+    end
 
 	-- Distribute initial update frames; they will drift on their own after.
 	for _, teamID in ipairs(teamList) do
