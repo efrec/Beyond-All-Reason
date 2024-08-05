@@ -50,9 +50,7 @@ local defaultVelocity = 240                -- fallback values for your screwups
 
 local DirectionsUtil = VFS.Include("LuaRules/Gadgets/Include/DirectionsUtil.lua")
 
-local abs   = math.abs
 local max   = math.max
-local min   = math.min
 local rand  = math.random
 local sqrt  = math.sqrt
 local cos   = math.cos
@@ -63,16 +61,12 @@ local spGetGroundHeight  = Spring.GetGroundHeight
 local spGetGroundNormal  = Spring.GetGroundNormal
 local spGetUnitDefID     = Spring.GetUnitDefID
 local spGetUnitPosition  = Spring.GetUnitPosition
-local spGetUnitRadius    = Spring.GetUnitRadius
-local spGetUnitsInSphere = Spring.GetUnitsInSphere
 local spSpawnProjectile  = Spring.SpawnProjectile
 local spTraceRayUnits    = Spring.TraceRayUnits
 local spTraceRayGround   = Spring.TraceRayGround
 
 local gameSpeed          = Game.gameSpeed
 local mapGravity         = Game.gravity / gameSpeed / gameSpeed * -1
-
-local SetWatchExplosion  = Script.SetWatchExplosion
 
 --------------------------------------------------------------------------------
 -- Initialize ------------------------------------------------------------------
@@ -92,7 +86,7 @@ for unitDefID, unitDef in pairs(UnitDefs) do
         if wdef.customParams.cluster then
             clusterWeapons[wdid] = {
                 def    = wdef.customParams.def or (unitDef.name.."_"..defaultSpawnDef)
-                number = min(
+                number = math.min(
                     tonumber(wdef.customParams.number or defaultSpawnNum),
                     maxSpawnNumber
                 )
@@ -116,7 +110,7 @@ for weaponDefID, cluster in pairs(clusterWeapons) do
     projVel = ((projVel and projVel) or defaultVelocity) / gameSpeed
     if cmdef.range > 10 then
         -- range -> velocity calculation for a launch @ 45deg:
-        local rangeVel = sqrt(cmdef.range * abs(mapGravity))
+        local rangeVel = sqrt(cmdef.range * math.abs(mapGravity))
         clusterWeapons[weaponDefID].projVel = (projVel + rangeVel) / 2
     else
         clusterWeapons[weaponDefID].projVel = projVel
@@ -154,7 +148,7 @@ do
     ---@return number bulk value from 0 to 1, inclusive
     local function getUnitBulk(unitDef)
         if not unitDef then return end
-        return min(
+        return math.min(
             1.0,
             ((  udef.health ^ 0.5 +                         -- HP is log2-ish but that feels too tryhard
                 udef.metalCost ^ 0.5 *                      -- Steel (metal) is heavier than feathers (energy)
@@ -306,7 +300,7 @@ local function spawnClusterProjectiles(ex, ey, ez, ownerID, projectileID, count,
             local bounce = unitBulk[spGetUnitDefID(unitID)]
             if bounce ~= nil then
                 nudge = nudge - bounce -- real programming hours
-                bounce = bounce / (scanNearby / vw / math.max(1, length))
+                bounce = bounce / (scanNearby / vw / max(1, length))
                 local _,_,_, ux, uy, uz = spGetUnitPosition(unitID, true)
                 local dx, dy, dz = (ex + vx / vw * length) - ux,
                                    (ey + vy / vw * length) - uy,
@@ -361,7 +355,7 @@ function gadget:Initialize()
     end
 
     for wdid, _ in pairs(clusterWeapons) do
-        SetWatchExplosion(wdid, true)
+        Script.SetWatchExplosion(wdid, true)
     end
 end
 
