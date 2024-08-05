@@ -1,24 +1,37 @@
--- DIRECTIONSUTIL -------------------------------------------------------------------------------------------
+-- DIRECTIONSUTIL -------------------------------------------------------------
 -- This is a minor utility for distributing directions rotationally in 3D.
 
-local DirectionsUtil = {}
+local DirectionsUtil
+
 local DIRECTION_SET_SIZE_MAX = 64
 
-DirectionsUtil.Directions = {}
+-- Basic use case --------------------------------------------------------------
 
---------------------------------------------------------------------------------------------------------------
--- Evenly distributed arrays ---------------------------------------------------------------------------------
+-- local directions = DirectionsUtil.Directions
+-- ...
+-- local d = directions[count]
+-- for i = 0, (count - 1) do vector3 = { d[3*i+1], d[3*i+2], d[3*i+3] } end
+-- ...
+
+--------------------------------------------------------------------------------
+-- Evenly distributed arrays ---------------------------------------------------
 
 -- Randomness produces clumping at small sample sizes, so you may want to use evenly-spaced vectors instead.
 -- "Even spacing" has all kinds of meanings -- you can generally sort these into different spatial packings.
 
--- This is a set of solutions for packing spheres along the surface of a larger, unit sphere.
+local packings = {}
+local packingNames = {}
+
+packing.emptySet = {}
+
+-- The following is a set of solutions for packing spheres along the surface of the unit sphere.
 -- Each inner array contains its solution set of float3 directions unrolled into one contiguous array.
+-- Each float3, then, represents the point that a packed sphere contacts the inner unit sphere.
 -- Solutions are provided for n = [2, 16], with n = 1 set to an empty array (it's a nonsense result).
 -- Credit to Hardin, Sloane, & Smith (and contribs) for the tables at neilsloane.com/packings/dim3/
 -- To add more, fetch neilsloane.com/packings/dim3/pack.3.<n>.txt for next n & replace newlines with commas.
 
-local spherePackings = {
+packings.hardSpheres_onSurface_hardUnitSphere = {
     {},
     { 1,                         0,                         0,                         -1,                        0,                         0 },
     { 1,                         0,                         0,                         -0.5,                      0,                         0.866025403784439,         -0.5,                      0,                         -0.866025403784438 },
@@ -37,16 +50,30 @@ local spherePackings = {
     { 1.266109423779690200e-01,  9.635507195418956400e-01,  -2.356685811483104400e-01, -5.918057918773704800e-01, 7.708607037331326500e-01,  2.356685811483104100e-01,  8.112044025054730700e-02,  6.173531063344418500e-01,  7.824925662731709900e-01,  -3.791737544816633500e-01, 4.938953812696635900e-01,  -7.824925662731708800e-01, -9.635507195418956400e-01, 1.266109423779690200e-01,  -2.356685811483104400e-01, -7.708607037331326500e-01, -5.918057918773704800e-01, 2.356685811483104100e-01,  -6.173531063344418500e-01, 8.112044025054730700e-02,  7.824925662731709900e-01,  -4.938953812696635900e-01, -3.791737544816633500e-01, -7.824925662731708800e-01, -1.266109423779690200e-01, -9.635507195418956400e-01, -2.356685811483104400e-01, 5.918057918773704800e-01,  -7.708607037331326500e-01, 2.356685811483104100e-01,  -8.112044025054730700e-02, -6.173531063344418500e-01, 7.824925662731709900e-01,  3.791737544816633500e-01,  -4.938953812696635900e-01, -7.824925662731708800e-01, 9.635507195418956400e-01,  -1.266109423779690200e-01, -2.356685811483104400e-01, 7.708607037331326500e-01,  5.918057918773704800e-01,  2.356685811483104100e-01,  6.173531063344418500e-01, -8.112044025054730700e-02, 7.824925662731709900e-01, 4.938953812696635900e-01, 3.791737544816633500e-01, -7.824925662731708800e-01 }
 }
 
---------------------------------------------------------------------------------------------------------------
--- Randomly distributed arrays -------------------------------------------------------------------------------
+---Update the direction set used internally by the module.
+---Does not repeat the provisioning of combined sets.
+---@param packingName string key obtained from DirectionsUtil.DirectionSetNames
+---@return boolean success whether the direction set was updated
+local function setDirections(packingName)
+    local found = packings[packingName]
+    if found and type(found) == "table" then
+        DirectionsUtil.Directions = found
+        return true
+    else
+        return false
+    end
+end
 
---- Produces a array of unrolled float3 vectors representing directions.
--- This function uses rejection sampling which is efficient but inappropriate for constant-time operations.
--- @tparam[opt] number n count of directions to produce (default 1)
--- @treturn {number,...} array with length equal to 3n
-DirectionsUtil.GetRandomDirections = function(n)
+--------------------------------------------------------------------------------
+-- Randomly distributed arrays -------------------------------------------------
+
+---Produces a array of unrolled float3 vectors representing directions.
+---This method uses rejection sampling which is efficient but not constant-time.
+---@param n number count of directions to produce (default 1)
+---@return table directions {number,...} array with length equal to 3n
+local function getRandomDirections(n)
     n = (n and n > 1 and n) or 1
-    local vecs = {}
+    local directions = {}
     for ii = 1, 3 * (n - 1) + 1, 3 do
         local m1, m2, m3, m4    -- Marsaglia procedure:
         repeat                  -- The method begins by sampling & rejecting points.
@@ -55,23 +82,22 @@ DirectionsUtil.GetRandomDirections = function(n)
             m3 = m1 * m1 + m2 * m2
         until (m3 < 1)
         m4 = (1 - m3) ^ 0.5
-        vecs[ii    ] = 2 * m1 * m4 -- x
-        vecs[ii + 1] = 2 * m2 * m4 -- y
-        vecs[ii + 2] = 1 -  2 * m3  -- z
+        directions[ii    ] = 2 * m1 * m4 -- x
+        directions[ii + 1] = 2 * m2 * m4 -- y
+        directions[ii + 2] = 1 -  2 * m3 -- z
     end
-    return vecs
+    return directions
 end
 
---------------------------------------------------------------------------------------------------------------
--- Combined distribution arrays ------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Combined distribution arrays ------------------------------------------------
 
---- Fetches a premade direction set from DistributedDirections; otherwise, generates random directions.
--- @tparam number n count of (unrolled) float3 directions to retrieve
--- @treturn[1] {number,...} array with length equal to 3n
--- @treturn[1] boolean true if the result is random
--- @treturn[2] nil
--- @see DirectionsUtil.GetRandomDirections
-DirectionsUtil.GetDirections = function(n)
+---Fetches a premade direction set from DistributedDirections;
+---otherwise, generates random directions.
+---@param n number count of (unrolled) float3 directions to retrieve
+---@return table|nil directions {number,...} array with length equal to 3n
+---@return boolean|nil random true if the result is random
+local function getDirections(n)
     if not n or n < 1 then return end
     local distributed = DirectionsUtil.Directions[n]
     if distributed then
@@ -84,22 +110,35 @@ DirectionsUtil.GetDirections = function(n)
     end
 end
 
---- Pad the size of an insufficient direction set by adding randomly generated directions.
--- @tparam number n maximum solution size to add to Directions
--- @treturn boolean whether provisioning succeeded
-DirectionsUtil.ProvisionDirections = function(n)
-    if not n or n < 2 or n > DIRECTION_SET_SIZE_MAX then return false end
+---Pad the size of an insufficient direction set by adding random directions.
+---@param n number maximum solution size to add to Directions
+---@return boolean success whether provisioning succeeded
+local function provisionDirections(n)
+    if not n or n < 1 or n > DIRECTION_SET_SIZE_MAX then return false end
     local directions = DirectionsUtil.Directions
     if not directions then return false end
     for ii = #directions + 1, n do
-        directions[ii] = DirectionsUtil.GetRandomDirections(ii)
+        directions[ii] = getRandomDirections(ii)
     end
     return true
 end
 
---------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Compose module --------------------------------------------------------------
 
--- Choose a spacing method:
-DirectionsUtil.Directions = spherePackings
+for name, solution in pairs(packings) do
+    packingNames[#packingNames+1] = name
+end
+
+DirectionsUtil = {
+    DirectionSetNames   = packingNames,
+    GetDirections       = getDirections,
+    setDirections       = setDirections,
+    GetRandomDirections = getRandomDirections,
+    ProvisionDirections = provisionDirections,
+
+    -- Pick something as a default:
+    Directions          = packings.hardSpheres_onSurface_hardUnitSphere,
+}
 
 return DirectionsUtil
