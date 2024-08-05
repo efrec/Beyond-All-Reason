@@ -100,7 +100,7 @@ end
 -- Information for cluster munitions
 
 for weaponDefID, cluster in pairs(clusterWeapons) do
-    local cmdid = WeaponDefNames[cluster.def]
+    local cmdid = WeaponDefNames[cluster.def].id
     local cmdef = WeaponDefs[cmdid]
 
     clusterWeapons[weaponDefID].projDef = cmdid
