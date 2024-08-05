@@ -233,32 +233,27 @@ DirectionsUtil.ProvisionDirections(maxDataNum)
 ---@return number response_y
 ---@return number response_z
 local function getTerrainDeflection(ex, ey, ez, projectileID, count, speed)
-    local distance, x, y, z, m
+    local distance, dx, dy, dz, slope
     local elevation = spGetGroundHeight(ex, ez)
     if elevation < deepWaterDepth then
         -- Guess an equivalent hard-surface distance.
         -- The response is directly upward.
         distance = ey - deepWaterDepth / 3 -- Since water is fairly dense.
-        x, y, z  = 0, 1, 0
+        dx, dy, dz  = 0, 1, 0
     else
         -- Get the true elevation above a hard surface.
         -- And the true direction of the surface response.
         distance = ey - elevation
-        x, y, z, m = spGetGroundNormal(ex, ez, true) -- Smooth normal, not raw.
+        dx, dy, dz, slope = spGetGroundNormal(ex, ez, true) -- Smooth normal, not raw.
 
         -- Follow slopes upward, toward the shortest distance to ground.
         -- Note: Walls, cliffs, etc. on flatter maps might be overlooked.
-        local cosm = cos(m)
-        local lenxz = sqrt(x*x + z*z)
-        if distance * cosm > 1 then
-            local dx, dy, dz = cosm * (x / lenxz),
-                               cosm * sin(m) * -1,
-                               cosm * (z / lenxz)
-            local rayDistance = spTraceRayGround(ex, ey, ez, dx, dy, dz, distance)
+        if slope > 0 and distance > 8 then
+            local rayDistance = spTraceRayGround(ex, ey, ez, -dx, -dy, -dz, distance)
             if rayDistance then
                 distance = rayDistance
                 elevation = spGetGroundHeight(ex + dx * distance, ez + dz * distance)
-                x, y, z,_ = spGetGroundNormal(ex + dx * distance, ez + dz * distance, true)
+                dx, dy, dz,_ = spGetGroundNormal(ex + dx * distance, ez + dz * distance, true)
             end
         end
 
@@ -266,7 +261,7 @@ local function getTerrainDeflection(ex, ey, ez, projectileID, count, speed)
         -- but have a shorter hard-surface distance overall than deep water.
         if elevation <= 0 then
             distance = ey - elevation / 2
-            x, y, z = x * 0.87, y / 0.87, z * 0.87
+            dx, dy, dz = dx * 0.87, dy / 0.87, dz * 0.87
         end
     end
 
@@ -274,13 +269,16 @@ local function getTerrainDeflection(ex, ey, ez, projectileID, count, speed)
     -- plus extra to deal with the jitter that will be added,
     -- plus a small shift from the parent projectile's speed.
     local vx, vy, vz, vw = Spring.GetProjectileVelocity(projectileID)
-    local response = (math.pi / 2 + 1 / (1 + count)) / sqrt(max(1, distance))
-    local momentum = max(0, vw - speed) / speed -- This ignores a lot, so keep it simple.
+    local response = 1 / sqrt(max(1, distance))
+    local increase = (math.pi * 0.5) + (1 / (1 + count))
+    local momentum = max(0, (vw - speed) * 0.25) / speed
     Spring.Echo('[clustermun] vw and speed: ' .. vw .. ', ' .. speed) -- !
 
-    return response * x + momentum * vx,
-           response * y + momentum * vy * 0.8,
-           response * z + momentum * vz
+    -- Momentum is halved again to average v-terms and d-terms.
+    -- The intended effect is to add ricochet alongside inertia:
+    return (dx * response * increase) + momentum * (vx/vw + dx),
+           (dy * response * increase) + momentum * (vy/vw + dy),
+           (dz * response * increase) + momentum * (vz/vw + dz)
 end
 
 ---Spawn sub-munitions that are flung outward from an explosive source.
