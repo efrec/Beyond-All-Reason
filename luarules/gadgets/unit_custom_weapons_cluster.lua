@@ -6,46 +6,47 @@ function gadget:GetInfo()
         version = '1.1',
         date    = '2024-07-15',
         license = 'GNU GPL, v2 or later',
-        layer   = 10, -- preempt :Explosion handlers like fx_watersplash.lua that return `true` (not pure fx)
+        layer   = 10, -- Preempt any g:Explosion handlers that return `true`.
         enabled = true,
     }
 end
 
 if not gadgetHandler:IsSyncedCode() then return false end
 
---------------------------------------------------------------------------------------------------------------
--- Configuration ---------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Configuration ---------------------------------------------------------------
 
--- General settings ------------------------------------------------------------------------------------------
+-- General settings ------------------------------------------------------------
 
-local maxSpawnNumber  = 24                         -- protect game performance against stupid ideas
-local minUnitBounces  = "armpw"                    -- smallest unit (name) that bounces projectiles at all
-local minBulkReflect  = 64000                      -- smallest unit bulk that causes reflection as if terrain
-local deepWaterDepth  = -40                        -- used for the surface deflection on water, lava, ...
+local maxSpawnNumber  = 24                 -- hard-cap on moddable value
+local minUnitBounces  = "armpw"            -- smallest unit that partly reflects
+local minUnitTerrain  = "armthor"          -- smallest unit that fully reflects
+local minBulkTerrain  = 64000              -- for consistent full reflection
+local deepWaterDepth  = -40                -- for deflection on water/"water"
 
--- Customparam defaults --------------------------------------------------------------------------------------
+-- Customparam defaults --------------------------------------------------------
 
-local defaultSpawnDef = "cluster_munition"         -- def used, by default
-local defaultSpawnNum = 5                          -- number of spawned projectiles, by default
-local defaultSpawnTtl = 300                        -- detonate projectiles after time = ttl, by default
-local defaultVelocity = 240                        -- speed of spawned projectiles, by default
+local defaultSpawnDef = "cluster_munition" -- weapon name used when `def` is nil
+local defaultSpawnNum = 5                  -- fallback values for your screwups
+local defaultSpawnTtl = 300                -- fallback values for your screwups
+local defaultVelocity = 240                -- fallback values for your screwups
 
--- CustomParams setup ----------------------------------------------------------------------------------------
+-- CustomParams setup ----------------------------------------------------------
 
 --    primary_weapon = {
 --        customparams = {
---            cluster  = true,
---           [def      = <string>,]
---           [number   = <integer>,]
+--            cluster        = true,
+--            cluster_def    = <string> | default weapon name,
+--            cluster_number = <number> | default spawn count,
 --        },
 --    },
---    cluster_munition | <def> = {
---       [maxvelocity = <number>,]
---       [range       = <number>,]
+--    cluster_def = {
+--        maxvelocity = <number>, -- Each of these will decide the total area
+--        range       = <number>, -- where cluster munitions will be scattered.
 --    }
 
---------------------------------------------------------------------------------------------------------------
--- Localize --------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Localize --------------------------------------------------------------------
 
 local DirectionsUtil = VFS.Include("LuaRules/Gadgets/Include/DirectionsUtil.lua")
 
@@ -73,119 +74,111 @@ local mapGravity         = Game.gravity / gameSpeed / gameSpeed * -1
 
 local SetWatchExplosion  = Script.SetWatchExplosion
 
---------------------------------------------------------------------------------------------------------------
--- Initialize ------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Initialize ------------------------------------------------------------------
 
--- Information table for cluster weapons
+-- Information table for cluster triggers
+
+local clusterWeapons = {}
 
 local spawnableTypes = {
-    Cannon          = true  ,
-    EMGCannon       = true  ,
-    Fire            = false , -- but possible
-    LightningCannon = false , -- but possible
-    MissileLauncher = false , -- but possible
+    Cannon    = true,
+    EMGCannon = true,
 }
 
-local dataTable      = {} -- Info on each cluster weapon
-local wDefNamesToIDs = {} -- Says it on the tin
-
-for wdid, wdef in pairs(WeaponDefs) do
-    wDefNamesToIDs[wdef.name] = wdid
-
-    if wdef.customParams.cluster then
-        dataTable[wdid] = {}
-        dataTable[wdid].number  = tonumber(wdef.customParams.number) or defaultSpawnNum
-        dataTable[wdid].def     = wdef.customParams.def
-        dataTable[wdid].projDef = -1
-        dataTable[wdid].projTtl = -1
-        dataTable[wdid].projVel = -1
-
-        -- Enforce limits, eg the projectile count, at init.
-        dataTable[wdid].number  = min(dataTable[wdid].number, maxSpawnNumber)
-
-        -- When the cluster munition name isn't specified, search for the default.
-        if dataTable[wdid].def == nil then
-            local search = ''
-            for word in string.gmatch(wdef.name, '([^_]+)') do
-                search = search == '' and word or search .. '_' .. word
-                if UnitDefNames[search] ~= nil then
-                    dataTable[wdid].def = search .. '_' .. defaultSpawnDef
-                end
-            end
-            -- There's still the chance we haven't found anything, so:
-            if dataTable[wdid].def == nil then
-                Spring.Echo('[clustermun] [warn] Did not find cluster munition for weapon id ' .. wdid)
-                dataTable[wdid] = nil
-            end
+for unitDefID, unitDef in pairs(UnitDefs) do
+    for index, unitWeapon in ipairs(unitDef.weapons or {}) do
+        local wdef = WeaponDefs[unitWeapon.weaponDef]
+        if wdef.customParams.cluster then
+            clusterWeapons[wdid] = {
+                def    = wdef.customParams.def or (unitDef.name.."_"..defaultSpawnDef)
+                number = min(
+                    tonumber(wdef.customParams.number or defaultSpawnNum),
+                    maxSpawnNumber
+                )
+            }
         end
     end
 end
 
 -- Information for cluster munitions
 
-for wdid, data in pairs(dataTable) do
-    local cmdid = wDefNamesToIDs[data.def]
+for weaponDefID, cluster in pairs(clusterWeapons) do
+    local cmdid = WeaponDefNames[cluster.def]
     local cmdef = WeaponDefs[cmdid]
 
-    dataTable[wdid].projDef = cmdid
-    dataTable[wdid].projTtl = cmdef.flighttime or defaultSpawnTtl
+    clusterWeapons[weaponDefID].projDef = cmdid
+    clusterWeapons[weaponDefID].projTtl = cmdef.flighttime or defaultSpawnTtl
 
-    -- Range and velocity are closely related so may be in disagreement. Average them (more or less):
-    local projVel = cmdef.projectilespeed or cmdef.startvelocity
+    -- Range and velocity are closely related so may be in disagreement.
+    -- Average them (more or less) to create a consistent area of effect.
+    local projVel = cmdef.startvelocity or cmdef.projectilespeed
     projVel = ((projVel and projVel) or defaultVelocity) / gameSpeed
     if cmdef.range > 10 then
-        local rangeVel = sqrt(cmdef.range * abs(mapGravity)) -- inverse range calc for launch @ 45deg
-        dataTable[wdid].projVel = (projVel + rangeVel) / 2
+        -- range -> velocity calculation for a launch @ 45deg:
+        local rangeVel = sqrt(cmdef.range * abs(mapGravity))
+        clusterWeapons[weaponDefID].projVel = (projVel + rangeVel) / 2
     else
-        dataTable[wdid].projVel = projVel
-    end
-
-    -- Prevent the grenade apocalypse:
-    if dataTable[cmdid] ~= nil then
-        Spring.Echo('[clustermun] [warn] Preventing recursive explosions: ' .. cmdid)
-        dataTable[cmdid] = nil
-    end
-
-    -- Remove unspawnable projectiles:
-    if spawnableTypes[cmdef.type] ~= true then
-        Spring.Echo('[clustermun] [warn] Invalid spawned weapon type: ' ..
-            dataTable[wdid].def .. ' is not spawnable (' .. (cmdef.type or 'nil!') .. ')')
-        dataTable[wdid] = nil
-    end
-
-    -- Remove invalid spawn counts:
-    if data.number == nil or data.number <= 1 then
-        Spring.Echo('[clusermun] [warn] Removing low-count cluster weapon: ' .. wdid)
-        dataTable[wdid] = nil
+        clusterWeapons[weaponDefID].projVel = projVel
     end
 end
-wDefNamesToIDs = nil
 
--- Information on units
+-- Remove invalid cluster weapons
+
+for weaponDefID, cluster in pairs(clusterWeapons) do
+    if clusterWeapons[cmdid] ~= nil then
+        Spring.Echo('[clustermun] [warn] Preventing recursive explosions: ' .. cmdid)
+        clusterWeapons[cmdid] = nil
+    end
+
+    if spawnableTypes[cmdef.type] ~= true then
+        Spring.Echo('[clustermun] [warn] Invalid spawned weapon type: ' ..
+            clusterWeapons[weaponDefID].def .. ' is not spawnable (' .. (cmdef.type or 'nil!') .. ')')
+        clusterWeapons[weaponDefID] = nil
+    end
+
+    if cluster.number == nil or cluster.number <= 1 then
+        Spring.Echo('[clusermun] [warn] Removing low-count cluster weapon: ' .. weaponDefID)
+        clusterWeapons[weaponDefID] = nil
+    end
+end
+
+-- Information table for hit units
 
 local unitBulk = {} -- How sturdy the unit is. Projectiles scatter less with lower bulk values.
 
-for udid, udef in pairs(UnitDefs) do
-    -- Set the unit bulk values.
-    if udef.armorType == Game.armorTypes.wall or udef.armorType == Game.armorTypes.indestructible then
-        unitBulk[udid] = 0.9
-    elseif udef.customParams.neutral_when_closed then -- Dragon turrets
-        unitBulk[udid] = 0.8
-    else
-        unitBulk[udid] = min(
+do
+    ---Unit mass is mass-ively overloaded with additional connotations; we need something simple.
+    ---It has to apply to all units, treat them equally, and be relatively insensitive to change.
+    ---@param unitDef table
+    ---@return number bulk value from 0 to 1, inclusive
+    local function getUnitBulk(unitDef)
+        if not unitDef then return 0 end
+        return min(
             1.0,
             ((  udef.health ^ 0.5 +                         -- HP is log2-ish but that feels too tryhard
                 udef.metalCost ^ 0.5 *                      -- Steel (metal) is heavier than feathers (energy)
                 udef.xsize * udef.zsize * udef.radius ^ 0.5 -- People see 'bigger thing' as 'more solid'
-            ) / minBulkReflect)                             -- Scaled against some large-ish bulk rating
+            ) / minBulkTerrain)                             -- Scaled against some large-ish bulk rating
         ) ^ 0.33                                            -- Raised to a low power to curve up the results
     end
-end
 
-local bulkMin = unitBulk[UnitDefNames[minUnitBounces].id] or minBulkReflect / 10
-for udid, _ in pairs(UnitDefs) do
-    if unitBulk[udid] < bulkMin then
-        unitBulk[udid] = nil
+    -- This mechanic is based on the units you pass into it. If game balance shifts substantially,
+    -- you might need to re-evaluate how much metal is "a lot of metal" or how big is "a big unit".
+    local bulkMin = getUnitBulk(UnitDefNames[minUnitBounces]) or 0
+    local bulkMax = getUnitBulk(UnitDefNames[minUnitTerrain]) or minBulkTerrain
+    minBulkTerrain = max(minBulkTerrain, bulkMax)
+
+    for unitDefID, unitDef in pairs(UnitDefs) do
+        local bulk = getUnitBulk(unitDef)
+        unitBulk[unitDefID] = (bulk > bulkMin and bulk) or nil
+
+        -- There may be other, weirder exceptions for bulk-iness:
+        if unitDef.armorType == Game.armorTypes.wall or unitDef.armorType == Game.armorTypes.indestructible then
+            unitBulk[unitDefID] = (unitBulk[unitDefID] + 1) / 2
+        elseif unitDef.customParams.neutral_when_closed then -- Dragon turrets
+            unitBulk[unitDefID] = (unitBulk[unitDefID] + 1) / 2
+        end
     end
 end
 
@@ -213,13 +206,13 @@ local spawnCache  = {
 
 local directions = DirectionsUtil.Directions
 local maxDataNum = 2
-for _, data in pairs(dataTable) do
+for _, data in pairs(clusterWeapons) do
     if data.number > maxDataNum then maxDataNum = data.number end
 end
 DirectionsUtil.ProvisionDirections(maxDataNum)
 
---------------------------------------------------------------------------------------------------------------
--- Functions -------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Functions -------------------------------------------------------------------
 
 ---Deflect the net force of an explosion away from terrain.
 ---Used to scatter shrapnel, etc. from an explosive source.
@@ -360,16 +353,18 @@ local function spawnClusterProjectiles(ex, ey, ez, ownerID, projectileID, count,
     end
 end
 
---------------------------------------------------------------------------------------------------------------
--- Gadget callins --------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Gadget callins --------------------------------------------------------------
 
 function gadget:Initialize()
-    if not next(dataTable) then
-        Spring.Log(gadget:GetInfo().name, LOG.INFO, "No cluster weapons found. Removing gadget.")
+    if not next(clusterWeapons) then
+        Spring.Log(gadget:GetInfo().name, LOG.INFO,
+            "No cluster weapons found. Removing gadget.")
         gadgetHandler:RemoveGadget(self)
+        return
     end
 
-    for wdid, _ in pairs(dataTable) do
+    for wdid, _ in pairs(clusterWeapons) do
         SetWatchExplosion(wdid, true)
     end
 end
@@ -384,8 +379,8 @@ function gadget:ShutDown()
 end
 
 function gadget:Explosion(weaponDefID, ex, ey, ez, attackID, projID)
-    if dataTable[weaponDefID] then
-        local data = dataTable[weaponDefID]
+    if clusterWeapons[weaponDefID] then
+        local data = clusterWeapons[weaponDefID]
         spawnClusterProjectiles(
             ex, ey, ez,
             attackID,
