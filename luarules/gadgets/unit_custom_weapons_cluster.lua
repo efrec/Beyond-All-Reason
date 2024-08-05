@@ -226,36 +226,32 @@ DirectionsUtil.ProvisionDirections(maxDataNum)
 ---@return number response_y
 ---@return number response_z
 local function getTerrainDeflection(ex, ey, ez, projectileID, count, speed)
+    -- Get the shortest distance to a hard surface and the response direction.
     local distance, dx, dy, dz, slope
     local elevation = spGetGroundHeight(ex, ez)
+    distance = ey - elevation
+    dx, dy, dz, slope = spGetGroundNormal(ex, ez, true) -- Smooth normal, not raw.
+
+    -- Follow slopes upward, toward the shortest distance to ground.
+    -- Note: Walls, cliffs, etc. on flatter maps might be overlooked.
+    if slope > 0 and distance > 8 then
+        local rayDistance = spTraceRayGround(ex, ey, ez, -dx, -dy, -dz, distance)
+        if rayDistance then
+            distance = rayDistance
+            elevation = spGetGroundHeight(ex + dx * distance, ez + dz * distance)
+            dx, dy, dz,_ = spGetGroundNormal(ex + dx * distance, ez + dz * distance, true)
+        end
+    end
+
     if elevation < deepWaterDepth then
-        -- Guess an equivalent hard-surface distance.
-        -- The response is directly upward.
-        distance = ey - deepWaterDepth / 3 -- Since water is fairly dense.
+        -- Guess an equivalent hard-surface distance, given that water is dense.
+        -- The response is always directly upward, pending any changes to water.
+        distance = ey - deepWaterDepth * 0.5
         dx, dy, dz  = 0, 1, 0
-    else
-        -- Get the true elevation above a hard surface.
-        -- And the true direction of the surface response.
-        distance = ey - elevation
-        dx, dy, dz, slope = spGetGroundNormal(ex, ez, true) -- Smooth normal, not raw.
-
-        -- Follow slopes upward, toward the shortest distance to ground.
-        -- Note: Walls, cliffs, etc. on flatter maps might be overlooked.
-        if slope > 0 and distance > 8 then
-            local rayDistance = spTraceRayGround(ex, ey, ez, -dx, -dy, -dz, distance)
-            if rayDistance then
-                distance = rayDistance
-                elevation = spGetGroundHeight(ex + dx * distance, ez + dz * distance)
-                dx, dy, dz,_ = spGetGroundNormal(ex + dx * distance, ez + dz * distance, true)
-            end
-        end
-
-        -- Surface responses in shallow water ignore some of the ground normal,
-        -- but have a shorter hard-surface distance overall than deep water.
-        if elevation <= 0 then
-            distance = ey - elevation / 2
-            dx, dy, dz = dx * 0.87, dy / 0.87, dz * 0.87
-        end
+    elseif elevation <= 0 then
+        -- The reponse is averaged against the upward direction.
+        distance = ey - elevation * 0.5
+        dx, dy, dz = dx * 0.5, (dy + 1) * 0.5, dz * 0.5
     end
 
     -- Scale the response direction by the response strength,
