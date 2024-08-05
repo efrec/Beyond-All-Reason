@@ -28,7 +28,7 @@ local deepWaterDepth  = -40                -- for deflection on water/"water"
 
 local defaultSpawnDef = "cluster_munition" -- weapon name used when `def` is nil
 local defaultSpawnNum = 5                  -- fallback values for your screwups
-local defaultSpawnTtl = 300                -- fallback values for your screwups
+local defaultSpawnTtl = 10                 -- fallback values for your screwups
 local defaultVelocity = 240                -- fallback values for your screwups
 
 -- CustomParams setup ----------------------------------------------------------
@@ -70,6 +70,8 @@ local mapGravity         = Game.gravity / gameSpeed / gameSpeed * -1
 
 --------------------------------------------------------------------------------
 -- Initialize ------------------------------------------------------------------
+
+defaultSpawnTtl = defaultSpawnTtl * gameSpeed
 
 -- Information table for cluster triggers
 
