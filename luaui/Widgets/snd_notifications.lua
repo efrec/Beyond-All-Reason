@@ -34,6 +34,13 @@ VFS.Include('common/wav.lua')
 local language = Spring.GetConfigString('language', 'en')
 
 local voiceSet = Spring.GetConfigString('voiceset', defaultVoiceSet)
+
+-- fix old config
+if not string.find(voiceSet, '/', nil, true)	then
+	Spring.SetConfigString("voiceset", defaultVoiceSet)
+	voiceSet = defaultVoiceSet
+end
+
 if string.sub(voiceSet, 1, 2) ~= language then
 	local languageDirs = VFS.SubDirs('sounds/voice', '*')
 	for k, f in ipairs(languageDirs) do
@@ -46,6 +53,7 @@ if string.sub(voiceSet, 1, 2) ~= language then
 		end
 	end
 end
+
 
 local LastPlay = {}
 local notification = {}
@@ -231,7 +239,7 @@ for udefID, def in ipairs(UnitDefs) do
 			isAircraft[udefID] = true
 		end
 		if def.customParams.techlevel then
-			if def.customParams.techlevel == '2' and not def.customParams.iscommander then
+			if def.customParams.techlevel == '2' and not (def.customParams.iscommander or def.customParams.isscavcommander) then
 				isT2[udefID] = true
 			end
 			if def.customParams.techlevel == '3' and not def.isBuilding then
@@ -241,7 +249,7 @@ for udefID, def in ipairs(UnitDefs) do
 		if def.modCategories.mine then
 			isMine[udefID] = true
 		end
-		if def.customParams.iscommander then
+		if def.customParams.iscommander or def.customParams.isscavcommander then
 			isCommander[udefID] = true
 		end
 		if def.isBuilder and def.canAssist then
