@@ -153,7 +153,7 @@ do
     ---@param unitDef table
     ---@return number bulk value from 0 to 1, inclusive
     local function getUnitBulk(unitDef)
-        if not unitDef then return 0 end
+        if not unitDef then return end
         return min(
             1.0,
             ((  udef.health ^ 0.5 +                         -- HP is log2-ish but that feels too tryhard
