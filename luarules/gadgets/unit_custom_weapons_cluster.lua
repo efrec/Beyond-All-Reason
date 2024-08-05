@@ -167,13 +167,15 @@ do
 
     for unitDefID, unitDef in pairs(UnitDefs) do
         local bulk = getUnitBulk(unitDef)
-        unitBulk[unitDefID] = (bulk > bulkMin and bulk) or nil
+        unitBulk[unitDefID] = (bulk >= bulkMin and bulk) or nil
 
         -- There may be other, weirder exceptions for bulk-iness:
-        if unitDef.armorType == Game.armorTypes.wall or unitDef.armorType == Game.armorTypes.indestructible then
-            unitBulk[unitDefID] = (unitBulk[unitDefID] + 1) / 2
+        if unitDef.armorType == Game.armorTypes.wall or
+           unitDef.armorType == Game.armorTypes.indestructible
+        then
+            unitBulk[unitDefID] = ((unitBulk[unitDefID] or bulkMin) + 1) / 2
         elseif unitDef.customParams.neutral_when_closed then -- Dragon turrets
-            unitBulk[unitDefID] = (unitBulk[unitDefID] + 1) / 2
+            unitBulk[unitDefID] = ((unitBulk[unitDefID] or bulkMin) + 1) / 2
         end
     end
 end
