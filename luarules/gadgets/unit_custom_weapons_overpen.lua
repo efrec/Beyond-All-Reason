@@ -1,7 +1,7 @@
 function gadget:GetInfo()
     return {
         name    = 'Target Over-Penetration',
-        desc    = 'Allows projectiles to pass through targets with customizable behavior.',
+        desc    = 'Projectiles punch through targets with custom stop behavior.',
         author  = 'efrec',
         version = 'alpha',
         date    = '2024-07',
@@ -54,10 +54,12 @@ local falloffPerType  = {        -- Whether the projectile deals reduced damage 
 --------------------------------------------------------------------------------
 -- Locals ----------------------------------------------------------------------
 
-local min  = math.min
-local sqrt = math.sqrt
-local cos  = math.cos
-local atan = math.atan
+local floor = math.floor
+local min   = math.min
+local max   = math.max
+local sqrt  = math.sqrt
+local atan  = math.atan
+local cos   = math.cos
 
 local spGetProjectileDirection  = Spring.GetProjectileDirection
 local spGetProjectilePosition   = Spring.GetProjectilePosition
@@ -78,18 +80,16 @@ local spSpawnProjectile         = Spring.SpawnProjectile
 local weaponParams = {}
 
 for weaponDefID, weaponDef in ipairs(WeaponDefs) do
-    if weaponDef.customParams.overpen then
+    if weaponDef.customParams.overpen ~= nil then
         local custom = weaponDef.customParams
         local params = {}
 
-        params.damages = weaponDef.damages[0] > 1
-                         and weaponDef.damages[0]
-                          or weaponDef.damages[Game.armorTypes.vtol]
+        params.damages = weaponDef.damages[0] > 1 and weaponDef.damages[0]
+                                                   or weaponDef.damages[Game.armorTypes.vtol]
         params.penalty = tonumber(custom.overpen_penalty) or penaltyDefault
-        params.falloff = (custom.overpen_falloff == "true" or custom.overpen_falloff == "1")
-                      or (custom.overpen_falloff == nil and falloffPerType[weaponDef.type])
+        params.falloff = custom.overpen_falloff ~= nil or falloffPerType[weaponDef.type]
 
-        if custom.overpen_with_def then
+        if custom.overpen_with_def ~= nil then
             -- The weapon uses separate driver/penetrator projectiles.
             local penDefID = (WeaponDefNames[custom.overpen_with_def] or weaponDef).id
             if penDefID ~= weaponDefID then
@@ -105,7 +105,7 @@ for weaponDefID, weaponDef in ipairs(WeaponDefs) do
             end
         end
 
-        if custom.overpen_expl_def then
+        if custom.overpen_expl_def ~= nil then
             -- When the weapon fails to overpen, it explodes as this alt weapondef.
             -- This can add damage or just visuals to show the projectile stopping.
             -- Use the overpen penalty and falloff to tune the explosion threshold.
@@ -124,7 +124,7 @@ end
 local explosionCaches = {}
 
 for driverDefID, params in pairs(weaponParams) do
-    if params.expDefID then
+    if params.expDefID ~= nil then
         local expDefID = params.expDefID
         local expDef = WeaponDefs[expDefID]
 
@@ -152,6 +152,7 @@ end
 
 local drivers = {}
 local respawn = {}
+local waiting = {}
 
 local spawnCache = {
     pos     = { 0, 0, 0 },
@@ -178,28 +179,27 @@ local function consumeDriver(projID, unitID, damage, attackID)
     drivers[projID] = nil
 
     local health, healthMax = spGetUnitHealth(unitID)
-    if not health then health, healthMax = 0, 0 end
+    if health == nil then health, healthMax = 0, 0 end
 
     local weaponData = driver[1]
     local damageLeft = driver[2]
     damage = damage * damageLeft
-    damageLeft = damageLeft - health / weaponData.damages - weaponData.penalty
+    damageLeft = max(0, damageLeft - health / weaponData.damages)
 
     local penetrate = damage >= health and damage >= healthMax * damageThreshold
     local explodeID = weaponData.expDefID
 
-    if penetrate and (not explodeID or damageLeft > explodeThreshold) then
+    if penetrate == true and (explodeID == nil or damageLeft > explodeThreshold) then
         driver[2] = weaponData.falloff and damageLeft or 1.00
         respawn[projID] = driver
         return damage
     end
 
-    if explodeID then
+    if explodeID ~= nil then
         explodeDriver(projID, explodeID, attackID)
     end
 
-    return damage,
-           damageLeft * (1 + impulseArrested) / (1 + impulseArrested * damageLeft)
+    return damage, (1 + impulseArrested) / (1 + impulseArrested * damageLeft)
 end
 
 local function spawnPenetrator(projID, unitID, attackID, penDefID)
@@ -210,7 +210,9 @@ local function spawnPenetrator(projID, unitID, attackID, penDefID)
     local timeToLive = spGetProjectileTimeToLive(projID)
     local vx, vy, vz, vw = spGetProjectileVelocity(projID)
 
-    if penetrator[1].penDefID then
+    -- Get the weaponParams info on the spawner.
+    local explodeID = penetrator[1].expDefID
+    if penetrator[1].penDefID ~= nil then
         -- Spawn an alternative weapondef:
         local driverData = penetrator[1]
         timeToLive = timeToLive * driverData.ttlRatio
@@ -224,30 +226,36 @@ local function spawnPenetrator(projID, unitID, attackID, penDefID)
         penetrator[1] = weaponParams[penDefID]
     end
 
+    -- A newly-spawned projectile might have to avoid instant recollision.
+    -- Also, we may need the correct position for "exit wound" gfx.
     local _,_,_, mx, my, mz = spGetUnitPosition(unitID, true)
     local unitRadius = spGetUnitRadius(unitID)
-
-    -- Without more checks, we don't know if the overpen'd unit leaves a wreck.
-    -- A newly-spawned projectile would have to avoid instant recollision; also,
-    -- we might need to move its "muzzle flash" position to avoid overlapping fx.
-    -- 3D secant/raycast-type solvers are expensive in lua, so we just estimate.
-    -- We wouldn't want to move an impossible distance in sub-frame time, anyway.
     local ex, ey, ez = (mx - px) / unitRadius - vx / vw,
                        (my - py) / unitRadius - vy / vw,
                        (mz - pz) / unitRadius - vz / vw
     local move = unitRadius / vw * (cos(atan(ex)) + cos(atan(ey)) + cos(atan(ez))) * (2/3)
-    -- Since movement is sub-frame, which is scary, limit to a number of frames:
-    move = min(1, move)
 
-    local data = spawnCache
-    data.owner = attackID
-    data.pos = { px + move * vx, py + move * vy, pz + move * vz }
-    data.speed = { vx, vy, vz }
-    data.ttl = timeToLive
-
-    local spawnID = spSpawnProjectile(penDefID, data)
-    if penetrator[1] then
-        drivers[spawnID] = penetrator
+    -- Limit the frames of movement between consume and respawn:
+    -- (1) Probably, we shouldn't tunnel too far through solid objects.
+    -- (2) The projectile should not visibly blink in/out of a pocket dimension.
+    if move < 2 then
+        local data = spawnCache
+        data.owner = attackID or penetrator[3] or nil
+        data.pos   = { px + move * vx, py + move * vy, pz + move * vz }
+        data.speed = { vx, vy, vz }
+        if move <= 0.4 then
+            data.ttl = timeToLive - move
+            local spawnID = spSpawnProjectile(penDefID, data)
+            if penetrator[1] ~= nil then
+                drivers[spawnID] = penetrator
+            end
+        else
+            data.ttl = timeToLive - move - 1
+            waiting[projID] = { floor(move + 0.5), penDefID, table.copy(data) }
+        end
+    elseif explodeID ~= nil then
+        -- Exploding things still should explode.
+        explodeDriver(projID, explodeID, attackID)
     end
 end
 
@@ -267,16 +275,30 @@ function gadget:Initialize()
     end
 end
 
+function gadget:GameFrame()
+    for projID, penData in pairs(waiting) do
+        if penData[1] > 1 then
+            penData[1] = penData[1] - 1
+        else
+            local spawnID = spSpawnProjectile(penData[2], penData[3])
+            if penData[3][1] ~= nil then
+                drivers[spawnID] = penetrator
+            end
+            waiting[projID] = nil
+        end
+    end
+end
+
 function gadget:ProjectileCreated(projID, ownerID, weaponDefID)
     -- Detect penetrators only when initially fired:
-    if weaponParams[weaponDefID] and not drivers[projID] then
+    if weaponParams[weaponDefID] ~= nil then
         drivers[projID] = { weaponParams[weaponDefID], 1, ownerID }
     end
 end
 
 function gadget:ProjectileDestroyed(projID)
     -- Explode alternate expl_def on terrain hit, ttl end, etc:
-    if drivers[projID] then
+    if drivers[projID] ~= nil then
         local driver = drivers[projID]
         local expDefID = driver[1].expDefID
         if expDefID then
@@ -288,14 +310,14 @@ end
 
 function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam,
     damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
-    if drivers[projID] then
+    if drivers[projID] ~= nil then
         return consumeDriver(projID, unitID, damage, attackID)
     end
 end
 
 function gadget:UnitDamaged(unitID, unitDefID, unitTeam,
     damage, paralyzer, weaponDefID, projID, attackID, attackDefID, attackTeam)
-    if respawn[projID] then
+    if respawn[projID] ~= nil then
         spawnPenetrator(projID, unitID, attackID, weaponDefID)
     end
 end
