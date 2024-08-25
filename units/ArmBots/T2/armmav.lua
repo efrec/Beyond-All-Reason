@@ -132,6 +132,9 @@ return {
 				turret = true,
 				weapontype = "Cannon",
 				weaponvelocity = 500,
+				customparams = {
+					overpen = true,
+				},
 				damage = {
 					default = 265,
 					vtol = 65,

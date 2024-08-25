@@ -116,14 +116,15 @@ return {
 		},
 		weapondefs = {
 			arm_triton = {
-				areaofeffect = 64,
+				areaofeffect = 8,
 				avoidfeature = false,
-				craterareaofeffect = 64,
+				craterareaofeffect = 8,
 				craterboost = 0,
 				cratermult = 0,
 				cylindertargeting = 1,
 				edgeeffectiveness = 0.15,
-				explosiongenerator = "custom:genericshellexplosion-medium",
+				explosiongenerator = "custom:genericshellexplosion-small",
+				impactonly = 1, -- gauss with overpen_exp_def gets impactonly
 				impulseboost = 0.123,
 				impulsefactor = 0.123,
 				name = "Medium g2g gauss-cannon",
@@ -137,10 +138,33 @@ return {
 				turret = true,
 				weapontype = "Cannon",
 				weaponvelocity = 450,
+				customparams = {
+					overpen = true,
+					overpen_exp_def = "armcroc_arm_triton_explosion",
+				},
 				damage = {
-					default = 225,
-					subs = 100,
-					vtol = 40,
+					default = (3/4) * 225,
+					subs    = (3/4) * 100,
+					vtol    = (3/4) * 40,
+				},
+			},
+			arm_triton_explosion = {
+				areaofeffect = 84,
+				craterareaofeffect = 84,
+				craterboost = 0,
+				cratermult = 0,
+				edgeeffectiveness = 0.2,
+				explosiongenerator = "custom:genericshellexplosion-medium",
+				impactonly = 1, -- gauss with overpen_exp_def gets impactonly
+				impulseboost = 0.123,
+				impulsefactor = 0.123,
+				name = "Gauss impact explosion",
+				noselfdamage = true,
+				weapontype = "Cannon",
+				damage = {
+					default = (1/4) * 225,
+					subs    = (1/4) * 100,
+					vtol    = (1/4) * 40,
 				},
 			},
 

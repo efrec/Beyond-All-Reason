@@ -118,14 +118,15 @@ return {
 		},
 		weapondefs = {
 			legfloat_gauss = {
-				areaofeffect = 32,
+				areaofeffect = 8,
 				avoidfeature = false,
 				burnblow = true,
 				craterareaofeffect = 0,
 				craterboost = 0,
 				cratermult = 0,
 				edgeeffectiveness = 0.15,
-				explosiongenerator = "custom:genericshellexplosion-medium",
+				explosiongenerator = "custom:genericshellexplosion-small",
+				impactonly = 1,
 				impulseboost = 0.123,
 				impulsefactor = 0.123,
 				name = "Medium g2g gauss cannon",
@@ -145,8 +146,27 @@ return {
 				turret = true,
 				weapontype = "Cannon",
 				weaponvelocity = 600,
+				customparams = {
+					overpen = true,
+				},
 				damage = {
-					default = 250,
+					default = (3/4) * 250,
+				},
+			},
+			legfloat_gauss_explosion = {
+				areaofeffect = 32,
+				craterareaofeffect = 0,
+				craterboost = 0,
+				cratermult = 0,
+				edgeeffectiveness = 0.2,
+				explosiongenerator = "custom:genericshellexplosion-medium",
+				impulseboost = 0.123,
+				impulsefactor = 0.123,
+				name = "Gauss impact explosion",
+				noselfdamage = true,
+				weapontype = "Cannon",
+				damage = {
+					default = (1/4) * 250,
 				},
 			},
 			legfloat_gatling = {
