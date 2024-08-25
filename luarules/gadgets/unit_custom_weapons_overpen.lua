@@ -306,9 +306,9 @@ local function spawnPenetrator(projID, attackID, penDefID, unitID, featureID)
     local frames = (radius / vw) * (cos(atan((mx - px) / radius - vx / vw)) +
                                     cos(atan((my - py) / radius - vy / vw)) +
                                     cos(atan((mz - pz) / radius - vz / vw))) * 2/3
-    local latency = frames / gameSpeed
+    local seconds = frames / gameSpeed
 
-    if frames < timeToLive and latency < 0.075 then
+    if frames < timeToLive and seconds < 0.075 then
         local spawnParams = {
             gravity = mapGravity,
             owner   = attackID or penetrator[4],
@@ -322,7 +322,7 @@ local function spawnPenetrator(projID, attackID, penDefID, unitID, featureID)
         -- other way of preventing a penetrator from tunneling target-to-target,
         -- for as long as there are targets, without passing any frames between.
 
-        local predict = latency + 2 * penetrator[3] -- Cumulative prediction error.
+        local predict = seconds + 2 * penetrator[3] -- Cumulative prediction error.
 
         if predict < deltaTime then
             penetrator[3] = predict -- => Time gain, incr error
@@ -331,12 +331,13 @@ local function spawnPenetrator(projID, attackID, penDefID, unitID, featureID)
                 drivers[spawnID] = penetrator
             end
         else
-            spawnParams.ttl = max(0.5 + frames, timeToLive - 1) -- Time loss
+            spawnParams.ttl = timeToLive - frames -- Time loss
             if penetrator[1] then
+                frames = frames + penetrator[3] * gameSpeed -- => forward error
                 penetrator[3] = 0 -- => reset error
-                waiting[#waiting+1] = { penDefID, spawnParams, penetrator }
+                waiting[#waiting+1] = { frames, penDefID, spawnParams, penetrator }
             else
-                waiting[#waiting+1] = { penDefID, spawnParams }
+                waiting[#waiting+1] = { frames, penDefID, spawnParams }
             end
         end
     elseif explodeID ~= nil then
@@ -369,11 +370,15 @@ end
 function gadget:GameFrame(frame)
     for ii = #waiting, 1, -1 do
         local spawnData = waiting[ii]
-        local spawnID = spSpawnProjectile(spawnData[1], spawnData[2])
-        if spawnData[3] ~= nil and spawnID ~= nil then
-            drivers[spawnID] = spawnData[3]
+        if spawnData[1] > 1.5 then
+            spawnData[1] = spawnData[1] - 1
+        else
+            local spawnID = spSpawnProjectile(spawnData[2], spawnData[3])
+            if spawnData[4] ~= nil and spawnID ~= nil then
+                drivers[spawnID] = spawnData[4]
+            end
+            table.remove(waiting, ii)
         end
-        waiting[ii] = nil
     end
 end
 
