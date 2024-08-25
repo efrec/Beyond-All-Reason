@@ -238,7 +238,7 @@ local function consumeDriver(projID, damage, attackID, unitID, featureID)
         -- is whether players will be confused when, only on rare occasions,
         -- units will overpen bulkier targets. I prefer greater consistency:
         local damageLoss = health / min(damage, weaponData.damages)
-        damageLeft = damageLeft - damageLoss - weaponData.penalty
+        damageLeft = damageLeft - damageLeft * damageLoss - weaponData.penalty
     end
 
     if weaponData.expDefID ~= nil and damageLeft <= explodeThreshold then
@@ -367,6 +367,7 @@ function gadget:Initialize()
     gameFrame = Spring.GetGameFrame()
 end
 
+local remove = table.remove
 function gadget:GameFrame(frame)
     for ii = #waiting, 1, -1 do
         local spawnData = waiting[ii]
@@ -377,7 +378,7 @@ function gadget:GameFrame(frame)
             if spawnData[4] ~= nil and spawnID ~= nil then
                 drivers[spawnID] = spawnData[4]
             end
-            table.remove(waiting, ii)
+            remove(waiting, ii)
         end
     end
 end
