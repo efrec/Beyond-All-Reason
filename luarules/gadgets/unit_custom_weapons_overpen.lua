@@ -69,8 +69,8 @@ local slowdownPerType = {        -- Whether penetrators respawn with less veloci
 --    │               100%  │   100%   │    and as the leftover projectile speed.
 --    │                90%  │    96%   │
 --    │                75%  │    90%   │
---    │                50%  │    75%   │
---    │                25%  │    50%   │
+--    │                50%  │    75%   │ -- e.g. when a penetrator deals half its
+--    │                25%  │    50%   │    max damage, it deals 75% max impulse.
 --    │                10%  │    25%   │
 --    │                 0%  │     0%   │
 --    └─────────────────────┴──────────┘
