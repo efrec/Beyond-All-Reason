@@ -109,6 +109,7 @@ return {
 				avoidfeature = false,
 				burnblow = false,
 				cegtag = "railgun",
+				collisionSize = 0.667,
 				craterareaofeffect = 0,
 				craterboost = 0,
 				cratermult = 0,
@@ -143,7 +144,7 @@ return {
 					default = 750,
 				},
 				customparams = {
-					overpen = true
+					overpen = true,
 				},
 			},
 		},
