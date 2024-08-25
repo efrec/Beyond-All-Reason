@@ -62,18 +62,18 @@ local slowdownPerType = {        -- Whether penetrators respawn with less veloci
 --    }
 --
 --
---    ┌───────────────────────────────┐
---    │ Falloff for impulseMomentum=2 │
---    ├────────────────────┬──────────┤
---    │ Damage Done / Left │ Inertia  │    Inertia is used as the impact force
---    │              100%  │   100%   │    and as the leftover projectile speed.
---    │               90%  │    96%   │
---    │               75%  │    90%   │
---    │               50%  │    75%   │
---    │               25%  │    50%   │
---    │               10%  │    25%   │
---    │                0%  │     0%   │
---    └────────────────────┴──────────┘
+--    ┌────────────────────────────────┐
+--    │ Falloff for hardStopIncrease=2 │
+--    ├─────────────────────┬──────────┤
+--    │  Damage Done / Left │ Inertia  │    Inertia is used as the impact force
+--    │               100%  │   100%   │    and as the leftover projectile speed.
+--    │                90%  │    96%   │
+--    │                75%  │    90%   │
+--    │                50%  │    75%   │
+--    │                25%  │    50%   │
+--    │                10%  │    25%   │
+--    │                 0%  │     0%   │
+--    └─────────────────────┴──────────┘
 --
 --------------------------------------------------------------------------------
 
