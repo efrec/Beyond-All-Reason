@@ -393,7 +393,7 @@ end
 function gadget:ProjectileDestroyed(projID)
     -- Explode alternate expl_def on terrain hit, ttl end, etc:
     if drivers[projID] ~= nil then
-        local expDefID = drivers[projID].expDefID
+        local expDefID = drivers[projID][1].expDefID
         if expDefID ~= nil then
             explodeDriver(projID, expDefID, drivers[projID][4])
             drivers[projID] = nil
