@@ -313,7 +313,7 @@ local function spawnPenetrator(projID, attackID, penDefID, unitID, featureID)
             gravity = mapGravity,
             owner   = attackID or penetrator[4],
             pos     = { px + frames * vx, py + frames * vy, pz + frames * vz },
-            speed   = { vx, vy, vz },
+            speed   = { vx, vy - mapGravity * 0.5 * frames ^ 2, vz },
             ttl     = timeToLive,
         }
 

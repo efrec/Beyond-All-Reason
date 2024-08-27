@@ -300,7 +300,7 @@ local function SetupUnitDef(unitDefID, unitDef)
 	local waterWeapon = maxWeaponDef.waterWeapon
 	local ee = maxWeaponDef.edgeEffectiveness
 
-	if maxWeaponDef.customParams.overpen_exp_def then
+	if maxWeaponDef.customParams and maxWeaponDef.customParams.overpen_exp_def then
 		aoe = max(aoe, WeaponDefNames[maxWeaponDef.customParams.overpen_exp_def].damageAreaOfEffect)
 	end
 
