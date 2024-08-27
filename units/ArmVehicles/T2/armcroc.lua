@@ -125,8 +125,8 @@ return {
 				edgeeffectiveness = 0.15,
 				explosiongenerator = "custom:genericshellexplosion-small",
 				impactonly = 1, -- gauss with overpen_exp_def gets impactonly
-				impulseboost = 0.123,
-				impulsefactor = 0.123,
+				impulseboost = (3/2) * 0.123,
+				impulsefactor = (3/2) * 0.123,
 				name = "Medium g2g gauss-cannon",
 				noselfdamage = true,
 				predictboost = 1,
@@ -143,9 +143,9 @@ return {
 					overpen_exp_def = "armcroc_arm_triton_explosion",
 				},
 				damage = {
-					default = (3/4) * 225,
-					subs    = (3/4) * 100,
-					vtol    = (3/4) * 40,
+					default = (2/3) * 225,
+					subs    = (2/3) * 100,
+					vtol    = (2/3) * 40,
 				},
 			},
 			arm_triton_explosion = {
@@ -156,15 +156,15 @@ return {
 				edgeeffectiveness = 0.2,
 				explosiongenerator = "custom:genericshellexplosion-medium",
 				impactonly = 1, -- gauss with overpen_exp_def gets impactonly
-				impulseboost = 0.123,
-				impulsefactor = 0.123,
+				impulseboost = (3/2) * 0.123,
+				impulsefactor = (3/2) * 0.123,
 				name = "Gauss impact explosion",
 				noselfdamage = true,
 				weapontype = "Cannon",
 				damage = {
-					default = (1/4) * 225,
-					subs    = (1/4) * 100,
-					vtol    = (1/4) * 40,
+					default = (1/3) * 225,
+					subs    = (1/3) * 100,
+					vtol    = (1/3) * 40,
 				},
 			},
 
