@@ -591,7 +591,11 @@ local function drawStats(uDefID, uID, mx, my)
 				defaultDamage = defaultDamage + cmDamage * cmNumber
 			elseif uWep.customParams.overpen and uWep.customParams.overpen_exp_def then
 				local explosion = WeaponDefNames[uWep.customParams.overpen_exp_def].damages
-				defaultDamage = defaultDamage + (explosion and explosion[0] or 0)
+				if string.find(uWep.name, "nuclear_missile") then
+					defaultDamage = explosion and explosion[0] or 0 -- ignore the fighter-wall bypass damage
+				else
+					defaultDamage = defaultDamage + (explosion and explosion[0] or 0)
+				end
 			end
 		end
 
