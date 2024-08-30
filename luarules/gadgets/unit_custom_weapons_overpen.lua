@@ -54,11 +54,11 @@ local slowdownPerType = {        -- Whether penetrators respawn with less veloci
 --------------------------------------------------------------------------------
 --
 --    customparams = {
---        overpen         := true,
---        overpen_falloff := <boolean> | see defaults,
---        overpen_penalty := <number>  | see defaults,
---        overpen_pen_def := <string>  | respawns the same def,
---        overpen_exp_def := <string>  | none,
+--        overpen         := true
+--        overpen_falloff := <boolean> | see defaults
+--        overpen_penalty := <number>  | see defaults
+--        overpen_pen_def := <string>  | respawns the same def
+--        overpen_exp_def := <string>  | none
 --    }
 --
 --
@@ -120,7 +120,7 @@ for weaponDefID, weaponDef in ipairs(WeaponDefs) do
         end
 
         if  custom.overpen_falloff == "false" or custom.overpen_falloff == "0" or
-            custom.overpen_falloff == nil and falloffPerType[weaponDef.type] == false
+            (custom.overpen_falloff == nil and falloffPerType[weaponDef.type] == false)
         then
             params.falloff = false
         else
@@ -238,7 +238,7 @@ local function consumeDriver(projID, damage, attackID, unitID, featureID)
         -- is whether players will be confused when, only on rare occasions,
         -- units will overpen bulkier targets. I prefer greater consistency:
         local damageLoss = health / min(damage, weaponData.damages)
-        damageLeft = damageLeft - damageLeft * damageLoss - weaponData.penalty
+        damageLeft = damageLeft * (1 - damageLoss) - weaponData.penalty
     end
 
     if weaponData.expDefID ~= nil and damageLeft <= explodeThreshold then
@@ -325,9 +325,9 @@ local function spawnPenetrator(projID, attackID, penDefID, unitID, featureID)
         local predict = seconds + 2 * penetrator[3] -- Cumulative prediction error.
 
         if predict < deltaTime then
-            penetrator[3] = predict -- => Time gain, incr error
             local spawnID = spSpawnProjectile(penDefID, spawnParams)
             if spawnID ~= nil and penetrator[1] ~= nil then
+                penetrator[3] = predict -- => Time gain, incr error
                 drivers[spawnID] = penetrator
             end
         else
