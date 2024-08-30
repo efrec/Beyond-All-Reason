@@ -275,7 +275,7 @@ local function SetupUnitDef(unitDefID, unitDef)
 					-- elseif weaponDef.customParams.speceffect == "split" then
 					-- elseif weaponDef.customParams.spark_forkdamage then
 					-- elseif weaponDef.customParams.cluster then
-					elseif weaponDef.customParams.overpen_exp_def then
+					elseif weaponDef.customParams and weaponDef.customParams.overpen_exp_def then
 						local expDef = WeaponDefNames[weaponDef.customParams.overpen_exp_def]
 						if expDef.damageAreaOfEffect > maxSpread then
 							maxSpread = expDef.damageAreaOfEffect
