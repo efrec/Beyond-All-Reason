@@ -18,7 +18,7 @@ end
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
-local velDeltaSoftLimit = 4 -- Number, elmos / frame. Hard limit is double this.
+local velDeltaSoftLimit = 4 -- Number, elmos / frame. Hard limit is twice this.
 
 local collisionVelocityMin = 2.67 -- Number, elmos / frame. Also scales damage.
 local collisionStrengthMin = 0.10 -- Number, percentage. A value from 0 to 1.
@@ -27,15 +27,16 @@ local collisionStrengthMin = 0.10 -- Number, percentage. A value from 0 to 1.
 -- Localized values ------------------------------------------------------------
 
 local abs     = math.abs
+local min     = math.min
 local sqrt    = math.sqrt
 local bit_and = math.bit_and
 
-local spGetUnitVelocity = Spring.GetUnitVelocity
-local spSetUnitVelocity = Spring.SetUnitVelocity
-local spGetUnitPosition = Spring.GetUnitPosition
+local spGetUnitVelocity      = Spring.GetUnitVelocity
+local spSetUnitVelocity      = Spring.SetUnitVelocity
+local spGetUnitPosition      = Spring.GetUnitPosition
+local spGetUnitPhysicalState = Spring.GetUnitPhysicalState
 
-local gameSpeed            = Game.gameSpeed
-local mapGravity           = Game.gravity / gameSpeed / gameSpeed * -1
+local mapGravity           = Game.gravity / Game.gameSpeed / Game.gameSpeed * -1
 local objectCollisionDefID = Game.envDamageTypes.ObjectCollision
 local groundCollisionDefID = Game.envDamageTypes.GroundCollision
 
@@ -45,8 +46,10 @@ local groundCollisionDefID = Game.envDamageTypes.GroundCollision
 -- Track excess impulse from weapons and death explosions.
 
 local weaponIgnore = {}
+local weaponExcess = {}
 local unitVelocity = {}
 local checkFrame = 0
+local velDeltaSoftLimitSq = velDeltaSoftLimit * velDeltaSoftLimit
 
 -- Track unit collisions and calculate their damage and impulse.
 
@@ -62,18 +65,19 @@ local unitSuspended = {}
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
+-- IN_AIR + FALLING + FLYING => 200
+-- See: beyond-all-reason/spring/blob/master/rts/Sim/Objects/SolidObject.h#L61
 local function isValidCollision(unitID, attackerID)
-    -- See: beyond-all-reason/spring/blob/master/rts/Sim/Objects/SolidObject.h#L61
-    -- IN_AIR + FALLING + FLYING => 200
-    return bit_and(Spring.GetUnitPhysicalState(unitID),     200) > 0 or
-           bit_and(Spring.GetUnitPhysicalState(attackerID), 200) > 0
+    return bit_and(spGetUnitPhysicalState(unitID),     200) > 0 or
+           bit_and(spGetUnitPhysicalState(attackerID), 200) > 0
 end
 
 local function getGeneralCollisionDamage(damage, unitID, unitDefID)
-    if damage >= 8 then
+    damage = damage / unitImpactMass[unitDefID]
+    if damage >= collisionStrengthMin then
         local _, uvy, _, uvw = spGetUnitVelocity(unitID)
-        if uvy < -collisionVelocityMin and uvy / uvw < (-1/3) then
-            return damage * ((1 - uvy / uvw) * 0.5) * unitCollDamage[unitDefID] * 0.008, 0.123
+        if -uvy > collisionVelocityMin then
+            return damage * unitCollDamage[unitDefID] * sqrt(-uvy / uvw), 0.123
         end
     end
     return 0
@@ -97,7 +101,7 @@ local function getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attacke
 
             local speedRel = sqrt(rvx*rvx + rvy*rvy + rvz*rvz) - collisionVelocityMin
             local speedPro = rvx * dpx + rvy * dpy + rvz * dpz -- projection of vel and dir
-            local vrelTerm = (1/3) * (0.5 * speedRel + speedPro) / collisionVelocityMin
+            local vrelTerm = (1/4) * (1/2) * (1/3) * (0.5 * speedRel + speedPro)
 
             local collisionStrength = vrelTerm * fallTerm
             if collisionStrength > collisionStrengthMin then
@@ -173,12 +177,12 @@ do
         unitVelocity[unitID] = { math.huge, 0, 0, 0 }
     end
 
-    local function safeImpulse(unitID, x, y, z, w)
+    local function safeImpulse(unitID, unitDefID, x, y, z, w)
         watch(unitID)
-        w = w or sqrt(x*x + y*y + z*z)
-        local mass = UnitDefs[unitID].mass or UnitDefs[unitID].metalCost or 10
-        if w > 4 * mass then
-            local scale = 1 / (4 * mass)
+        w = w and w^2 or x*x + y*y + z*z
+        local scale = (velDeltaSoftLimitSq * unitImpactMass[unitDefID]^2) / w
+        if scale < 1 then
+            scale = sqrt(scale)
             x = x * scale
             y = y * scale
             z = z * scale
@@ -201,6 +205,7 @@ do
         gadgetHandler:RegisterGlobal( "ImpulseCtrl_SafeImpulse"   , safeImpulse   )
         gadgetHandler:RegisterGlobal( "ImpulseCtrl_UnsafeImpulse" , unsafeImpulse )
 
+        local gameSpeed = Game.gameSpeed
         local frameTime = 1 / gameSpeed
         local unitMassMin = UnitDefNames.armflea and UnitDefNames.armflea.metalCost or 20
         local meterToElmo = 8
@@ -223,13 +228,13 @@ do
                 if weaponDef.damages[Game.armorTypes.vtol or 0] > 1 then
                     weaponIgnore[weaponDefID] = true
                 end
+            elseif impulse / damage > 1 then
+                weaponExcess[weaponDefID] = weaponDef.damages
             end
         end
 
-        local weaponDefID = weaponDefBaseIndex - 1
-        while WeaponDefs[weaponDefID] ~= nil do
+        for weaponDefName, weaponDefID in pairs(Game.envDamageTypes) do
             weaponIgnore[weaponDefID] = true
-            weaponDefID = weaponDefID - 1
         end
         weaponIgnore[objectCollisionDefID] = nil
 
@@ -245,36 +250,47 @@ do
 end
 
 function gadget:GameFrame(frame)
-    local velDeltaTriggerSq = velDeltaSoftLimit ^ 2
+    checkFrame = frame + 1
+    unitCollIgnore = {}
     for unitID in pairs(unitSuspended) do
         unitVelocity[unitID] = nil
     end
+    local velDeltaSoftLimitSq = velDeltaSoftLimitSq
     for unitID, velocity in pairs(unitVelocity) do
         local vx, vy, vz = spGetUnitVelocity(unitID)
         local velDeltaSq = (vx-velocity[2])^2+(vy-velocity[3])^2+(vz-velocity[4])^2
-        if velDeltaSq > velDeltaTriggerSq then
-            -- Rescale from sqrt(threshold) elmos/frame to up to twice that:
-            local scale = sqrt(velDeltaTriggerSq / velDeltaSq)
+        if velDeltaSq > velDeltaSoftLimitSq then
+            -- Rescale from sqrt(threshold) elmos/frame to up to twice that.
+            local scale = sqrt(velDeltaSoftLimitSq / velDeltaSq)
             spSetUnitVelocity(
                 unitID,
                 scale * (vx - velocity[2]) + velocity[2],  -- Don't rescale gravity:
                 scale * (vy - velocity[3]) + velocity[3] + (1 - scale) * mapGravity,
                 scale * (vz - velocity[4]) + velocity[4]
             )
-            velocity[1] = velocity[1] + 2
         end
         if velocity[1] <= frame then
             unitVelocity[unitID] = nil
         end
     end
-    checkFrame = frame + 1
-    unitCollIgnore = {}
 end
 
 function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
     damage, paralyzer, weaponDefID, projectileID, attackerID, attackerDefID)
+
     if not unitVelocity[unitID] and not weaponIgnore[weaponDefID] then
         unitVelocity[unitID] = { checkFrame, spGetUnitVelocity(unitID) }
+
+        if weaponExcess[weaponDefID] then
+            local damages = weaponExcess[weaponDefID]
+            local damageBase = min(damage, damages[UnitDefs[unitDefID].armorType])
+            local impulse = damages.impulseFactor * (damageBase + damages.impulseBoost)
+            local scale = velDeltaSoftLimit * unitImpactMass[unitDefID] / impulse
+            if scale < 1 then
+                Spring.Echo('[collision] rescaling: ' .. scale)
+                return 0, (3 + 20 * scale) * 0.25 -- Only partially rescale.
+            end
+        end
     end
 
     if weaponDefID == objectCollisionDefID then
@@ -291,15 +307,15 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
     end
 
     if weaponDefID == groundCollisionDefID then
-        unitVelocity[unitID] = nil
         return getGeneralCollisionDamage(damage, unitID, unitDefID)
     end
 
-    return 0, 8
+    return 0, 20
 end
 
 function gadget:UnitDestroyed(unitID)
     unitVelocity[unitID] = nil
+    unitSuspended[unitID] = nil
 end
 
 function gadget:UnitLoaded(unitID)
