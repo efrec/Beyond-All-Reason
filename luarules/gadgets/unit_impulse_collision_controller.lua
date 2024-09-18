@@ -287,7 +287,6 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
                 return 0
             end
         end
-        unitVelocity[unitID] = nil -- Remove for crowd surfing.
         return getGeneralCollisionDamage(damage, unitID, unitDefID)
     end
 
