@@ -16,6 +16,21 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 --------------------------------------------------------------------------------
+-- Customparams setup ----------------------------------------------------------
+--                                                                            --
+--    unitdef.customparams = {                                                --
+--        impulse_ctrl_damage = <number>                                      --
+--        impulse_ctrl_mass   = <number>                                      --
+--    }                                                                       --
+--                                                                            --
+--    weapondef.customparams = {                                              --
+--        impulse_ctrl_excess = true                                          --
+--        impulse_ctrl_ignore = true                                          --
+--    }                                                                       --
+--                                                                            --
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
 local velDeltaSoftLimit = 4 -- Number, elmos / frame. Hard limit is twice this.
@@ -48,8 +63,8 @@ local groundCollisionDefID = Game.envDamageTypes.GroundCollision
 local weaponIgnore = {}
 local weaponExcess = {}
 local unitVelocity = {}
-local checkFrame = 0
 local velDeltaSoftLimitSq = velDeltaSoftLimit * velDeltaSoftLimit
+local checkFrame = 0
 
 -- Track unit collisions and calculate their damage and impulse.
 
@@ -57,6 +72,7 @@ local unitImpactMass = {}
 local unitCannotMove = {}
 local unitCollDamage = {}
 local unitCollIgnore = {}
+local unitArmorType = {}
 
 -- Perform impulse and collision controller duties for other gadgets.
 
@@ -67,6 +83,7 @@ local unitSuspended = {}
 
 -- IN_AIR + FALLING + FLYING => 200
 -- See: beyond-all-reason/spring/blob/master/rts/Sim/Objects/SolidObject.h#L61
+-- This ignores unitCannotMove to treat all collisions between "units" equally.
 local function isValidCollision(unitID, attackerID)
     return bit_and(spGetUnitPhysicalState(unitID),     200) > 0 or
            bit_and(spGetUnitPhysicalState(attackerID), 200) > 0
@@ -209,7 +226,6 @@ do
         local frameTime = 1 / gameSpeed
         local unitMassMin = UnitDefNames.armflea and UnitDefNames.armflea.metalCost or 20
         local meterToElmo = 8
-
         local weaponDefBaseIndex = 0
         for weaponDefID = weaponDefBaseIndex, #WeaponDefs do
             local weaponDef = WeaponDefs[weaponDefID]
@@ -228,7 +244,11 @@ do
                 if weaponDef.damages[Game.armorTypes.vtol or 0] > 1 then
                     weaponIgnore[weaponDefID] = true
                 end
-            elseif impulse / damage > 1 then
+            elseif weaponDef.customParams and weaponDef.customParams.impulse_ctrl_ignore then
+                weaponIgnore[weaponDefID] = true
+            elseif (weaponDef.customParams and weaponDef.customParams.impulse_ctrl_excess) or
+                impulse / damage > 1
+            then
                 weaponExcess[weaponDefID] = weaponDef.damages
             end
         end
@@ -238,11 +258,19 @@ do
         end
         weaponIgnore[objectCollisionDefID] = nil
 
-        local bonusHealthMax = 3.00
+        local bonusHealthMax = 3.00 -- Needed to guarantee that fall damage remains lethal.
         for unitDefID, unitDef in ipairs(UnitDefs) do
             unitCollDamage[unitDefID] = unitDef.health * (1 + bonusHealthMax)
             unitImpactMass[unitDefID] = math.max(0.1, unitDef.mass or unitDef.metalCost or 20)
             unitCannotMove[unitDefID] = unitDef.canMove and true or nil
+            unitArmorType[unitDefID] = untiDef.armorType
+
+            if unitDef.customParams.impulse_ctrl_damage then
+                unitCollDamage[unitDefID] = tonumber(unitDef.customParams.impulse_ctrl_damage)
+            end
+            if unitDef.customParams.impulse_ctrl_mass then
+                unitImpactMass[unitDefID] = tonumber(unitDef.customParams.impulse_ctrl_mass)
+            end
         end
 
         checkFrame = Spring.GetGameFrame() + 1
@@ -283,7 +311,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
 
         if weaponExcess[weaponDefID] then
             local damages = weaponExcess[weaponDefID]
-            local damageBase = min(damage, damages[UnitDefs[unitDefID].armorType])
+            local damageBase = min(damage, damages[unitArmorType[unitDefID]])
             local impulse = damages.impulseFactor * (damageBase + damages.impulseBoost)
             local scale = velDeltaSoftLimit * (unitImpactMass[unitDefID] / impulse)
             if scale < 1 then
