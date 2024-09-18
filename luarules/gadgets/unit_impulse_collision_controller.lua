@@ -279,9 +279,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
 
     if weaponDefID == objectCollisionDefID then
         if attackerID then
-            if  (unitCollIgnore[unitID]     and unitCollIgnore[unitID][attackerID]) or
-                (unitCollIgnore[attackerID] and unitCollIgnore[attackerID][unitID])
-            then
+            if unitCollIgnore[unitID] and unitCollIgnore[unitID][attackerID] then
                 return damage
             elseif isValidCollision(unitID, attackerID) then
                 return getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attackerDefID)
