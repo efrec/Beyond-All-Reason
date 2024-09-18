@@ -97,20 +97,21 @@ local function getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attacke
 
             local speedRel = sqrt(rvx*rvx + rvy*rvy + rvz*rvz) - collisionVelocityMin
             local speedPro = rvx * dpx + rvy * dpy + rvz * dpz -- projection of vel and dir
-
             local vrelTerm = (1/3) * (0.5 * speedRel + speedPro) / collisionVelocityMin
-            local massTerm = unitImpactMass[attackerDefID] /
-                (unitImpactMass[unitDefID] + unitImpactMass[attackerDefID])
 
-            local collisionStrength = vrelTerm * massTerm * fallTerm
+            local collisionStrength = vrelTerm * fallTerm
             if collisionStrength > collisionStrengthMin then
-                -- Damage the attacker.
                 if unitCollIgnore[attackerID] == nil then
                     unitCollIgnore[attackerID] = { [unitID] = true }
                 else
                     unitCollIgnore[attackerID][unitID] = true
                 end
-                local reflect = vrelTerm * (1 - massTerm) * fallTerm * unitCollDamage[attackerDefID]
+
+                local massTerm = unitImpactMass[unitDefID] /
+                    (unitImpactMass[unitDefID] + unitImpactMass[attackerDefID])
+
+                -- Damage the attacker.
+                local reflect = collisionStrength * massTerm * unitCollDamage[attackerDefID]
                 Spring.AddUnitDamage(
                     attackerID, reflect, nil,
                     unitID, objectCollisionDefID,
@@ -118,8 +119,9 @@ local function getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attacke
                     reflect * 0.123 * -dpy,
                     reflect * 0.123 * -dpz
                 )
+
                 -- Damage this unit.
-                return collisionStrength * unitCollDamage[unitDefID], 0.123
+                return collisionStrength * (1 - massTerm) * unitCollDamage[unitDefID], 0.123
             end
         end
     end
