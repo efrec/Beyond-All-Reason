@@ -263,7 +263,7 @@ function gadget:GameFrame(frame)
             )
             velocity[1] = velocity[1] + 2
         end
-        if velocity[1] == frame then
+        if velocity[1] <= frame then
             unitVelocity[unitID] = nil
         end
     end
@@ -287,12 +287,16 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
                 return 0
             end
         end
+        unitVelocity[unitID] = nil -- Remove for crowd surfing.
         return getGeneralCollisionDamage(damage, unitID, unitDefID)
     end
 
     if weaponDefID == groundCollisionDefID then
+        unitVelocity[unitID] = nil
         return getGeneralCollisionDamage(damage, unitID, unitDefID)
     end
+
+    return 0, 8
 end
 
 function gadget:UnitDestroyed(unitID)
