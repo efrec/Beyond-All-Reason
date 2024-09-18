@@ -82,6 +82,44 @@ function UnitDef_Post(name, uDef)
 		uDef.icontype = name
 	end
 
+	if uDef.health then
+		-- Configure fall and collision damage thresholds.
+		local gameSpeed = Game and Game.gameSpeed or 30
+		local mToElmos = Game and Game.squareSize or 8
+		local mPerSecToElmPerFrame = mToElmos / gameSpeed
+
+		local collisionDamageMultiplier = 0.02 -- Constant value from GroundMoveType.cpp
+		local damagePerMassMinimum = 1 -- Taken from the collider-unit mass.
+		local massMinimum = 20 -- Or thereabouts.
+		local collisionSpeedMinimum = damagePerMassMinimum / (massMinimum * collisionDamageMultiplier)
+		local collisionSpeedRealism = 9 * mPerSecToElmPerFrame -- 9 m/s is 20 mph or 29 kmh.
+
+		-- We also (actually, mostly) want units falling on one another to deal damage.
+		-- So the minspeed is not actually all that relevant, except to reduce the number of events.
+		uDef.minCollisionSpeed = (collisionSpeedRealism + collisionSpeedMinimum) / 2 / 4 -- So decrease by 75%. Ouch.
+
+		-- Configure skid and flying behaviors, esp. while under impulse.
+		-- Note: Atmospheric drag forces depend on fluid densities. Same coeff used for air and water.
+		-- Note: Units skidding on land (not under their own power) are subject to air drag, also.
+		-- Note: Ground friction multiplied by 10 until frame after landing when dropped from an air unit.
+		-- Note: Drag and friction forces are multiplied by speed (per frame), which can add big responses.
+		-- Note: Rolling resistance replaces ground friction rarely. High values may be over-correcting.
+		if not uDef.canfly and uDef.speed and uDef.speed > 0 then
+			uDef.atmosphericDragCoefficient   = 2.50 -- (default 1.00) Reduces speed when airborne, in water, or grounded.
+			uDef.groundFrictionCoefficient    = 0.03 -- (default 0.01) Reduces speed along skidding direction on ground.
+			uDef.rollingResistanceCoefficient = 0.03 -- (default 0.05) Reduces speed above maximum along current heading.
+			if uDef.customparams.traction_multiplier then
+				local multiplier = tonumber(uDef.customparams.traction_multiplier) or 1
+				uDef.groundFrictionCoefficient    = uDef.groundFrictionCoefficient    * multiplier
+				uDef.rollingResistanceCoefficient = uDef.rollingResistanceCoefficient * multiplier
+			end
+			if uDef.customparams.air_drag_multiplier then
+				local multiplier = tonumber(uDef.customparams.air_drag_multiplier) or 1
+				uDef.atmosphericDragCoefficient = uDef.atmosphericDragCoefficient * multiplier
+			end
+		end
+	end
+
 	-- inidivual unit hat processing
 	do
 		if modOptions.unithats then
