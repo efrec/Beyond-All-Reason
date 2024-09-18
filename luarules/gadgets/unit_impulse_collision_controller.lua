@@ -260,7 +260,7 @@ function gadget:GameFrame(frame)
         local vx, vy, vz = spGetUnitVelocity(unitID)
         local velDeltaSq = (vx-velocity[2])^2+(vy-velocity[3])^2+(vz-velocity[4])^2
         if velDeltaSq > velDeltaSoftLimitSq then
-            -- Rescale from sqrt(threshold) elmos/frame to up to twice that.
+            -- Rescale from velDeltaSoftLimit elmos/frame to up to twice that.
             local scale = sqrt(velDeltaSoftLimitSq / velDeltaSq)
             spSetUnitVelocity(
                 unitID,
