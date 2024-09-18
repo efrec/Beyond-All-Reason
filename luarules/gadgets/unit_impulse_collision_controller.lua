@@ -81,14 +81,6 @@ local unitSuspended = {}
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
--- IN_AIR + FALLING + FLYING => 200
--- See: beyond-all-reason/spring/blob/master/rts/Sim/Objects/SolidObject.h#L61
--- This ignores unitCannotMove to treat all collisions between "units" equally.
-local function isValidCollision(unitID, attackerID)
-    return bit_and(spGetUnitPhysicalState(unitID),     200) > 0 or
-           bit_and(spGetUnitPhysicalState(attackerID), 200) > 0
-end
-
 local function getGeneralCollisionDamage(damage, unitID, unitDefID)
     damage = damage / unitImpactMass[unitDefID]
     if damage >= collisionStrengthMin then
@@ -98,6 +90,14 @@ local function getGeneralCollisionDamage(damage, unitID, unitDefID)
         end
     end
     return 0
+end
+
+-- IN_AIR + FALLING + FLYING => 200
+-- See: beyond-all-reason/spring/blob/master/rts/Sim/Objects/SolidObject.h#L61
+-- This ignores unitCannotMove to treat all collisions between "units" equally.
+local function isValidUnitUnitCollision(unitID, attackerID)
+    return bit_and(spGetUnitPhysicalState(unitID),     200) > 0 or
+           bit_and(spGetUnitPhysicalState(attackerID), 200) > 0
 end
 
 local function getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attackerDefID)
@@ -326,7 +326,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
         if attackerID then
             if unitCollIgnore[unitID] and unitCollIgnore[unitID][attackerID] then
                 return damage
-            elseif isValidCollision(unitID, attackerID) then
+            elseif isValidUnitUnitCollision(unitID, attackerID) then
                 return getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attackerDefID)
             else
                 return 0
