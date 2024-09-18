@@ -214,7 +214,7 @@ do
             local impulse = damages.impulseFactor * (damage + damages.impulseBoost)
             local impulseMaxPerFrame = impulse * (weaponDef.projectiles or 1) *
                 math.ceil(math.max(1, frameTime / (weaponDef.burstRate  or 1)) *
-                        math.max(1, frameTime / (weaponDef.reloadTime or 1)))
+                          math.max(1, frameTime / (weaponDef.reloadTime or 1)))
             if  impulse / damage < 0.123 or
                 impulseMaxPerFrame / unitMassMin * gameSpeed < meterToElmo
             then
