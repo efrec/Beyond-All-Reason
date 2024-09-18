@@ -82,12 +82,12 @@ end
 local function getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attackerDefID)
     local uvx, uvy, uvz, uvw = spGetUnitVelocity(unitID)
     local avx, avy, avz, avw = spGetUnitVelocity(attackerID)
+    -- Clumped units launched upwards will collide instantly. Ignore them:
     if uvy < -collisionVelocityMin or avy < -collisionVelocityMin then
-        -- Limit to falling units, or clumped units launched upwards will collide instantly.
         local fallUnit = uvw > 0.01 and uvy / uvw or 0.01
         local fallAtkr = avw > 0.01 and avy / avw or 0.01
         local fallTerm = abs(fallUnit - fallAtkr)
-        if fallTerm > (1/2) and (fallUnit < -1/3 or fallAtkr < -1/3) then
+        if fallTerm > 0.5 then
             local rvx, rvy, rvz = avx - uvx, avy - uvy, avz - uvz
             local _,_,_, apx, apy, apz = spGetUnitPosition(attackerID, true)
             local _,_,_, upx, upy, upz = spGetUnitPosition(unitID, true)
