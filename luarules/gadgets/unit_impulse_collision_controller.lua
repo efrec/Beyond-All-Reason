@@ -285,10 +285,9 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
             local damages = weaponExcess[weaponDefID]
             local damageBase = min(damage, damages[UnitDefs[unitDefID].armorType])
             local impulse = damages.impulseFactor * (damageBase + damages.impulseBoost)
-            local scale = velDeltaSoftLimit * unitImpactMass[unitDefID] / impulse
+            local scale = velDeltaSoftLimit * (unitImpactMass[unitDefID] / impulse)
             if scale < 1 then
-                Spring.Echo('[collision] rescaling: ' .. scale)
-                return 0, (3 + 20 * scale) * 0.25 -- Only partially rescale.
+                return 0, (2 + scale) * (1/3) -- Only partially rescale.
             end
         end
     end
@@ -309,8 +308,6 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
     if weaponDefID == groundCollisionDefID then
         return getGeneralCollisionDamage(damage, unitID, unitDefID)
     end
-
-    return 0, 20
 end
 
 function gadget:UnitDestroyed(unitID)
