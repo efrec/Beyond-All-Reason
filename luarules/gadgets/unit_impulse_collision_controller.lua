@@ -306,8 +306,10 @@ end
 function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
     damage, paralyzer, weaponDefID, projectileID, attackerID, attackerDefID)
 
-    if not unitVelocity[unitID] and not weaponIgnore[weaponDefID] then
-        unitVelocity[unitID] = { checkFrame, spGetUnitVelocity(unitID) }
+    if not weaponIgnore[weaponDefID] then
+        if not unitVelocity[unitID] then
+            unitVelocity[unitID] = { checkFrame, spGetUnitVelocity(unitID) }
+        end
 
         if weaponExcess[weaponDefID] then
             local damages = weaponExcess[weaponDefID]
