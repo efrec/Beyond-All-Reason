@@ -19,9 +19,9 @@ end
 -- Configuration ---------------------------------------------------------------
 
 local velDeltaSoftLimit = 4 -- Number, elmos / frame. Hard limit is double this.
-local velDamperDuration = 4 -- Number, seconds. How long to limit high impulses.
+
 local collisionVelocityMin = 2.67 -- Number, elmos / frame. Also scales damage.
-local collisionStrengthMin = 0.1 -- Number, percentage. A value from 0 to 1.
+local collisionStrengthMin = 0.10 -- Number, percentage. A value from 0 to 1.
 
 --------------------------------------------------------------------------------
 -- Localized values ------------------------------------------------------------
@@ -73,7 +73,7 @@ local function getGeneralCollisionDamage(damage, unitID, unitDefID)
     if damage >= 8 then
         local _, uvy, _, uvw = spGetUnitVelocity(unitID)
         if uvy < -collisionVelocityMin and uvy / uvw < (-1/3) then
-            return damage * ((1 - uvy / uvw) * 0.5) * unitCollDamage[unitDefID] * (0.02 / 2.5), 0.123
+            return damage * ((1 - uvy / uvw) * 0.5) * unitCollDamage[unitDefID] * 0.008, 0.123
         end
     end
     return 0
@@ -83,23 +83,26 @@ local function getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attacke
     local uvx, uvy, uvz, uvw = spGetUnitVelocity(unitID)
     local avx, avy, avz, avw = spGetUnitVelocity(attackerID)
     if uvy < -collisionVelocityMin or avy < -collisionVelocityMin then
-        local vertUnit = uvw > 1e-3 and uvy / uvw or 0.01
-        local vertAtkr = avw > 1e-3 and avy / avw or 0.01
-        local vertFunc = vertUnit / vertAtkr < 0 and abs(vertUnit - vertAtkr) or 0
-        if vertFunc > (1/3) then
-            local cvx, cvy, cvz = avx - uvx, avy - uvy, avz - uvz
+        -- Limit to falling units, or clumped units launched upwards will collide instantly.
+        local fallUnit = uvw > 0.01 and uvy / uvw or 0.01
+        local fallAtkr = avw > 0.01 and avy / avw or 0.01
+        local fallTerm = abs(fallUnit - fallAtkr)
+        if fallTerm > (1/2) and (fallUnit < -1/3 or fallAtkr < -1/3) then
+            local rvx, rvy, rvz = avx - uvx, avy - uvy, avz - uvz
             local _,_,_, apx, apy, apz = spGetUnitPosition(attackerID, true)
             local _,_,_, upx, upy, upz = spGetUnitPosition(unitID, true)
             local dpx, dpy, dpz = upx - apx, upy - apy, upz - apz
             local dpw = sqrt(dpx*dpx + dpy*dpy + dpz*dpz)
             dpx, dpy, dpz = dpx / dpw, dpy / dpw, dpz / dpw
-            local Cnorm = sqrt(cvx*cvx + cvy*cvy + cvz*cvz)
-            local CdotD = cvx * dpx + cvy * dpy + cvz * dpz
 
-            local vrelFunc = (1/3) * (0.5 * (Cnorm - collisionVelocityMin) + CdotD) / collisionVelocityMin
-            local massFunc = unitImpactMass[attackerDefID] / (unitImpactMass[unitDefID] + unitImpactMass[attackerDefID])
-            local collisionStrength = vrelFunc * massFunc * vertFunc
+            local speedRel = sqrt(rvx*rvx + rvy*rvy + rvz*rvz) - collisionVelocityMin
+            local speedPro = rvx * dpx + rvy * dpy + rvz * dpz -- projection of vel and dir
 
+            local vrelTerm = (1/3) * (0.5 * speedRel + speedPro) / collisionVelocityMin
+            local massTerm = unitImpactMass[attackerDefID] /
+                (unitImpactMass[unitDefID] + unitImpactMass[attackerDefID])
+
+            local collisionStrength = vrelTerm * massTerm * fallTerm
             if collisionStrength > collisionStrengthMin then
                 -- Damage the attacker.
                 if unitCollIgnore[attackerID] == nil then
@@ -107,10 +110,10 @@ local function getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attacke
                 else
                     unitCollIgnore[attackerID][unitID] = true
                 end
-                local reflect = vrelFunc * (1 - massFunc) * vertFunc * unitCollDamage[attackerDefID]
+                local reflect = vrelTerm * (1 - massTerm) * fallTerm * unitCollDamage[attackerDefID]
                 Spring.AddUnitDamage(
                     attackerID, reflect, nil,
-                    unitID, nil,
+                    unitID, objectCollisionDefID,
                     reflect * 0.123 * -dpx,
                     reflect * 0.123 * -dpy,
                     reflect * 0.123 * -dpz
@@ -268,14 +271,14 @@ end
 
 function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
     damage, paralyzer, weaponDefID, projectileID, attackerID, attackerDefID)
-    if unitVelocity[unitID] == nil and weaponIgnore[weaponDefID] == nil then
+    if not unitVelocity[unitID] and not weaponIgnore[weaponDefID] then
         unitVelocity[unitID] = { checkFrame, spGetUnitVelocity(unitID) }
     end
 
     if weaponDefID == objectCollisionDefID then
-        if attackerID ~= nil then
-            if  (unitCollIgnore[unitID]     ~= nil and unitCollIgnore[unitID][attackerID] ~= nil) or
-                (unitCollIgnore[attackerID] ~= nil and unitCollIgnore[attackerID][unitID] ~= nil)
+        if attackerID then
+            if  (unitCollIgnore[unitID]     and unitCollIgnore[unitID][attackerID]) or
+                (unitCollIgnore[attackerID] and unitCollIgnore[attackerID][unitID])
             then
                 return damage
             elseif isValidCollision(unitID, attackerID) then
