@@ -315,7 +315,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
             local impulse = damages.impulseFactor * (damageBase + damages.impulseBoost)
             local scale = velDeltaSoftLimit * (unitImpactMass[unitDefID] / impulse)
             if scale < 1 then
-                return damage, (2 + scale) * (1/3) -- Only partially rescale.
+                return damage, (1 + scale) * (1/2) -- Only partially rescale.
             end
         end
     end
