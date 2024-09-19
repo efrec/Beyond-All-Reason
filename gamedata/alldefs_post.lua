@@ -96,7 +96,8 @@ function UnitDef_Post(name, uDef)
 
 		-- We also (actually, mostly) want units falling on one another to deal damage.
 		-- So the minspeed is not actually all that relevant, except to reduce the number of events.
-		uDef.minCollisionSpeed = (collisionSpeedRealism + collisionSpeedMinimum) / 2 / 2 -- So decrease by half.
+		uDef.minCollisionSpeed = (collisionSpeedRealism + collisionSpeedMinimum) / 2
+		uDef.minCollisionSpeed = 2.25
 	end
 
 	-- Configure skid and flying behaviors, esp. while under impulse.
@@ -107,8 +108,8 @@ function UnitDef_Post(name, uDef)
 	-- Note: Rolling resistance replaces ground friction rarely. High values may be over-correcting.
 	if not uDef.canfly and uDef.speed and uDef.speed > 0 then
 		uDef.atmosphericDragCoefficient   = 2.33 -- (default 1.00) Reduces speed when airborne, in water, or grounded.
-		uDef.groundFrictionCoefficient    = 0.02 -- (default 0.01) Reduces speed along skidding direction on ground.
-		uDef.rollingResistanceCoefficient = 0.04 -- (default 0.05) Reduces speed above maximum along current heading.
+		uDef.groundFrictionCoefficient    = 0.01 -- (default 0.01) Reduces speed along skidding direction on ground.
+		uDef.rollingResistanceCoefficient = 0.03 -- (default 0.05) Reduces speed above maximum along current heading.
 		if uDef.customparams.traction_multiplier then
 			local multiplier = tonumber(uDef.customparams.traction_multiplier) or 1
 			uDef.groundFrictionCoefficient    = uDef.groundFrictionCoefficient    * multiplier
