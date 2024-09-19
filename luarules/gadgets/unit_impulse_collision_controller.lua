@@ -42,9 +42,9 @@ local collisionVerticalDeg = 55 -- Number, degrees. 90 prevents all collisions.
 --------------------------------------------------------------------------------
 -- Localized values ------------------------------------------------------------
 
-local abs     = math.abs
-local min     = math.min
-local sqrt    = math.sqrt
+local abs  = math.abs
+local min  = math.min
+local sqrt = math.sqrt
 
 local spGetUnitVelocity = Spring.GetUnitVelocity
 local spSetUnitVelocity = Spring.SetUnitVelocity
