@@ -19,8 +19,8 @@ end
 -- Customparams setup ----------------------------------------------------------
 --                                                                            --
 --    unitdef.customparams = {                                                --
---        impulse_ctrl_damage = <number>                                      --
---        impulse_ctrl_mass   = <number>                                      --
+--        collision_ctrl_damage = <number>                                    --
+--        collision_ctrl_mass   = <number>                                    --
 --    }                                                                       --
 --                                                                            --
 --    weapondef.customparams = {                                              --
@@ -45,11 +45,10 @@ local collisionVerticalDeg = 55 -- Number, degrees. 90 prevents all collisions.
 local abs     = math.abs
 local min     = math.min
 local sqrt    = math.sqrt
-local bit_and = math.bit_and
 
-local spGetUnitVelocity      = Spring.GetUnitVelocity
-local spSetUnitVelocity      = Spring.SetUnitVelocity
-local spGetUnitPosition      = Spring.GetUnitPosition
+local spGetUnitVelocity = Spring.GetUnitVelocity
+local spSetUnitVelocity = Spring.SetUnitVelocity
+local spGetUnitPosition = Spring.GetUnitPosition
 
 local mapGravity           = Game.gravity / Game.gameSpeed / Game.gameSpeed * -1
 local objectCollisionDefID = Game.envDamageTypes.ObjectCollision
@@ -225,11 +224,11 @@ do
             unitCannotMove[unitDefID] = unitDef.canMove and true or nil
             unitArmorType[unitDefID] = unitDef.armorType
 
-            if unitDef.customParams.impulse_ctrl_damage then
-                unitCollDamage[unitDefID] = tonumber(unitDef.customParams.impulse_ctrl_damage)
+            if unitDef.customParams.collision_ctrl_damage then
+                unitCollDamage[unitDefID] = tonumber(unitDef.customParams.collision_ctrl_damage)
             end
-            if unitDef.customParams.impulse_ctrl_mass then
-                unitImpactMass[unitDefID] = tonumber(unitDef.customParams.impulse_ctrl_mass)
+            if unitDef.customParams.collision_ctrl_mass then
+                unitImpactMass[unitDefID] = tonumber(unitDef.customParams.collision_ctrl_mass)
             end
         end
 
