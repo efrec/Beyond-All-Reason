@@ -317,12 +317,11 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
             local impulse = damages.impulseFactor * (damageBase + damages.impulseBoost)
             local scale = velDeltaSoftLimit * (unitImpactMass[unitDefID] / impulse)
             if scale < 1 then
-                return damage, (1 + scale) * (1/2) -- Only partially rescale.
+                return damage, scale -- Only partially rescale.
             end
         end
-    end
 
-    if weaponDefID == objectCollisionDefID then
+    elseif weaponDefID == objectCollisionDefID then
         if attackerID then
             if unitCollIgnore[unitID] and unitCollIgnore[unitID][attackerID] then
                 return damage
@@ -333,9 +332,8 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
             end
         end
         return getGeneralCollisionDamage(damage, unitID, unitDefID)
-    end
 
-    if weaponDefID == groundCollisionDefID then
+    elseif weaponDefID == groundCollisionDefID then
         return getGeneralCollisionDamage(damage, unitID, unitDefID)
     end
 end
