@@ -263,7 +263,7 @@ do
             unitCollDamage[unitDefID] = unitDef.health * (1 + bonusHealthMax)
             unitImpactMass[unitDefID] = math.max(0.1, unitDef.mass or unitDef.metalCost or 20)
             unitCannotMove[unitDefID] = unitDef.canMove and true or nil
-            unitArmorType[unitDefID] = untiDef.armorType
+            unitArmorType[unitDefID] = unitDef.armorType
 
             if unitDef.customParams.impulse_ctrl_damage then
                 unitCollDamage[unitDefID] = tonumber(unitDef.customParams.impulse_ctrl_damage)
@@ -286,7 +286,7 @@ function gadget:GameFrame(frame)
     local velDeltaSoftLimitSq = velDeltaSoftLimitSq
     for unitID, velocity in pairs(unitVelocity) do
         local vx, vy, vz = spGetUnitVelocity(unitID)
-        local velDeltaSq = (vx-velocity[2])^2+(vy-velocity[3])^2+(vz-velocity[4])^2
+        local velDeltaSq = (vx-velocity[2])^2 + (vy-velocity[3])^2 + (vz-velocity[4])^2
         if velDeltaSq > velDeltaSoftLimitSq then
             -- Rescale from velDeltaSoftLimit elmos/frame to up to twice that.
             local scale = sqrt(velDeltaSoftLimitSq / velDeltaSq)
@@ -317,7 +317,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
             local impulse = damages.impulseFactor * (damageBase + damages.impulseBoost)
             local scale = velDeltaSoftLimit * (unitImpactMass[unitDefID] / impulse)
             if scale < 1 then
-                return damage, (1 + scale) * (1/2) -- Only partially rescale.
+                return 0, (1 + scale) * (1/2) -- Only partially rescale.
             end
         end
     end
