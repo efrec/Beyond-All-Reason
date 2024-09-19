@@ -37,6 +37,7 @@ local velDeltaSoftLimit = 4 -- Number, elmos / frame. Hard limit is twice this.
 
 local collisionVelocityMin = 2.67 -- Number, elmos / frame. Also scales damage.
 local collisionStrengthMin = 0.10 -- Number, percentage. A value from 0 to 1.
+local collisionVerticalDeg = 55 -- Number, degrees. 90 prevents all collisions.
 
 --------------------------------------------------------------------------------
 -- Localized values ------------------------------------------------------------
@@ -49,7 +50,6 @@ local bit_and = math.bit_and
 local spGetUnitVelocity      = Spring.GetUnitVelocity
 local spSetUnitVelocity      = Spring.SetUnitVelocity
 local spGetUnitPosition      = Spring.GetUnitPosition
-local spGetUnitPhysicalState = Spring.GetUnitPhysicalState
 
 local mapGravity           = Game.gravity / Game.gameSpeed / Game.gameSpeed * -1
 local objectCollisionDefID = Game.envDamageTypes.ObjectCollision
@@ -71,8 +71,9 @@ local checkFrame = 0
 local unitImpactMass = {}
 local unitCannotMove = {}
 local unitCollDamage = {}
-local unitCollIgnore = {}
 local unitArmorType = {}
+local collReflection = {}
+local verticalRatio = collisionVerticalDeg / 90
 
 -- Perform impulse and collision controller duties for other gadgets.
 
@@ -92,23 +93,15 @@ local function getGeneralCollisionDamage(damage, unitID, unitDefID)
     return 0
 end
 
--- IN_AIR + FALLING + FLYING => 200
--- See: beyond-all-reason/spring/blob/master/rts/Sim/Objects/SolidObject.h#L61
--- This ignores unitCannotMove to treat all collisions between "units" equally.
-local function isValidUnitUnitCollision(unitID, attackerID)
-    return bit_and(spGetUnitPhysicalState(unitID),     200) > 0 or
-           bit_and(spGetUnitPhysicalState(attackerID), 200) > 0
-end
-
 local function getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attackerDefID)
+    local collisionVelocityMin = collisionVelocityMin
     local uvx, uvy, uvz, uvw = spGetUnitVelocity(unitID)
     local avx, avy, avz, avw = spGetUnitVelocity(attackerID)
-    -- Clumped units launched upwards will collide instantly. Ignore them:
-    if uvy < -collisionVelocityMin or avy < -collisionVelocityMin then
-        local fallUnit = uvw > 0.01 and uvy / uvw or 0.01
-        local fallAtkr = avw > 0.01 and avy / avw or 0.01
+        if uvy < -collisionVelocityMin or avy < -collisionVelocityMin then
+        local fallUnit = uvw > 0.1 and uvy / uvw or 0.1
+        local fallAtkr = avw > 0.1 and avy / avw or 0.1
         local fallTerm = abs(fallUnit - fallAtkr)
-        if fallTerm > 0.5 then
+        if fallTerm > verticalRatio then
             local rvx, rvy, rvz = avx - uvx, avy - uvy, avz - uvz
             local _,_,_, apx, apy, apz = spGetUnitPosition(attackerID, true)
             local _,_,_, upx, upy, upz = spGetUnitPosition(unitID, true)
@@ -118,21 +111,24 @@ local function getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attacke
 
             local speedRel = sqrt(rvx*rvx + rvy*rvy + rvz*rvz) - collisionVelocityMin
             local speedPro = rvx * dpx + rvy * dpy + rvz * dpz -- projection of vel and dir
-            local vrelTerm = (1/4) * (1/2) * (1/3) * (0.5 * speedRel + speedPro)
+
+            -- balance term = 1/8 -- Semi-magical, from game speed, bonus health maximum.
+            -- elastic term = 1/2 -- Elasticity and/or damage symmetry and reflection.
+            -- average term = 2/3 -- Gets the weighted average of 0.5x + 1x.
+            local vrelTerm = (1/8) * (1/2) * (2/3) * (0.5 * speedRel + speedPro)
 
             local collisionStrength = vrelTerm * fallTerm
             if collisionStrength > collisionStrengthMin then
-                if unitCollIgnore[attackerID] == nil then
-                    unitCollIgnore[attackerID] = { [unitID] = true }
-                else
-                    unitCollIgnore[attackerID][unitID] = true
-                end
-
-                local massTerm = unitImpactMass[unitDefID] /
-                    (unitImpactMass[unitDefID] + unitImpactMass[attackerDefID])
+                local massTerm = unitImpactMass[unitDefID]
+                massTerm = massTerm / (massTerm + unitImpactMass[attackerDefID])
 
                 -- Damage the attacker.
-                local reflect = collisionStrength * massTerm * unitCollDamage[attackerDefID]
+                local reflect = math.round(collisionStrength * massTerm * unitCollDamage[attackerDefID])
+                if collReflection[attackerID] == nil then
+                    collReflection[attackerID] = { [unitID] = reflect }
+                else
+                    collReflection[attackerID][unitID] = reflect
+                end
                 Spring.AddUnitDamage(
                     attackerID, reflect, nil,
                     unitID, objectCollisionDefID,
@@ -222,6 +218,28 @@ do
         gadgetHandler:RegisterGlobal( "ImpulseCtrl_SafeImpulse"   , safeImpulse   )
         gadgetHandler:RegisterGlobal( "ImpulseCtrl_UnsafeImpulse" , unsafeImpulse )
 
+        local bonusHealthMax = 3.00 -- Needed to guarantee that fall damage remains lethal.
+        for unitDefID, unitDef in ipairs(UnitDefs) do
+            unitCollDamage[unitDefID] = unitDef.health * (1 + bonusHealthMax)
+            unitImpactMass[unitDefID] = math.max(0.1, unitDef.mass or unitDef.metalCost or 20)
+            unitCannotMove[unitDefID] = unitDef.canMove and true or nil
+            unitArmorType[unitDefID] = unitDef.armorType
+
+            if unitDef.customParams.impulse_ctrl_damage then
+                unitCollDamage[unitDefID] = tonumber(unitDef.customParams.impulse_ctrl_damage)
+            end
+            if unitDef.customParams.impulse_ctrl_mass then
+                unitImpactMass[unitDefID] = tonumber(unitDef.customParams.impulse_ctrl_mass)
+            end
+        end
+
+        -- Add engine pseudo-weapons that use negative weaponDefIDs.
+        for weaponDefName, weaponDefID in pairs(Game.envDamageTypes) do
+            weaponIgnore[weaponDefID] = true
+        end
+
+        -- Ignore all moderate impulse units; 0.123 is considered base impulse.
+        -- Weapons with an effective impulse factor over 1 are considered exceptional.
         local gameSpeed = Game.gameSpeed
         local frameTime = 1 / gameSpeed
         local unitMassMin = UnitDefNames.armflea and UnitDefNames.armflea.metalCost or 20
@@ -236,7 +254,8 @@ do
             local impulseMaxPerFrame = impulse * (weaponDef.projectiles or 1) *
                 math.ceil(math.max(1, frameTime / (weaponDef.burstRate  or 1)) *
                           math.max(1, frameTime / (weaponDef.reloadTime or 1)))
-            if  impulse / damage < 0.123 or
+
+            if  impulse / damage < 0.125 or
                 impulseMaxPerFrame / unitMassMin * gameSpeed < meterToElmo
             then
                 weaponIgnore[weaponDefID] = true
@@ -253,49 +272,34 @@ do
             end
         end
 
-        for weaponDefName, weaponDefID in pairs(Game.envDamageTypes) do
-            weaponIgnore[weaponDefID] = true
-        end
-        weaponIgnore[objectCollisionDefID] = nil
-
-        local bonusHealthMax = 3.00 -- Needed to guarantee that fall damage remains lethal.
-        for unitDefID, unitDef in ipairs(UnitDefs) do
-            unitCollDamage[unitDefID] = unitDef.health * (1 + bonusHealthMax)
-            unitImpactMass[unitDefID] = math.max(0.1, unitDef.mass or unitDef.metalCost or 20)
-            unitCannotMove[unitDefID] = unitDef.canMove and true or nil
-            unitArmorType[unitDefID] = unitDef.armorType
-
-            if unitDef.customParams.impulse_ctrl_damage then
-                unitCollDamage[unitDefID] = tonumber(unitDef.customParams.impulse_ctrl_damage)
-            end
-            if unitDef.customParams.impulse_ctrl_mass then
-                unitImpactMass[unitDefID] = tonumber(unitDef.customParams.impulse_ctrl_mass)
-            end
-        end
-
         checkFrame = Spring.GetGameFrame() + 1
     end
 end
 
 function gadget:GameFrame(frame)
     checkFrame = frame + 1
-    unitCollIgnore = {}
+    collReflection = {}
+
     for unitID in pairs(unitSuspended) do
         unitVelocity[unitID] = nil
     end
+
+    local velDeltaSoftLimit = velDeltaSoftLimit
     local velDeltaSoftLimitSq = velDeltaSoftLimitSq
+    local highGravity = 2 * mapGravity
     for unitID, velocity in pairs(unitVelocity) do
-        local vx, vy, vz = spGetUnitVelocity(unitID)
-        local velDeltaSq = (vx-velocity[2])^2 + (vy-velocity[3])^2 + (vz-velocity[4])^2
-        if velDeltaSq > velDeltaSoftLimitSq then
-            -- Rescale from velDeltaSoftLimit elmos/frame to up to twice that.
-            local scale = sqrt(velDeltaSoftLimitSq / velDeltaSq)
-            spSetUnitVelocity(
-                unitID,
-                scale * (vx - velocity[2]) + velocity[2],  -- Don't rescale gravity:
-                scale * (vy - velocity[3]) + velocity[3] + (1 - scale) * mapGravity,
-                scale * (vz - velocity[4]) + velocity[4]
-            )
+        local vx, vy, vz, vw = spGetUnitVelocity(unitID)
+        if vw > velDeltaSoftLimit then 
+            local velDeltaSq = (vx-velocity[2])^2 + (vy-velocity[3])^2 + (vz-velocity[4])^2
+            if velDeltaSq > velDeltaSoftLimitSq then
+                -- Rescale from velDeltaSoftLimit elmos/frame to up to twice that.
+                -- Manage vertical speed to prevent juggling & spiking units to the ground.
+                local scale = sqrt(velDeltaSoftLimitSq / velDeltaSq)
+                vx = velocity[2] + scale * (vx - velocity[2])
+                vy = velocity[3] + highGravity
+                vz = velocity[4] + scale * (vz - velocity[4])
+                spSetUnitVelocity(unitID, vx, vy, vz)
+            end
         end
         if velocity[1] <= frame then
             unitVelocity[unitID] = nil
@@ -303,9 +307,7 @@ function gadget:GameFrame(frame)
     end
 end
 
-function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
-    damage, paralyzer, weaponDefID, projectileID, attackerID, attackerDefID)
-
+function gadget:UnitPreDamaged(unitID, unitDefID, teamID, damage, paralyzer, weaponDefID, projectileID, attackerID, attackerDefID)
     if not weaponIgnore[weaponDefID] then
         if not unitVelocity[unitID] then
             unitVelocity[unitID] = { checkFrame, spGetUnitVelocity(unitID) }
@@ -316,19 +318,21 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID,
             local damageBase = min(damage, damages[unitArmorType[unitDefID]])
             local impulse = damages.impulseFactor * (damageBase + damages.impulseBoost)
             local scale = velDeltaSoftLimit * (unitImpactMass[unitDefID] / impulse)
-            if scale < 1 then
-                return damage, scale -- Only partially rescale.
+            if scale < 1 and scale > 0.5 then
+                -- Gradually apply scaling up to the delta-v hard limit.
+                -- wolframalpha input: plot y = 1 - 1/(1 + 1/(1/x -1)^2), 0.5 < x < 1
+                scale = 1 / (1 / scale - 1)
+                scale = 1 - 1 / (1 + scale * scale)
             end
+            return damage, min(1, scale)
         end
 
     elseif weaponDefID == objectCollisionDefID then
         if attackerID then
-            if unitCollIgnore[unitID] and unitCollIgnore[unitID][attackerID] then
-                return damage
-            elseif isValidUnitUnitCollision(unitID, attackerID) then
-                return getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attackerDefID)
+            if collReflection[unitID] and collReflection[unitID][attackerID] then
+                return collReflection[unitID][attackerID] == damage and damage or 0
             else
-                return 0
+                return getUnitUnitCollisionDamage(unitID, unitDefID, attackerID, attackerDefID)
             end
         end
         return getGeneralCollisionDamage(damage, unitID, unitDefID)
