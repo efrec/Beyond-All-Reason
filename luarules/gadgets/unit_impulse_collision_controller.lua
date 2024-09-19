@@ -317,13 +317,15 @@ function gadget:UnitPreDamaged(unitID, unitDefID, teamID, damage, paralyzer, wea
             local damageBase = min(damage, damages[unitArmorType[unitDefID]])
             local impulse = damages.impulseFactor * (damageBase + damages.impulseBoost)
             local scale = velDeltaSoftLimit * (unitImpactMass[unitDefID] / impulse)
-            if scale < 1 and scale > 0.5 then
-                -- Gradually apply scaling up to the delta-v hard limit.
-                -- wolframalpha input: plot y = 1 - 1/(1 + 1/(1/x -1)^2), 0.5 < x < 1
-                scale = 1 / (1 / scale - 1)
-                scale = 1 - 1 / (1 + scale * scale)
+            if scale < 1 then
+                if scale > 0.5 then
+                    -- Gradually apply scaling up to the delta-v hard limit.
+                    -- wolframalpha input: plot y = 1 - 1/(1 + 1/(1/x -1)^2), 0.5 < x < 1
+                    scale = 1 / (1 / scale - 1)
+                    scale = 1 - 1 / (1 + scale * scale)
+                end
+                return damage, scale
             end
-            return damage, min(1, scale)
         end
 
     elseif weaponDefID == objectCollisionDefID then
