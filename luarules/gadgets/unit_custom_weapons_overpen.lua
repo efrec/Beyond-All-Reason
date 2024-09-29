@@ -91,7 +91,6 @@ local slowdownPerType = {        -- Whether penetrators lose velocity, as well.
 --------------------------------------------------------------------------------
 -- Locals ----------------------------------------------------------------------
 
-local remove = table.remove
 local min = math.min
 
 local spGetProjectileDirection  = Spring.GetProjectileDirection
@@ -100,8 +99,6 @@ local spGetProjectileVelocity   = Spring.GetProjectileVelocity
 local spGetUnitHealth           = Spring.GetUnitHealth
 local spSetProjectileVelocity   = Spring.SetProjectileVelocity
 local spSpawnExplosion          = Spring.SpawnExplosion
-
-local gameSpeed  = Game.gameSpeed
 
 --------------------------------------------------------------------------------
 -- Setup -----------------------------------------------------------------------
