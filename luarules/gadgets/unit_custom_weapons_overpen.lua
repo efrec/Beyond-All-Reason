@@ -116,6 +116,9 @@ local function loadOverpenWeapons()
         AircraftBomb      = true  ,
     }
 
+    weaponParams = {}
+    explosionParams = {}
+
     for weaponDefID, weaponDef in ipairs(WeaponDefs) do
         -- ! requires noexplode to work correctly
         if weaponDef.noExplode and weaponDef.customParams.overpen then
@@ -151,7 +154,7 @@ local function loadOverpenWeapons()
         craterBoost = true,
     }
 
-    local exlosionDefaults = {
+    local explosionDefaults = {
         craterAreaOfEffect   = 0,
         damageAreaOfEffect   = 0,
         edgeEffectiveness    = 0,
@@ -171,7 +174,7 @@ local function loadOverpenWeapons()
             local expDefID = params.expDefID
             local expDef = WeaponDefs[expDefID]
 
-            local damages = table.copy(weaponDef.damages)
+            local damages = table.copy(expDef.damages)
             for key, value in pairs(damages) do
                 if type(key) ~= "number" and not damageKeys[key] then
                     damages[key] = nil
@@ -206,12 +209,17 @@ local function loadOverpenWeapons()
     return (next(weaponParams) ~= nil)
 end
 
----Delete a projectile and its projectile lights.
+---Delete a projectile and its projectile lights. -- todo: defects
 local function consume(projID)
-    -- todo: will this remove projectile lights? no clue
     -- todo: might have to do the ol teleport to the woods. to the woods:
-    -- Spring.SetProjectilePosition(projID, 400, -1e9, 400)
-    Spring.SetProjectileCollision(projID)
+    Spring.SetProjectileMoveControl(projID, true)
+    Spring.SetProjectilePosition(projID, 400, -1e9, 400)
+
+    -- todo: this still leaves the projectile ceg trail/cegtag and model flickering in place.
+    -- todo: I don't think those can be set while in flight.
+    -- todo: like a 'SetProjectileParams(projID, "cegtag", nil)' kind of deal.
+
+    Spring.DeleteProjectile(projID)
     projectiles[projID] = nil
 end
 
@@ -222,13 +230,12 @@ local function explode(projID, expDefID, attackID, unitID, featureID)
     consume(projID)
 
     local explosion = explosionParams[expDefID]
+    explosion.owner = attackID
+    explosion.projectileID = projID
     if explosion.impactOnly then
         explosion.hitFeature = featureID
         explosion.hitUnit = unitID
     end
-    explosion.owner = attackID
-    explosion.projectileID = projID
-
     spSpawnExplosion(px, py, pz, dx, dy, dz, explosion)
 end
 
@@ -241,12 +248,13 @@ end
 ---When a penetrator is stopped, it deals this enhanced hard-stop/arrest impulse.
 local function getArrestImpulse(inertia)
     local mod = hardStopIncrease
-    return (mod + 1) / (mod + 1 / inertia) * inertia
+    return (mod + 1) / (mod + 1 / inertia)
 end
 
 ---When penetrating a target, try to leave behind a specific type of wreckage.
 ---I got lazy reading how to do this. This is what I'm going with for now.
 local function killUnit(unitID, corpseType)
+    -- todo: wrecks and etc. should inherit momentum
     if corpseType == "none" then
         Spring.DestroyUnit(unitID, false, true, attackID, false)
     elseif corpseType == "wrecks" then
@@ -313,6 +321,7 @@ function gadget:Initialize()
         Script.SetWatchProjectile(weaponDefID, true)
     end
 
+    unitArmorType = {}
     for unitDefID, unitDef in ipairs(UnitDefs) do
         unitArmorType[unitDefID] = unitDef.armorType
     end
@@ -322,19 +331,17 @@ end
 
 function gadget:ProjectileCreated(projID, ownerID, weaponDefID)
     if weaponParams[weaponDefID] then
-        projectiles[projID] = {
-            inertia = 1,
-            ownerID = ownerID,
-            params  = weaponParams[weaponDefID],
-        }
+        local params = weaponParams[weaponDefID]
+        projectiles[projID] = { inertia = 1, ownerID = ownerID, params = params }
     end
 end
 
 function gadget:ProjectileDestroyed(projID)
     if projectiles[projID] then
-        local expDefID = projectiles[projID].params.expDefID
-        if expDefID then
-            explode(projID, expDefID, projectiles[projID].ownerID)
+        local projectile = projectiles[projID]
+        local explosive = projectile.expDefID
+        if explosive then
+            explode(projID, explosive, projectile.ownerID)
         else
             consume(projID)
         end
