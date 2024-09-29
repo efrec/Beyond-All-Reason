@@ -118,6 +118,7 @@ return {
 				impulseboost  = (3/2) * 0.123,
 				impulsefactor = (3/2) * 0.123,
 				name = "Pop-up heavy g2g gauss cannon",
+				noexplode = true,
 				noselfdamage = true,
 				range = 730,
 				reloadtime = 1.6,

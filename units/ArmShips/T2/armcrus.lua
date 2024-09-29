@@ -152,6 +152,7 @@ return {
 				impulseboost = 0.123,
 				impulsefactor = 0.123,
 				name = "Long-range g2g gauss cannon",
+				noexplode = true,
 				noselfdamage = true,
 				range = 500,
 				reloadtime = 1.666,

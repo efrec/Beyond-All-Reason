@@ -128,6 +128,7 @@ return {
 				impulseboost = (3/2) * 0.123,
 				impulsefactor = (3/2) * 0.123,
 				name = "Medium g2g gauss-cannon",
+				noexplode = true,
 				noselfdamage = true,
 				predictboost = 1,
 				range = 480,

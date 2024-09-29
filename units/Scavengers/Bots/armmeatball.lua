@@ -164,6 +164,7 @@ return {
 				impulseboost = 0.123,
 				impulsefactor = 0.123,
 				name = "Double close-quarters gauss cannon",
+				noexplode = true,
 				noselfdamage = true,
 				range = 1000,
 				reloadtime = 0.5,

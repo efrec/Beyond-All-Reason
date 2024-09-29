@@ -124,6 +124,7 @@ return {
 				impulsefactor = 1,
 				intensity = 0.8,
 				name = "Railgun",
+				noexplode = true,
 				noselfdamage = true,
 				ownerExpAccWeight = 4.0,
 				proximitypriority = 3,

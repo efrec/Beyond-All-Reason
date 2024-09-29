@@ -130,6 +130,7 @@ return {
 				impulseboost = (3/2) * 0.123,
 				impulsefactor = (3/2) * 0.123,
 				name = "Medium g2g gauss cannon",
+				noexplode = true,
 				noselfdamage = true,
 				range = 600,
 				reloadtime = 2.5,
@@ -148,6 +149,7 @@ return {
 				weaponvelocity = 600,
 				customparams = {
 					overpen = true,
+					overpen_exp_def = "legfloat_legfloat_gauss_explosion",
 				},
 				damage = {
 					default = (2/3) * 250,

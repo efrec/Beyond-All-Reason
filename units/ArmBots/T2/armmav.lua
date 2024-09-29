@@ -116,6 +116,7 @@ return {
 				explosiongenerator = "custom:genericshellexplosion-small",
 				impactonly = 1,
 				name = "Anti-swarm g2g gauss-impulse guns",
+				noexplode = true,
 				noselfdamage = true,
 				predictboost = 0.3,
 				range = 365,

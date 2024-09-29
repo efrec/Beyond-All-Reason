@@ -112,6 +112,7 @@ return {
 				impulseboost = 0.123,
 				impulsefactor = 0.123,
 				name = "Rapid-fire gauss cannon",
+				noexplode = true,
 				noselfdamage = true,
 				range = 800,
 				reloadtime = .35,
