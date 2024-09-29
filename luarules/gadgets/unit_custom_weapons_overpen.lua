@@ -23,39 +23,9 @@ if not gadgetHandler:IsSyncedCode() then return false end
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
-local damageThreshold  = 0.1     -- A percentage. Minimum damage (vs. target health) that can overpen.
-local explodeThreshold = 0.2     -- A percentage. Minimum damage that detonates, rather than piercing.
-local hardStopIncrease = 2.0     -- A coefficient. Reduces the impulse falloff when damage is reduced.
-
--- Customparam defaults --------------------------------------------------------
-
-local penaltyDefault  = 0.02     -- A percentage. Additional damage loss per hit.
-
-local falloffPerType  = {        -- Whether the projectile loses damage per hit.
-    DGun              = false ,
-    Cannon            = true  ,
-    LaserCannon       = true  ,
-    BeamLaser         = true  ,
- -- LightningCannon   = false ,  -- Use customparams.spark_forkdamage instead.
- -- Flame             = false ,  -- Use customparams.single_hit_multi instead.
-    MissileLauncher   = true  ,
-    StarburstLauncher = true  ,
-    TorpedoLauncher   = true  ,
-    AircraftBomb      = true  ,
-}
-
-local slowdownPerType = {        -- Whether penetrators lose velocity, as well.
-    DGun              = false ,
-    Cannon            = true  ,
-    LaserCannon       = false ,
-    BeamLaser         = false ,
- -- LightningCannon   = false ,  -- Use customparams.spark_forkdamage instead.
- -- Flame             = false ,  -- Use customparams.single_hit_multi instead.
-    MissileLauncher   = true  ,
-    StarburstLauncher = true  ,
-    TorpedoLauncher   = true  ,
-    AircraftBomb      = true  ,
-}
+local damageThreshold  = 0.1 -- Minimum damage% (vs. target health) that can overpen.
+local explodeThreshold = 0.2 -- Minimum damage% that detonates, rather than piercing.
+local hardStopIncrease = 2.0 -- Reduces the impulse falloff when damage is reduced.
 
 --------------------------------------------------------------------------------
 --
@@ -68,18 +38,18 @@ local slowdownPerType = {        -- Whether penetrators lose velocity, as well.
 --        overpen_exp_def := <string> | nil
 --    }
 --
---    ┌────────────────────────────────┐
---    │ Falloff for hardStopIncrease=2 │
---    ├─────────────────────┬──────────┤
---    │  Damage Done / Left │ Inertia  │    Inertia is used as the impact force
---    │               100%  │   100%   │    and as the leftover projectile speed.
---    │                90%  │    96%   │
---    │                75%  │    90%   │
---    │                50%  │    75%   │ -- e.g. when a penetrator deals half its
---    │                25%  │    50%   │    max damage, it deals 75% max impulse.
---    │                10%  │    25%   │
---    │                 0%  │     0%   │
---    └─────────────────────┴──────────┘
+--    ┌─────────────────────────┐
+--    │ With hardStopIncrease=2 │
+--    ├──────────────┬──────────┤
+--    │  Damage Left │  Inertia │    Inertia is used as the impact force
+--    │        100%  │    100%  │    and as the leftover projectile speed.
+--    │         90%  │     96%  │
+--    │         75%  │     90%  │
+--    │         50%  │     75%  │ -- e.g. when a penetrator deals half its
+--    │         25%  │     50%  │    max damage, it deals 75% max impulse.
+--    │         10%  │     25%  │
+--    │          0%  │      0%  │
+--    └──────────────┴──────────┘
 --
 --    If you're motivated to know, this gives a new, effective impulse factor
 --    equal to the weapon's base impulse factor * (inertia / damage done). This
@@ -119,6 +89,32 @@ local projectiles
 local function loadOverpenWeapons()
     local falseSet = { [false] = true, ["false"] = true, ["0"] = true, [0] = true }
     local wreckSet = { wrecks = "wrecks", heaps = "heaps", none = "none" }
+
+    local penaltyDefault  = 0.02    -- A percentage. Additional damage loss per hit.
+    local falloffPerType  = {       -- Whether the projectile loses damage per hit.
+        DGun              = false ,
+        Cannon            = true  ,
+        LaserCannon       = true  ,
+        BeamLaser         = true  ,
+     -- LightningCannon   = false , -- Use customparams.spark_forkdamage instead.
+     -- Flame             = false , -- Use customparams.single_hit_multi instead.
+        MissileLauncher   = true  ,
+        StarburstLauncher = true  ,
+        TorpedoLauncher   = true  ,
+        AircraftBomb      = true  ,
+    }
+    local slowdownPerType = {       -- Whether penetrators lose velocity, as well.
+        DGun              = false ,
+        Cannon            = true  ,
+        LaserCannon       = false ,
+        BeamLaser         = false ,
+     -- LightningCannon   = false , -- Use customparams.spark_forkdamage instead.
+     -- Flame             = false , -- Use customparams.single_hit_multi instead.
+        MissileLauncher   = true  ,
+        StarburstLauncher = true  ,
+        TorpedoLauncher   = true  ,
+        AircraftBomb      = true  ,
+    }
 
     for weaponDefID, weaponDef in ipairs(WeaponDefs) do
         -- ! requires noexplode to work correctly
