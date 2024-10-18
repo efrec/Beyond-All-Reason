@@ -138,7 +138,7 @@ return {
 				weapontype = "Cannon",
 				weaponvelocity = 450,
 				customparams = {
-					overpen = true,
+					overpenetrate = true,
 				},
 				damage = {
 					default = 262.5,

@@ -114,7 +114,7 @@ return {
 				cratermult = 0,
 				edgeeffectiveness = 0.15,
 				explosiongenerator = "custom:genericshellexplosion-small",
-				impactonly = 1, -- gauss with overpen_exp_def gets impactonly
+				impactonly = 1, -- gauss with overpenetrate_explode_def gets impactonly
 				impulseboost  = (3/2) * 0.123,
 				impulsefactor = (3/2) * 0.123,
 				name = "Pop-up heavy g2g gauss cannon",
@@ -135,8 +135,8 @@ return {
 				weapontype = "Cannon",
 				weaponvelocity = 800,
 				customparams = {
-					overpen = true,
-					overpen_exp_def = "armpb_armpb_explosion",
+					overpenetrate = true,
+					overpenetrate_explode_def = "armpb_armpb_explosion",
 				},
 				damage = {
 					default  = (2/3) * 675,

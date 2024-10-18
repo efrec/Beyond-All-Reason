@@ -197,6 +197,9 @@ return {
 				turret = true,
 				weapontype = "LaserCannon",
 				weaponvelocity = 3529,
+				customparams = {
+					overpenetrate = true,
+				},
 				damage = {
 					--commanders = 750,
 					default = 1,

@@ -25,31 +25,13 @@ local maxVisualLatency = 0.075 -- Max time spent in non-existence before respawn
 --------------------------------------------------------------------------------
 --
 --    customparams = {
---        overpen         := true
---        overpen_falloff := <boolean> | nil (see defaults)
---        overpen_slowing := <boolean> | nil (see defaults)
---        overpen_penalty := <number> | nil (see defaults)
---        overpen_exp_def := <string> | nil
---        overpen_pen_def := <string> | nil
+--        overpenetrate := true
+--        overpenetrate_falloff := <boolean> | nil (see defaults)
+--        overpenetrate_slowing := <boolean> | nil (see defaults)
+--        overpenetrate_penalty := <number> | nil (see defaults)
+--        overpenetrate_explode_def := <string> | nil
+--        overpenetrate_respawn_def := <string> | nil (spawns same weaponDef)
 --    }
---
---    ┌─────────────────────────┐
---    │ With hardStopIncrease=2 │
---    ├──────────────┬──────────┤
---    │  Damage Left │  Inertia │    Inertia is used as the impact force
---    │        100%  │    100%  │    and as the leftover projectile speed.
---    │         90%  │     96%  │
---    │         75%  │     90%  │
---    │         50%  │     75%  │ -- e.g. when a penetrator deals half its
---    │         25%  │     50%  │    max damage, it deals 75% max impulse.
---    │         10%  │     25%  │
---    │          0%  │      0%  │
---    └──────────────┴──────────┘
---
---    If you're motivated to know, this gives a new, effective impulse factor
---    equal to the weapon's base impulse factor * (inertia / damage left). This
---    value increases quickly near 0% damage remaining, so the overpen_penalty
---    should be set > 0.01 or so to keep lightweight targets from going flying.
 --
 --------------------------------------------------------------------------------
 
@@ -253,11 +235,11 @@ local function overpenDamage(unitID, unitDefID, featureID, damage, projID, attac
         damage = damage * damageLeft
         damageBase = damageBase * damageLeft
         damageLeft = damageLeft - health / damageBase - weaponData.penalty
-    end
 
-    if weaponData.expDefID and damageLeft <= explodeThreshold then
-        explodeDriver(projID, weaponData.expDefID, attackID, unitID, featureID)
-        return damage
+        if weaponData.expDefID and damageLeft <= explodeThreshold then
+            explodeDriver(projID, weaponData.expDefID, attackID, unitID, featureID)
+            return damage
+        end
     end
 
     if damageBase > health and damageBase >= healthMax * damageThreshold then
@@ -267,6 +249,9 @@ local function overpenDamage(unitID, unitDefID, featureID, damage, projID, attac
             end
             respawn[projID] = driver
         end
+        return damage
+    elseif weaponData.expDefID then
+        explodeDriver(projID, weaponData.expDefID, attackID, unitID, featureID)
         return damage
     end
 

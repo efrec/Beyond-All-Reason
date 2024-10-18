@@ -589,8 +589,8 @@ local function drawStats(uDefID, uID, mx, my)
 				local cmNumber = uWep.customParams.number or 5 -- note: keep in sync with cluster defaults
 				local cmDamage = WeaponDefNames[munition].damages[0]
 				defaultDamage = defaultDamage + cmDamage * cmNumber
-			elseif uWep.customParams.overpen and uWep.customParams.overpen_exp_def then
-				local explosion = WeaponDefNames[uWep.customParams.overpen_exp_def].damages
+			elseif uWep.customParams.overpenetrate and uWep.customParams.overpenetrate_explode_def then
+				local explosion = WeaponDefNames[uWep.customParams.overpenetrate_explode_def].damages
 				if string.find(uWep.name, "nuclear_missile") then
 					defaultDamage = explosion and explosion[0] or 0 -- ignore the fighter-wall bypass damage
 				else
@@ -696,9 +696,9 @@ local function drawStats(uDefID, uID, mx, my)
 				local baseName = armorTypes[baseIndex]
 				local isDefault = baseIndex == default
 				damageGroups[baseRate] = { baseName }
-				for cat = 0, #damages do
-					local catName = armorTypes[cat]
-					local catDamage = damages[cat] or baseRate
+				for categoryIndex = 0, #damages do
+					local catName = armorTypes[categoryIndex]
+					local catDamage = damages[categoryIndex] or baseRate
 					if damageGroups[catDamage] == nil then damageGroups[catDamage] = {} end
 					if catDamage ~= baseRate or (isDefault == false and catName ~= baseName) then
 						table.insert(damageGroups[catDamage], catName)
