@@ -427,6 +427,7 @@ function widget:LanguageChanged()
 				end
 
 				local modifierGroups = {}
+				local defaultModifier = 100
 				for armorType = 0, #armorTypes do
 					if not ignoredTypes[armorType] then
 						local damage = damages[armorType]
@@ -438,6 +439,9 @@ function widget:LanguageChanged()
 						else
 							modifier = math.round(damage / baseDamage * 100)
 						end
+						if armorType == default then
+							defaultModifier = modifier
+						end
 						local group = modifierGroups[modifier]
 						if not group then
 							group = {}
@@ -446,12 +450,9 @@ function widget:LanguageChanged()
 						group[#group+1] = armorTypes[armorType]
 					end
 				end
+				modifierGroups[defaultModifier] = { armorTypes[default] }
 
 				if table.count(modifierGroups) > 1 or baseType ~= default then
-					if baseType == default then
-						modifierGroups[baseModifier] =  { armorTypes[default] }
-					end
-
 					local modifiers = {}
 					for modifier in pairs(modifierGroups) do
 						modifiers[#modifiers+1] = modifier
