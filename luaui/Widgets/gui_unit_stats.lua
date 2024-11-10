@@ -387,42 +387,7 @@ local function disableStats()
 end
 
 function widget:Initialize()
-	texts = Spring.I18N('ui.unitstats')
-	unitAbilitiesMap = {
-		"canBuild",
-		"canAssist",
-		"canRepair",
-		"canReclaim",
-		"canResurrect",
-		"canCapture",
-		"canCloak",
-		"stealth",
-		"canAttackWater",
-		"canManualFire",
-		"canStockpile",
-		"canParalyze",
-		"canKamikaze",
-		canBuild       = texts.build,
-		canAssist      = texts.assist,
-		canRepair      = texts.repair,
-		canReclaim     = texts.reclaim,
-		canResurrect   = texts.resurrect,
-		canCapture     = texts.capture,
-		canCloak       = texts.cloak,
-		stealth        = texts.stealth,
-		canAttackWater = texts.waterweapon,
-		canManualFire  = texts.manuelfire,
-		canStockpile   = texts.stockpile,
-		canParalyze    = texts.paralyzer,
-		canKamikaze    = texts.kamikaze,
-	}
-	for index, name in ipairs(unitAbilitiesMap) do
-		if not unitAbilitiesMap[name] then
-			Spring.Log(widget:GetInfo().name, LOG.ERROR, "Did not find a translation for ability name = "..name)
-			table.remove(unitAbilitiesMap, index)
-		end
-	end
-
+	widget:LanguageChanged()
 	widget:ViewResize(vsx,vsy)
 
 	WG['unitstats'] = {}
@@ -469,6 +434,44 @@ end
 function widget:Shutdown()
 	WG['unitstats'] = nil
 	RemoveGuishader()
+end
+
+function widget:LanguageChanged()
+	texts = Spring.I18N('ui.unitstats')
+	unitAbilitiesMap = {
+		"canBuild",
+		"canAssist",
+		"canRepair",
+		"canReclaim",
+		"canResurrect",
+		"canCapture",
+		"canCloak",
+		"stealth",
+		"canAttackWater",
+		"canManualFire",
+		"canStockpile",
+		"canParalyze",
+		"canKamikaze",
+		canBuild       = texts.build,
+		canAssist      = texts.assist,
+		canRepair      = texts.repair,
+		canReclaim     = texts.reclaim,
+		canResurrect   = texts.resurrect,
+		canCapture     = texts.capture,
+		canCloak       = texts.cloak,
+		stealth        = texts.stealth,
+		canAttackWater = texts.waterweapon,
+		canManualFire  = texts.manuelfire,
+		canStockpile   = texts.stockpile,
+		canParalyze    = texts.paralyzer,
+		canKamikaze    = texts.kamikaze,
+	}
+	for index, name in ipairs(unitAbilitiesMap) do
+		if not unitAbilitiesMap[name] then
+			Spring.Log(widget:GetInfo().name, LOG.ERROR, "Did not find a translation for ability name = "..name)
+			table.remove(unitAbilitiesMap, index)
+		end
+	end
 end
 
 function widget:PlayerChanged()
@@ -546,7 +549,6 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 		isBeingBuilt, buildProgress = Spring.GetUnitIsBeingBuilt(unitID)
 		unitExperience = spGetUnitExperience(unitID)
 		unitTeamID = spGetUnitTeam(unitID)
-
 		maxHP              = select(2, Spring.GetUnitHealth(unitID))
 		armoredMultiple    = select(2, Spring.GetUnitArmored(unitID))
 		losRadius          = spGetUnitSensorRadius(unitID, "los") or 0
@@ -764,10 +766,10 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 			local reload = weaponData.defaultReload
 			local experience = (not isDeathExplosion and not isSelfDExplosion) and unitExperience or 0
 
-			if i == deathWeaponIndex then
+			if isDeathExplosion then
 				weaponName = texts.deathexplosion
 				reload = 1
-			elseif i == selfDWeaponIndex then
+			elseif isSelfDExplosion then
 				weaponName = texts.selfdestruct
 				reload = 1
 			end
@@ -821,8 +823,10 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 					damage = texts.burst.." = "..(format(yellow.."%d", damageBurst))..white.."."
 				else
 					local damageBurst = weaponData.defaultBurst * weaponCount
-					local damageRate = weaponData.defaultDPS * weaponCount
-					if experience ~= 0 then
+					local damageRate
+					if experience == 0 then
+						damageRate = weaponData.defaultDPS * weaponCount
+					else
 						damageRate = damageBurst / reload
 					end
 					totalDPS = totalDPS + damageRate
