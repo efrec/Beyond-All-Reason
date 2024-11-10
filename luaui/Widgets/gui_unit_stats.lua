@@ -125,28 +125,27 @@ local anonymousTeamColor = {
 	Spring.GetConfigInt("anonymousColorB", 0)/255
 }
 
-local cX, cY, cYstart
 local vsx, vsy = gl.GetViewSizes()
 local widgetScale = 1
 local xOffset = (32 + (fontSize*0.9))*widgetScale
 local yOffset = -((32 - (fontSize*0.9))*widgetScale)
 local ui_scale = tonumber(Spring.GetConfigFloat("ui_scale", 1) or 1)
 local ui_opacity = max(0.75, Spring.GetConfigFloat("ui_opacity", 0.7))
+
 local RectRound, UiElement, UiUnit, bgpadding, elementCorner
-local updateTime = 0
 
-local maxWidth = 0
 local textBuffer = {}
-local textBufferCount = 0
+local cX, cY, cYstart
+local maxWidth = 0
 
-local titleRectX1Old
-local titleRectX2Old
-local titleRectY1Old
-local titleRectY2Old
-local statsRectX1Old
-local statsRectX2Old
-local statsRectY1Old
-local statsRectY2Old
+local titleRectX1Old = 0
+local titleRectX2Old = 0
+local titleRectY1Old = 0
+local titleRectY2Old = 0
+local statsRectX1Old = 0
+local statsRectX2Old = 0
+local statsRectY1Old = 0
+local statsRectY2Old = 0
 
 local showStats = false
 local showUnitID
@@ -158,47 +157,18 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 	end
 end
 
-local unitAbilitiesMap = {
-	"canBuild",
-	"canAssist",
-	"canRepair",
-	"canReclaim",
-	"canResurrect",
-	"canCapture",
-	"canCloak",
-	"stealth",
-	"canAttackWater",
-	"canManualFire",
-	"canStockpile",
-	"canParalyze",
-	"canKamikaze",
-	canBuild       = texts.build,
-	canAssist      = texts.assist,
-	canRepair      = texts.repair,
-	canReclaim     = texts.reclaim,
-	canResurrect   = texts.resurrect,
-	canCapture     = texts.capture,
-	canCloak       = texts.cloak,
-	stealth        = texts.stealth,
-	canAttackWater = texts.waterweapon,
-	canManualFire  = texts.manuelfire,
-	canStockpile   = texts.stockpile,
-	canParalyze    = texts.paralyzer,
-	canKamikaze    = texts.kamikaze,
-}
+local unitAbilitiesMap
 
 local weaponDefDisplayData = {}
 do
 	local trivial = 1
 	local infinite = 9e8
-
 	local default = armorTypes.default
 	local baseTypes = {
 		[armorTypes.default] = true, -- these keys can nil tbh
 		[armorTypes.mines]   = true,
 		[armorTypes.vtol]    = true,
 	}
-
 	local ignoredTypes = {
 		[armorTypes.shields]        = true,
 		[armorTypes.indestructable] = true, -- misspelled op
@@ -333,20 +303,20 @@ end
 ------------------------------------------------------------------------------------
 
 local function DrawText(t1, t2)
-	textBufferCount = textBufferCount + 1
-	textBuffer[textBufferCount] = {t1,t2,cX+(bgpadding*8),cY}
+	textBuffer[#textBuffer+1] = { t1, t2, cX+(bgpadding*8), cY }
 	cY = cY - fontSize
 	maxWidth = max(maxWidth, (font:GetTextWidth(t1)*fontSize) + (bgpadding*10), (font:GetTextWidth(t2)*fontSize)+(fontSize*6.5) + (bgpadding*10))
 end
 
 local function DrawTextBuffer()
-	local num = #textBuffer
+	local font = font
 	font:Begin()
 	font:SetTextColor(1, 1, 1, 1)
 	font:SetOutlineColor(0, 0, 0, 1)
-	for i=1, num do
-		font:Print(textBuffer[i][1], textBuffer[i][3], textBuffer[i][4], fontSize, "o")
-		font:Print(textBuffer[i][2], textBuffer[i][3] + (fontSize*6.5), textBuffer[i][4], fontSize, "o")
+	for i = 1, #textBuffer do
+		local buffer = textBuffer[i]
+		font:Print(buffer[1], buffer[3], buffer[4], fontSize, "o")
+		font:Print(buffer[2], buffer[3] + (fontSize*6.5), buffer[4], fontSize, "o")
 	end
 	font:End()
 end
@@ -396,6 +366,14 @@ function RemoveGuishader()
 	end
 end
 
+local function unitStatsDataClosure()
+	RectRound(statsRectX1Old, statsRectY1Old, statsRectX2Old, statsRectY2Old, elementCorner, 0,1,1,1)
+end
+
+local function unitStatsTitleClosure()
+	RectRound(titleRectX1Old, titleRectY1Old, titleRectX2Old, titleRectY2Old, elementCorner, 1,1,1,0)
+end
+
 ------------------------------------------------------------------------------------
 -- Code
 ------------------------------------------------------------------------------------
@@ -410,6 +388,40 @@ end
 
 function widget:Initialize()
 	texts = Spring.I18N('ui.unitstats')
+	unitAbilitiesMap = {
+		"canBuild",
+		"canAssist",
+		"canRepair",
+		"canReclaim",
+		"canResurrect",
+		"canCapture",
+		"canCloak",
+		"stealth",
+		"canAttackWater",
+		"canManualFire",
+		"canStockpile",
+		"canParalyze",
+		"canKamikaze",
+		canBuild       = texts.build,
+		canAssist      = texts.assist,
+		canRepair      = texts.repair,
+		canReclaim     = texts.reclaim,
+		canResurrect   = texts.resurrect,
+		canCapture     = texts.capture,
+		canCloak       = texts.cloak,
+		stealth        = texts.stealth,
+		canAttackWater = texts.waterweapon,
+		canManualFire  = texts.manuelfire,
+		canStockpile   = texts.stockpile,
+		canParalyze    = texts.paralyzer,
+		canKamikaze    = texts.kamikaze,
+	}
+	for index, name in ipairs(unitAbilitiesMap) do
+		if not unitAbilitiesMap[name] then
+			Spring.Log(widget:GetInfo().name, LOG.ERROR, "Did not find a translation for ability name = "..name)
+			table.remove(unitAbilitiesMap, index)
+		end
+	end
 
 	widget:ViewResize(vsx,vsy)
 
@@ -523,7 +535,6 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	cY = cY - 2 * titleFontSize - (bgpadding/2)
 
 	textBuffer = {}
-	textBufferCount = 0
 	maxWidth = 0
 
 	local myTeamID = Spring.GetMyTeamID()
@@ -536,15 +547,15 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 		unitExperience = spGetUnitExperience(unitID)
 		unitTeamID = spGetUnitTeam(unitID)
 
-		maxHP = select(2,Spring.GetUnitHealth(unitID))
-		losRadius = spGetUnitSensorRadius(unitID, 'los') or 0
-		airLosRadius = spGetUnitSensorRadius(unitID, 'airLos') or 0
-		radarRadius = spGetUnitSensorRadius(unitID, 'radar') or 0
-		sonarRadius = spGetUnitSensorRadius(unitID, 'sonar') or 0
-		jammingRadius = spGetUnitSensorRadius(unitID, 'radarJammer') or 0
-		sonarJammingRadius = spGetUnitSensorRadius(unitID, 'sonarJammer') or 0
-		seismicRadius = spGetUnitSensorRadius(unitID, 'seismic') or 0
-		armoredMultiple = select(2,Spring.GetUnitArmored(unitID))
+		maxHP              = select(2, Spring.GetUnitHealth(unitID))
+		armoredMultiple    = select(2, Spring.GetUnitArmored(unitID))
+		losRadius          = spGetUnitSensorRadius(unitID, "los") or 0
+		airLosRadius       = spGetUnitSensorRadius(unitID, "airLos") or 0
+		radarRadius        = spGetUnitSensorRadius(unitID, "radar") or 0
+		sonarRadius        = spGetUnitSensorRadius(unitID, "sonar") or 0
+		jammingRadius      = spGetUnitSensorRadius(unitID, "radarJammer") or 0
+		sonarJammingRadius = spGetUnitSensorRadius(unitID, "sonarJammer") or 0
+		seismicRadius      = spGetUnitSensorRadius(unitID, "seismic") or 0
 	else
 		maxHP              = unitDef.health
 		losRadius          = unitDef.sightDistance
@@ -670,19 +681,17 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	-- SPECIAL ABILITIES
 	------------------------------------------------------------------------------------
 
-	do
-		local abilities = {}
-		local unitAbilitiesMap = unitAbilitiesMap
-		for propertyName in ipairs(unitAbilitiesMap) do
-			if unitDef[propertyName] then
-				abilities[#abilities+1] = unitAbilitiesMap[propertyName]
-			end
+	local abilities = {}
+	local unitAbilitiesMap = unitAbilitiesMap
+	for propertyName in ipairs(unitAbilitiesMap) do
+		if unitDef[propertyName] then
+			abilities[#abilities+1] = unitAbilitiesMap[propertyName]
 		end
-		if #abilities > 0 then
-			local abilityText = table.concat(abilities, ", ")
-			DrawText(texts.abilities..":", abilityText)
-			cY = cY - fontSize
-		end
+	end
+	if #abilities > 0 then
+		local abilityText = table.concat(abilities, ", ")
+		DrawText(texts.abilities..":", abilityText)
+		cY = cY - fontSize
 	end
 
 	------------------------------------------------------------------------------------
@@ -770,8 +779,8 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 
 				local accuracyBonus  = accuracy ~= 0   and (spGetUnitWeaponState(unitID, weaponNumber, "accuracy") / accuracy - 1)          or 0
 				local moveErrorBonus = moveError ~= 0  and (spGetUnitWeaponState(unitID, weaponNumber, "targetMoveError") / moveError - 1)  or 0
-				local reloadBonus    = reload ~= 0     and (reloadState / reload - 1)                                                       or 0
 				local rangeBonus     = range ~= 0      and (spGetUnitWeaponState(unitID, weaponNumber, "range") / range - 1)                or 0
+				local reloadBonus    = reload ~= 0     and (reloadState / reload - 1)                                                       or 0
 				DrawText(texts.exp..":", format("+%d%% "..texts.accuracy..", +%d%% "..texts.aim..", +%d%% "..texts.firerate..", +%d%% "..texts.range, accuracyBonus*100, moveErrorBonus*100, reloadBonus*100, rangeBonus*100))
 
 				range = reload * (1 + rangeBonus)
@@ -780,52 +789,51 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 				moveError = moveError * (1 + moveErrorBonus)
 			end
 
-			do
-				local info
-				if isDisintegrator then
-					info = format("%.2f", reload).."s "..texts.reload..", "..format("%d "..texts.range, range)
+			local info
+			if isDisintegrator then
+				info = format("%.2f", reload).."s "..texts.reload..", "..format("%d "..texts.range, range)
+			else
+				if isDeathExplosion or isSelfDExplosion then
+					info = format("%d "..texts.aoe..", %d%% "..texts.edge, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
 				else
-					if isDeathExplosion or isSelfDExplosion then
-						info = format("%d "..texts.aoe..", %d%% "..texts.edge, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
-					else
-						info = format("%.2f", reload)..texts.s.." "..texts.reload..", "..format("%d "..texts.range..", %d "..texts.aoe..", %d%% "..texts.edge, range, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
-					end
-	
-					if weaponDef.damages.paralyzeDamageTime > 0 then
-						info = format("%s, %ds "..texts.paralyze, info, weaponDef.damages.paralyzeDamageTime)
-					end
-					if weaponDef.damages.impulseFactor > 0.123 then
-						info = format("%s, %d "..texts.impulse, info, weaponDef.damages.impulseFactor*100)
-					end
-					if weaponDef.damages.craterBoost > 0 then
-						info = format("%s, %d "..texts.crater, info, weaponDef.damages.craterBoost*100)
-					end
+					info = format("%.2f", reload)..texts.s.." "..texts.reload..", "..format("%d "..texts.range..", %d "..texts.aoe..", %d%% "..texts.edge, range, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
 				end
-				DrawText(texts.info..":", info)
 
-				if isDisintegrator then
-					DrawText(texts.dmg..": ", texts.infinite)
+				if weaponDef.damages.paralyzeDamageTime > 0 then
+					info = format("%s, %ds "..texts.paralyze, info, weaponDef.damages.paralyzeDamageTime)
+				end
+				if weaponDef.damages.impulseFactor > 0.123 then
+					info = format("%s, %d "..texts.impulse, info, weaponDef.damages.impulseFactor*100)
+				end
+				if weaponDef.damages.craterBoost > 0 then
+					info = format("%s, %d "..texts.crater, info, weaponDef.damages.craterBoost*100)
+				end
+			end
+			DrawText(texts.info..":", info)
+
+			if isDisintegrator then
+				DrawText(texts.dmg..": ", texts.infinite)
+			else
+				local damage
+				if isDeathExplosion or isSelfDExplosion then
+					local damageBurst = weaponData.defaultBurst
+					totalBurst = totalBurst + damageBurst
+					damage = texts.burst.." = "..(format(yellow.."%d", damageBurst))..white.."."
 				else
-					local damage
-					if isDeathExplosion or isSelfDExplosion then
-						local damageBurst = weaponData.defaultBurst
-						totalBurst = totalBurst + damageBurst
-						damage = texts.burst.." = "..(format(yellow.."%d", damageBurst))..white.."."
-					else
-						local damageBurst = weaponData.defaultBurst * weaponCount
-						local damageRate = weaponData.defaultDPS * weaponCount
-						if experience ~= 0 then
-							damageRate = damageBurst / reload
-						end
-						totalDPS = totalDPS + damageRate
-						totalBurst = totalBurst + damageBurst
-						damage = texts.dps.." = "..(format(yellow.."%d", damageRate))..white.."; "..texts.burst.." = "..(format(yellow.."%d", damageBurst))..white.."."
+					local damageBurst = weaponData.defaultBurst * weaponCount
+					local damageRate = weaponData.defaultDPS * weaponCount
+					if experience ~= 0 then
+						damageRate = damageBurst / reload
 					end
-					DrawText(texts.dmg..":", damage)
+					totalDPS = totalDPS + damageRate
+					totalBurst = totalBurst + damageBurst
+					damage = texts.dps.." = "..(format(yellow.."%d", damageRate))..white.."; "..texts.burst.." = "..(format(yellow.."%d", damageBurst))..white.."."
+				end
+				DrawText(texts.dmg..":", damage)
 
-					if weaponData.modifiers then
-						DrawText(texts.modifiers..":", weaponData.modifiers..'.')
-					end
+				local modifiers = weaponData.modifiers
+				if modifiers then
+					DrawText(texts.modifiers..":", modifiers..'.')
 				end
 			end
 
@@ -854,16 +862,14 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 		end
 	end
 
-	do
-		local damageTotals = ""
-		if totalDPS > 0 then
-			damageTotals = texts.dps.." = "..(format(yellow .. "%d", totalDPS))..white..'; '
-		end
-		if totalBurst > 0 then
-			damageTotals = damageTotals..texts.burst.." = "..(format(yellow .. "%d", totalBurst))..white.."."
-			DrawText(texts.totaldmg..':', damageTotals)
-			cY = cY - fontSize
-		end
+	local damageTotals = ""
+	if totalDPS > 0 then
+		damageTotals = texts.dps.." = "..(format(yellow .. "%d", totalDPS))..white..'; '
+	end
+	if totalBurst > 0 then
+		damageTotals = damageTotals..texts.burst.." = "..(format(yellow .. "%d", totalBurst))..white.."."
+		DrawText(texts.totaldmg..':', damageTotals)
+		cY = cY - fontSize
 	end
 
 	-- background
@@ -876,37 +882,39 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	-- correct position when it goes below screen
 	if cY < 0 then
 		cYstart = cYstart - cY
-		local num = #textBuffer
-		for i=1, num do
-			textBuffer[i][4] = textBuffer[i][4] - (cY/2)
-			textBuffer[i][4] = textBuffer[i][4] - (cY/2)
+		for i = 1, #textBuffer do
+			local buffer = textBuffer[i]
+			buffer[4] = buffer[4] - (cY/2)
+			buffer[4] = buffer[4] - (cY/2)
 		end
 		cY = 0
 	end
 	-- correct position when it goes off screen
 	if cX + maxWidth+bgpadding+bgpadding > vsx then
 		local cXnew = vsx-maxWidth-bgpadding-bgpadding
-		local num = #textBuffer
-		for i=1, num do
-			textBuffer[i][3] = textBuffer[i][3] - ((cX-cXnew)/2)
-			textBuffer[i][3] = textBuffer[i][3] - ((cX-cXnew)/2)
+		for i = 1, #textBuffer do
+			local buffer = textBuffer[i]
+			buffer[3] = buffer[3] - ((cX-cXnew)/2)
+			buffer[3] = buffer[3] - ((cX-cXnew)/2)
 		end
 		cX = cXnew
 	end
 
-	local effectivenessRate = ""
-	if damageStats and damageStats[gameName] and damageStats[gameName]["team"] and damageStats[gameName]["team"][unitDef.name] and damageStats[gameName]["team"][unitDef.name].cost and damageStats[gameName]["team"][unitDef.name].killed_cost then
-		effectivenessRate = "   "..damageStats[gameName]["team"][unitDef.name].killed_cost / damageStats[gameName]["team"][unitDef.name].cost
+	-- title
+	local title = '\255\190\255\190'..UnitDefs[unitDefID].translatedHumanName
+	if unitID then
+		title = title.."   "..grey..unitDef.name.."   #"..unitID.."   "..GetTeamColorCode(unitTeamID or myTeamID)..GetTeamName(unitTeamID or myTeamID)
 	end
 
-	-- title
-	local text = '\255\190\255\190'..UnitDefs[unitDefID].translatedHumanName
-	if unitID then
-		text = text.."   "..grey..unitDef.name.."   #"..unitID.."   "..GetTeamColorCode(unitTeamID or myTeamID)..GetTeamName(unitTeamID or myTeamID)..grey..effectivenessRate
+	if damageStats and damageStats[gameName] then
+		local unitDefStats = damageStats[gameName][unitDef.name]
+		if unitDefStats and unitDefStats.killed_cost and unitDefStats.cost then
+			title = title..grey.."   "..unitDefStats.killed_cost / unitDefStats.cost				
+		end
 	end
 
 	local titleRectX1 = floor(cX-bgpadding)
-	local titleRectX2 = floor(cX+(font:GetTextWidth(text)*titleFontSize)+(titleFontSize*3.5))
+	local titleRectX2 = floor(cX+(font:GetTextWidth(title)*titleFontSize)+(titleFontSize*3.5))
 	local titleRectY1 = ceil(cYstart-bgpadding)
 	local titleRectY2 = floor(cYstart+(titleFontSize*1.8)+bgpadding)
 	local titleUpdate = titleRectX1 ~= titleRectX1Old or
@@ -918,9 +926,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 
 	if WG['guishader'] then
 		if not guishaderEnabled or titleUpdate then
-			WG['guishader'].InsertScreenDlist( gl.CreateList( function()
-				RectRound(titleRectX1, titleRectY1, titleRectX2, titleRectY2, elementCorner, 1,1,1,0)
-			end), 'unit_stats_title')
+			WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsTitleClosure), 'unit_stats_title')
 			titleRectX1Old = titleRectX1
 			titleRectX2Old = titleRectX2
 			titleRectY1Old = titleRectY1
@@ -948,7 +954,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	-- title text
 	glColor(1,1,1,1)
 	font:Begin()
-	font:Print(text, titleRectX1+((titleRectY2-titleRectY1)*1.3), titleRectY1+titleFontSize*0.7, titleFontSize, "o")
+	font:Print(title, titleRectX1+((titleRectY2-titleRectY1)*1.3), titleRectY1+titleFontSize*0.7, titleFontSize, "o")
 	font:End()
 
 	-- stats
@@ -964,79 +970,70 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	UiElement(statsRectX1, statsRectY1, statsRectX2, statsRectY2, 0,1,1,1, 1,1,1,1, ui_opacity)
 
 	if WG['guishader'] then
-		if not guishaderEnabled or titleUpdate then
+		if not guishaderEnabled or statsUpdate then
 			guishaderEnabled = true
-			WG['guishader'].InsertScreenDlist( gl.CreateList( function()
-				RectRound(statsRectX1, statsRectY1, statsRectX2, statsRectY2, elementCorner, 0,1,1,1)
-			end), 'unit_stats_data')
+			WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsDataClosure), 'unit_stats_data')
 			statsRectX1Old = statsRectX1
 			statsRectX2Old = statsRectX2
 			statsRectY1Old = statsRectY1
 			statsRectY2Old = statsRectY2
 		end
 	end
-
-	DrawTextBuffer()
 end
 
 function widget:DrawScreen()
-	do
-		local topbar = WG.topbar
-		if topbar and topbar.showingQuit() then
-			return
-		end
+	local topbar = WG.topbar
+	if topbar and topbar.showingQuit() then
+		return
+	end
 
-		if showStats then
-			local chat = WG.chat
-			if chat then
-				local isInputActive = chat.isInputActive
-				if isInputActive and isInputActive() then
-					showStats = false
-				end
-			end
-		end
-
-		if not showStats or spIsUserWriting() then
+	if showStats then
+		local chat = WG.chat
+		if (chat and chat.isInputActive()) or spIsUserWriting() then
+			showStats = false
 			RemoveGuishader()
 			return
 		end
+	else
+		RemoveGuishader()
+		return
 	end
 
 	local unitDefID, unitID, mx, my, hovering
-	do
-		local targetDefID = (select(2, spGetActiveCommand()) or -1) * -1
-		local targetDef = targetDefID and targetDefID > 0 and UnitDefs[targetDefID]
-		if targetDef then
-			unitDefID = targetDefID
+	local targetDefID = (select(2, spGetActiveCommand()) or 0) * -1
+	local targetDef = targetDefID and targetDefID > 0 and UnitDefs[targetDefID]
+	if targetDef then
+		unitDefID = targetDefID
+	else
+		unitDefID = WG['buildmenu'] and WG['buildmenu'].hoverID
+		if unitDefID then
+			hovering = true
 		else
-			unitDefID = WG['buildmenu'] and WG['buildmenu'].hoverID
-			if unitDefID then
-				hovering = true
+			local selectedID = selectedUnits[1]
+			if showUnitID and spValidUnitID(showUnitID) then
+				unitID = showUnitID
+				showUnitID = nil
+			elseif useSelection and selectedID and spValidUnitID(selectedID) then
+				unitID = selectedUnits[1]
 			else
-				local selectedID = selectedUnits[1]
-				if showUnitID and spValidUnitID(showUnitID) then
-					unitID = showUnitID
-					showUnitID = nil
-				elseif useSelection and selectedID and spValidUnitID(selectedID) then
-					unitID = selectedUnits[1]
-				else
-					mx, my = spGetMouseState()
-					local entityType, entityID = spTraceScreenRay(mx, my)
-					if entityType == "unit" then
-						unitID = entityID
-					end
+				mx, my = spGetMouseState()
+				local entityType, entityID = spTraceScreenRay(mx, my)
+				if entityType == "unit" then
+					unitID = entityID
 				end
-				if unitID then
-					unitDefID = spGetUnitDefID(unitID)
-					if not unitDefID then
-					end
+			end
+			if unitID then
+				unitDefID = spGetUnitDefID(unitID)
+				if not unitDefID then
 				end
 			end
 		end
-		if not unitDefID then
-			RemoveGuishader()
-			return
-		end
 	end
+	if not unitDefID then
+		RemoveGuishader()
+		return
+	end
+
 	drawStats(unitDefID, unitID, mx, my, hovering)
+	DrawTextBuffer()
 end
