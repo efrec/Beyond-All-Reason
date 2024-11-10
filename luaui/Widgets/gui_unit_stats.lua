@@ -159,6 +159,7 @@ end
 
 local unitAbilitiesMap
 local weaponDefDisplayData
+local prefixes, formats
 
 ------------------------------------------------------------------------------------
 -- Functions
@@ -300,6 +301,62 @@ end
 
 function widget:LanguageChanged()
 	texts = Spring.I18N('ui.unitstats')
+
+	prefixes = {
+		abilities     = texts.abilities..":",
+		armor         = texts.armor..":",
+		build         = texts.build..":",
+		closed        = texts.closed..":",
+		cost          = texts.cost..':',
+		dmg           = texts.dmg..": ",
+		emp           = texts.emp..':',
+		energy        = texts.energy..":",
+		exp           = texts.exp..":",
+		info          = texts.info..":",
+		jammer        = texts.jammer..':',
+		los           = texts.los..":",
+		maxhp         = texts.maxhp..":",
+		metal         = texts.metal..":",
+		modifiers     = texts.modifiers..":",
+		move          = texts.move..":",
+		open          = texts.open..":",
+		other1        = texts.other1..":",
+		prog          = texts.prog..":",
+		radar         = texts.radar..':',
+		seis          = texts.seis..':',
+		sonar         = texts.sonar..':',
+		sonarjam      = texts.sonarjam..':',
+		totaldmg      = texts.totaldmg..':',
+		transportable = texts.transportable..':',
+		weap          = texts.weap..":",
+	}
+
+	formats = {
+		prog                = "%d / %d ("..yellow.."%d"..white..", %ds)",
+		cost                = metalColor..'%d'..white..' / '..energyColor..'%d'..white..' / '..buildColor..'%d',
+
+		airLos              = ' ('..texts.airlos..': %d)',
+
+		health              = "+%d%% "..texts.health,
+		maxhp               = texts.maxhp..": %d",
+		closed              = " +%d%%, "..texts.maxhp..": %d",
+		resist              = "%"..white.." "..texts.resist,
+
+		move                = "%.1f / %.1f / %.0f ("..texts.speedaccelturn..")",
+		transportable_light = blue..texts.transportable_light,
+		transportable_heavy = yellow..texts.transportable_heavy,
+
+		weap                = yellow.."%dx"..white.." %s",
+		exp                 = "+%d%% "..texts.accuracy..", +%d%% "..texts.aim..", +%d%% "..texts.firerate..", +%d%% "..texts.range,
+		deathexplosion      = "%d "..texts.aoe..", %d%% "..texts.edge,
+		weapons             = "%.2f"..texts.s.." "..texts.reload..", %d "..texts.range..", %d "..texts.aoe..", %d%% "..texts.edge,
+		paralyzeDamageTime  = "%s, %ds "..texts.paralyze,
+		impulseFactor       = "%s, %d "..texts.impulse,
+		craterBoost         = "%s, %d "..texts.crater,
+		burst               = texts.burst.." = "..yellow.."%d"..white..".",
+		dps                 = texts.dps.." = "..yellow.."%d"..white.."; "..texts.burst.." = "..yellow.."%d"..white..".",
+		persecond           = metalColor..'%d'..white..', '..energyColor..'%d'..white..' = '..metalColor..'-%d'..white..', '..energyColor..'-%d'..white..' '..texts.persecond,
+	}
 
 	unitAbilitiesMap = {
 		"canBuild",
@@ -592,9 +649,9 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 		local mEta = (mRem - mCur) / (mInc + mRec)
 		local eEta = (eRem - eCur) / (eInc + eRec)
 
-		DrawText(texts.prog..":", format("%d%%", 100 * buildProgress))
-		DrawText(texts.metal..":", format("%d / %d (" .. yellow .. "%d" .. white .. ", %ds)", mTotal * buildProgress, mTotal, mRem, mEta))
-		DrawText(texts.energy..":", format("%d / %d (" .. yellow .. "%d" .. white .. ", %ds)", eTotal * buildProgress, eTotal, eRem, eEta))
+		DrawText(prefixes.prog, format("%d%%", 100 * buildProgress))
+		DrawText(prefixes.metal, format(formats.prog, mTotal * buildProgress, mTotal, mRem, mEta))
+		DrawText(prefixes.energy, format(formats.prog, eTotal * buildProgress, eTotal, eRem, eEta))
 
 		cY = cY - fontSize
 	end
@@ -603,24 +660,18 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	-- Generic information, cost, move, class
 	------------------------------------------------------------------------------------
 
-	DrawText(texts.cost..":",
-		format(
-			metalColor .. '%d' .. white .. ' / ' ..
-			energyColor .. '%d' .. white .. ' / ' ..
-			buildColor .. '%d', unitDef.metalCost, unitDef.energyCost, unitDef.buildTime
-		)
-	)
+	DrawText(prefixes.cost, format(formats.cost, unitDef.metalCost, unitDef.energyCost, unitDef.buildTime))
 
 	if not (unitDef.isBuilding or unitDef.isFactory) then
 		local moveData = unitID and Spring.GetUnitMoveTypeData(unitID) or unitDef
 		local speed = moveData.maxSpeed or unitDef.speed
 		local accel = (moveData.accRate or unitDef.maxAcc or 0) * (simSpeed * simSpeed)
 		local turn = (moveData.baseTurnRate or unitDef.turnRate or 0) * (simSpeed * (180 / 32767))
-		DrawText(texts.move..":", format("%.1f / %.1f / %.0f ("..texts.speedaccelturn..")", speed, accel, turn))
+		DrawText(prefixes.move, format(formats.move, speed, accel, turn))
 	end
 
 	if unitDef.buildSpeed > 0 then
-		DrawText(texts.build..':', yellow..unitDef.buildSpeed)
+		DrawText(prefixes.build, yellow..unitDef.buildSpeed)
 	end
 
 	cY = cY - fontSize
@@ -629,15 +680,15 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	-- Sensors and Jamming
 	------------------------------------------------------------------------------------
 
-	DrawText(texts.los..':', losRadius .. (airLosRadius > losRadius and format(' ('..texts.airlos..': %d)', airLosRadius) or ''))
+	DrawText(prefixes.los, losRadius..(airLosRadius > losRadius and format(formats.airLos, airLosRadius) or ''))
 
-	if radarRadius   > 0 then DrawText(texts.radar..':', '\255\77\255\77' .. radarRadius) end
-	if sonarRadius   > 0 then DrawText(texts.sonar..':', blue..sonarRadius) end
-	if jammingRadius > 0 then DrawText(texts.jammer..':'  , '\255\255\77\77' .. jammingRadius) end
-	if sonarJammingRadius > 0 then DrawText(texts.sonarjam..':', '\255\255\77\77' .. sonarJammingRadius) end
-	if seismicRadius > 0 then DrawText(texts.seis..':' , '\255\255\26\255' .. seismicRadius) end
+	if radarRadius   > 0 then DrawText(prefixes.radar, '\255\77\255\77'..radarRadius) end
+	if sonarRadius   > 0 then DrawText(prefixes.sonar, blue..sonarRadius) end
+	if jammingRadius > 0 then DrawText(prefixes.jammer, '\255\255\77\77'..jammingRadius) end
+	if sonarJammingRadius > 0 then DrawText(prefixes.sonarjam, '\255\255\77\77'..sonarJammingRadius) end
+	if seismicRadius > 0 then DrawText(prefixes.seis , '\255\255\26\255'..seismicRadius) end
 
-	if unitDef.stealth then DrawText(texts.other1..":", texts.stealth) end
+	if unitDef.stealth then DrawText(prefixes.other1, texts.stealth) end
 
 	cY = cY - fontSize
 
@@ -645,23 +696,23 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	-- Armor
 	------------------------------------------------------------------------------------
 
-	DrawText(texts.armor..":", texts.class.." "..(unitDef.armorType and armorTypes[unitDef.armorType] or '???'))
+	DrawText(prefixes.armor, texts.class.." "..(unitDef.armorType and armorTypes[unitDef.armorType] or '???'))
 
 	if unitID and unitExperience ~= 0 and maxHP then
-		DrawText(texts.exp..":", format("+%d%% "..texts.health, (maxHP/unitDef.health-1)*100))
+		DrawText(prefixes.exp, format(formats.health, (maxHP/unitDef.health-1)*100))
 	end
 
 	if paralyzeMult < 1 then
-		local resist = (paralyzeMult == 0 and texts.immune) or (floor(100 - (paralyzeMult * 100)).."%"..white.." "..texts.resist)
-		DrawText(texts.emp..':', blue..resist)
+		local resist = (paralyzeMult == 0 and texts.immune) or (floor(100-(paralyzeMult*100))..formats.resist)
+		DrawText(prefixes.emp, blue..resist)
 	end
 
 	if maxHP then
 		if armoredMultiple and armoredMultiple ~= 1 then
-			DrawText(texts.open..":", format(texts.maxhp..": %d", maxHP))
-			DrawText(texts.closed..":", format(" +%d%%, "..texts.maxhp..": %d", (1/armoredMultiple-1) *100,maxHP/armoredMultiple))
+			DrawText(prefixes.open, format(formats.maxhp, maxHP))
+			DrawText(prefixes.closed, format(formats.closed, (1/armoredMultiple-1)*100, maxHP/armoredMultiple))
 		else
-			DrawText(texts.maxhp..":", format(texts.maxhp..": %d", maxHP))
+			DrawText(prefixes.maxhp, format(formats.maxhp, maxHP))
 		end
 	end
 
@@ -673,16 +724,16 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 
 	if transportable and mass > 0 and size > 0 then
 		if mass < 751 and size < 4 then -- 3 is t1 transport max size
-			DrawText(texts.transportable..':', blue..texts.transportable_light)
+			DrawText(prefixes.transportable, formats.transportable_light)
+			cY = cY - fontSize
 		elseif mass < 100000 and size < 5 then
-			DrawText(texts.transportable..':', yellow..texts.transportable_heavy)
+			DrawText(prefixes.transportable, formats.transportable_heavy)
+			cY = cY - fontSize
 		end
 	end
 
-	cY = cY - fontSize
-
 	------------------------------------------------------------------------------------
-	-- SPECIAL ABILITIES
+	-- Special Abilities
 	------------------------------------------------------------------------------------
 
 	local abilities = {}
@@ -694,7 +745,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	end
 	if #abilities > 0 then
 		local abilityText = table.concat(abilities, ", ")
-		DrawText(texts.abilities..":", abilityText)
+		DrawText(prefixes.abilities, abilityText)
 		cY = cY - fontSize
 	end
 
@@ -749,7 +800,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 			local isSelfDExplosion = i == selfDWeaponIndex
 
 			if weaponCount > 1 then
-				DrawText(texts.weap..":", format(yellow .. "%dx" .. white .. " %s", weaponCount, weaponName))
+				DrawText(prefixes.weap, format(formats.weap, weaponCount, weaponName))
 			else
 				local displayName = weaponName
 				if isDeathExplosion then
@@ -757,7 +808,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 				elseif isSelfDExplosion then
 					displayName = texts.deathexplosion
 				end
-				DrawText(texts.weap..":", displayName)
+				DrawText(prefixes.weap, displayName)
 			end
 
 			local burst = weaponDef.salvoSize * weaponDef.projectiles
@@ -785,7 +836,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 				local moveErrorBonus = moveError ~= 0  and (spGetUnitWeaponState(unitID, weaponNumber, "targetMoveError") / moveError - 1)  or 0
 				local rangeBonus     = range ~= 0      and (spGetUnitWeaponState(unitID, weaponNumber, "range") / range - 1)                or 0
 				local reloadBonus    = reload ~= 0     and (reloadState / reload - 1)                                                       or 0
-				DrawText(texts.exp..":", format("+%d%% "..texts.accuracy..", +%d%% "..texts.aim..", +%d%% "..texts.firerate..", +%d%% "..texts.range, accuracyBonus*100, moveErrorBonus*100, reloadBonus*100, rangeBonus*100))
+				DrawText(prefixes.exp, format(formats.exp, accuracyBonus*100, moveErrorBonus*100, reloadBonus*100, rangeBonus*100))
 
 				range = reload * (1 + rangeBonus)
 				reload = reload * (1 + reloadBonus)
@@ -798,22 +849,22 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 				info = format("%.2f", reload).."s "..texts.reload..", "..format("%d "..texts.range, range)
 			else
 				if isDeathExplosion or isSelfDExplosion then
-					info = format("%d "..texts.aoe..", %d%% "..texts.edge, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
+					info = format(formats.deathexplosion, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
 				else
-					info = format("%.2f", reload)..texts.s.." "..texts.reload..", "..format("%d "..texts.range..", %d "..texts.aoe..", %d%% "..texts.edge, range, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
+					info = format(formats.weapons, reload, range, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
 				end
 
 				if weaponDef.damages.paralyzeDamageTime > 0 then
-					info = format("%s, %ds "..texts.paralyze, info, weaponDef.damages.paralyzeDamageTime)
+					info = format(formats.paralyzeDamageTime, info, weaponDef.damages.paralyzeDamageTime)
 				end
 				if weaponDef.damages.impulseFactor > 0.123 then
-					info = format("%s, %d "..texts.impulse, info, weaponDef.damages.impulseFactor*100)
+					info = format(formats.impulseFactor, info, weaponDef.damages.impulseFactor*100)
 				end
 				if weaponDef.damages.craterBoost > 0 then
-					info = format("%s, %d "..texts.crater, info, weaponDef.damages.craterBoost*100)
+					info = format(formats.craterBoost, info, weaponDef.damages.craterBoost*100)
 				end
 			end
-			DrawText(texts.info..":", info)
+			DrawText(prefixes.info, info)
 
 			if isDisintegrator then
 				DrawText(texts.dmg..": ", texts.infinite)
@@ -822,7 +873,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 				if isDeathExplosion or isSelfDExplosion then
 					local damageBurst = weaponData.defaultBurst
 					totalBurst = totalBurst + damageBurst
-					damage = texts.burst.." = "..(format(yellow.."%d", damageBurst))..white.."."
+					damage = format(formats.burst, damageBurst)
 				else
 					local damageBurst = weaponData.defaultBurst * weaponCount
 					local damageRate
@@ -833,13 +884,13 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 					end
 					totalDPS = totalDPS + damageRate
 					totalBurst = totalBurst + damageBurst
-					damage = texts.dps.." = "..(format(yellow.."%d", damageRate))..white.."; "..texts.burst.." = "..(format(yellow.."%d", damageBurst))..white.."."
+					damage = format(formats.dps, damageRate, damageBurst)
 				end
-				DrawText(texts.dmg..":", damage)
+				DrawText(prefixes.dmg, damage)
 
 				local modifiers = weaponData.modifiers
 				if modifiers then
-					DrawText(texts.modifiers..":", modifiers..'.')
+					DrawText(prefixes.modifiers, modifiers..'.')
 				end
 			end
 
@@ -850,16 +901,10 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 				-- They drain ((simSpeed+2)/simSpeed) times more resources than they should (And the listed drain is real, having lower income than listed drain WILL stall you)
 				local drainAdjust = weaponDef.stockpile and (simSpeed+2)/simSpeed or 1
 
-				DrawText(texts.cost..':',
+				DrawText(prefixes.cost,
 					format(
-						metalColor .. '%d' .. white .. ', ' ..
-						energyColor .. '%d' .. white .. ' = ' ..
-						metalColor .. '-%d' .. white .. ', ' ..
-						energyColor .. '-%d' .. white .. ' '..texts.persecond,
-						weaponDef.metalCost,
-						weaponDef.energyCost,
-						drainAdjust * weaponDef.metalCost / reload,
-						drainAdjust * weaponDef.energyCost / reload
+						formats.persecond,
+						weaponDef.metalCost, weaponDef.energyCost, drainAdjust * weaponDef.metalCost / reload, drainAdjust * weaponDef.energyCost / reload
 					)
 				)
 			end
@@ -868,13 +913,14 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 		end
 	end
 
-	local damageTotals = ""
+	local damageTotals
 	if totalDPS > 0 then
-		damageTotals = texts.dps.." = "..(format(yellow .. "%d", totalDPS))..white..'; '
+		damageTotals = format(formats.dps, totalDPS, totalBurst)
+	elseif totalBurst > 0 then
+		damageTotals = format(formats.burst, totalBurst)
 	end
-	if totalBurst > 0 then
-		damageTotals = damageTotals..texts.burst.." = "..(format(yellow .. "%d", totalBurst))..white.."."
-		DrawText(texts.totaldmg..':', damageTotals)
+	if damageTotals then
+		DrawText(prefixes.totaldmg, damageTotals)
 		cY = cY - fontSize
 	end
 
