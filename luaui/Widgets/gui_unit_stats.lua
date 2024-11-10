@@ -1,4 +1,3 @@
-
 function widget:GetInfo()
 	return {
 		name      = "Unit Stats",
@@ -12,55 +11,6 @@ function widget:GetInfo()
 	}
 end
 
-local texts = {}
-local damageStats = (VFS.FileExists("LuaUI/Config/BAR_damageStats.lua")) and VFS.Include("LuaUI/Config/BAR_damageStats.lua")
-local gameName = Game.gameName
-
-local isCommander = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.iscommander then
-		isCommander[unitDefID] = true
-	end
-end
-
-if damageStats and damageStats[gameName] and damageStats[gameName].team then
-	local rate = 0
-	for k, v in pairs (damageStats[gameName].team) do
-		if not v == damageStats[gameName].team.games and v.cost and v.killed_cost then
-			local compRate = v.killed_cost/v.cost
-			if compRate > rate then
-				highestUnitDef = k
-				rate = compRate
-			end
-		end
-	end
-	local scndRate = 0
-	for k, v in pairs (damageStats[gameName].team) do
-		if not v == damageStats[gameName].team.games and v.cost and v.killed_cost then
-			local compRate = v.killed_cost/v.cost
-			if compRate > scndRate and k ~= highestUnitDef then
-				scndhighestUnitDef = k
-				scndRate = compRate
-			end
-		end
-	end
-	local thirdRate = 0
-	--local thirdhighestUnitDef
-	for k, v in pairs (damageStats[gameName].team) do
-		if not v == damageStats[gameName].team.games and v.cost and v.killed_cost then
-			local compRate = v.killed_cost/v.cost
-			if compRate > thirdRate and k ~= highestUnitDef and k ~= scndhighestUnitDef then
-				--thirdhighestUnitDef = k
-				thirdRate = compRate
-			end
-		end
-	end
-	--Spring.Echo("1st = "..  highestUnitDef .. ", ".. rate)
-	--Spring.Echo("2nd = "..  scndhighestUnitDef .. ", ".. scndRate)
-	--Spring.Echo("3rd = "..  thirdhighestUnitDef .. ", ".. thirdRate)
-end
-
-include("keysym.h.lua")
 ----v1.7 by Doo changes
 -- Reverted "Added beamtime to oRld value to properly count dps of BeamLaser weapons" because reload starts at the beginning of the beamtime
 -- Reduced the "minimal" reloadTime to properly calculate dps for low reloadtime weapons
@@ -94,26 +44,11 @@ include("keysym.h.lua")
 -- Fixed very low reload times
 
 ------------------------------------------------------------------------------------
--- Globals
+-- Configuration
 ------------------------------------------------------------------------------------
-local useSelection = true
-
-local fontfile = "fonts/" .. Spring.GetConfigString("bar_font", "Poppins-Regular.otf")
 
 local customFontSize = 14
-local fontSize = customFontSize
-
-local cX, cY, cYstart
-
-local vsx, vsy = gl.GetViewSizes()
-local widgetScale = 1
-local xOffset = (32 + (fontSize*0.9))*widgetScale
-local yOffset = -((32 - (fontSize*0.9))*widgetScale)
-local ui_scale = tonumber(Spring.GetConfigFloat("ui_scale",1) or 1)
-
-------------------------------------------------------------------------------------
--- Speedups
-------------------------------------------------------------------------------------
+local useSelection = true
 
 local white = '\255\255\255\255'
 local grey = '\255\190\190\190'
@@ -126,7 +61,17 @@ local metalColor = '\255\196\196\255' -- Light blue
 local energyColor = '\255\255\255\128' -- Light yellow
 local buildColor = '\255\128\255\128' -- Light green
 
-local simSpeed = Game.gameSpeed
+------------------------------------------------------------------------------------
+-- Includes
+------------------------------------------------------------------------------------
+
+local damageStats = (VFS.FileExists("LuaUI/Config/BAR_damageStats.lua")) and VFS.Include("LuaUI/Config/BAR_damageStats.lua")
+
+include("keysym.h.lua")
+
+------------------------------------------------------------------------------------
+-- Speedups
+------------------------------------------------------------------------------------
 
 local max = math.max
 local floor = math.floor
@@ -152,23 +97,46 @@ local spGetUnitExperience = Spring.GetUnitExperience
 local spGetUnitSensorRadius = Spring.GetUnitSensorRadius
 local spGetUnitWeaponState = Spring.GetUnitWeaponState
 
+local armorTypes = Game.armorTypes
+local gameName = Game.gameName
+local simSpeed = Game.gameSpeed
+
 local uDefs = UnitDefs
 local wDefs = WeaponDefs
 
-local font, showUnitID
+------------------------------------------------------------------------------------
+-- Globals
+------------------------------------------------------------------------------------
+
+local texts = {}
+
+local fontFile = "fonts/" .. Spring.GetConfigString("bar_font", "Poppins-Regular.otf")
+local font = WG['fonts'] and WG['fonts'].getFont(fontFile)
+local fontSize = customFontSize or 14
+
+local spec = Spring.GetSpectatingState()
+local anonymousMode = Spring.GetModOptions().teamcolors_anonymous_mode
+local anonymousName = '?????'
+local anonymousTeamColor = {
+	Spring.GetConfigInt("anonymousColorR", 255)/255,
+	Spring.GetConfigInt("anonymousColorG", 0)/255,
+	Spring.GetConfigInt("anonymousColorB", 0)/255
+}
+
+local cX, cY, cYstart
+local vsx, vsy = gl.GetViewSizes()
+local widgetScale = 1
+local xOffset = (32 + (fontSize*0.9))*widgetScale
+local yOffset = -((32 - (fontSize*0.9))*widgetScale)
+local ui_scale = tonumber(Spring.GetConfigFloat("ui_scale",1) or 1)
 local RectRound, UiElement, UiUnit, bgpadding, elementCorner
 
 local maxWidth = 0
 local textBuffer = {}
 local textBufferCount = 0
 
-local spec = Spring.GetSpectatingState()
-
-local anonymousMode = Spring.GetModOptions().teamcolors_anonymous_mode
-local anonymousName = '?????'
-local anonymousTeamColor = {Spring.GetConfigInt("anonymousColorR", 255)/255, Spring.GetConfigInt("anonymousColorG", 0)/255, Spring.GetConfigInt("anonymousColorB", 0)/255}
-
 local showStats = false
+local showUnitID
 
 local isCommander = {}
 for unitDefID, unitDef in pairs(UnitDefs) do
@@ -177,10 +145,145 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 	end
 end
 
--- Reverse armor type table
-local armorTypes = {}
-for ii = 1, #Game.armorTypes do
-	armorTypes[Game.armorTypes[ii]] = ii
+local weaponDefDisplayData = {}
+do
+	local trivial = 1
+	local infinite = 9e8
+
+	local default = armorTypes.default
+	local baseTypes = {
+		[armorTypes.default] = true, -- these keys can nil tbh
+		[armorTypes.mines]   = true,
+		[armorTypes.vtol]    = true,
+	}
+
+	local ignoredTypes = {
+		[armorTypes.shields]        = true,
+		[armorTypes.indestructable] = true, -- misspelled op
+	}
+
+	local function sortModifiers(a, b)
+		if a == texts.infinite then
+			a = 100
+		end
+		if b == texts.infinite then
+			b = 100
+		end
+		if a == 100 then
+			return true
+		elseif b == 100 then
+			return false
+		else
+			return a > b
+		end
+	end
+
+	for weaponDefID, weaponDef in pairs(WeaponDefs) do
+		if weaponDef.type ~= "Shield" and weaponDef.damages and not weaponDef.customParams.bogus then
+			local damages = table.copy(weaponDef.damages)
+
+			-- Aggregate any extra damage sources together.
+			local custom = weaponDef.customParams
+			if custom.spark_basedamage then
+				local sparkDamage = custom.spark_basedamage * custom.spark_forkdamage * custom.spark_maxunits
+				for armorType = 0, #armorTypes do
+					damages[armorType] = damages[armorType] + sparkDamage
+				end
+			end
+			if custom.speceffect == "split" and WeaponDefNames[custom.def] then
+				local splitCount = custom.number or 1
+				local splitDamages = WeaponDefNames[custom.def].damages
+				for armorType = 0, #armorTypes do
+					damages[armorType] = damages[armorType] + splitDamages[armorType] * splitCount
+				end
+			end
+			if custom.cluster and WeaponDefNames[custom.def] then
+				local clusterCount = math.sqrt(max(0, custom.number or 5)) -- they do not all hit, misleading to show all in stats
+				local clusterDamages = WeaponDefNames[custom.def].damages
+				for armorType = 0, #armorTypes do
+					damages[armorType] = damages[armorType] + clusterDamages[armorType] * clusterCount
+				end
+			end
+
+			local baseType = default
+			local baseDamage = damages[baseType]
+			for armorType in pairs(baseTypes) do
+				if armorType and damages[baseType] < damages[armorType] then
+					baseType = armorType
+					baseDamage = damages[armorType]
+				end
+			end
+
+			local weaponDisplayData = {
+				defaultBurst  = 0,
+				defaultDPS    = 0,
+				defaultReload = 1,
+				useExperience = false,
+			}
+			weaponDefDisplayData[weaponDefID] = weaponDisplayData
+
+			if baseDamage > trivial then
+				weaponDisplayData.useExperience = true
+
+				local salvoSize = weaponDef.salvoSize * weaponDef.projectiles
+				local salvoTime = max(1e-9, (weaponDef.stockpile and weaponDef.stockpileTime / simSpeed) or weaponDef.reload)
+
+				weaponDisplayData.defaultBurst = baseDamage * salvoSize
+				weaponDisplayData.defaultDPS = baseDamage * salvoSize / salvoTime
+				weaponDisplayData.defaultReload = salvoTime
+
+				local baseModifier = 100
+				if baseDamage >= infinite then
+					baseModifier = texts.infinite
+				end
+
+				local modifierGroups = {}
+				for armorType = 0, #armorTypes do
+					if not ignoredTypes[armorType] then
+						local damage = damages[armorType]
+						local modifier
+						if damage <= trivial then
+							modifier = 0
+						elseif damage >= infinite then
+							modifier = texts.infinite
+						else
+							modifier = math.round(damage / baseDamage * 100)
+						end
+						local group = modifierGroups[modifier]
+						if not group then
+							group = {}
+							modifierGroups[modifier] = group
+						end
+						group[#group+1] = armorTypes[armorType]
+					end
+				end
+
+				if table.count(modifierGroups) > 1 or baseType ~= default then
+					if baseType == default then
+						modifierGroups[baseModifier] =  { armorTypes[default] }
+					end
+
+					local modifiers = {}
+					for modifier in pairs(modifierGroups) do
+						modifiers[#modifiers+1] = modifier
+					end
+					table.sort(modifiers, sortModifiers)
+	
+					local modifierTexts = {}
+					for index = 1, #modifiers do
+						local modifier = modifiers[index]
+						local armorText = table.concat(modifierGroups[modifier], ", ")
+						if type(modifier) == "number" then
+							modifier = modifier.."%"
+						end
+						modifierTexts[#modifierTexts+1] = armorText.." = "..yellow..modifier
+					end
+
+					weaponDisplayData.modifiers = table.concat(modifierTexts, white.."; ")
+				end
+			end
+		end
+	end
 end
 
 ------------------------------------------------------------------------------------
@@ -271,10 +374,43 @@ function widget:Initialize()
 	WG['unitstats'] = {}
 	WG['unitstats'].showUnit = function(unitID)
 		showUnitID = unitID
+		showStats = true
 	end
 
 	widgetHandler:AddAction("unit_stats", enableStats, nil, "p")
 	widgetHandler:AddAction("unit_stats", disableStats, nil, "r")
+
+	if damageStats and damageStats[gameName] and damageStats[gameName].team then
+		local rate = 0
+		for k, v in pairs (damageStats[gameName].team) do
+			if not v == damageStats[gameName].team.games and v.cost and v.killed_cost then
+				local compRate = v.killed_cost/v.cost
+				if compRate > rate then
+					highestUnitDef = k
+					rate = compRate
+				end
+			end
+		end
+		local scndRate = 0
+		for k, v in pairs (damageStats[gameName].team) do
+			if not v == damageStats[gameName].team.games and v.cost and v.killed_cost then
+				local compRate = v.killed_cost/v.cost
+				if compRate > scndRate and k ~= highestUnitDef then
+					scndhighestUnitDef = k
+					scndRate = compRate
+				end
+			end
+		end
+		local thirdRate = 0
+		for k, v in pairs (damageStats[gameName].team) do
+			if not v == damageStats[gameName].team.games and v.cost and v.killed_cost then
+				local compRate = v.killed_cost/v.cost
+				if compRate > thirdRate and k ~= highestUnitDef and k ~= scndhighestUnitDef then
+					thirdRate = compRate
+				end
+			end
+		end
+	end
 end
 
 function widget:Shutdown()
@@ -318,67 +454,24 @@ function widget:ViewResize(n_vsx,n_vsy)
 	UiElement = WG.FlowUI.Draw.Element
 	UiUnit = WG.FlowUI.Draw.Unit
 
-	font = WG['fonts'].getFont(fontfile)
+	font = WG['fonts'].getFont(fontFile)
 
 	init()
 end
 
 local selectedUnits = Spring.GetSelectedUnits()
-local selectedUnitsCount = Spring.GetSelectedUnitsCount()
 if useSelection then
 	function widget:SelectionChanged(sel)
 		selectedUnits = sel
-		selectedUnitsCount = Spring.GetSelectedUnitsCount()
 	end
 end
 
 
-local function drawStats(uDefID, uID)
-	local mx, my = spGetMouseState()
-	local alt, ctrl, meta, shift = spGetModKeyState()
-	if WG['chat'] and WG['chat'].isInputActive then
-		if WG['chat'].isInputActive() then
-			showStats = false
-		end
+local function drawStats(unitDefID, unitID, mx, my)
+	if not mx then
+		mx, my = spGetMouseState()
 	end
-
-	local uDef = uDefs[uDefID]
-	local maxHP = uDef.health
-	local uTeam = Spring.GetMyTeamID()
-	local losRadius = uDef.sightDistance
-	local airLosRadius = uDef.airSightDistance
-	local radarRadius = uDef.radarDistance
-	local sonarRadius = uDef.sonarDistance
-	local jammingRadius = uDef.radarDistanceJam
-	local sonarJammingRadius = uDef.sonarDistanceJam
-	local seismicRadius = uDef.seismicDistance
-	local armoredMultiple = uDef.armoredMultiple
-	local paralyzeMult = 1
-	if uDef.customParams.paralyzemultiplier then
-		paralyzeMult = tonumber(uDef.customParams.paralyzemultiplier)
-	end
-	local transportable = not (uDef.cantBeTransported and uDef.cantBeTransported or false)
-	local mass = uDef.mass and uDef.mass or 0
-	local size = uDef.xsize and uDef.xsize / 2 or 0
-	local isBuilding, buildProg, uExp
-	local level = 1
-	if uID then
-		isBuilding, buildProg = Spring.GetUnitIsBeingBuilt(uID)
-		maxHP = select(2,Spring.GetUnitHealth(uID))
-		uTeam = spGetUnitTeam(uID)
-		losRadius = spGetUnitSensorRadius(uID, 'los') or 0
-		airLosRadius = spGetUnitSensorRadius(uID, 'airLos') or 0
-		radarRadius = spGetUnitSensorRadius(uID, 'radar') or 0
-		sonarRadius = spGetUnitSensorRadius(uID, 'sonar') or 0
-		jammingRadius = spGetUnitSensorRadius(uID, 'radarJammer') or 0
-		sonarJammingRadius = spGetUnitSensorRadius(uID, 'sonarJammer') or 0
-		seismicRadius = spGetUnitSensorRadius(uID, 'seismic') or 0
-		uExp = spGetUnitExperience(uID)
-		armoredMultiple = select(2,Spring.GetUnitArmored(uID))
-	end
-
-	maxWidth = 0
-
+	
 	cX = mx + xOffset
 	cY = my + yOffset
 	cYstart = cY
@@ -391,27 +484,63 @@ local function drawStats(uDefID, uID)
 	textBuffer = {}
 	textBufferCount = 0
 
+	local myTeamID = Spring.GetMyTeamID()
+	local unitDef = uDefs[unitDefID]
+
+	local isBeingBuilt, buildProgress, unitExperience, unitTeamID
+	local maxHP, losRadius, airLosRadius, radarRadius, sonarRadius, jammingRadius, sonarJammingRadius, seismicRadius, armoredMultiple
+	if unitID then
+		isBeingBuilt, buildProgress = Spring.GetUnitIsBeingBuilt(unitID)
+		unitExperience = spGetUnitExperience(unitID)
+		unitTeamID = spGetUnitTeam(unitID)
+
+		maxHP = select(2,Spring.GetUnitHealth(unitID))
+		losRadius = spGetUnitSensorRadius(unitID, 'los') or 0
+		airLosRadius = spGetUnitSensorRadius(unitID, 'airLos') or 0
+		radarRadius = spGetUnitSensorRadius(unitID, 'radar') or 0
+		sonarRadius = spGetUnitSensorRadius(unitID, 'sonar') or 0
+		jammingRadius = spGetUnitSensorRadius(unitID, 'radarJammer') or 0
+		sonarJammingRadius = spGetUnitSensorRadius(unitID, 'sonarJammer') or 0
+		seismicRadius = spGetUnitSensorRadius(unitID, 'seismic') or 0
+		armoredMultiple = select(2,Spring.GetUnitArmored(unitID))
+	else
+		maxHP              = unitDef.health
+		losRadius          = unitDef.sightDistance
+		airLosRadius       = unitDef.airSightDistance
+		radarRadius        = unitDef.radarDistance
+		sonarRadius        = unitDef.sonarDistance
+		jammingRadius      = unitDef.radarDistanceJam
+		sonarJammingRadius = unitDef.sonarDistanceJam
+		seismicRadius      = unitDef.seismicDistance
+		armoredMultiple    = unitDef.armoredMultiple
+	end
+	local mass          = unitDef.mass and unitDef.mass or 0
+	local paralyzeMult  = tonumber(unitDef.customParams.paralyzemultiplier or 1)
+	local size          = unitDef.xsize and unitDef.xsize / 2 or 0
+	local transportable = not unitDef.cantBeTransported
+
+	maxWidth = 0
+
 	------------------------------------------------------------------------------------
 	-- Units under construction
 	------------------------------------------------------------------------------------
-	if isBuilding then
 
-		local myTeamID = spGetMyTeamID()
+	if isBeingBuilt then
 		local mCur, mStor, mPull, mInc, mExp, mShare, mSent, mRec = spGetTeamResources(myTeamID, 'metal')
 		local eCur, eStor, ePull, eInc, eExp, eShare, eSent, eRec = spGetTeamResources(myTeamID, 'energy')
 
-		local mTotal = uDef.metalCost
-		local eTotal = uDef.energyCost
-		local buildRem = 1 - buildProg
+		local mTotal = unitDef.metalCost
+		local eTotal = unitDef.energyCost
+		local buildRem = 1 - buildProgress
 		local mRem = mTotal * buildRem
 		local eRem = eTotal * buildRem
 		local mEta = (mRem - mCur) / (mInc + mRec)
 		local eEta = (eRem - eCur) / (eInc + eRec)
 
-		DrawText(texts.prog..":", format("%d%%", 100 * buildProg))
-		DrawText(texts.metal..":", format("%d / %d (" .. yellow .. "%d" .. white .. ", %ds)", mTotal * buildProg, mTotal, mRem, mEta))
-		DrawText(texts.energy..":", format("%d / %d (" .. yellow .. "%d" .. white .. ", %ds)", eTotal * buildProg, eTotal, eRem, eEta))
-		--DrawText("MaxBP:", format(white .. '%d', buildRem * uDef.buildTime / math.max(mEta, eEta)))
+		DrawText(texts.prog..":", format("%d%%", 100 * buildProgress))
+		DrawText(texts.metal..":", format("%d / %d (" .. yellow .. "%d" .. white .. ", %ds)", mTotal * buildProgress, mTotal, mRem, mEta))
+		DrawText(texts.energy..":", format("%d / %d (" .. yellow .. "%d" .. white .. ", %ds)", eTotal * buildProgress, eTotal, eRem, eEta))
+
 		cY = cY - fontSize
 	end
 
@@ -419,27 +548,28 @@ local function drawStats(uDefID, uID)
 	-- Generic information, cost, move, class
 	------------------------------------------------------------------------------------
 
-	--DrawText('Height:', uDefs[spGetUnitDefID(uID)].height)
-
-	DrawText(texts.cost..":", format(metalColor .. '%d' .. white .. ' / ' ..
-		energyColor .. '%d' .. white .. ' / ' ..
-		buildColor .. '%d', uDef.metalCost, uDef.energyCost, uDef.buildTime)
+	DrawText(texts.cost..":",
+		format(
+			metalColor .. '%d' .. white .. ' / ' ..
+			energyColor .. '%d' .. white .. ' / ' ..
+			buildColor .. '%d', unitDef.metalCost, unitDef.energyCost, unitDef.buildTime
+		)
 	)
 
-	if not (uDef.isBuilding or uDef.isFactory) then
-		if not uID or not Spring.GetUnitMoveTypeData(uID) then
-			DrawText(texts.move..":", format("%.1f / %.1f / %.0f ("..texts.speedaccelturn..")", uDef.speed, 900 * uDef.maxAcc, simSpeed * uDef.turnRate * (180 / 32767)))
+	if not (unitDef.isBuilding or unitDef.isFactory) then
+		if not unitID or not Spring.GetUnitMoveTypeData(unitID) then
+			DrawText(texts.move..":", format("%.1f / %.1f / %.0f ("..texts.speedaccelturn..")", unitDef.speed, 900 * unitDef.maxAcc, simSpeed * unitDef.turnRate * (180 / 32767)))
 		else
-			local mData = Spring.GetUnitMoveTypeData(uID)
-			local mSpeed = mData.maxSpeed or uDef.speed
-			local mAccel = mData.accRate or uDef.maxAcc
-			local mTurnRate = mData.baseTurnRate or uDef.turnRate
+			local mData = Spring.GetUnitMoveTypeData(unitID)
+			local mSpeed = mData.maxSpeed or unitDef.speed
+			local mAccel = mData.accRate or unitDef.maxAcc
+			local mTurnRate = mData.baseTurnRate or unitDef.turnRate
 			DrawText(texts.move..":", format("%.1f / %.1f / %.0f ("..texts.speedaccelturn..")", mSpeed, 900 * mAccel, simSpeed * mTurnRate * (180 / 32767)))
 		end
 	end
 
-	if uDef.buildSpeed > 0 then
-		DrawText(texts.build..':', yellow .. uDef.buildSpeed)
+	if unitDef.buildSpeed > 0 then
+		DrawText(texts.build..':', yellow .. unitDef.buildSpeed)
 	end
 
 	cY = cY - fontSize
@@ -456,7 +586,7 @@ local function drawStats(uDefID, uID)
 	if sonarJammingRadius > 0 then DrawText(texts.sonarjam..':', '\255\255\77\77' .. sonarJammingRadius) end
 	if seismicRadius > 0 then DrawText(texts.seis..':' , '\255\255\26\255' .. seismicRadius) end
 
-	if uDef.stealth then DrawText(texts.other1..":", texts.stealth) end
+	if unitDef.stealth then DrawText(texts.other1..":", texts.stealth) end
 
 	cY = cY - fontSize
 
@@ -464,26 +594,25 @@ local function drawStats(uDefID, uID)
 	-- Armor
 	------------------------------------------------------------------------------------
 
-	DrawText(texts.armor..":", texts.class .. Game.armorTypes[uDef.armorType or 0] or '???')
+	DrawText(texts.armor..":", texts.class .. (Game.armorTypes[unitDef.armorType or 0] or '???'))
 
-	if uID and uExp ~= 0 then
+	if unitID and unitExperience ~= 0 then
 		if maxHP then
-			DrawText(texts.exp..":", format("+%d%% "..texts.health, (maxHP/uDef.health-1)*100))
-		else
-			--DrawText("Exp:                 unknown",'\255\255\77\77')
+			DrawText(texts.exp..":", format("+%d%% "..texts.health, (maxHP/unitDef.health-1)*100))
 		end
 	end
+
 	if paralyzeMult < 1 then
 		if paralyzeMult == 0 then
 			DrawText(texts.emp..':', blue .. texts.immune)
 		else
-			local resist = 100 - (paralyzeMult * 100)
-			DrawText(texts.emp..':', blue .. math.floor(resist) .. "% " .. white .. texts.resist)
+			local resist = floor(100 - (paralyzeMult * 100))
+			DrawText(texts.emp..':', blue .. resist .. "% " .. white .. texts.resist)
 		end
 	end
+
 	if maxHP then
 		DrawText(texts.open..":", format(texts.maxhp..": %d", maxHP) )
-
 		if armoredMultiple and armoredMultiple ~= 1 then
 			DrawText(texts.closed..":", format(" +%d%%, "..texts.maxhp..": %d", (1/armoredMultiple-1) *100,maxHP/armoredMultiple))
 		end
@@ -491,43 +620,43 @@ local function drawStats(uDefID, uID)
 
 	cY = cY - fontSize
 
-
 	------------------------------------------------------------------------------------
 	-- Transportable
 	------------------------------------------------------------------------------------
 
-		if transportable and mass > 0 and size > 0 then
-			if mass < 751 and size < 4 then -- 3 is t1 transport max size
-				DrawText(texts.transportable..':', blue .. texts.transportable_light)
-			elseif mass < 100000 and size < 5 then
-				DrawText(texts.transportable..':', yellow .. texts.transportable_heavy)
-			end
+	if transportable and mass > 0 and size > 0 then
+		if mass < 751 and size < 4 then -- 3 is t1 transport max size
+			DrawText(texts.transportable..':', blue .. texts.transportable_light)
+		elseif mass < 100000 and size < 5 then
+			DrawText(texts.transportable..':', yellow .. texts.transportable_heavy)
 		end
+	end
 
 	cY = cY - fontSize
 
 	------------------------------------------------------------------------------------
 	-- SPECIAL ABILITIES
 	------------------------------------------------------------------------------------
+
 	---- Build Related
 	local specabs = ''
-	specabs = specabs..((uDef.canBuild and texts.build..", ") or "")
-	specabs = specabs..((uDef.canAssist and texts.assist..", ") or "")
-	specabs = specabs..((uDef.canRepair and texts.repair..", ") or "")
-	specabs = specabs..((uDef.canReclaim and texts.reclaim..", ") or "")
-	specabs = specabs..((uDef.canResurrect and texts.resurrect..", ") or "")
-	specabs = specabs..((uDef.canCapture and texts.capture..", ") or "")
+	specabs = specabs..((unitDef.canBuild and texts.build..", ") or "")
+	specabs = specabs..((unitDef.canAssist and texts.assist..", ") or "")
+	specabs = specabs..((unitDef.canRepair and texts.repair..", ") or "")
+	specabs = specabs..((unitDef.canReclaim and texts.reclaim..", ") or "")
+	specabs = specabs..((unitDef.canResurrect and texts.resurrect..", ") or "")
+	specabs = specabs..((unitDef.canCapture and texts.capture..", ") or "")
 	---- Radar/Sonar states
-	specabs = specabs..((uDef.canCloak and texts.cloak..", ") or "")
-	specabs = specabs..((uDef.stealth and texts.stealth..",  ") or "")
-
+	specabs = specabs..((unitDef.canCloak and texts.cloak..", ") or "")
+	specabs = specabs..((unitDef.stealth and texts.stealth..",  ") or "")
 	---- Attack Related
-	specabs = specabs..((uDef.canAttackWater and texts.waterweapon..", ") or "")
-	specabs = specabs..((uDef.canManualFire and texts.manuelfire..", ") or "")
-	specabs = specabs..((uDef.canStockpile and texts.stockpile..", ") or "")
-	specabs = specabs..((uDef.canParalyze  and texts.paralyzer..", ") or "")
-	specabs = specabs..((uDef.canKamikaze  and texts.kamikaze..", ") or "")
-	if (string.len(specabs) > 11) then
+	specabs = specabs..((unitDef.canAttackWater and texts.waterweapon..", ") or "")
+	specabs = specabs..((unitDef.canManualFire and texts.manuelfire..", ") or "")
+	specabs = specabs..((unitDef.canStockpile and texts.stockpile..", ") or "")
+	specabs = specabs..((unitDef.canParalyze  and texts.paralyzer..", ") or "")
+	specabs = specabs..((unitDef.canKamikaze  and texts.kamikaze..", ") or "")
+
+	if (string.len(specabs) > 11) then -- ?
 		DrawText(texts.abilities..":", string.sub(specabs, 1, string.len(specabs)-2))
 		cY = cY - fontSize
 	end
@@ -535,220 +664,178 @@ local function drawStats(uDefID, uID)
 	------------------------------------------------------------------------------------
 	-- Weapons
 	------------------------------------------------------------------------------------
-	local uWeps = uDef.weapons
-	local wepCounts = {} -- wepCounts[wepDefID] = #
-	local wepsCompact = {} -- uWepsCompact[1..n] = wepDefID
-	local weaponNums = {}
-	for i = 1, #uWeps do
-		local wDefID = uWeps[i].weaponDef
-		local wCount = wepCounts[wDefID]
+
+	local weaponCounts = {}
+	local weaponNumbers = {}
+	local weaponsUnique = {}
+	for i = 1, #unitDef.weapons do
+		local wDefID = unitDef.weapons[i].weaponDef
+		local wCount = weaponCounts[wDefID]
 		if wCount then
-			wepCounts[wDefID] = wCount + 1
+			weaponCounts[wDefID] = wCount + 1
 		else
-			wepCounts[wDefID] = 1
-			wepsCompact[#wepsCompact + 1] = wDefID
-			weaponNums[#wepsCompact] = i
+			local index = #weaponsUnique + 1
+			weaponCounts[wDefID] = 1
+			weaponNumbers[index] = i
+			weaponsUnique[index] = wDefID
 		end
 	end
 
-	local selfDWeaponID = WeaponDefNames[uDef.selfDExplosion].id
-	local deathWeaponID = WeaponDefNames[uDef.deathExplosion].id
+	local selfDWeaponID = WeaponDefNames[unitDef.selfDExplosion].id
+	local deathWeaponID = WeaponDefNames[unitDef.deathExplosion].id
 	local selfDWeaponIndex
 	local deathWeaponIndex
-
-	if shift then
-		wepCounts = {}
-		wepsCompact = {}
-		wepCounts[selfDWeaponID] = 1
-		wepCounts[deathWeaponID] = 1
-		deathWeaponIndex = #wepsCompact+1
-		wepsCompact[deathWeaponIndex] = deathWeaponID
-		selfDWeaponIndex = #wepsCompact+1
-		wepsCompact[selfDWeaponIndex] = selfDWeaponID
+	if select(4, spGetModKeyState()) then
+		weaponCounts[selfDWeaponID] = 1
+		weaponCounts[deathWeaponID] = 1
+		deathWeaponIndex = #weaponsUnique+1
+		weaponsUnique[deathWeaponIndex] = deathWeaponID
+		selfDWeaponIndex = #weaponsUnique+1
+		weaponsUnique[selfDWeaponIndex] = selfDWeaponID
 	end
 
-	local totaldps = 0
-	local totalbDamages = 0
-	local useExp = true
-	for i = 1, #wepsCompact do
+	local totalDPS = 0
+	local totalBurst = 0
+	for i = 1, #weaponsUnique do
+		local weaponNumber = weaponNumbers[i]
+		local weaponDefID = weaponsUnique[i]
+		local weaponDef = wDefs[weaponDefID]
+		local weaponCount = weaponCounts[weaponDefID]
+		local weaponName = weaponDef.description or weaponDef.name
 
-		local wDefId = wepsCompact[i]
-		local uWep = wDefs[wDefId]
+		local range = weaponDef.range
 
-		-- Handle projectiles that spawn additional projectiles.
-		-- Many properties (might) have nothing to do with the spawned projectile:
-		local burst = uWep.salvoSize * uWep.projectiles
-		local range = uWep.range
-		local reload = uWep.reload
-		local accuracy = uWep.accuracy
-		local moveError = uWep.targetMoveError
-		local defaultDamage = uWep.damages[0]
-		if defaultDamage < uWep.damages[armorTypes.vtol] then
-			defaultDamage = uWep.damages[armorTypes.vtol]
-		end
-		if uWep.customParams then
-			if uWep.customParams.spark_basedamage then
-				local spDamage = uWep.customParams.spark_basedamage * uWep.customParams.spark_forkdamage
-				local spCount = uWep.customParams.spark_maxunits
-				defaultDamage = defaultDamage + spDamage * spCount
-			elseif uWep.customParams.speceffect == "split" then
-				burst = burst * (uWep.customParams.number or 1)
-				uWep = WeaponDefNames[uWep.customParams.def] or uWep
-				defaultDamage = uWep.damages[0]
-			elseif uWep.customParams.cluster then
-				local munition = uWep.customParams.def    or uDef.name .. '_' .. 'cluster_munition'
-				local cmNumber = uWep.customParams.number or 5 -- note: keep in sync with cluster defaults
-				local cmDamage = WeaponDefNames[munition].damages[0]
-				defaultDamage = defaultDamage + cmDamage * cmNumber
-			end
-		end
+		if range > 0 then			
+			local isDisintegrator = string.find(weaponDef.name, "disintegrator")
+			local isDeathExplosion = i == deathWeaponIndex
+			local isSelfDExplosion = i == selfDWeaponIndex
 
-		if range > 0 then
-			local oRld = max(0.00000000001, uWep.stockpile == true and uWep.stockpileTime/30 or uWep.reload)
-			if uID and useExp and not ((uWep.stockpile and uWep.stockpileTime)) then
-				oRld = spGetUnitWeaponState(uID, weaponNums[i] or -1, "reloadTimeXP") or
-				       spGetUnitWeaponState(uID, weaponNums[i] or -1, "reloadTime")   or oRld
+			if weaponCount > 1 then
+				DrawText(texts.weap..":", format(yellow .. "%dx" .. white .. " %s", weaponCount, weaponName))
+			else
+				local displayName = weaponName
+				if isDeathExplosion then
+					displayName = texts.selfdestruct
+				elseif isSelfDExplosion then
+					displayName = texts.deathexplosion
+				end
+				DrawText(texts.weap..":", displayName)
 			end
 
-			local wpnName = uWep.description
-			local wepCount = wepCounts[wDefId]
+			local burst = weaponDef.salvoSize * weaponDef.projectiles
+			local accuracy = weaponDef.accuracy
+			local moveError = weaponDef.targetMoveError
+
+			local weaponData = weaponDefDisplayData[weaponDefID]
+			local reload = weaponData.defaultReload
+			local experience = not (isDeathExplosion or isSelfDExplosion) and unitExperience or 0
+
+			local reloadAlt = reload -- todo: what is this doing
 			if i == deathWeaponIndex then
-				wpnName = texts.deathexplosion
-				oRld = 1
+				weaponName = texts.deathexplosion
+				reload = 1
+				reloadAlt = 1
 			elseif i == selfDWeaponIndex then
-				wpnName = texts.selfdestruct
-				oRld = uDef.selfDestructCountdown
-			end
-			if wepCount > 1 then
-				DrawText(texts.weap..":", format(yellow .. "%dx" .. white .. " %s", wepCount, wpnName))
-			else
-				DrawText(texts.weap..":", wpnName)
+				weaponName = texts.selfdestruct
+				reload = 1
+				reloadAlt = unitDef.selfDestructCountdown
 			end
 
-			if uExp ~= 0 then
-				local rangeBonus = range ~= 0 and (range/uWep.range-1) or 0
-				local reloadBonus = reload ~= 0 and (uWep.reload/reload-1) or 0
-				local accuracyBonus = accuracy ~= 0 and (uWep.accuracy/accuracy-1) or 0
-				local moveErrorBonus = moveError ~= 0 and (uWep.targetMoveError/moveError-1) or 0
+			if experience > 0 then
+				local reloadState = spGetUnitWeaponState(unitID, weaponNumber, "reloadTimeXP") or
+				                    spGetUnitWeaponState(unitID, weaponNumber, "reloadTime")
+
+				local accuracyBonus  = accuracy ~= 0   and (spGetUnitWeaponState(unitID, weaponNumber, "accuracy") / accuracy - 1)          or 0
+				local moveErrorBonus = moveError ~= 0  and (spGetUnitWeaponState(unitID, weaponNumber, "targetMoveError") / moveError - 1)  or 0
+				local reloadBonus    = reload ~= 0     and (reloadState / reload - 1)                                                       or 0
+				local rangeBonus     = range ~= 0      and (spGetUnitWeaponState(unitID, weaponNumber, "range") / range - 1)                or 0
+
 				DrawText(texts.exp..":", format("+%d%% "..texts.accuracy..", +%d%% "..texts.aim..", +%d%% "..texts.firerate..", +%d%% "..texts.range, accuracyBonus*100, moveErrorBonus*100, reloadBonus*100, rangeBonus*100 ))
+
+				range = reload * (1 + rangeBonus)
+				reload = reload * (1 + reloadBonus)
+				accuracy = accuracy * (1 + accuracyBonus)
+				moveError = moveError * (1 + moveErrorBonus)
 			end
 
-			local infoText = ""
-			if wpnName == texts.deathexplosion or wpnName == texts.selfdestruct then
-				infoText = format("%d "..texts.aoe..", %d%% "..texts.edge, uWep.damageAreaOfEffect, 100 * uWep.edgeEffectiveness)
-			else
-				infoText = format("%.2f", (useExp and reload or uWep.reload))..texts.s.." "..texts.reload..", "..format("%d "..texts.range..", %d "..texts.aoe..", %d%% "..texts.edge, useExp and range or uWep.range, uWep.damageAreaOfEffect, 100 * uWep.edgeEffectiveness)
-			end
-			if uWep.damages.paralyzeDamageTime > 0 then
-				infoText = format("%s, %ds "..texts.paralyze, infoText, uWep.damages.paralyzeDamageTime)
-			end
-			if uWep.damages.impulseFactor > 0.123 then
-				infoText = format("%s, %d "..texts.impulse, infoText, uWep.damages.impulseFactor*100)
-			end
-			if uWep.damages.craterBoost > 0 then
-				infoText = format("%s, %d "..texts.crater, infoText, uWep.damages.craterBoost*100)
-			end
-			if string.find(uWep.name, "disintegrator") then
-				infoText = format("%.2f", (useExp and reload or uWep.reload)).."s "..texts.reload..", "..format("%d "..texts.range, useExp and range or uWep.range)
-			end
-			DrawText(texts.info..":", infoText)
-
-			-- Draw the damage and damage modifiers strings.
-			local cat = 0
-			local oDmg = uWep.damages[cat]
-			local catName = Game.armorTypes[cat]
-			if string.find(uWep.name, "disintegrator") then
-				DrawText(texts.dmg..": ", texts.infinite)
-			else
-				local dmgString = ""
-				if wpnName == texts.deathexplosion or wpnName == texts.selfdestruct then
-					if catName and oDmg and (oDmg ~= defaultDamage or cat == 0) then
-						local dps = defaultDamage * burst / (useExp and reload or uWep.reload)
-						local bDamages = defaultDamage * burst
-						dmgString = texts.burst.." = "..(format(yellow .. "%d", bDamages))..white.."."
-					end
+			do
+				local info
+				if isDisintegrator then
+					info = format("%.2f", reload).."s "..texts.reload..", "..format("%d "..texts.range, range)
 				else
-					if catName and oDmg and (oDmg ~= defaultDamage or cat == 0) then
-						local dps = defaultDamage * burst / (useExp and reload or uWep.reload)
-						local bDamages = defaultDamage * burst
-						totaldps = totaldps + wepCount*dps
-						totalbDamages = totalbDamages + wepCount* bDamages
-						dmgString = texts.dps.." = "..(format(yellow .. "%d", dps))..white.."; "..texts.burst.." = "..(format(yellow .. "%d", bDamages))..white.."."
-						if wepCount > 1 then
-							dmgString = dmgString .. white .. " ("..texts.each..")"
-						end
+					if isDeathExplosion or isSelfDExplosion then
+						info = format("%d "..texts.aoe..", %d%% "..texts.edge, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
+					else
+						info = format("%.2f", reload)..texts.s.." "..texts.reload..", "..format("%d "..texts.range..", %d "..texts.aoe..", %d%% "..texts.edge, range, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
+					end
+	
+					if weaponDef.damages.paralyzeDamageTime > 0 then
+						info = format("%s, %ds "..texts.paralyze, info, weaponDef.damages.paralyzeDamageTime)
+					end
+					if weaponDef.damages.impulseFactor > 0.123 then
+						info = format("%s, %d "..texts.impulse, info, weaponDef.damages.impulseFactor*100)
+					end
+					if weaponDef.damages.craterBoost > 0 then
+						info = format("%s, %d "..texts.crater, info, weaponDef.damages.craterBoost*100)
 					end
 				end
-				DrawText(texts.dmg..":", dmgString)
+				DrawText(texts.info..":", info)
 
-				local modString = ""
-				-- Group armor types by the damage they take.
-				local modifiers = {}
-				local defaultRate = uWep.damages[0] or 0
-				local defaultName = Game.armorTypes[0] or 'default'
-				for cat = 0, #uWep.damages do
-					local catName = Game.armorTypes[cat]
-					local catDamage = uWep.damages[cat] or defaultRate
+				if isDisintegrator then
+					DrawText(texts.dmg..": ", texts.infinite)
+				else
+					local damage
+					if isDeathExplosion or isSelfDExplosion then
+						damage = texts.burst.." = "..(format(yellow .. "%d", weaponData.defaultBurst))..white.."."
+					else
+						local damageBurst = weaponData.defaultBurst * weaponCount
+						local damageRate = weaponData.defaultDPS * weaponCount
+						if experience ~= 0 then
+							damageRate = damageBurst / reload
+						end
+						totalDPS = totalDPS + damageRate
+						totalBurst = totalBurst + damageBurst
 
-					if catName and catDamage then
-						local rate = catDamage
-						if not modifiers[rate] then modifiers[rate] = {} end
-						if rate == defaultRate then
-							modifiers[rate] = { defaultName }
-							defaultRate = rate
-						else
-							table.insert(modifiers[rate], catName)
+						damage = texts.dps.." = "..(format(yellow .. "%d", damageRate))..white.."; "..texts.burst.." = "..(format(yellow .. "%d", damageBurst))..white.."."
+						if weaponCount > 1 then
+							damage = damage..white.." ("..texts.each..")"
 						end
 					end
-				end
+					DrawText(texts.dmg..":", damage)
 
-				local sorted = {}
-				for k ,_ in pairs(modifiers) do table.insert(sorted, k) end
-				table.sort(sorted, function(a, b) return a > b end) -- descending sort
-				local maxDamage = sorted[1]
-
-				modString = "default = "..yellow..format("%d", 100 * defaultRate / maxDamage).."%"
-				local count = 0
-				for _ in pairs(modifiers) do count = count + 1 end
-				if count > 1 then
-					for _, rate in pairs(sorted) do
-						if rate ~= defaultRate then
-							local armors = table.concat(modifiers[rate], ", ")
-							local percent = format("%d", floor(100 * rate / maxDamage))
-							if armors and percent then
-								modString = modString..white.."; "..armors.." = "..yellow..percent.."%"
-							end
-						end
+					if weaponData.modifiers then
+						DrawText(texts.modifiers..":", weaponData.modifiers..'.')
 					end
 				end
-				DrawText(texts.modifiers..":", modString..'.')
 			end
 
-			if uWep.metalCost > 0 or uWep.energyCost > 0 then
-
+			if weaponDef.metalCost > 0 or weaponDef.energyCost > 0 then
 				-- Stockpiling weapons are weird
 				-- They take the correct amount of resources overall
 				-- They take the correct amount of time
 				-- They drain ((simSpeed+2)/simSpeed) times more resources than they should (And the listed drain is real, having lower income than listed drain WILL stall you)
-				local drainAdjust = uWep.stockpile and (simSpeed+2)/simSpeed or 1
+				local drainAdjust = weaponDef.stockpile and (simSpeed+2)/simSpeed or 1
 
-				DrawText(texts.cost..':', format(metalColor .. '%d' .. white .. ', ' ..
-					energyColor .. '%d' .. white .. ' = ' ..
-					metalColor .. '-%d' .. white .. ', ' ..
-					energyColor .. '-%d' .. white .. ' '..texts.persecond,
-					uWep.metalCost,
-					uWep.energyCost,
-					drainAdjust * uWep.metalCost / oRld,
-					drainAdjust * uWep.energyCost / oRld))
+				DrawText(texts.cost..':',
+					format(
+						metalColor .. '%d' .. white .. ', ' ..
+						energyColor .. '%d' .. white .. ' = ' ..
+						metalColor .. '-%d' .. white .. ', ' ..
+						energyColor .. '-%d' .. white .. ' '..texts.persecond,
+						weaponDef.metalCost,
+						weaponDef.energyCost,
+						drainAdjust * weaponDef.metalCost / reloadAlt,
+						drainAdjust * weaponDef.energyCost / reloadAlt
+					)
+				)
 			end
-
 
 			cY = cY - fontSize
 		end
 	end
 
-	if totaldps > 0 then
-		DrawText(texts.totaldmg..':', texts.dps.." = "..(format(yellow .. "%d", totaldps))..white..'; '..texts.burst.." = "..(format(yellow .. "%d", totalbDamages))..white..".")
+	if totalDPS > 0 then
+		DrawText(texts.totaldmg..':', texts.dps.." = "..(format(yellow .. "%d", totalDPS))..white..'; '..texts.burst.." = "..(format(yellow .. "%d", totalBurst))..white..".")
 		cY = cY - fontSize
 	end
 
@@ -781,17 +868,17 @@ local function drawStats(uDefID, uID)
 	end
 
 	local effectivenessRate = ''
-	if damageStats and damageStats[gameName] and damageStats[gameName]["team"] and damageStats[gameName]["team"][uDef.name] and damageStats[gameName]["team"][uDef.name].cost and damageStats[gameName]["team"][uDef.name].killed_cost then
-		effectivenessRate = "   "..damageStats[gameName]["team"][uDef.name].killed_cost / damageStats[gameName]["team"][uDef.name].cost
+	if damageStats and damageStats[gameName] and damageStats[gameName]["team"] and damageStats[gameName]["team"][unitDef.name] and damageStats[gameName]["team"][unitDef.name].cost and damageStats[gameName]["team"][unitDef.name].killed_cost then
+		effectivenessRate = "   "..damageStats[gameName]["team"][unitDef.name].killed_cost / damageStats[gameName]["team"][unitDef.name].cost
 	end
 
 	-- title
-	local text = "\255\190\255\190" .. UnitDefs[uDefID].translatedHumanName
-	if uID then
-		text = text .. "   " ..  grey ..  uDef.name .. "   #" .. uID .. "   ".. GetTeamColorCode(uTeam) .. GetTeamName(uTeam) .. grey .. effectivenessRate
+	local text = "\255\190\255\190" .. UnitDefs[unitDefID].translatedHumanName
+	if unitID then
+		text = text .. "   " ..  grey ..  unitDef.name .. "   #" .. unitID .. "   ".. GetTeamColorCode(unitTeamID or myTeamID) .. GetTeamName(unitTeamID or myTeamID) .. grey .. effectivenessRate
 	end
 	local backgroundRect = {floor(cX-bgpadding), ceil(cYstart-bgpadding), floor(cX+(font:GetTextWidth(text)*titleFontSize)+(titleFontSize*3.5)), floor(cYstart+(titleFontSize*1.8)+bgpadding)}
-	UiElement(backgroundRect[1], backgroundRect[2], backgroundRect[3], backgroundRect[4], 1,1,1,0, 1,1,0,1, math.max(0.75, Spring.GetConfigFloat("ui_opacity", 0.7)))
+	UiElement(backgroundRect[1], backgroundRect[2], backgroundRect[3], backgroundRect[4], 1,1,1,0, 1,1,0,1, max(0.75, Spring.GetConfigFloat("ui_opacity", 0.7)))
 	if WG['guishader'] then
 		guishaderEnabled = true
 		WG['guishader'].InsertScreenDlist( gl.CreateList( function()
@@ -800,8 +887,8 @@ local function drawStats(uDefID, uID)
 	end
 
 	-- icon
-	if uID then
-		local iconPadding = math.max(1, math.floor(bgpadding*0.8))
+	if unitID then
+		local iconPadding = max(1, floor(bgpadding*0.8))
 		glColor(1,1,1,1)
 		UiUnit(
 			backgroundRect[1]+bgpadding+iconPadding, backgroundRect[2]+iconPadding, backgroundRect[1]+(backgroundRect[4]-backgroundRect[2])-iconPadding, backgroundRect[4]-bgpadding-iconPadding,
@@ -809,7 +896,7 @@ local function drawStats(uDefID, uID)
 			1,1,1,1,
 			0.13,
 			nil, nil,
-			'#'..uDefID
+			'#'..unitDefID
 		)
 	end
 
@@ -820,7 +907,7 @@ local function drawStats(uDefID, uID)
 	font:End()
 
 	-- stats
-	UiElement(floor(cX-bgpadding), ceil(cY+(fontSize/3)+(bgpadding*0.3)), ceil(cX+maxWidth+bgpadding), ceil(cYstart-bgpadding), 0,1,1,1, 1,1,1,1, math.max(0.75, Spring.GetConfigFloat("ui_opacity", 0.7)))
+	UiElement(floor(cX-bgpadding), ceil(cY+(fontSize/3)+(bgpadding*0.3)), ceil(cX+maxWidth+bgpadding), ceil(cYstart-bgpadding), 0,1,1,1, 1,1,1,1, max(0.75, Spring.GetConfigFloat("ui_opacity", 0.7)))
 
 	if WG['guishader'] then
 		guishaderEnabled = true
@@ -845,43 +932,38 @@ function widget:DrawScreen()
 		RemoveGuishader()
 		return
 	end
-	local mx, my = spGetMouseState()
-	local uID
-	local rType, unitID = spTraceScreenRay(mx, my)
-	if rType == 'unit' then
-		uID = unitID
-	end
-	if useSelection then
-		if selectedUnitsCount >= 1 then
-			uID = selectedUnits[1]
+
+	local unitDefID, unitID, mx, my
+	do
+		local _, targetDefID = Spring.GetActiveCommand()
+		local targetDef = targetDefID and targetDefID < 0 and UnitDefs[-targetDefID]
+		if targetDef then
+			unitDefID = -targetDefID
+		else
+			unitDefID = WG['buildmenu'] and WG['buildmenu'].hoverID
+			if not unitDefID then
+				local selectedID = selectedUnits[1]
+				if showUnitID and Spring.ValidUnitID(showUnitID) then
+					unitID = showUnitID
+					showUnitID = nil -- ?
+				elseif useSelection and selectedID and Spring.ValidUnitID(selectedID) then
+					unitID = selectedUnits[1]
+				else
+					mx, my = spGetMouseState()
+					local entityType, entityID = spTraceScreenRay(mx, my)
+					if entityType == "unit" then
+						unitID = entityID
+					end
+				end
+				if unitID then
+					unitDefID = spGetUnitDefID(unitID)
+				end
+			end
+		end
+		if not unitDefID then
+			RemoveGuishader()
+			return
 		end
 	end
-	if showUnitID then
-		uID = showUnitID
-		showUnitID = nil
-	end
-	local useHoverID = false
-	local _, activeID = Spring.GetActiveCommand()
-	if not activeID then activeID = 0 end
-	if not uID and (WG['buildmenu'] and not WG['buildmenu'].hoverID) and not (activeID < 0) then
-		RemoveGuishader() return
-	elseif WG['buildmenu'] and WG['buildmenu'].hoverID and not (activeID < 0) then
-		uID = nil
-		useHoverID = true
-	elseif activeID < 0 then
-		uID = nil
-		useHoverID = false
-	end
-	if uID and not Spring.ValidUnitID(uID) then
-		RemoveGuishader()
-		return
-	end
-	local uDefID = (uID and spGetUnitDefID(uID)) or (useHoverID and WG['buildmenu'] and WG['buildmenu'].hoverID) or (UnitDefs[-activeID] and -activeID)
-
-	if not uDefID then
-		RemoveGuishader()
-		return
-	end
-
-	drawStats(uDefID, uID)
+	drawStats(unitDefID, unitID, mx, my)
 end
