@@ -683,7 +683,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 
 	local abilities = {}
 	local unitAbilitiesMap = unitAbilitiesMap
-	for propertyName in ipairs(unitAbilitiesMap) do
+	for index, propertyName in ipairs(unitAbilitiesMap) do
 		if unitDef[propertyName] then
 			abilities[#abilities+1] = unitAbilitiesMap[propertyName]
 		end
