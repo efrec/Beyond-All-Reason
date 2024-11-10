@@ -158,145 +158,7 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 end
 
 local unitAbilitiesMap
-
-local weaponDefDisplayData = {}
-do
-	local trivial = 1
-	local infinite = 9e8
-	local default = armorTypes.default
-	local baseTypes = {
-		[armorTypes.default] = true, -- these keys can nil tbh
-		[armorTypes.mines]   = true,
-		[armorTypes.vtol]    = true,
-	}
-	local ignoredTypes = {
-		[armorTypes.shields]        = true,
-		[armorTypes.indestructable] = true, -- misspelled op
-	}
-
-	local function sortModifiers(a, b)
-		if a == 100 then
-			return true
-		elseif b == 100 then
-			return false
-		end
-		if a == texts.infinite then
-			a = 100
-		end
-		if b == texts.infinite then
-			b = 100
-		end
-		return a > b
-	end
-
-	for weaponDefID, weaponDef in pairs(WeaponDefs) do
-		if weaponDef.type ~= "Shield" and weaponDef.damages and not weaponDef.customParams.bogus then
-			local damages = table.copy(weaponDef.damages)
-
-			-- Aggregate any extra damage sources together.
-			local custom = weaponDef.customParams
-			if custom.spark_basedamage then
-				local sparkDamage = custom.spark_basedamage * custom.spark_forkdamage * custom.spark_maxunits
-				for armorType = 0, #armorTypes do
-					damages[armorType] = damages[armorType] + sparkDamage
-				end
-			end
-			if custom.def then
-				if custom.speceffect == "split" and WeaponDefNames[custom.def] then
-					local splitCount = custom.number or 1
-					local splitDamages = WeaponDefNames[custom.def].damages
-					for armorType = 0, #armorTypes do
-						damages[armorType] = damages[armorType] + splitDamages[armorType] * splitCount
-					end
-				elseif custom.cluster and WeaponDefNames[custom.def] then
-					local clusterCount = math.sqrt(max(0, custom.number or 5)) -- they do not all hit, misleading to show all in stats
-					local clusterDamages = WeaponDefNames[custom.def].damages
-					for armorType = 0, #armorTypes do
-						damages[armorType] = damages[armorType] + clusterDamages[armorType] * clusterCount
-					end
-				end
-			end
-
-			local baseType = default
-			local baseDamage = damages[baseType]
-			for armorType in pairs(baseTypes) do
-				if armorType and damages[baseType] < damages[armorType] then
-					baseType = armorType
-					baseDamage = damages[armorType]
-				end
-			end
-
-			local weaponDisplayData = {
-				defaultBurst  = 0,
-				defaultDPS    = 0,
-				defaultReload = 1,
-				useExperience = false,
-			}
-			weaponDefDisplayData[weaponDefID] = weaponDisplayData
-
-			if baseDamage > trivial then
-				weaponDisplayData.useExperience = true
-
-				local salvoSize = weaponDef.salvoSize * weaponDef.projectiles
-				local salvoTime = max(1e-9, (weaponDef.stockpile and weaponDef.stockpileTime / simSpeed) or weaponDef.reload)
-
-				weaponDisplayData.defaultBurst = baseDamage * salvoSize
-				weaponDisplayData.defaultDPS = baseDamage * salvoSize / salvoTime
-				weaponDisplayData.defaultReload = salvoTime
-
-				local baseModifier = 100
-				if baseDamage >= infinite then
-					baseModifier = texts.infinite
-				end
-
-				local modifierGroups = {}
-				for armorType = 0, #armorTypes do
-					if not ignoredTypes[armorType] then
-						local damage = damages[armorType]
-						local modifier
-						if damage <= trivial then
-							modifier = 0
-						elseif damage >= infinite then
-							modifier = texts.infinite
-						else
-							modifier = math.round(damage / baseDamage * 100)
-						end
-						local group = modifierGroups[modifier]
-						if not group then
-							group = {}
-							modifierGroups[modifier] = group
-						end
-						group[#group+1] = armorTypes[armorType]
-					end
-				end
-
-				if table.count(modifierGroups) > 1 or baseType ~= default then
-					if baseType == default then
-						modifierGroups[baseModifier] =  { armorTypes[default] }
-					end
-
-					local modifiers = {}
-					for modifier in pairs(modifierGroups) do
-						modifiers[#modifiers+1] = modifier
-					end
-					table.sort(modifiers, sortModifiers)
-	
-					local modifierTexts = {}
-					for index = 1, #modifiers do
-						local modifier = modifiers[index]
-						local armorText = table.concat(modifierGroups[modifier], ", ")
-						if type(modifier) == "number" then
-							modifier = modifier.."%"
-						end
-						modifierTexts[#modifierTexts+1] = armorText.." = "..yellow..modifier
-					end
-
-					weaponDisplayData.modifiers = table.concat(modifierTexts, white.."; ")
-				end
-			end
-		end
-	end
-end
+local weaponDefDisplayData
 
 ------------------------------------------------------------------------------------
 -- Functions
@@ -438,6 +300,7 @@ end
 
 function widget:LanguageChanged()
 	texts = Spring.I18N('ui.unitstats')
+
 	unitAbilitiesMap = {
 		"canBuild",
 		"canAssist",
@@ -470,6 +333,144 @@ function widget:LanguageChanged()
 		if not unitAbilitiesMap[name] then
 			Spring.Log(widget:GetInfo().name, LOG.ERROR, "Did not find a translation for ability name = "..name)
 			table.remove(unitAbilitiesMap, index)
+		end
+	end
+
+	weaponDefDisplayData = {}
+
+	local trivial = 1
+	local infinite = 9e8
+	local default = armorTypes.default
+	local baseTypes = {
+		[armorTypes.default] = true, -- these keys can nil tbh
+		[armorTypes.mines]   = true,
+		[armorTypes.vtol]    = true,
+	}
+	local ignoredTypes = {
+		[armorTypes.shields]        = true,
+		[armorTypes.indestructable] = true, -- misspelled op
+	}
+
+	local function sortModifiers(a, b)
+		if a == 100 then
+			return true
+		elseif b == 100 then
+			return false
+		end
+		if a == texts.infinite then
+			a = 100
+		end
+		if b == texts.infinite then
+			b = 100
+		end
+		return a > b
+	end
+
+	for weaponDefID, weaponDef in pairs(WeaponDefs) do
+		if weaponDef.type ~= "Shield" and weaponDef.damages and not weaponDef.customParams.bogus then
+			local damages = table.copy(weaponDef.damages)
+
+			-- Aggregate any extra damage sources together.
+			local custom = weaponDef.customParams
+			if custom.spark_basedamage then
+				local sparkDamage = custom.spark_basedamage * custom.spark_forkdamage * custom.spark_maxunits
+				for armorType = 0, #armorTypes do
+					damages[armorType] = damages[armorType] + sparkDamage
+				end
+			end
+			if custom.def then
+				if custom.speceffect == "split" and WeaponDefNames[custom.def] then
+					local splitCount = custom.number or 1
+					local splitDamages = WeaponDefNames[custom.def].damages
+					for armorType = 0, #armorTypes do
+						damages[armorType] = damages[armorType] + splitDamages[armorType] * splitCount
+					end
+				elseif custom.cluster and WeaponDefNames[custom.def] then
+					local clusterCount = math.sqrt(max(0, custom.number or 5)) -- they do not all hit, misleading to show all in stats
+					local clusterDamages = WeaponDefNames[custom.def].damages
+					for armorType = 0, #armorTypes do
+						damages[armorType] = damages[armorType] + clusterDamages[armorType] * clusterCount
+					end
+				end
+			end
+
+			local baseType = default
+			local baseDamage = damages[baseType]
+			for armorType in pairs(baseTypes) do
+				if armorType and damages[baseType] < damages[armorType] then
+					baseType = armorType
+					baseDamage = damages[armorType]
+				end
+			end
+
+			local weaponDisplayData = {
+				defaultBurst  = 0,
+				defaultDPS    = 0,
+				defaultReload = 1,
+				useExperience = false,
+			}
+			weaponDefDisplayData[weaponDefID] = weaponDisplayData
+
+			if baseDamage > trivial then
+				weaponDisplayData.useExperience = true
+
+				local salvoSize = weaponDef.salvoSize * weaponDef.projectiles
+				local salvoTime = max(1e-9, (weaponDef.stockpile and weaponDef.stockpileTime / simSpeed) or weaponDef.reload)
+
+				weaponDisplayData.defaultBurst = baseDamage * salvoSize
+				weaponDisplayData.defaultDPS = baseDamage * salvoSize / salvoTime
+				weaponDisplayData.defaultReload = salvoTime
+
+				local baseModifier = 100
+				if baseDamage >= infinite then
+					baseModifier = texts.infinite
+				end
+
+				local modifierGroups = {}
+				for armorType = 0, #armorTypes do
+					if not ignoredTypes[armorType] then
+						local damage = damages[armorType]
+						local modifier
+						if damage <= trivial then
+							modifier = 0
+						elseif damage >= infinite then
+							modifier = texts.infinite
+						else
+							modifier = math.round(damage / baseDamage * 100)
+						end
+						local group = modifierGroups[modifier]
+						if not group then
+							group = {}
+							modifierGroups[modifier] = group
+						end
+						group[#group+1] = armorTypes[armorType]
+					end
+				end
+
+				if table.count(modifierGroups) > 1 or baseType ~= default then
+					if baseType == default then
+						modifierGroups[baseModifier] =  { armorTypes[default] }
+					end
+
+					local modifiers = {}
+					for modifier in pairs(modifierGroups) do
+						modifiers[#modifiers+1] = modifier
+					end
+					table.sort(modifiers, sortModifiers)
+
+					local modifierTexts = {}
+					for index = 1, #modifiers do
+						local modifier = modifiers[index]
+						local armorText = table.concat(modifierGroups[modifier], ", ")
+						if type(modifier) == "number" then
+							modifier = modifier.."%"
+						end
+						modifierTexts[#modifierTexts+1] = armorText.." = "..yellow..modifier
+					end
+
+					weaponDisplayData.modifiers = table.concat(modifierTexts, white.."; ")
+				end
+			end
 		end
 	end
 end
