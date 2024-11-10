@@ -648,8 +648,8 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	end
 
 	if paralyzeMult < 1 then
-		local resist = (paralyzeMult == 0 and texts.immune) or floor(100 - (paralyzeMult * 100)).."%"
-		DrawText(texts.emp..':', blue..resist..white..texts.resist)
+		local resist = (paralyzeMult == 0 and texts.immune) or (floor(100 - (paralyzeMult * 100)).."%"..white.." "..texts.resist)
+		DrawText(texts.emp..':', blue..resist)
 	end
 
 	if maxHP then
