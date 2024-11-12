@@ -95,6 +95,7 @@ local spGetUnitDefID = Spring.GetUnitDefID
 local spGetUnitExperience = Spring.GetUnitExperience
 local spGetUnitHealth = Spring.GetUnitHealth
 local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
+local spGetUnitMoveTypeData = Spring.GetUnitMoveTypeData
 local spGetUnitSensorRadius = Spring.GetUnitSensorRadius
 local spGetUnitTeam = Spring.GetUnitTeam
 local spGetUnitWeaponState = Spring.GetUnitWeaponState
@@ -241,7 +242,7 @@ local function unitStatsTitleClosure()
 	RectRound(titleRectX1Old, titleRectY1Old, titleRectX2Old, titleRectY2Old, elementCorner, 1,1,1,0)
 end
 
-local function drawStats(unitDefID, unitID, mx, my, hovering)
+local function drawStats(unitDef, unitID, mx, my, hovering)
 	if not WG['guishader'] then
 		return
 	end
@@ -258,7 +259,6 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	cY = cY - 2 * titleFontSize - (bgpadding/2)
 
 	local myTeamID = spGetMyTeamID()
-	local unitDef = UnitDefs[unitDefID]
 
 	local isBeingBuilt, buildProgress, unitExperience, unitTeamID
 	local maxHP, losRadius, airLosRadius, radarRadius, sonarRadius, jammingRadius, sonarJammingRadius, seismicRadius, armoredMultiple
@@ -307,8 +307,8 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 		local mEta = (mRem - mCur) / (mInc + mRec)
 		local eEta = (eRem - eCur) / (eInc + eRec)
 
-		DrawText(prefixes.prog, format("%d%%", 100 * buildProgress))
-		DrawText(prefixes.metal, format(formats.prog, mTotal * buildProgress, mTotal, mRem, mEta))
+		DrawText(prefixes.prog,   format("%d%%", 100 * buildProgress))
+		DrawText(prefixes.metal,  format(formats.prog, mTotal * buildProgress, mTotal, mRem, mEta))
 		DrawText(prefixes.energy, format(formats.prog, eTotal * buildProgress, eTotal, eRem, eEta))
 
 		cY = cY - fontSize
@@ -321,7 +321,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	DrawText(prefixes.cost, format(formats.cost, unitDef.metalCost, unitDef.energyCost, unitDef.buildTime))
 
 	if not (unitDef.isBuilding or unitDef.isFactory) then
-		local moveData = unitID and Spring.GetUnitMoveTypeData(unitID) or unitDef
+		local moveData = unitID and spGetUnitMoveTypeData(unitID) or unitDef
 		local speed = moveData.maxSpeed or unitDef.speed
 		local accel = (moveData.accRate or unitDef.maxAcc or 0) * (simSpeed * simSpeed)
 		local turn = (moveData.baseTurnRate or unitDef.turnRate or 0) * (simSpeed * (180 / 32767))
@@ -344,7 +344,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	if sonarRadius        > 0 then DrawText(prefixes.sonar,    blue..sonarRadius) end
 	if jammingRadius      > 0 then DrawText(prefixes.jammer,   '\255\255\77\77'..jammingRadius) end
 	if sonarJammingRadius > 0 then DrawText(prefixes.sonarjam, '\255\255\77\77'..sonarJammingRadius) end
-	if seismicRadius      > 0 then DrawText(prefixes.seis ,    '\255\255\26\255'..seismicRadius) end
+	if seismicRadius      > 0 then DrawText(prefixes.seis,     '\255\255\26\255'..seismicRadius) end
 
 	if unitDef.stealth then DrawText(prefixes.other1, texts.stealth) end
 
@@ -550,7 +550,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 
 				local modifiers = weaponData.modifiers
 				if modifiers then
-					DrawText(prefixes.modifiers, modifiers..'.')
+					DrawText(prefixes.modifiers, modifiers)
 				end
 			end
 
@@ -565,7 +565,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 					format(
 						formats.persecond,
 						weaponDef.metalCost, weaponDef.energyCost, drainAdjust * weaponDef.metalCost / reload, drainAdjust * weaponDef.energyCost / reload
-					)
+					)..(weaponCount > 1 and ' ('..texts.each..')' or '')
 				)
 			end
 
@@ -973,7 +973,7 @@ function widget:LanguageChanged()
 						modifierTexts[#modifierTexts+1] = armorText.." = "..yellow..modifier
 					end
 
-					weaponDisplayData.modifiers = table.concat(modifierTexts, white.."; ")
+					weaponDisplayData.modifiers = table.concat(modifierTexts, white.."; ")..'.'
 				end
 			end
 		end
@@ -1045,11 +1045,11 @@ function widget:DrawScreen()
 		return
 	end
 
-	local unitDefID, unitID, mx, my, hovering
+	local unitDef, unitID, mx, my, hovering
 	local targetDefID = (select(2, spGetActiveCommand()) or 0) * -1
 	local targetDef = targetDefID and targetDefID > 0 and UnitDefs[targetDefID]
 	if targetDef then
-		unitDefID = targetDefID
+		unitDef = targetDef
 	else
 		unitDefID = WG['buildmenu'] and WG['buildmenu'].hoverID
 		if unitDefID then
@@ -1074,16 +1074,16 @@ function widget:DrawScreen()
 				end
 			end
 		end
+		if not unitDefID then
+			RemoveGuishader()
+			return
+		end
+		unitDef = UnitDefs[unitDefID]
 	end
-	if not unitDefID then
-		RemoveGuishader()
-		return
-	end
-
 	if not mx then
 		mx, my = spGetMouseState()
 	end
 
-	drawStats(unitDefID, unitID, mx, my, hovering)
+	drawStats(unitDef, unitID, mx, my, hovering)
 	DrawTextBuffer()
 end
