@@ -1859,6 +1859,7 @@ end
 
 
 local doUpdateClock2 = os_clock() + 0.9
+
 function widget:DrawScreen()
 	local x, y, b, b2, b3, mouseOffScreen, cameraPanMode = spGetMouseState()
 
@@ -1875,6 +1876,7 @@ function widget:DrawScreen()
 			drawInfo()
 		end)
 	end
+
 	if alwaysShow or not emptyInfo or isPregame then
 		gl.CallList(dlistInfo)
 	elseif dlistGuishader then
@@ -1932,17 +1934,17 @@ function widget:DrawScreen()
 			end
 
 			if WG['tooltip'] then
-				local statsIndent = '  '
-				local stats = ''
+				-- local statsIndent = '  ' -- ? none of these were doing anything
+				-- local stats = ''
 				local cells = cellHovered and { [cellHovered] = selectionCells[cellHovered] } or selectionCells
 				-- description
 				if cellHovered then
 					local text, numLines = font:WrapText(unitDefInfo[selectionCells[cellHovered]].description, (backgroundRect[3] - backgroundRect[1]) * (loadedFontSize / 16))
-					stats = stats .. statsIndent .. tooltipTextColor .. text .. '\n\n'
+					-- stats = stats .. statsIndent .. tooltipTextColor .. text .. '\n\n'
 				end
 				local text
 				local textTitle
-				stats = ''--getSelectionTotals(cells)
+				-- stats = ''--getSelectionTotals(cells)
 				if cellHovered then
 					textTitle = unitDefInfo[selectionCells[cellHovered]].translatedHumanName .. tooltipLabelTextColor .. (selUnitsCounts[selectionCells[cellHovered]] > 1 and ' x ' .. tooltipTextColor .. selUnitsCounts[selectionCells[cellHovered]] or '')
 				else
@@ -1952,53 +1954,55 @@ function widget:DrawScreen()
 
 				WG['tooltip'].ShowTooltip('info', text, nil, nil, textTitle)
 			end
-		end
 
-		-- transport load list
-		if displayMode == 'unit' and unitDefInfo[displayUnitDefID].transport and cellRect then
-			local units = Spring.GetUnitIsTransporting(displayUnitID)
-			if #units > 0 then
-				local cellHovered
-				for cellID, unitID in pairs(units) do
-					local unitDefID = spGetUnitDefID(unitID)
-
-					if cellRect[cellID] and math_isInRect(x, y, cellRect[cellID][1], cellRect[cellID][2], cellRect[cellID][3], cellRect[cellID][4]) then
-
-						local cellZoom = hoverCellZoom
-						local color = { 1, 1, 1 }
-						if b then
-							cellZoom = clickCellZoom
-							color = { 1, 0.85, 0.1 }
-						end
-						cellZoom = cellZoom + math_min(0.33 * cellZoom * ((gridHeight / cellsize) - 2), 0.15) -- add extra zoom when small icons
-
-						-- highlight
-						glBlending(GL_SRC_ALPHA, GL_ONE)
-						if b then
-							RectRound(cellRect[cellID][1] + cellPadding, cellRect[cellID][2] + cellPadding, cellRect[cellID][3], cellRect[cellID][4], cellPadding * 0.9, 1, 1, 1, 1, { color[1], color[2], color[3], 0.3 }, { color[1], color[2], color[3], 0.3 })
-						else
-							RectRound(cellRect[cellID][1] + cellPadding, cellRect[cellID][2] + cellPadding, cellRect[cellID][3], cellRect[cellID][4], cellPadding * 0.9, 1, 1, 1, 1, { 1,1,1, 0.08}, { 1,1,1, 0.08})
-						end
-						-- light border
-						local halfSize = (((cellRect[cellID][3] - cellPadding)) - (cellRect[cellID][1])) * 0.5
-						glBlending(GL_SRC_ALPHA, GL_ONE)
-						RectRoundCircle(
-							cellRect[cellID][1] + cellPadding + halfSize,
-							0,
-							cellRect[cellID][2] + cellPadding + halfSize,
-							halfSize, cornerSize, halfSize - math_max(1, cellPadding), { 1,1,1, 0.07}, { 1,1,1, 0.07}
-						)
-						glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-
-						cellHovered = cellID
-						break
-					end
-				end
-			end
 		elseif displayMode == 'unit' then
 
-			if WG['unitstats'] and WG['unitstats'].showUnit then
-				WG['unitstats'].showUnit(displayUnitID)
+			-- transport load list
+			if unitDefInfo[displayUnitDefID].transport and cellRect then
+				local units = Spring.GetUnitIsTransporting(displayUnitID)
+				if #units > 0 then
+					local cellHovered
+					for cellID, unitID in pairs(units) do
+						local unitDefID = spGetUnitDefID(unitID)
+
+						if cellRect[cellID] and math_isInRect(x, y, cellRect[cellID][1], cellRect[cellID][2], cellRect[cellID][3], cellRect[cellID][4]) then
+
+							local cellZoom = hoverCellZoom
+							local color = { 1, 1, 1 }
+							if b then
+								cellZoom = clickCellZoom
+								color = { 1, 0.85, 0.1 }
+							end
+							cellZoom = cellZoom + math_min(0.33 * cellZoom * ((gridHeight / cellsize) - 2), 0.15) -- add extra zoom when small icons
+
+							-- highlight
+							glBlending(GL_SRC_ALPHA, GL_ONE)
+							if b then
+								RectRound(cellRect[cellID][1] + cellPadding, cellRect[cellID][2] + cellPadding, cellRect[cellID][3], cellRect[cellID][4], cellPadding * 0.9, 1, 1, 1, 1, { color[1], color[2], color[3], 0.3 }, { color[1], color[2], color[3], 0.3 })
+							else
+								RectRound(cellRect[cellID][1] + cellPadding, cellRect[cellID][2] + cellPadding, cellRect[cellID][3], cellRect[cellID][4], cellPadding * 0.9, 1, 1, 1, 1, { 1,1,1, 0.08}, { 1,1,1, 0.08})
+							end
+							-- light border
+							local halfSize = (((cellRect[cellID][3] - cellPadding)) - (cellRect[cellID][1])) * 0.5
+							glBlending(GL_SRC_ALPHA, GL_ONE)
+							RectRoundCircle(
+								cellRect[cellID][1] + cellPadding + halfSize,
+								0,
+								cellRect[cellID][2] + cellPadding + halfSize,
+								halfSize, cornerSize, halfSize - math_max(1, cellPadding), { 1,1,1, 0.07}, { 1,1,1, 0.07}
+							)
+							glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+							cellHovered = cellID
+							break
+						end
+					end
+				end
+			else
+				-- Pop-over unit status
+				if WG['unitstats'] and WG['unitstats'].showUnit then
+					WG['unitstats'].showUnit(displayUnitID)
+				end
 			end
 		end
 	end
@@ -2052,7 +2056,7 @@ function checkChanges()
 		end
 
 		-- hovered unit
-	elseif not cameraPanMode and not b and not math_isInRect(x, y, backgroundRect[1], backgroundRect[2], backgroundRect[3], backgroundRect[4]) and hoverType and hoverType == 'unit' then-- and os_clock() - lastHoverDataClock > 0.07 then		-- add small hover delay against eplilepsy
+	elseif not cameraPanMode and not b and not math_isInRect(x, y, backgroundRect[1], backgroundRect[2], backgroundRect[3], backgroundRect[4]) and hoverType == 'unit' then
 		displayMode = 'unit'
 		displayUnitID = hoverData
 		displayUnitDefID = spGetUnitDefID(displayUnitID)
@@ -2062,7 +2066,7 @@ function checkChanges()
 		end
 
 		-- hovered feature
-	elseif not cameraPanMode and not math_isInRect(x, y, backgroundRect[1], backgroundRect[2], backgroundRect[3], backgroundRect[4]) and hoverType and hoverType == 'feature' then-- and os_clock() - lastHoverDataClock > 0.07 then		-- add small hover delay against eplilepsy
+	elseif not cameraPanMode and not math_isInRect(x, y, backgroundRect[1], backgroundRect[2], backgroundRect[3], backgroundRect[4]) and hoverType == 'feature' then
 		displayMode = 'feature'
 		local featureID = hoverData
 		local featureDefID = spGetFeatureDefID(featureID)

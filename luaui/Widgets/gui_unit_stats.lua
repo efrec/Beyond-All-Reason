@@ -82,22 +82,26 @@ local char = string.char
 local glColor = gl.Color
 
 local spGetActiveCommand = Spring.GetActiveCommand
-local spGetMyTeamID = Spring.GetMyTeamID
-local spGetTeamResources = Spring.GetTeamResources
-local spGetTeamInfo = Spring.GetTeamInfo
-local spGetPlayerInfo = Spring.GetPlayerInfo
-local spGetTeamColor = Spring.GetTeamColor
-local spIsUserWriting = Spring.IsUserWriting
 local spGetModKeyState = Spring.GetModKeyState
 local spGetMouseState = Spring.GetMouseState
+local spGetMyTeamID = Spring.GetMyTeamID
+local spGetPlayerInfo = Spring.GetPlayerInfo
+local spGetTeamColor = Spring.GetTeamColor
+local spGetTeamInfo = Spring.GetTeamInfo
+local spGetTeamResources = Spring.GetTeamResources
+
+local spGetUnitArmored = Spring.GetUnitArmored
+local spGetUnitDefID = Spring.GetUnitDefID
+local spGetUnitExperience = Spring.GetUnitExperience
+local spGetUnitHealth = Spring.GetUnitHealth
+local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
+local spGetUnitSensorRadius = Spring.GetUnitSensorRadius
+local spGetUnitTeam = Spring.GetUnitTeam
+local spGetUnitWeaponState = Spring.GetUnitWeaponState
+
+local spIsUserWriting = Spring.IsUserWriting
 local spTraceScreenRay = Spring.TraceScreenRay
 local spValidUnitID = Spring.ValidUnitID
-
-local spGetUnitDefID = Spring.GetUnitDefID
-local spGetUnitTeam = Spring.GetUnitTeam
-local spGetUnitExperience = Spring.GetUnitExperience
-local spGetUnitSensorRadius = Spring.GetUnitSensorRadius
-local spGetUnitWeaponState = Spring.GetUnitWeaponState
 
 local armorTypes = Game.armorTypes
 local gameName = Game.gameName
@@ -220,12 +224,12 @@ local function GetTeamName(teamID)
 	return leaderName or 'Error:NoName'
 end
 
-local guishaderEnabled = false	-- not a config var
+local guishaderIsActive = false
 function RemoveGuishader()
-	if guishaderEnabled and WG['guishader'] then
+	if guishaderIsActive and WG['guishader'] then
 		WG['guishader'].DeleteScreenDlist('unit_stats_title')
 		WG['guishader'].DeleteScreenDlist('unit_stats_data')
-		guishaderEnabled = false
+		guishaderIsActive = false
 	end
 end
 
@@ -235,6 +239,444 @@ end
 
 local function unitStatsTitleClosure()
 	RectRound(titleRectX1Old, titleRectY1Old, titleRectX2Old, titleRectY2Old, elementCorner, 1,1,1,0)
+end
+
+local function drawStats(unitDefID, unitID, mx, my, hovering)
+	if not WG['guishader'] then
+		return
+	end
+
+	textBuffer = {}
+	maxWidth = 0
+
+	cX = mx + xOffset
+	cY = my + yOffset
+	cYstart = cY
+
+	local titleFontSize = fontSize*1.07
+	local cornersize = ceil(bgpadding*0.2)
+	cY = cY - 2 * titleFontSize - (bgpadding/2)
+
+	local myTeamID = spGetMyTeamID()
+	local unitDef = UnitDefs[unitDefID]
+
+	local isBeingBuilt, buildProgress, unitExperience, unitTeamID
+	local maxHP, losRadius, airLosRadius, radarRadius, sonarRadius, jammingRadius, sonarJammingRadius, seismicRadius, armoredMultiple
+	if unitID then
+		isBeingBuilt, buildProgress = spGetUnitIsBeingBuilt(unitID)
+		unitExperience = spGetUnitExperience(unitID)
+		unitTeamID = spGetUnitTeam(unitID)
+		maxHP              = select(2, spGetUnitHealth(unitID))
+		armoredMultiple    = select(2, spGetUnitArmored(unitID))
+		losRadius          = spGetUnitSensorRadius(unitID, "los") or 0
+		airLosRadius       = spGetUnitSensorRadius(unitID, "airLos") or 0
+		radarRadius        = spGetUnitSensorRadius(unitID, "radar") or 0
+		sonarRadius        = spGetUnitSensorRadius(unitID, "sonar") or 0
+		jammingRadius      = spGetUnitSensorRadius(unitID, "radarJammer") or 0
+		sonarJammingRadius = spGetUnitSensorRadius(unitID, "sonarJammer") or 0
+		seismicRadius      = spGetUnitSensorRadius(unitID, "seismic") or 0
+	else
+		maxHP              = unitDef.health
+		losRadius          = unitDef.sightDistance
+		airLosRadius       = unitDef.airSightDistance
+		radarRadius        = unitDef.radarDistance
+		sonarRadius        = unitDef.sonarDistance
+		jammingRadius      = unitDef.radarDistanceJam
+		sonarJammingRadius = unitDef.sonarDistanceJam
+		seismicRadius      = unitDef.seismicDistance
+		armoredMultiple    = unitDef.armoredMultiple
+	end
+	local mass          = unitDef.mass and unitDef.mass or 0
+	local paralyzeMult  = tonumber(unitDef.customParams.paralyzemultiplier or 1)
+	local size          = unitDef.xsize and unitDef.xsize / 2 or 0
+	local transportable = not unitDef.cantBeTransported
+
+	------------------------------------------------------------------------------------
+	-- Units under construction
+	------------------------------------------------------------------------------------
+
+	if isBeingBuilt then
+		local mCur, mStor, mPull, mInc, mExp, mShare, mSent, mRec = spGetTeamResources(myTeamID, 'metal')
+		local eCur, eStor, ePull, eInc, eExp, eShare, eSent, eRec = spGetTeamResources(myTeamID, 'energy')
+
+		local mTotal = unitDef.metalCost
+		local eTotal = unitDef.energyCost
+		local buildRem = 1 - buildProgress
+		local mRem = mTotal * buildRem
+		local eRem = eTotal * buildRem
+		local mEta = (mRem - mCur) / (mInc + mRec)
+		local eEta = (eRem - eCur) / (eInc + eRec)
+
+		DrawText(prefixes.prog, format("%d%%", 100 * buildProgress))
+		DrawText(prefixes.metal, format(formats.prog, mTotal * buildProgress, mTotal, mRem, mEta))
+		DrawText(prefixes.energy, format(formats.prog, eTotal * buildProgress, eTotal, eRem, eEta))
+
+		cY = cY - fontSize
+	end
+
+	------------------------------------------------------------------------------------
+	-- Generic information, cost, move, class
+	------------------------------------------------------------------------------------
+
+	DrawText(prefixes.cost, format(formats.cost, unitDef.metalCost, unitDef.energyCost, unitDef.buildTime))
+
+	if not (unitDef.isBuilding or unitDef.isFactory) then
+		local moveData = unitID and Spring.GetUnitMoveTypeData(unitID) or unitDef
+		local speed = moveData.maxSpeed or unitDef.speed
+		local accel = (moveData.accRate or unitDef.maxAcc or 0) * (simSpeed * simSpeed)
+		local turn = (moveData.baseTurnRate or unitDef.turnRate or 0) * (simSpeed * (180 / 32767))
+		DrawText(prefixes.move, format(formats.move, speed, accel, turn))
+	end
+
+	if unitDef.buildSpeed > 0 then
+		DrawText(prefixes.build, yellow..unitDef.buildSpeed)
+	end
+
+	cY = cY - fontSize
+
+	------------------------------------------------------------------------------------
+	-- Sensors and Jamming
+	------------------------------------------------------------------------------------
+
+	DrawText(prefixes.los, losRadius..(airLosRadius > losRadius and format(formats.airLos, airLosRadius) or ''))
+
+	if radarRadius        > 0 then DrawText(prefixes.radar,    '\255\77\255\77'..radarRadius) end
+	if sonarRadius        > 0 then DrawText(prefixes.sonar,    blue..sonarRadius) end
+	if jammingRadius      > 0 then DrawText(prefixes.jammer,   '\255\255\77\77'..jammingRadius) end
+	if sonarJammingRadius > 0 then DrawText(prefixes.sonarjam, '\255\255\77\77'..sonarJammingRadius) end
+	if seismicRadius      > 0 then DrawText(prefixes.seis ,    '\255\255\26\255'..seismicRadius) end
+
+	if unitDef.stealth then DrawText(prefixes.other1, texts.stealth) end
+
+	cY = cY - fontSize
+
+	------------------------------------------------------------------------------------
+	-- Armor
+	------------------------------------------------------------------------------------
+
+	DrawText(prefixes.armor, texts.class.." "..(unitDef.armorType and armorTypes[unitDef.armorType] or '???'))
+
+	if unitID and unitExperience ~= 0 and maxHP then
+		DrawText(prefixes.exp, format(formats.health, (maxHP/unitDef.health-1)*100))
+	end
+
+	if paralyzeMult < 1 then
+		local resist = (paralyzeMult == 0 and texts.immune) or (floor(100-(paralyzeMult*100))..formats.resist)
+		DrawText(prefixes.emp, blue..resist)
+	end
+
+	if maxHP then
+		if armoredMultiple and armoredMultiple ~= 1 then
+			DrawText(prefixes.open, format(formats.maxhp, maxHP))
+			DrawText(prefixes.closed, format(formats.closed, (1/armoredMultiple-1)*100, maxHP/armoredMultiple))
+		else
+			DrawText(prefixes.maxhp, format(formats.maxhp, maxHP))
+		end
+	end
+
+	cY = cY - fontSize
+
+	------------------------------------------------------------------------------------
+	-- Transportable
+	------------------------------------------------------------------------------------
+
+	if transportable and mass > 0 and size > 0 then
+		if mass < 751 and size < 4 then -- 3 is t1 transport max size
+			DrawText(prefixes.transportable, formats.transportable_light)
+			cY = cY - fontSize
+		elseif mass < 100000 and size < 5 then
+			DrawText(prefixes.transportable, formats.transportable_heavy)
+			cY = cY - fontSize
+		end
+	end
+
+	------------------------------------------------------------------------------------
+	-- Special Abilities
+	------------------------------------------------------------------------------------
+
+	local abilities = {}
+	local unitAbilitiesMap = unitAbilitiesMap
+	for index, propertyName in ipairs(unitAbilitiesMap) do
+		if unitDef[propertyName] then
+			abilities[#abilities+1] = unitAbilitiesMap[propertyName]
+		end
+	end
+	if #abilities > 0 then
+		local abilityText = table.concat(abilities, ", ")
+		DrawText(prefixes.abilities, abilityText)
+		cY = cY - fontSize
+	end
+
+	------------------------------------------------------------------------------------
+	-- Weapons
+	------------------------------------------------------------------------------------
+
+	local weaponCounts = {}
+	local weaponNumbers = {}
+	local weaponsUnique = {}
+	for i = 1, #unitDef.weapons do
+		local wDefID = unitDef.weapons[i].weaponDef
+		if weaponDefDisplayData[wDefID] then
+			local wCount = weaponCounts[wDefID]
+			if wCount then
+				weaponCounts[wDefID] = wCount + 1
+			else
+				local index = #weaponsUnique + 1
+				weaponCounts[wDefID] = 1
+				weaponNumbers[index] = i
+				weaponsUnique[index] = wDefID
+			end
+		end
+	end
+
+	local selfDWeaponID = WeaponDefNames[unitDef.selfDExplosion].id
+	local deathWeaponID = WeaponDefNames[unitDef.deathExplosion].id
+	local selfDWeaponIndex, deathWeaponIndex, isExplosiveUnit
+	if select(4, spGetModKeyState()) then
+		weaponCounts[selfDWeaponID] = 1
+		weaponCounts[deathWeaponID] = 1
+		deathWeaponIndex = #weaponsUnique+1
+		weaponsUnique[deathWeaponIndex] = deathWeaponID
+		selfDWeaponIndex = #weaponsUnique+1
+		weaponsUnique[selfDWeaponIndex] = selfDWeaponID
+		isExplosiveUnit = unitDef.customParams.unitgroup == "explo"
+	end
+
+	local totalDPS = 0
+	local totalBurst = 0
+	for i = 1, #weaponsUnique do
+		local weaponDefID = weaponsUnique[i]
+		local weaponDef = WeaponDefs[weaponDefID]
+		local weaponCount = weaponCounts[weaponDefID]
+		local weaponName = weaponDef.description or weaponDef.name
+
+		local range = weaponDef.range
+
+		if range > 0 then
+			local isDisintegrator = weaponDef.type == "DGun" and string.find(weaponDef.name, "disintegrator")
+			local isDeathExplosion = i == deathWeaponIndex
+			local isSelfDExplosion = i == selfDWeaponIndex
+
+			if weaponCount > 1 then
+				DrawText(prefixes.weap, format(formats.weap, weaponCount, weaponName))
+			else
+				local displayName = weaponName
+				if isDeathExplosion then
+					displayName = texts.selfdestruct
+				elseif isSelfDExplosion then
+					displayName = texts.deathexplosion
+				end
+				DrawText(prefixes.weap, displayName)
+			end
+
+			local burst = weaponDef.salvoSize * weaponDef.projectiles
+			local accuracy = weaponDef.accuracy
+			local moveError = weaponDef.targetMoveError
+
+			local weaponData = weaponDefDisplayData[weaponDefID]
+			local reload = weaponData.defaultReload
+			local experience = (not isDeathExplosion and not isSelfDExplosion) and unitExperience or 0
+
+			if isDeathExplosion then
+				weaponName = texts.deathexplosion
+				reload = 1
+			elseif isSelfDExplosion then
+				weaponName = texts.selfdestruct
+				reload = 1
+			end
+
+			if experience > 0 then
+				local weaponNumber = weaponNumbers[i]
+				local reloadState = spGetUnitWeaponState(unitID, weaponNumber, "reloadTimeXP") or
+				                    spGetUnitWeaponState(unitID, weaponNumber, "reloadTime")
+
+				local accuracyBonus  = accuracy ~= 0   and (spGetUnitWeaponState(unitID, weaponNumber, "accuracy") / accuracy - 1)          or 0
+				local moveErrorBonus = moveError ~= 0  and (spGetUnitWeaponState(unitID, weaponNumber, "targetMoveError") / moveError - 1)  or 0
+				local rangeBonus     = range ~= 0      and (spGetUnitWeaponState(unitID, weaponNumber, "range") / range - 1)                or 0
+				local reloadBonus    = reload ~= 0     and (reloadState / reload - 1)                                                       or 0
+				DrawText(prefixes.exp, format(formats.exp, accuracyBonus*100, moveErrorBonus*100, reloadBonus*100, rangeBonus*100))
+
+				range = reload * (1 + rangeBonus)
+				reload = reload * (1 + reloadBonus)
+				accuracy = accuracy * (1 + accuracyBonus)
+				moveError = moveError * (1 + moveErrorBonus)
+			end
+
+			local info
+			if isDisintegrator then
+				info = format("%.2f", reload).."s "..texts.reload..", "..format("%d "..texts.range, range)
+			else
+				if isDeathExplosion or isSelfDExplosion then
+					info = format(formats.deathexplosion, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
+				else
+					info = format(formats.weapons, reload, range, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
+				end
+
+				if weaponDef.damages.paralyzeDamageTime > 0 then
+					info = format(formats.paralyzeDamageTime, info, weaponDef.damages.paralyzeDamageTime)
+				end
+				if weaponDef.damages.impulseFactor > 0.123 then
+					info = format(formats.impulseFactor, info, weaponDef.damages.impulseFactor*100)
+				end
+				if weaponDef.damages.craterBoost > 0 then
+					info = format(formats.craterBoost, info, weaponDef.damages.craterBoost*100)
+				end
+			end
+			DrawText(prefixes.info, info)
+
+			if isDisintegrator then
+				DrawText(texts.dmg..": ", texts.infinite)
+			else
+				local damage
+				if isDeathExplosion or isSelfDExplosion then
+					local damageBurst = weaponData.defaultBurst
+					if isExplosiveUnit then
+						totalBurst = totalBurst + damageBurst
+					end
+					damage = format(formats.burst, damageBurst)
+				else
+					local damageBurst = weaponData.defaultBurst * weaponCount
+					local damageRate
+					if experience == 0 then
+						damageRate = weaponData.defaultDPS * weaponCount
+					else
+						damageRate = damageBurst / reload
+					end
+					totalDPS = totalDPS + damageRate
+					totalBurst = totalBurst + damageBurst
+					damage = format(formats.dps, damageRate, damageBurst)
+				end
+				DrawText(prefixes.dmg, damage)
+
+				local modifiers = weaponData.modifiers
+				if modifiers then
+					DrawText(prefixes.modifiers, modifiers..'.')
+				end
+			end
+
+			if weaponDef.metalCost > 0 or weaponDef.energyCost > 0 then
+				-- Stockpiling weapons are weird
+				-- They take the correct amount of resources overall
+				-- They take the correct amount of time
+				-- They drain ((simSpeed+2)/simSpeed) times more resources than they should (And the listed drain is real, having lower income than listed drain WILL stall you)
+				local drainAdjust = weaponDef.stockpile and (simSpeed+2)/simSpeed or 1
+
+				DrawText(prefixes.cost,
+					format(
+						formats.persecond,
+						weaponDef.metalCost, weaponDef.energyCost, drainAdjust * weaponDef.metalCost / reload, drainAdjust * weaponDef.energyCost / reload
+					)
+				)
+			end
+
+			cY = cY - fontSize
+		end
+	end
+
+	local damageTotals
+	if totalDPS > 0 then
+		damageTotals = format(formats.dps, totalDPS, totalBurst)
+	elseif totalBurst > 0 then
+		damageTotals = format(formats.burst, totalBurst)
+	end
+	if damageTotals then
+		DrawText(prefixes.totaldmg, damageTotals)
+		cY = cY - fontSize
+	end
+
+	-- background
+	if hovering then
+		glColor(0.11,0.11,0.11,0.9)
+	else
+		glColor(0,0,0,0.66)
+	end
+
+	-- correct position when it goes below screen
+	if cY < 0 then
+		cYstart = cYstart - cY
+		local correction = cY / -2
+		cY = 0
+		for i = 1, #textBuffer do
+			local buffer = textBuffer[i]
+			buffer[4] = buffer[4] + correction
+			buffer[4] = buffer[4] + correction
+		end
+	end
+
+	-- correct position when it goes off screen
+	if cX + maxWidth + bgpadding * 2 > vsx then
+		local cXnew = vsx - maxWidth - bgpadding * 2
+		local correction = (cX - cXnew) / -2
+		for i = 1, #textBuffer do
+			local buffer = textBuffer[i]
+			buffer[3] = buffer[3] + correction
+			buffer[3] = buffer[3] + correction
+		end
+		cX = cXnew
+	end
+
+	-- title
+	local title = '\255\190\255\190'..UnitDefs[unitDefID].translatedHumanName
+	if unitID then
+		title = title.."   "..grey..unitDef.name.."   #"..unitID.."   "..GetTeamColorCode(unitTeamID or myTeamID)..GetTeamName(unitTeamID or myTeamID)
+	end
+	if damageStats and damageStats[gameName] then
+		local unitDefStats = damageStats[gameName][unitDef.name]
+		if unitDefStats and unitDefStats.killed_cost and unitDefStats.cost then
+			title = title..grey.."   "..unitDefStats.killed_cost / unitDefStats.cost				
+		end
+	end
+	local titleRectX1 = floor(cX-bgpadding)
+	local titleRectX2 = floor(cX+(font:GetTextWidth(title)*titleFontSize)+(titleFontSize*3.5))
+	local titleRectY1 = ceil(cYstart-bgpadding)
+	local titleRectY2 = floor(cYstart+(titleFontSize*1.8)+bgpadding)
+
+	-- stats
+	local statsRectX1 = floor(cX-bgpadding)
+	local statsRectY1 = ceil(cY+(fontSize/3)+(bgpadding*0.3))
+	local statsRectX2 = ceil(cX+maxWidth+bgpadding)
+	local statsRectY2 = floor(cYstart-bgpadding)
+
+	titleRectX1Old = titleRectX1
+	titleRectX2Old = titleRectX2
+	titleRectY1Old = titleRectY1
+	titleRectY2Old = titleRectY2
+	statsRectX1Old = statsRectX1
+	statsRectX2Old = statsRectX2
+	statsRectY1Old = statsRectY1
+	statsRectY2Old = statsRectY2
+
+	-- It's taken until now to draw anything; we're doing too much for a DrawScreen call.
+
+	UiElement(titleRectX1, titleRectY1, titleRectX2, titleRectY2, 1,1,1,0, 1,1,0,1, ui_opacity)
+	WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsTitleClosure), 'unit_stats_title')
+
+	if unitID then
+		local iconPadding = max(1, floor(bgpadding * 0.8))
+		glColor(1,1,1,1)
+		UiUnit(
+			titleRectX1 + bgpadding + iconPadding,
+			titleRectY1 + iconPadding,
+			titleRectX1 + (titleRectY2 - titleRectY1) - iconPadding,
+			titleRectY2 - bgpadding - iconPadding,
+			nil,
+			1, 1, 1, 1, 0.13,
+			nil, nil,
+			'#'..unitDefID
+		)
+	end
+
+	glColor(1,1,1,1)
+	font:Begin()
+	font:Print(title, titleRectX1+((titleRectY2-titleRectY1)*1.3), titleRectY1+titleFontSize*0.7, titleFontSize, "o")
+	font:End()
+
+	UiElement(statsRectX1, statsRectY1, statsRectX2, statsRectY2, 0,1,1,1, 1,1,1,1, ui_opacity)
+	WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsDataClosure), 'unit_stats_data')
+
+	if (not guishaderIsActive) then
+		guishaderIsActive = true
+	end
 end
 
 ------------------------------------------------------------------------------------
@@ -397,15 +839,15 @@ function widget:LanguageChanged()
 
 	local trivial = 1
 	local infinite = 9e8
-	local default = armorTypes.default
+	local default = armorTypes.default or armorTypes.standard or 0 -- armor types can, but shouldn't, be nil
 	local baseTypes = {
-		[armorTypes.default] = true, -- these keys can nil tbh
-		[armorTypes.mines]   = true,
-		[armorTypes.vtol]    = true,
+		[armorTypes.default or -1] = true,
+		[armorTypes.mines or -1]   = true,
+		[armorTypes.vtol or -1]    = true,
 	}
 	local ignoredTypes = {
-		[armorTypes.shields]        = true,
-		[armorTypes.indestructable] = true, -- misspelled op
+		[armorTypes.shields or -1]        = true,
+		[armorTypes.indestructable or -1] = true,
 	}
 
 	local function sortModifiers(a, b)
@@ -415,10 +857,10 @@ function widget:LanguageChanged()
 			return false
 		end
 		if a == texts.infinite then
-			a = 100
+			a = infinite
 		end
 		if b == texts.infinite then
-			b = 100
+			b = infinite
 		end
 		return a > b
 	end
@@ -435,15 +877,15 @@ function widget:LanguageChanged()
 					damages[armorType] = damages[armorType] + sparkDamage
 				end
 			end
-			if custom.def then
+			if custom.def then -- shared customparam
 				if custom.speceffect == "split" and WeaponDefNames[custom.def] then
-					local splitCount = custom.number or 1
+					local splitCount = tonumber(custom.number or 1)
 					local splitDamages = WeaponDefNames[custom.def].damages
 					for armorType = 0, #armorTypes do
 						damages[armorType] = damages[armorType] + splitDamages[armorType] * splitCount
 					end
 				elseif custom.cluster and WeaponDefNames[custom.def] then
-					local clusterCount = math.sqrt(max(0, custom.number or 5)) -- they do not all hit, misleading to show all in stats
+					local clusterCount = math.sqrt(max(0, tonumber(custom.number or 5))) -- they do not all hit, misleading to show all in stats
 					local clusterDamages = WeaponDefNames[custom.def].damages
 					for armorType = 0, #armorTypes do
 						damages[armorType] = damages[armorType] + clusterDamages[armorType] * clusterCount
@@ -461,8 +903,8 @@ function widget:LanguageChanged()
 			end
 
 			local weaponDisplayData = {
-				defaultBurst  = 0,
-				defaultDPS    = 0,
+				defaultBurst  = 1,
+				defaultDPS    = 1,
 				defaultReload = 1,
 				useExperience = false,
 			}
@@ -472,7 +914,7 @@ function widget:LanguageChanged()
 				weaponDisplayData.useExperience = true
 
 				local salvoSize = weaponDef.salvoSize * weaponDef.projectiles
-				local salvoTime = max(1e-9, (weaponDef.stockpile and weaponDef.stockpileTime / simSpeed) or weaponDef.reload)
+				local salvoTime = max(1e-9, weaponDef.reload, ((weaponDef.stockpileTime or 0) / simSpeed))
 
 				weaponDisplayData.defaultBurst = baseDamage * salvoSize
 				weaponDisplayData.defaultDPS = baseDamage * salvoSize / salvoTime
@@ -537,21 +979,13 @@ function widget:PlayerChanged()
 	spec = Spring.GetSpectatingState()
 end
 
-function init()
-	vsx, vsy = gl.GetViewSizes()
-	widgetScale = (1+((vsy-850)/900)) * (0.95+(ui_scale-1)/2.5)
-	fontSize = customFontSize * widgetScale
+local updateSeconds = 0
 
-	xOffset = (32 + bgpadding)*widgetScale
-	yOffset = -((32 + bgpadding)*widgetScale)
-end
-
-local uiSec = 0
 function widget:Update(dt)
-	uiSec = uiSec + dt
-	if uiSec > 0.5 then
-		uiSec = 0
-		local ui_scale_update = Spring.GetConfigFloat("ui_scale",1)
+	updateSeconds = updateSeconds + dt
+	if updateSeconds > 1 then
+		updateSeconds = 0
+		local ui_scale_update = Spring.GetConfigFloat("ui_scale", 1)
 		if ui_scale ~= ui_scale_update then
 			ui_scale = ui_scale_update
 			widget:ViewResize(vsx,vsy)
@@ -573,463 +1007,18 @@ function widget:ViewResize(n_vsx,n_vsy)
 
 	font = WG['fonts'].getFont(fontFile)
 
-	init()
+	vsx, vsy = gl.GetViewSizes()
+	widgetScale = (1+((vsy-850)/900)) * (0.95+(ui_scale-1)/2.5)
+	fontSize = customFontSize * widgetScale
+
+	xOffset = (32 + bgpadding)*widgetScale
+	yOffset = -((32 + bgpadding)*widgetScale)
 end
 
 local selectedUnits = Spring.GetSelectedUnits()
 if useSelection then
 	function widget:SelectionChanged(sel)
 		selectedUnits = sel
-	end
-end
-
-local function drawStats(unitDefID, unitID, mx, my, hovering)
-	if not mx then
-		mx, my = spGetMouseState()
-	end
-
-	cX = mx + xOffset
-	cY = my + yOffset
-	cYstart = cY
-
-	local titleFontSize = fontSize*1.07
-	local cornersize = ceil(bgpadding*0.2)
-	cY = cY - 2 * titleFontSize - (bgpadding/2)
-
-	textBuffer = {}
-	maxWidth = 0
-
-	local myTeamID = Spring.GetMyTeamID()
-	local unitDef = UnitDefs[unitDefID]
-
-	local isBeingBuilt, buildProgress, unitExperience, unitTeamID
-	local maxHP, losRadius, airLosRadius, radarRadius, sonarRadius, jammingRadius, sonarJammingRadius, seismicRadius, armoredMultiple
-	if unitID then
-		isBeingBuilt, buildProgress = Spring.GetUnitIsBeingBuilt(unitID)
-		unitExperience = spGetUnitExperience(unitID)
-		unitTeamID = spGetUnitTeam(unitID)
-		maxHP              = select(2, Spring.GetUnitHealth(unitID))
-		armoredMultiple    = select(2, Spring.GetUnitArmored(unitID))
-		losRadius          = spGetUnitSensorRadius(unitID, "los") or 0
-		airLosRadius       = spGetUnitSensorRadius(unitID, "airLos") or 0
-		radarRadius        = spGetUnitSensorRadius(unitID, "radar") or 0
-		sonarRadius        = spGetUnitSensorRadius(unitID, "sonar") or 0
-		jammingRadius      = spGetUnitSensorRadius(unitID, "radarJammer") or 0
-		sonarJammingRadius = spGetUnitSensorRadius(unitID, "sonarJammer") or 0
-		seismicRadius      = spGetUnitSensorRadius(unitID, "seismic") or 0
-	else
-		maxHP              = unitDef.health
-		losRadius          = unitDef.sightDistance
-		airLosRadius       = unitDef.airSightDistance
-		radarRadius        = unitDef.radarDistance
-		sonarRadius        = unitDef.sonarDistance
-		jammingRadius      = unitDef.radarDistanceJam
-		sonarJammingRadius = unitDef.sonarDistanceJam
-		seismicRadius      = unitDef.seismicDistance
-		armoredMultiple    = unitDef.armoredMultiple
-	end
-	local mass          = unitDef.mass and unitDef.mass or 0
-	local paralyzeMult  = tonumber(unitDef.customParams.paralyzemultiplier or 1)
-	local size          = unitDef.xsize and unitDef.xsize / 2 or 0
-	local transportable = not unitDef.cantBeTransported
-
-	------------------------------------------------------------------------------------
-	-- Units under construction
-	------------------------------------------------------------------------------------
-
-	if isBeingBuilt then
-		local mCur, mStor, mPull, mInc, mExp, mShare, mSent, mRec = spGetTeamResources(myTeamID, 'metal')
-		local eCur, eStor, ePull, eInc, eExp, eShare, eSent, eRec = spGetTeamResources(myTeamID, 'energy')
-
-		local mTotal = unitDef.metalCost
-		local eTotal = unitDef.energyCost
-		local buildRem = 1 - buildProgress
-		local mRem = mTotal * buildRem
-		local eRem = eTotal * buildRem
-		local mEta = (mRem - mCur) / (mInc + mRec)
-		local eEta = (eRem - eCur) / (eInc + eRec)
-
-		DrawText(prefixes.prog, format("%d%%", 100 * buildProgress))
-		DrawText(prefixes.metal, format(formats.prog, mTotal * buildProgress, mTotal, mRem, mEta))
-		DrawText(prefixes.energy, format(formats.prog, eTotal * buildProgress, eTotal, eRem, eEta))
-
-		cY = cY - fontSize
-	end
-
-	------------------------------------------------------------------------------------
-	-- Generic information, cost, move, class
-	------------------------------------------------------------------------------------
-
-	DrawText(prefixes.cost, format(formats.cost, unitDef.metalCost, unitDef.energyCost, unitDef.buildTime))
-
-	if not (unitDef.isBuilding or unitDef.isFactory) then
-		local moveData = unitID and Spring.GetUnitMoveTypeData(unitID) or unitDef
-		local speed = moveData.maxSpeed or unitDef.speed
-		local accel = (moveData.accRate or unitDef.maxAcc or 0) * (simSpeed * simSpeed)
-		local turn = (moveData.baseTurnRate or unitDef.turnRate or 0) * (simSpeed * (180 / 32767))
-		DrawText(prefixes.move, format(formats.move, speed, accel, turn))
-	end
-
-	if unitDef.buildSpeed > 0 then
-		DrawText(prefixes.build, yellow..unitDef.buildSpeed)
-	end
-
-	cY = cY - fontSize
-
-	------------------------------------------------------------------------------------
-	-- Sensors and Jamming
-	------------------------------------------------------------------------------------
-
-	DrawText(prefixes.los, losRadius..(airLosRadius > losRadius and format(formats.airLos, airLosRadius) or ''))
-
-	if radarRadius   > 0 then DrawText(prefixes.radar, '\255\77\255\77'..radarRadius) end
-	if sonarRadius   > 0 then DrawText(prefixes.sonar, blue..sonarRadius) end
-	if jammingRadius > 0 then DrawText(prefixes.jammer, '\255\255\77\77'..jammingRadius) end
-	if sonarJammingRadius > 0 then DrawText(prefixes.sonarjam, '\255\255\77\77'..sonarJammingRadius) end
-	if seismicRadius > 0 then DrawText(prefixes.seis , '\255\255\26\255'..seismicRadius) end
-
-	if unitDef.stealth then DrawText(prefixes.other1, texts.stealth) end
-
-	cY = cY - fontSize
-
-	------------------------------------------------------------------------------------
-	-- Armor
-	------------------------------------------------------------------------------------
-
-	DrawText(prefixes.armor, texts.class.." "..(unitDef.armorType and armorTypes[unitDef.armorType] or '???'))
-
-	if unitID and unitExperience ~= 0 and maxHP then
-		DrawText(prefixes.exp, format(formats.health, (maxHP/unitDef.health-1)*100))
-	end
-
-	if paralyzeMult < 1 then
-		local resist = (paralyzeMult == 0 and texts.immune) or (floor(100-(paralyzeMult*100))..formats.resist)
-		DrawText(prefixes.emp, blue..resist)
-	end
-
-	if maxHP then
-		if armoredMultiple and armoredMultiple ~= 1 then
-			DrawText(prefixes.open, format(formats.maxhp, maxHP))
-			DrawText(prefixes.closed, format(formats.closed, (1/armoredMultiple-1)*100, maxHP/armoredMultiple))
-		else
-			DrawText(prefixes.maxhp, format(formats.maxhp, maxHP))
-		end
-	end
-
-	cY = cY - fontSize
-
-	------------------------------------------------------------------------------------
-	-- Transportable
-	------------------------------------------------------------------------------------
-
-	if transportable and mass > 0 and size > 0 then
-		if mass < 751 and size < 4 then -- 3 is t1 transport max size
-			DrawText(prefixes.transportable, formats.transportable_light)
-			cY = cY - fontSize
-		elseif mass < 100000 and size < 5 then
-			DrawText(prefixes.transportable, formats.transportable_heavy)
-			cY = cY - fontSize
-		end
-	end
-
-	------------------------------------------------------------------------------------
-	-- Special Abilities
-	------------------------------------------------------------------------------------
-
-	local abilities = {}
-	local unitAbilitiesMap = unitAbilitiesMap
-	for index, propertyName in ipairs(unitAbilitiesMap) do
-		if unitDef[propertyName] then
-			abilities[#abilities+1] = unitAbilitiesMap[propertyName]
-		end
-	end
-	if #abilities > 0 then
-		local abilityText = table.concat(abilities, ", ")
-		DrawText(prefixes.abilities, abilityText)
-		cY = cY - fontSize
-	end
-
-	------------------------------------------------------------------------------------
-	-- Weapons
-	------------------------------------------------------------------------------------
-
-	local weaponCounts = {}
-	local weaponNumbers = {}
-	local weaponsUnique = {}
-	for i = 1, #unitDef.weapons do
-		local wDefID = unitDef.weapons[i].weaponDef
-		if weaponDefDisplayData[wDefID] then
-			local wCount = weaponCounts[wDefID]
-			if wCount then
-				weaponCounts[wDefID] = wCount + 1
-			else
-				local index = #weaponsUnique + 1
-				weaponCounts[wDefID] = 1
-				weaponNumbers[index] = i
-				weaponsUnique[index] = wDefID
-			end
-		end
-	end
-
-	local selfDWeaponID = WeaponDefNames[unitDef.selfDExplosion].id
-	local deathWeaponID = WeaponDefNames[unitDef.deathExplosion].id
-	local selfDWeaponIndex
-	local deathWeaponIndex
-	if select(4, spGetModKeyState()) then
-		weaponCounts[selfDWeaponID] = 1
-		weaponCounts[deathWeaponID] = 1
-		deathWeaponIndex = #weaponsUnique+1
-		weaponsUnique[deathWeaponIndex] = deathWeaponID
-		selfDWeaponIndex = #weaponsUnique+1
-		weaponsUnique[selfDWeaponIndex] = selfDWeaponID
-	end
-
-	local totalDPS = 0
-	local totalBurst = 0
-	for i = 1, #weaponsUnique do
-		local weaponDefID = weaponsUnique[i]
-		local weaponDef = WeaponDefs[weaponDefID]
-		local weaponCount = weaponCounts[weaponDefID]
-		local weaponName = weaponDef.description or weaponDef.name
-
-		local range = weaponDef.range
-
-		if range > 0 then
-			local isDisintegrator = string.find(weaponDef.name, "disintegrator")
-			local isDeathExplosion = i == deathWeaponIndex
-			local isSelfDExplosion = i == selfDWeaponIndex
-
-			if weaponCount > 1 then
-				DrawText(prefixes.weap, format(formats.weap, weaponCount, weaponName))
-			else
-				local displayName = weaponName
-				if isDeathExplosion then
-					displayName = texts.selfdestruct
-				elseif isSelfDExplosion then
-					displayName = texts.deathexplosion
-				end
-				DrawText(prefixes.weap, displayName)
-			end
-
-			local burst = weaponDef.salvoSize * weaponDef.projectiles
-			local accuracy = weaponDef.accuracy
-			local moveError = weaponDef.targetMoveError
-
-			local weaponData = weaponDefDisplayData[weaponDefID]
-			local reload = weaponData.defaultReload
-			local experience = (not isDeathExplosion and not isSelfDExplosion) and unitExperience or 0
-
-			if isDeathExplosion then
-				weaponName = texts.deathexplosion
-				reload = 1
-			elseif isSelfDExplosion then
-				weaponName = texts.selfdestruct
-				reload = 1
-			end
-
-			if experience > 0 then
-				local weaponNumber = weaponNumbers[i]
-				local reloadState = spGetUnitWeaponState(unitID, weaponNumber, "reloadTimeXP") or
-				                    spGetUnitWeaponState(unitID, weaponNumber, "reloadTime")
-
-				local accuracyBonus  = accuracy ~= 0   and (spGetUnitWeaponState(unitID, weaponNumber, "accuracy") / accuracy - 1)          or 0
-				local moveErrorBonus = moveError ~= 0  and (spGetUnitWeaponState(unitID, weaponNumber, "targetMoveError") / moveError - 1)  or 0
-				local rangeBonus     = range ~= 0      and (spGetUnitWeaponState(unitID, weaponNumber, "range") / range - 1)                or 0
-				local reloadBonus    = reload ~= 0     and (reloadState / reload - 1)                                                       or 0
-				DrawText(prefixes.exp, format(formats.exp, accuracyBonus*100, moveErrorBonus*100, reloadBonus*100, rangeBonus*100))
-
-				range = reload * (1 + rangeBonus)
-				reload = reload * (1 + reloadBonus)
-				accuracy = accuracy * (1 + accuracyBonus)
-				moveError = moveError * (1 + moveErrorBonus)
-			end
-
-			local info
-			if isDisintegrator then
-				info = format("%.2f", reload).."s "..texts.reload..", "..format("%d "..texts.range, range)
-			else
-				if isDeathExplosion or isSelfDExplosion then
-					info = format(formats.deathexplosion, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
-				else
-					info = format(formats.weapons, reload, range, weaponDef.damageAreaOfEffect, 100 * weaponDef.edgeEffectiveness)
-				end
-
-				if weaponDef.damages.paralyzeDamageTime > 0 then
-					info = format(formats.paralyzeDamageTime, info, weaponDef.damages.paralyzeDamageTime)
-				end
-				if weaponDef.damages.impulseFactor > 0.123 then
-					info = format(formats.impulseFactor, info, weaponDef.damages.impulseFactor*100)
-				end
-				if weaponDef.damages.craterBoost > 0 then
-					info = format(formats.craterBoost, info, weaponDef.damages.craterBoost*100)
-				end
-			end
-			DrawText(prefixes.info, info)
-
-			if isDisintegrator then
-				DrawText(texts.dmg..": ", texts.infinite)
-			else
-				local damage
-				if isDeathExplosion or isSelfDExplosion then
-					local damageBurst = weaponData.defaultBurst
-					totalBurst = totalBurst + damageBurst
-					damage = format(formats.burst, damageBurst)
-				else
-					local damageBurst = weaponData.defaultBurst * weaponCount
-					local damageRate
-					if experience == 0 then
-						damageRate = weaponData.defaultDPS * weaponCount
-					else
-						damageRate = damageBurst / reload
-					end
-					totalDPS = totalDPS + damageRate
-					totalBurst = totalBurst + damageBurst
-					damage = format(formats.dps, damageRate, damageBurst)
-				end
-				DrawText(prefixes.dmg, damage)
-
-				local modifiers = weaponData.modifiers
-				if modifiers then
-					DrawText(prefixes.modifiers, modifiers..'.')
-				end
-			end
-
-			if weaponDef.metalCost > 0 or weaponDef.energyCost > 0 then
-				-- Stockpiling weapons are weird
-				-- They take the correct amount of resources overall
-				-- They take the correct amount of time
-				-- They drain ((simSpeed+2)/simSpeed) times more resources than they should (And the listed drain is real, having lower income than listed drain WILL stall you)
-				local drainAdjust = weaponDef.stockpile and (simSpeed+2)/simSpeed or 1
-
-				DrawText(prefixes.cost,
-					format(
-						formats.persecond,
-						weaponDef.metalCost, weaponDef.energyCost, drainAdjust * weaponDef.metalCost / reload, drainAdjust * weaponDef.energyCost / reload
-					)
-				)
-			end
-
-			cY = cY - fontSize
-		end
-	end
-
-	local damageTotals
-	if totalDPS > 0 then
-		damageTotals = format(formats.dps, totalDPS, totalBurst)
-	elseif totalBurst > 0 then
-		damageTotals = format(formats.burst, totalBurst)
-	end
-	if damageTotals then
-		DrawText(prefixes.totaldmg, damageTotals)
-		cY = cY - fontSize
-	end
-
-	-- background
-	if hovering then
-		glColor(0.11,0.11,0.11,0.9)
-	else
-		glColor(0,0,0,0.66)
-	end
-
-	-- correct position when it goes below screen
-	if cY < 0 then
-		cYstart = cYstart - cY
-		for i = 1, #textBuffer do
-			local buffer = textBuffer[i]
-			buffer[4] = buffer[4] - (cY/2)
-			buffer[4] = buffer[4] - (cY/2)
-		end
-		cY = 0
-	end
-	-- correct position when it goes off screen
-	if cX + maxWidth+bgpadding+bgpadding > vsx then
-		local cXnew = vsx-maxWidth-bgpadding-bgpadding
-		for i = 1, #textBuffer do
-			local buffer = textBuffer[i]
-			buffer[3] = buffer[3] - ((cX-cXnew)/2)
-			buffer[3] = buffer[3] - ((cX-cXnew)/2)
-		end
-		cX = cXnew
-	end
-
-	-- title
-	local title = '\255\190\255\190'..UnitDefs[unitDefID].translatedHumanName
-	if unitID then
-		title = title.."   "..grey..unitDef.name.."   #"..unitID.."   "..GetTeamColorCode(unitTeamID or myTeamID)..GetTeamName(unitTeamID or myTeamID)
-	end
-
-	if damageStats and damageStats[gameName] then
-		local unitDefStats = damageStats[gameName][unitDef.name]
-		if unitDefStats and unitDefStats.killed_cost and unitDefStats.cost then
-			title = title..grey.."   "..unitDefStats.killed_cost / unitDefStats.cost				
-		end
-	end
-
-	local titleRectX1 = floor(cX-bgpadding)
-	local titleRectX2 = floor(cX+(font:GetTextWidth(title)*titleFontSize)+(titleFontSize*3.5))
-	local titleRectY1 = ceil(cYstart-bgpadding)
-	local titleRectY2 = floor(cYstart+(titleFontSize*1.8)+bgpadding)
-	local titleUpdate = titleRectX1 ~= titleRectX1Old or
-	                    titleRectX2 ~= titleRectX2Old or
-	                    titleRectY1 ~= titleRectY1Old or
-	                    titleRectY2 ~= titleRectY2Old
-
-	UiElement(titleRectX1, titleRectY1, titleRectX2, titleRectY2, 1,1,1,0, 1,1,0,1, ui_opacity)
-
-	if WG['guishader'] then
-		if not guishaderEnabled or titleUpdate then
-			WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsTitleClosure), 'unit_stats_title')
-			titleRectX1Old = titleRectX1
-			titleRectX2Old = titleRectX2
-			titleRectY1Old = titleRectY1
-			titleRectY2Old = titleRectY2
-		end
-	end
-
-	-- icon
-	if unitID then
-		local iconPadding = max(1, floor(bgpadding*0.8))
-		glColor(1,1,1,1)
-		UiUnit(
-			titleRectX1+bgpadding+iconPadding,
-			titleRectY1+iconPadding,
-			titleRectX1+(titleRectY2-titleRectY1)-iconPadding,
-			titleRectY2-bgpadding-iconPadding,
-			nil,
-			1,1,1,1,
-			0.13,
-			nil, nil,
-			'#'..unitDefID
-		)
-	end
-
-	-- title text
-	glColor(1,1,1,1)
-	font:Begin()
-	font:Print(title, titleRectX1+((titleRectY2-titleRectY1)*1.3), titleRectY1+titleFontSize*0.7, titleFontSize, "o")
-	font:End()
-
-	-- stats
-	local statsRectX1 = floor(cX-bgpadding)
-	local statsRectY1 = ceil(cY+(fontSize/3)+(bgpadding*0.3))
-	local statsRectX2 = ceil(cX+maxWidth+bgpadding)
-	local statsRectY2 = floor(cYstart-bgpadding)
-	local statsUpdate = statsRectX1 ~= statsRectX1Old or
-	                    statsRectX2 ~= statsRectX2Old or
-	                    statsRectY1 ~= statsRectY1Old or
-	                    statsRectY2 ~= statsRectY2Old
-
-	UiElement(statsRectX1, statsRectY1, statsRectX2, statsRectY2, 0,1,1,1, 1,1,1,1, ui_opacity)
-
-	if WG['guishader'] then
-		if not guishaderEnabled or statsUpdate then
-			guishaderEnabled = true
-			WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsDataClosure), 'unit_stats_data')
-			statsRectX1Old = statsRectX1
-			statsRectX2Old = statsRectX2
-			statsRectY1Old = statsRectY1
-			statsRectY2Old = statsRectY2
-		end
 	end
 end
 
@@ -1066,7 +1055,7 @@ function widget:DrawScreen()
 				unitID = showUnitID
 				showUnitID = nil
 			elseif useSelection and selectedID and spValidUnitID(selectedID) then
-				unitID = selectedUnits[1]
+				unitID = selectedID
 			else
 				mx, my = spGetMouseState()
 				local entityType, entityID = spTraceScreenRay(mx, my)
@@ -1084,6 +1073,10 @@ function widget:DrawScreen()
 	if not unitDefID then
 		RemoveGuishader()
 		return
+	end
+
+	if not mx then
+		mx, my = spGetMouseState()
 	end
 
 	drawStats(unitDefID, unitID, mx, my, hovering)
