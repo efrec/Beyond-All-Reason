@@ -493,7 +493,7 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 				local accuracyBonus  = accuracy ~= 0   and (spGetUnitWeaponState(unitID, weaponNumber, "accuracy") / accuracy - 1)          or 0
 				local moveErrorBonus = moveError ~= 0  and (spGetUnitWeaponState(unitID, weaponNumber, "targetMoveError") / moveError - 1)  or 0
 				local rangeBonus     = range ~= 0      and (spGetUnitWeaponState(unitID, weaponNumber, "range") / range - 1)                or 0
-				local reloadBonus    = reload ~= 0     and (reloadState / reload - 1)                                                       or 0
+				local reloadBonus    = reload ~= 0     and (1 - reloadState / reload)                                                       or 0
 				DrawText(prefixes.exp, format(formats.exp, accuracyBonus*100, moveErrorBonus*100, reloadBonus*100, rangeBonus*100))
 
 				range = reload * (1 + rangeBonus)
@@ -637,20 +637,18 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	local statsRectX2 = ceil(cX+maxWidth+bgpadding)
 	local statsRectY2 = floor(cYstart-bgpadding)
 
-	titleRectX1Old = titleRectX1
-	titleRectX2Old = titleRectX2
-	titleRectY1Old = titleRectY1
-	titleRectY2Old = titleRectY2
-	statsRectX1Old = statsRectX1
-	statsRectX2Old = statsRectX2
-	statsRectY1Old = statsRectY1
-	statsRectY2Old = statsRectY2
-
-	-- It's taken until now to draw anything; we're doing too much for a DrawScreen call.
+	local guishaderRedraw = (not guishaderIsActive) or
+		titleRectX1Old ~= titleRectX1 or
+		titleRectX2Old ~= titleRectX2 or
+		titleRectY1Old ~= titleRectY1 or
+		titleRectY2Old ~= titleRectY2 or
+		statsRectX1Old ~= statsRectX1 or
+		statsRectX2Old ~= statsRectX2 or
+		statsRectY1Old ~= statsRectY1 or
+		statsRectY2Old ~= statsRectY2
 
 	UiElement(titleRectX1, titleRectY1, titleRectX2, titleRectY2, 1,1,1,0, 1,1,0,1, ui_opacity)
-	WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsTitleClosure), 'unit_stats_title')
-
+	UiElement(statsRectX1, statsRectY1, statsRectX2, statsRectY2, 0,1,1,1, 1,1,1,1, ui_opacity)
 	if unitID then
 		local iconPadding = max(1, floor(bgpadding * 0.8))
 		glColor(1,1,1,1)
@@ -671,10 +669,17 @@ local function drawStats(unitDefID, unitID, mx, my, hovering)
 	font:Print(title, titleRectX1+((titleRectY2-titleRectY1)*1.3), titleRectY1+titleFontSize*0.7, titleFontSize, "o")
 	font:End()
 
-	UiElement(statsRectX1, statsRectY1, statsRectX2, statsRectY2, 0,1,1,1, 1,1,1,1, ui_opacity)
-	WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsDataClosure), 'unit_stats_data')
-
-	if (not guishaderIsActive) then
+	if guishaderRedraw then -- seems like only guishader is set up correctly for this
+		titleRectX1Old = titleRectX1
+		titleRectX2Old = titleRectX2
+		titleRectY1Old = titleRectY1
+		titleRectY2Old = titleRectY2
+		statsRectX1Old = statsRectX1
+		statsRectX2Old = statsRectX2
+		statsRectY1Old = statsRectY1
+		statsRectY2Old = statsRectY2
+		WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsTitleClosure), 'unit_stats_title')
+		WG['guishader'].InsertScreenDlist(gl.CreateList(unitStatsDataClosure), 'unit_stats_data')
 		guishaderIsActive = true
 	end
 end
