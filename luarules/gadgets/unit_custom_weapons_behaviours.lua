@@ -170,10 +170,56 @@ end
 
 checkingFunctions.split = {}
 checkingFunctions.split["yvel<0"] = velocityIsNegative
+checkingFunctions.split["altitude<splitat"] = function(proID)
+	-- We want to get the airburst height of a ballistic weapon without allowing early split.
+	-- That is, we want the lowest projectile altitude where abs(altitude - splitat) < delta.
+	local splitNow = false
+	local pvx, pvy, pvz = SpGetProjectileVelocity(proID)
+	if pvy and pvy < 0 then
+		local infos = projectiles[proID]
+		local altitude = infos.splitat
+		-- Terrain tends to stay still, but the target location might move, so use a param:
+		local frameUpdate = infos.splitat_frames or 8
+		local px, py, pz = SpGetProjectilePosition(proID)
+		local altitudeCurrent = py - SpGetGroundHeight(px, pz)
+		if altitude >= altitudeCurrent then
+			splitNow = true
+		else
+			-- Avoid high-velocity projectiles skipping past the split height:
+			local nextY = py + (pvy - g * frameUpdate / 2) * frameUpdate
+			local altNext = nextY - SpGetGroundHeight(px + pvx, pz + pvz)
+			splitNow = altNext < altitude and math.abs(altitudeCurrent) > math.abs(altNext)
+		end
+		if splitNow then
+			-- Avoid premature split when the point of impact is much lower:
+			local targetType, target = SpGetProjectileTarget(proID)
+			if targetType == targetedGround then
+				splitNow = altitude >= py - target[2]
+			elseif active_projectiles[proID] and (Spring.GetGameFrame() + proID) % frameUpdate ~= 0 then
+				splitNow = altitude >= py - active_projectiles[proID]
+			else
+				-- Find the trajectory's ground intercept via bisection search.
+				local frameMin = frameUpdate
+				local frameMax = frameUpdate * 10
+				local pos, hei, mid
+				for _ = 1, 20 do
+					mid = frameMin + (frameMax - frameMin) / 2
+					pos = py + pvy * mid + 0.5 * g * mid * mid
+					hei = SpGetGroundHeight(px + pvx * mid, pz + pvz * mid)
+					if pos - hei < 0 then frameMax = mid else frameMin = mid end
+					if frameMax - frameMin <= 1 then break end
+				end
+				mid = frameMin + (frameMax - frameMin) / 2
+				local impactY = SpGetGroundHeight(px + pvx * mid, pz + pvz * mid)
+				if altitude < py - impactY then
+					splitNow = false
+					active_projectiles[proID] = impactY
 				end
 			end
 		end
-
+	end
+	return splitNow
+end
 applyingFunctions.split = function(proID)
 	local px, py, pz = SpGetProjectilePosition(proID)
 	local vx, vy, vz, vw = SpGetProjectileVelocity(proID)
