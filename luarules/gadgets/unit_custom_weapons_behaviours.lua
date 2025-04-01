@@ -338,7 +338,7 @@ end
 
 function gadget:GameFrame(f)
 	for proID, infos in pairs(projectiles) do
-		if checkingFunctions[infos.speceffect][infos.when](proID) == true then
+		if checkingFunctions[infos.speceffect][infos.when](proID) then
 			applyingFunctions[infos.speceffect](proID)
 			projectiles[proID] = nil
 			active_projectiles[proID] = nil
