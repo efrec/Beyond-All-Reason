@@ -302,12 +302,11 @@ function gadget:Initialize()
 			local when = weaponDef.customParams.when
 			local apply = applyingFunctions[speceffect]
 			local checks = checkingFunctions[speceffect]
-			if apply or (checks and checks[when]) or when == defaultCheck.when then
+			if apply or (checks and checks[when]) then
 				specialWeaponCustomDefs[weaponDefID] = weaponDef.customParams
 				if not apply then
 					applyingFunctions[speceffect] = defaultApply
-				end
-				if when == defaultCheck.when and (not checks or not checks[when]) then
+				elseif when == defaultCheck.when and (not checks or not checks[when]) then
 					checkingFunctions[speceffect] = checkingFunctions[speceffect] or {}
 					checkingFunctions[speceffect][defaultCheck.when] = defaultCheck.check
 				end
