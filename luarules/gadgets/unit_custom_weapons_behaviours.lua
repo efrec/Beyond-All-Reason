@@ -62,6 +62,9 @@ local function doNothing()
 	return
 end
 
+local defaultApply = doNothing
+local defaultCheck = { when = 'always', check = alwaysTrue }
+
 --------------------------------------------------------------------------------
 
 checkingFunctions.cruise = {}
@@ -293,9 +296,6 @@ end
 --------------------------------------------------------------------------------
 
 function gadget:Initialize()
-	local defaultApply = doNothing
-	local defaultCheck = { when = 'always', check = alwaysTrue }
-
 	for weaponDefID, weaponDef in pairs(WeaponDefs) do
 		if weaponDef.customParams.speceffect then
 			local speceffect = weaponDef.customParams.speceffect
@@ -318,7 +318,6 @@ function gadget:Initialize()
 			end
 		end
 	end
-
 	if not next(specialWeaponCustomDefs) then
 		Spring.Log(gadget:GetInfo().name, LOG.INFO, "No custom weapons found. Removing.")
 		gadgetHandler:RemoveGadget(self)
