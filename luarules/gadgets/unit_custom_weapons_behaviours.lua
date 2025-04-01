@@ -114,36 +114,33 @@ end
 
 checkingFunctions.retarget = {}
 checkingFunctions.retarget["always"] = function(proID)
-	if SpGetProjectileTimeToLive(proID) <= 0 then
-		return true
-	else
-		-- Might be slightly more optimal to check the unit itself if it changes target,
-		-- then tell the in-flight missiles to change target if the unit changes target
+	if SpGetProjectileTimeToLive(proID) > 0 then
+		-- Seems like intended behavior was to keep seeking a target that's still alive.
+		-- So this function retargets only if both 1 target death and 2 owner retargets:
+		local targetType, target = SpGetProjectileTarget(proID)
+		if targetType == targetedUnit and SpGetUnitIsDead(target) == false then
+			return false
+		end
 		local ownerID = active_projectiles[proID]
 		if not ownerID then
-			ownerID = Spring.GetProjectileOwnerID(proID)
+			ownerID = Spring.GetProjectileOwnerID(proID) or -1
 			active_projectiles[proID] = ownerID
 		end
-		if ownerID < 0 or SpGetUnitIsDead(ownerID) ~= false then
-			return true
-		end
-		local targetType, target = SpGetProjectileTarget(proID)
-		if targetType == targetedUnit then
-			if SpGetUnitIsDead(target) == false then
-				--hardcoded to assume the retarget weapon is the primary weapon.
-				--TODO, make this more general
-				local ownerTargetType, _, ownerTarget = SpGetUnitWeaponTarget(ownerID, 1)
-				--hardcoded to assume the retarget weapon does not target features or intercept projectiles, only targets units if not shooting ground.
-				--TODO, make this more general
-				if ownerTargetType == 2 then
-					SpSetProjectileTarget(proID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
-				elseif ownerTargetType == 1 and target ~= ownerTarget then
-					SpSetProjectileTarget(proID, ownerTarget, targetedUnit)
-				end
+		if ownerID >= 0 and SpGetUnitIsDead(ownerID) == false then
+			-- Hardcoded to aim from the primary weapon and target only units or ground.
+			local ownerTargetType, _, ownerTarget = SpGetUnitWeaponTarget(ownerID, 1)
+			if ownerTargetType == 1 then
+				SpSetProjectileTarget(proID, ownerTarget, targetedUnit)
+			elseif ownerTargetType == 2 then
+				SpSetProjectileTarget(proID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
+			else
+				-- Since other cases are unhandled, just bail.
+				return true
 			end
+			return false
 		end
-		return false
 	end
+	return true
 end
 
 applyingFunctions.sector_fire = function(proID)
