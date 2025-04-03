@@ -12,6 +12,8 @@ function gadget:GetInfo()
 	}
 end
 
+if gadgetHandler:IsSyncedCode() then return end
+
 local random = math.random
 
 local SpSetProjectileVelocity = Spring.SetProjectileVelocity
@@ -24,278 +26,276 @@ local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
 local SpGetProjectileTarget = Spring.GetProjectileTarget
 local SpGetUnitIsDead = Spring.GetUnitIsDead
 
-if gadgetHandler:IsSyncedCode() then
+local projectiles = {}
+local active_projectiles = {}
+local checkingFunctions = {}
+local applyingFunctions = {}
+local math_sqrt = math.sqrt
+local mathCos = math.cos
+local mathSin = math.sin
+local mathPi = math.pi
 
-	local projectiles = {}
-	local active_projectiles = {}
-	local checkingFunctions = {}
-	local applyingFunctions = {}
-	local math_sqrt = math.sqrt
-	local mathCos = math.cos
-	local mathSin = math.sin
-	local mathPi = math.pi
-
-	local specialWeaponCustomDefs = {}
-	local weaponDefNamesID = {}
-	for id, def in pairs(WeaponDefs) do
-		weaponDefNamesID[def.name] = id
-		if def.customParams.speceffect then
-			specialWeaponCustomDefs[id] = def.customParams
-		end
+local specialWeaponCustomDefs = {}
+local weaponDefNamesID = {}
+for id, def in pairs(WeaponDefs) do
+	weaponDefNamesID[def.name] = id
+	if def.customParams.speceffect then
+		specialWeaponCustomDefs[id] = def.customParams
 	end
+end
 
-	checkingFunctions.cruise = {}
-	checkingFunctions.cruise["distance>0"] = function(proID)
-		local stop = true
-		if SpGetProjectileTimeToLive(proID) > 0 then
-			local targetTypeInt, target = SpGetProjectileTarget(proID)
-			local xx, yy, zz
-			if targetTypeInt == targetedGround then
-				xx = target[1]
-				yy = target[2]
-				zz = target[3]
-			end
-			if targetTypeInt == targetedUnit then
-				local _
-				_, _, _, _, _, _, xx, yy, zz = Spring.GetUnitPosition(target, true, true)
-			end
-			local xp, yp, zp = SpGetProjectilePosition(proID)
-			local vxp, vyp, vzp = SpGetProjectileVelocity(proID)
-			local infos = projectiles[proID]
-			if math_sqrt((xp - xx) ^ 2 + (yp - yy) ^ 2 + (zp - zz) ^ 2) > tonumber(infos.lockon_dist or 0) then
-				stop = false
-				local yg = SpGetGroundHeight(xp, zp)
-				local nx, ny, nz = Spring.GetGroundNormal(xp, zp)
-				local elevation = yg + tonumber(infos.cruise_min_height)
-				if yp ~= elevation then
-					local yyv
-					local norm = (vxp * nx + vyp * ny + vzp * nz)
-					if yp < elevation then
+checkingFunctions.cruise = {}
+checkingFunctions.cruise["distance>0"] = function(proID)
+	local stop = true
+	if SpGetProjectileTimeToLive(proID) > 0 then
+		local targetTypeInt, target = SpGetProjectileTarget(proID)
+		local xx, yy, zz
+		if targetTypeInt == targetedGround then
+			xx = target[1]
+			yy = target[2]
+			zz = target[3]
+		end
+		if targetTypeInt == targetedUnit then
+			local _
+			_, _, _, _, _, _, xx, yy, zz = Spring.GetUnitPosition(target, true, true)
+		end
+		local xp, yp, zp = SpGetProjectilePosition(proID)
+		local vxp, vyp, vzp = SpGetProjectileVelocity(proID)
+		local infos = projectiles[proID]
+		if math_sqrt((xp - xx) ^ 2 + (yp - yy) ^ 2 + (zp - zz) ^ 2) > tonumber(infos.lockon_dist or 0) then
+			stop = false
+			local yg = SpGetGroundHeight(xp, zp)
+			local nx, ny, nz = Spring.GetGroundNormal(xp, zp)
+			local elevation = yg + tonumber(infos.cruise_min_height)
+			if yp ~= elevation then
+				local yyv
+				local norm = (vxp * nx + vyp * ny + vzp * nz)
+				if yp < elevation then
+					yyv = vyp - norm * ny
+					active_projectiles[proID] = true
+				elseif active_projectiles[proID] then
+					-- do not clamp to max height if
+					-- vertical velocity downward is more than 1/4 of current speed
+					-- probably just went off lip of steep cliff
+					local mag = math_sqrt(vxp * vxp + vyp * vyp + vzp * vzp)
+					if vyp > -mag * .25 then
 						yyv = vyp - norm * ny
-						active_projectiles[proID] = true
-					elseif active_projectiles[proID] then
-						-- do not clamp to max height if
-						-- vertical velocity downward is more than 1/4 of current speed
-						-- probably just went off lip of steep cliff
-						local mag = math_sqrt(vxp * vxp + vyp * vyp + vzp * vzp)
-						if vyp > -mag * .25 then
-							yyv = vyp - norm * ny
-						end
 					end
-					if yyv then
-						Spring.SetProjectilePosition(proID, xp, elevation, zp)
-						SpSetProjectileVelocity(proID, vxp, yyv, vzp)
-					end
+				end
+				if yyv then
+					Spring.SetProjectilePosition(proID, xp, elevation, zp)
+					SpSetProjectileVelocity(proID, vxp, yyv, vzp)
 				end
 			end
 		end
-		return stop
 	end
+	return stop
+end
 
-	applyingFunctions.cruise = function (proID)
-		return false
-    end
+applyingFunctions.cruise = function (proID)
+	return false
+end
 
-	checkingFunctions.sector_fire = {}
-	checkingFunctions.sector_fire["always"] = function (proID)
-		-- as soon as the siege projectile is created, pass true on the
-		-- checking function, to go to applying function
-		-- so the unit state is only checked when the projectile is created
-		return true
-	end
+checkingFunctions.sector_fire = {}
+checkingFunctions.sector_fire["always"] = function (proID)
+	-- as soon as the siege projectile is created, pass true on the
+	-- checking function, to go to applying function
+	-- so the unit state is only checked when the projectile is created
+	return true
+end
 
-	applyingFunctions.sector_fire = function (proID)
-		local infos = projectiles[proID]
-		local vx, vy, vz = SpGetProjectileVelocity(proID)
-		
-		local spread_angle = tonumber(infos.spread_angle)
-		local max_range_reduction = tonumber(infos.max_range_reduction)
-		
-		local angle_factor = (spread_angle * (random() - 0.5)) * mathPi / 180
-		local cos_angle = mathCos(angle_factor)
-		local sin_angle = mathSin(angle_factor)
-		
-		local vx_new = vx * cos_angle - vz * sin_angle
-		local vz_new = vx * sin_angle + vz * cos_angle
-		
-		local velocity_factor = 1 - (random() ^ (1 + max_range_reduction)) * max_range_reduction
-		
-		vx = vx_new * velocity_factor
-		vz = vz_new * velocity_factor
-		
-		SpSetProjectileVelocity(proID, vx, vy, vz)
-	end
+applyingFunctions.sector_fire = function (proID)
+	local infos = projectiles[proID]
+	local vx, vy, vz = SpGetProjectileVelocity(proID)
 	
-
-	checkingFunctions.retarget = {}
-	checkingFunctions.retarget["always"] = function(proID)
-		-- The projectile retargets only if both its target is dead and its unit retargets
-		local targetType, target = SpGetProjectileTarget(proID)
-		if targetType == targetedUnit and SpGetUnitIsDead(target) ~= false then
-			local ownerID = Spring.GetProjectileOwnerID(proID)
-			-- Hardcoded to target only with the primary weapon and target only units or ground
-			local ownerTargetType, _, ownerTarget = SpGetUnitWeaponTarget(ownerID, 1)
-			if ownerTargetType == 1 then
-				SpSetProjectileTarget(proID, ownerTarget, targetedUnit)
-			elseif ownerTargetType == 2 then
-				SpSetProjectileTarget(proID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
-			end
-			return false
-		end
-		return true
-	end
-
-	applyingFunctions.retarget = function (proID)
-		return false
-    end
-
-	checkingFunctions.cannonwaterpen = {}
-	checkingFunctions.cannonwaterpen["ypos<0"] = function (proID)
-		local _,y,_ = Spring.GetProjectilePosition(proID)
-		if y <= 0 then
-			return true
-		else
-			return false
-		end
-	end
-
-	checkingFunctions.split = {}
-	checkingFunctions.split["yvel<0"] = function (proID)
-		local _,vy,_ = Spring.GetProjectileVelocity(proID)
-		if vy < 0 then
-			return true
-		else
-			return false
-		end
-	end
-
-	checkingFunctions.torpwaterpen = {}
-    checkingFunctions.torpwaterpen["ypos<0"] = function (proID)
-        local _,py,_ = Spring.GetProjectilePosition(proID)
-        if py <= 0 then
-            return true
-        else
-            return false
-        end
-    end
+	local spread_angle = tonumber(infos.spread_angle)
+	local max_range_reduction = tonumber(infos.max_range_reduction)
 	
+	local angle_factor = (spread_angle * (random() - 0.5)) * mathPi / 180
+	local cos_angle = mathCos(angle_factor)
+	local sin_angle = mathSin(angle_factor)
 	
-	checkingFunctions.torpwaterpenretarget = {}
-	checkingFunctions.torpwaterpenretarget = {}
-	do
-		local checkFunction = checkingFunctions.retarget.always
-		local applyFunction = applyingFunctions.torpwaterpen
-		checkingFunctions.torpwaterpenretarget["ypos<0"] = function(proID)
-			local result = checkFunction(proID)
-			local _, py = SpGetProjectilePosition(proID)
-			if py <= 0 then applyFunction(proID) end
-			return result
-		end
-	end
+	local vx_new = vx * cos_angle - vz * sin_angle
+	local vz_new = vx * sin_angle + vz * cos_angle
 	
-	--fake function
-	applyingFunctions.torpwaterpenretarget = function (proID)
-		return false
-
-	end
-
+	local velocity_factor = 1 - (random() ^ (1 + max_range_reduction)) * max_range_reduction
 	
+	vx = vx_new * velocity_factor
+	vz = vz_new * velocity_factor
+	
+	SpSetProjectileVelocity(proID, vx, vy, vz)
+end
 
-	applyingFunctions.split = function (proID)
-		local px, py, pz = Spring.GetProjectilePosition(proID)
-		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
-		local vw = math_sqrt(vx*vx + vy*vy + vz*vz)
+
+checkingFunctions.retarget = {}
+checkingFunctions.retarget["always"] = function(proID)
+	-- The projectile retargets only if both its target is dead and its unit retargets
+	local targetType, target = SpGetProjectileTarget(proID)
+	if targetType == targetedUnit and SpGetUnitIsDead(target) ~= false then
 		local ownerID = Spring.GetProjectileOwnerID(proID)
-		local infos = projectiles[proID]
-		for i = 1, tonumber(infos.number) do
-			local projectileParams = {
-				pos = {px, py, pz},
-				speed = {vx - vw*(math.random(-100,100)/880), vy - vw*(math.random(-100,100)/440), vz - vw*(math.random(-100,100)/880)},
-				owner = ownerID,
-				ttl = 3000,
-				gravity = -Game.gravity/900,
-				model = infos.model,
-				cegTag = infos.cegtag,
-				}
-			Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
+		-- Hardcoded to target only with the primary weapon and target only units or ground
+		local ownerTargetType, _, ownerTarget = SpGetUnitWeaponTarget(ownerID, 1)
+		if ownerTargetType == 1 then
+			SpSetProjectileTarget(proID, ownerTarget, targetedUnit)
+		elseif ownerTargetType == 2 then
+			SpSetProjectileTarget(proID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
 		end
-		Spring.SpawnCEG(infos.splitexplosionceg, px, py, pz,0,0,0,0,0)
-		Spring.DeleteProjectile(proID)
+		return false
 	end
+	return true
+end
 
-	applyingFunctions.torpwaterpen = function(proID)
-		local vx, vyOld, vz = SpGetProjectileVelocity(proID)
-		local targetType, targetID = SpGetProjectileTarget(proID)
-		local vyNew = 0
-		-- Only dive below surface if the target is at an appreciable depth.
-		if targetType == targetedUnit and targetID then
-			local _, unitPosY = Spring.GetUnitPosition(targetID)
-			if unitPosY and unitPosY < -10 then
-				vyNew = vyOld / 6
-			end
-		end
-		-- Brake without halting, else torpedoes may overshoot close targets.
-		SpSetProjectileVelocity(proID, vx / 1.3, vyNew, vz / 1.3)
+applyingFunctions.retarget = function (proID)
+	return false
+end
+
+checkingFunctions.cannonwaterpen = {}
+checkingFunctions.cannonwaterpen["ypos<0"] = function (proID)
+	local _,y,_ = Spring.GetProjectilePosition(proID)
+	if y <= 0 then
+		return true
+	else
+		return false
 	end
+end
+
+checkingFunctions.split = {}
+checkingFunctions.split["yvel<0"] = function (proID)
+	local _,vy,_ = Spring.GetProjectileVelocity(proID)
+	if vy < 0 then
+		return true
+	else
+		return false
+	end
+end
+
+checkingFunctions.torpwaterpen = {}
+checkingFunctions.torpwaterpen["ypos<0"] = function (proID)
+	local _,py,_ = Spring.GetProjectilePosition(proID)
+	if py <= 0 then
+		return true
+	else
+		return false
+	end
+end
+
+
+checkingFunctions.torpwaterpenretarget = {}
+checkingFunctions.torpwaterpenretarget = {}
+do
+	local checkFunction = checkingFunctions.retarget.always
+	local applyFunction = applyingFunctions.torpwaterpen
+	checkingFunctions.torpwaterpenretarget["ypos<0"] = function(proID)
+		local result = checkFunction(proID)
+		local _, py = SpGetProjectilePosition(proID)
+		if py <= 0 then applyFunction(proID) end
+		return result
+	end
+end
+
+--fake function
+applyingFunctions.torpwaterpenretarget = function (proID)
+	return false
+
+end
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	applyingFunctions.cannonwaterpen = function (proID)
-		local px, py, pz = Spring.GetProjectilePosition(proID)
-		local vx, vy, vz = Spring.GetProjectileVelocity(proID)
-		local nvx, nvy, nvz = vx * 0.5, vy * 0.5, vz * 0.5
-		local ownerID = Spring.GetProjectileOwnerID(proID)
-		local infos = projectiles[proID]
+applyingFunctions.split = function (proID)
+	local px, py, pz = Spring.GetProjectilePosition(proID)
+	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
+	local vw = math_sqrt(vx*vx + vy*vy + vz*vz)
+	local ownerID = Spring.GetProjectileOwnerID(proID)
+	local infos = projectiles[proID]
+	for i = 1, tonumber(infos.number) do
 		local projectileParams = {
 			pos = {px, py, pz},
-			speed = {nvx, nvy, nvz},
+			speed = {vx - vw*(math.random(-100,100)/880), vy - vw*(math.random(-100,100)/440), vz - vw*(math.random(-100,100)/880)},
 			owner = ownerID,
 			ttl = 3000,
-			gravity = -Game.gravity/3600,
+			gravity = -Game.gravity/900,
 			model = infos.model,
 			cegTag = infos.cegtag,
-		}
+			}
 		Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
-		Spring.SpawnCEG(infos.waterpenceg, px, py, pz,0,0,0,0,0)
-		Spring.DeleteProjectile(proID)
 	end
+	Spring.SpawnCEG(infos.splitexplosionceg, px, py, pz,0,0,0,0,0)
+	Spring.DeleteProjectile(proID)
+end
 
-	function gadget:ProjectileCreated(proID, proOwnerID, weaponDefID)
-		if specialWeaponCustomDefs[weaponDefID] then
-			projectiles[proID] = specialWeaponCustomDefs[weaponDefID]
+applyingFunctions.torpwaterpen = function(proID)
+	local vx, vyOld, vz = SpGetProjectileVelocity(proID)
+	local targetType, targetID = SpGetProjectileTarget(proID)
+	local vyNew = 0
+	-- Only dive below surface if the target is at an appreciable depth.
+	if targetType == targetedUnit and targetID then
+		local _, unitPosY = Spring.GetUnitPosition(targetID)
+		if unitPosY and unitPosY < -10 then
+			vyNew = vyOld / 6
+		end
+	end
+	-- Brake without halting, else torpedoes may overshoot close targets.
+	SpSetProjectileVelocity(proID, vx / 1.3, vyNew, vz / 1.3)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+applyingFunctions.cannonwaterpen = function (proID)
+	local px, py, pz = Spring.GetProjectilePosition(proID)
+	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
+	local nvx, nvy, nvz = vx * 0.5, vy * 0.5, vz * 0.5
+	local ownerID = Spring.GetProjectileOwnerID(proID)
+	local infos = projectiles[proID]
+	local projectileParams = {
+		pos = {px, py, pz},
+		speed = {nvx, nvy, nvz},
+		owner = ownerID,
+		ttl = 3000,
+		gravity = -Game.gravity/3600,
+		model = infos.model,
+		cegTag = infos.cegtag,
+	}
+	Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
+	Spring.SpawnCEG(infos.waterpenceg, px, py, pz,0,0,0,0,0)
+	Spring.DeleteProjectile(proID)
+end
+
+function gadget:ProjectileCreated(proID, proOwnerID, weaponDefID)
+	if specialWeaponCustomDefs[weaponDefID] then
+		projectiles[proID] = specialWeaponCustomDefs[weaponDefID]
+		active_projectiles[proID] = nil
+	end
+end
+
+function gadget:ProjectileDestroyed(proID)
+	projectiles[proID] = nil
+	active_projectiles[proID] = nil
+end
+
+function gadget:GameFrame(f)
+	for proID, infos in pairs(projectiles) do
+		if checkingFunctions[infos.speceffect][infos.when](proID) == true then
+			applyingFunctions[infos.speceffect](proID)
+			projectiles[proID] = nil
 			active_projectiles[proID] = nil
 		end
 	end
-
-	function gadget:ProjectileDestroyed(proID)
-		projectiles[proID] = nil
-		active_projectiles[proID] = nil
-	end
-
-	function gadget:GameFrame(f)
-		for proID, infos in pairs(projectiles) do
-			if checkingFunctions[infos.speceffect][infos.when](proID) == true then
-				applyingFunctions[infos.speceffect](proID)
-				projectiles[proID] = nil
-				active_projectiles[proID] = nil
-			end
-		end
-	end
 end
+
