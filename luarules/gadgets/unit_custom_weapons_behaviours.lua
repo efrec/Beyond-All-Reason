@@ -14,35 +14,35 @@ end
 
 if gadgetHandler:IsSyncedCode() then return end
 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
 local random = math.random
-
-local SpSetProjectileVelocity = Spring.SetProjectileVelocity
-local SpSetProjectileTarget = Spring.SetProjectileTarget
-
-local SpGetProjectileVelocity = Spring.GetProjectileVelocity
-local SpGetProjectileOwnerID = Spring.GetProjectileOwnerID
-local SpGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
-local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
-local SpGetProjectileTarget = Spring.GetProjectileTarget
-local SpGetUnitIsDead = Spring.GetUnitIsDead
-
-local projectiles = {}
-local active_projectiles = {}
-local checkingFunctions = {}
-local applyingFunctions = {}
 local math_sqrt = math.sqrt
 local mathCos = math.cos
 local mathSin = math.sin
 local mathPi = math.pi
 
+local SpGetGroundHeight = Spring.GetGroundHeight
+local SpGetProjectileTarget = Spring.GetProjectileTarget
+local SpGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
+local SpGetProjectilePosition = Spring.GetProjectilePosition
+local SpGetProjectileVelocity = Spring.GetProjectileVelocity
+local SpGetUnitIsDead = Spring.GetUnitIsDead
+local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
+local SpSetProjectileTarget = Spring.SetProjectileTarget
+local SpSetProjectileVelocity = Spring.SetProjectileVelocity
+
+local targetedGround = string.byte('g')
+local targetedUnit = string.byte('u')
+
+local projectiles = {}
+local active_projectiles = {}
+local checkingFunctions = {}
+local applyingFunctions = {}
 local specialWeaponCustomDefs = {}
-local weaponDefNamesID = {}
-for id, def in pairs(WeaponDefs) do
-	weaponDefNamesID[def.name] = id
-	if def.customParams.speceffect then
-		specialWeaponCustomDefs[id] = def.customParams
-	end
-end
+local weaponDataCache = {}
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -180,24 +180,23 @@ do
 end
 
 applyingFunctions.split = function (proID)
-	local px, py, pz = Spring.GetProjectilePosition(proID)
-	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
-	local vw = math_sqrt(vx*vx + vy*vy + vz*vz)
+	local px, py, pz = SpGetProjectilePosition(proID)
+	local vx, vy, vz, vw = SpGetProjectileVelocity(proID)
 	local ownerID = Spring.GetProjectileOwnerID(proID)
 	local infos = projectiles[proID]
 	for i = 1, tonumber(infos.number) do
 		local projectileParams = {
-			pos = {px, py, pz},
-			speed = {vx - vw*(math.random(-100,100)/880), vy - vw*(math.random(-100,100)/440), vz - vw*(math.random(-100,100)/880)},
+			pos = { px, py, pz },
+			speed = { vx - vw * (random(-100, 100) / 880), vy - vw * (random(-100, 100) / 440), vz - vw * (random(-100, 100) / 880) },
 			owner = ownerID,
 			ttl = 3000,
-			gravity = -Game.gravity/900,
+			gravity = -Game.gravity / 900,
 			model = infos.model,
 			cegTag = infos.cegtag,
-			}
-		Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
+		}
+		Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
 	end
-	Spring.SpawnCEG(infos.splitexplosionceg, px, py, pz,0,0,0,0,0)
+	Spring.SpawnCEG(infos.splitexplosionceg, px, py, pz, 0, 0, 0, 0, 0)
 	Spring.DeleteProjectile(proID)
 end
 
@@ -217,8 +216,8 @@ applyingFunctions.torpwaterpen = function(proID)
 end
 
 applyingFunctions.cannonwaterpen = function (proID)
-	local px, py, pz = Spring.GetProjectilePosition(proID)
-	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
+	local px, py, pz = SpGetProjectilePosition(proID)
+	local vx, vy, vz = SpGetProjectileVelocity(proID)
 	local nvx, nvy, nvz = vx * 0.5, vy * 0.5, vz * 0.5
 	local ownerID = Spring.GetProjectileOwnerID(proID)
 	local infos = projectiles[proID]
@@ -231,7 +230,7 @@ applyingFunctions.cannonwaterpen = function (proID)
 		model = infos.model,
 		cegTag = infos.cegtag,
 	}
-	Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
+	Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
 	Spring.SpawnCEG(infos.waterpenceg, px, py, pz,0,0,0,0,0)
 	Spring.DeleteProjectile(proID)
 end
