@@ -74,44 +74,41 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 	local stop = true
 	if SpGetProjectileTimeToLive(proID) > 0 then
 		local targetTypeInt, target = SpGetProjectileTarget(proID)
-		local xx, yy, zz
+		local tx, ty, tz
 		if targetTypeInt == targetedGround then
-			xx = target[1]
-			yy = target[2]
-			zz = target[3]
+			tx = target[1]
+			ty = target[2]
+			tz = target[3]
 		elseif targetTypeInt == targetedUnit then
 			do
 				local _
-				_, _, _, _, _, _, xx, yy, zz = Spring.GetUnitPosition(target, true, true)
+				_, _, _, _, _, _, tx, ty, tz = Spring.GetUnitPosition(target, true, true)
 			end
 		end
-		local xp, yp, zp = SpGetProjectilePosition(proID)
-		local vxp, vyp, vzp = SpGetProjectileVelocity(proID)
+		local px, py, pz = SpGetProjectilePosition(proID)
+		local pvx, pvy, pvz = SpGetProjectileVelocity(proID)
 		local infos = projectiles[proID]
-		if math_sqrt((xp - xx) ^ 2 + (yp - yy) ^ 2 + (zp - zz) ^ 2) > tonumber(infos.lockon_dist) then
+		if math_sqrt((px - tx) ^ 2 + (py - ty) ^ 2 + (pz - tz) ^ 2) > tonumber(infos.lockon_dist) then
 			stop = false
-			local yg = SpGetGroundHeight(xp, zp)
-			local nx, ny, nz = Spring.GetGroundNormal(xp, zp)
-			local elevation = yg + tonumber(infos.cruise_min_height)
-			if yp ~= elevation then
-				local yyv
-				local norm = (vxp * nx + vyp * ny + vzp * nz)
-				if yp < elevation then
-					yyv = vyp - norm * ny
-					active_projectiles[proID] = true
-				elseif active_projectiles[proID] then
-					-- do not clamp to max height if
-					-- vertical velocity downward is more than 1/4 of current speed
-					-- probably just went off lip of steep cliff
-					local mag = math_sqrt(vxp * vxp + vyp * vyp + vzp * vzp)
-					if vyp > -mag * .25 then
-						yyv = vyp - norm * ny
-					end
+			local nx, ny, nz = Spring.GetGroundNormal(px, pz)
+			local elevation = SpGetGroundHeight(px, pz) + tonumber(infos.cruise_min_height)
+			local pvy2
+			local correction = (pvx * nx + pvy * ny + pvz * nz) * ny
+			if py < elevation then
+				pvy2 = pvy - correction
+				active_projectiles[proID] = true
+			elseif py > elevation and active_projectiles[proID] then
+				-- do not clamp to max height if
+				-- vertical velocity downward is more than 1/4 of current speed
+				-- probably just went off lip of steep cliff
+				local mag = math_sqrt(pvx * pvx + pvy * pvy + pvz * pvz)
+				if pvy > -mag * .25 then
+					pvy2 = pvy - correction
 				end
-				if yyv then
-					Spring.SetProjectilePosition(proID, xp, elevation, zp)
-					SpSetProjectileVelocity(proID, vxp, yyv, vzp)
-				end
+			end
+			if pvy2 then
+				Spring.SetProjectilePosition(proID, px, elevation, pz)
+				SpSetProjectileVelocity(proID, pvx, pvy2, pvz)
 			end
 		end
 	end
