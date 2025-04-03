@@ -71,7 +71,6 @@ local defaultCheck = { when = 'always', check = alwaysTrue }
 
 checkingFunctions.cruise = {}
 checkingFunctions.cruise["distance>0"] = function(proID)
-	local stop = true
 	if SpGetProjectileTimeToLive(proID) > 0 then
 		local targetTypeInt, target = SpGetProjectileTarget(proID)
 		local tx, ty, tz
@@ -89,7 +88,6 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 		local pvx, pvy, pvz = SpGetProjectileVelocity(proID)
 		local infos = projectiles[proID]
 		if math_sqrt((px - tx) ^ 2 + (py - ty) ^ 2 + (pz - tz) ^ 2) > tonumber(infos.lockon_dist) then
-			stop = false
 			local nx, ny, nz = Spring.GetGroundNormal(px, pz)
 			local elevation = SpGetGroundHeight(px, pz) + tonumber(infos.cruise_min_height)
 			local pvy2
@@ -110,9 +108,10 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 				Spring.SetProjectilePosition(proID, px, elevation, pz)
 				SpSetProjectileVelocity(proID, pvx, pvy2, pvz)
 			end
+			return false
 		end
 	end
-	return stop
+	return true
 end
 
 checkingFunctions.retarget = {}
