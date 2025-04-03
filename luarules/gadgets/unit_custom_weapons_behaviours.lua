@@ -41,7 +41,7 @@ local activeProjectiles = {}
 local checkingFunctions = {}
 local applyingFunctions = {}
 local specialWeaponCustomDefs = {}
-local weaponDataCache = {}
+local defParamToID = {}
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -162,7 +162,7 @@ applyingFunctions.split = function (proID)
 			model = infos.model,
 			cegTag = infos.cegtag,
 		}
-		Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
+		Spring.SpawnProjectile(defParamToID[infos.def], projectileParams)
 	end
 	Spring.SpawnCEG(infos.splitexplosionceg, px, py, pz, 0, 0, 0, 0, 0)
 	Spring.DeleteProjectile(proID)
@@ -187,7 +187,7 @@ applyingFunctions.cannonwaterpen = function (proID)
 		model = infos.model,
 		cegTag = infos.cegtag,
 	}
-	Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
+	Spring.SpawnProjectile(defParamToID[infos.def], projectileParams)
 	Spring.SpawnCEG(infos.waterpenceg, px, py, pz,0,0,0,0,0)
 	Spring.DeleteProjectile(proID)
 end
@@ -239,6 +239,16 @@ function gadget:Initialize()
 				elseif when == defaultCheck.when and (not checks or not checks[when]) then
 					checkingFunctions[speceffect] = checkingFunctions[speceffect] or {}
 					checkingFunctions[speceffect][defaultCheck.when] = defaultCheck.check
+				end
+				if weaponDef.customParams.def then
+					local def = weaponDef.customParams.def
+					if WeaponDefNames[def] then
+						defParamToID[def] = WeaponDefNames[def].id
+					else
+						local message = "Custom weapon has bad custom params: " .. weaponDef.name
+						message = message .. ' (def=' .. def .. ')'
+						Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+					end
 				end
 			else
 				local message = "Custom weapon has bad custom params: " .. weaponDef.name
