@@ -80,8 +80,10 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 			yy = target[2]
 			zz = target[3]
 		elseif targetTypeInt == targetedUnit then
-			local _
-			_, _, _, _, _, _, xx, yy, zz = Spring.GetUnitPosition(target, true, true)
+			do
+				local _
+				_, _, _, _, _, _, xx, yy, zz = Spring.GetUnitPosition(target, true, true)
+			end
 		end
 		local xp, yp, zp = SpGetProjectilePosition(proID)
 		local vxp, vyp, vzp = SpGetProjectileVelocity(proID)
