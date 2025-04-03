@@ -15,6 +15,15 @@ end
 if gadgetHandler:IsSyncedCode() then return end
 
 --------------------------------------------------------------------------------
+-- customparams = {
+--     speceffect      := string
+--     speceffect_when := string
+--     speceffect_def  := string?
+--     + Any other params that your custom behavior might use.
+-- }
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 local random = math.random
@@ -29,7 +38,6 @@ local SpGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
 local SpGetProjectilePosition = Spring.GetProjectilePosition
 local SpGetProjectileVelocity = Spring.GetProjectileVelocity
 local SpGetUnitIsDead = Spring.GetUnitIsDead
-local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
 local SpSetProjectileTarget = Spring.SetProjectileTarget
 local SpSetProjectileVelocity = Spring.SetProjectileVelocity
 
@@ -37,10 +45,10 @@ local targetedGround = string.byte('g')
 local targetedUnit = string.byte('u')
 
 local projectiles = {}
-local activeProjectiles = {}
+local projectilesData = {}
 local checkingFunctions = {}
 local applyingFunctions = {}
-local specialWeaponCustomDefs = {}
+local weaponCustomParams = {}
 local defParamToID = {}
 
 --------------------------------------------------------------------------------
@@ -51,12 +59,12 @@ local function alwaysTrue()
 end
 
 local function elevationIsNonpositive(proID)
-	local _, y, _ = SpGetProjectilePosition(proID)
+	local _, y = SpGetProjectilePosition(proID)
 	return y <= 0
 end
 
 local function velocityIsNegative(proID)
-	local _, vy, _ = SpGetProjectileVelocity(proID)
+	local _, vy = SpGetProjectileVelocity(proID)
 	return vy < 0
 end
 
@@ -210,7 +218,6 @@ applyingFunctions.torpwaterpen = function(proID)
 end
 
 checkingFunctions.torpwaterpenretarget = {}
-checkingFunctions.torpwaterpenretarget = {}
 do
 	local checkFunction = checkingFunctions.retarget.always
 	local applyFunction = applyingFunctions.torpwaterpen
@@ -233,7 +240,7 @@ function gadget:Initialize()
 			local apply = applyingFunctions[speceffect]
 			local checks = checkingFunctions[speceffect]
 			if apply or (checks and checks[when]) then
-				specialWeaponCustomDefs[weaponDefID] = weaponDef.customParams
+				weaponCustomParams[weaponDefID] = weaponDef.customParams
 				if not apply then
 					applyingFunctions[speceffect] = defaultApply
 				elseif when == defaultCheck.when and (not checks or not checks[when]) then
@@ -257,7 +264,7 @@ function gadget:Initialize()
 			end
 		end
 	end
-	if not next(specialWeaponCustomDefs) then
+	if not next(weaponCustomParams) then
 		Spring.Log(gadget:GetInfo().name, LOG.INFO, "No custom weapons found. Removing.")
 		gadgetHandler:RemoveGadget(self)
 		return
@@ -265,15 +272,14 @@ function gadget:Initialize()
 end
 
 function gadget:ProjectileCreated(proID, proOwnerID, weaponDefID)
-	if specialWeaponCustomDefs[weaponDefID] then
-		projectiles[proID] = specialWeaponCustomDefs[weaponDefID]
-		activeProjectiles[proID] = nil
+	if weaponCustomParams[weaponDefID] then
+		projectiles[proID] = weaponCustomParams[weaponDefID]
 	end
 end
 
 function gadget:ProjectileDestroyed(proID)
 	projectiles[proID] = nil
-	activeProjectiles[proID] = nil
+	projectilesData[proID] = nil
 end
 
 function gadget:GameFrame(f)
@@ -281,7 +287,7 @@ function gadget:GameFrame(f)
 		if checkingFunctions[infos.speceffect][infos.when](proID) then
 			applyingFunctions[infos.speceffect](proID)
 			projectiles[proID] = nil
-			activeProjectiles[proID] = nil
+			projectilesData[proID] = nil
 		end
 	end
 end
