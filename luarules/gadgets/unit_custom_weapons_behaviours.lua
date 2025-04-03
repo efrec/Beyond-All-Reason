@@ -75,9 +75,7 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 		local targetTypeInt, target = SpGetProjectileTarget(proID)
 		local tx, ty, tz
 		if targetTypeInt == targetedGround then
-			tx = target[1]
-			ty = target[2]
-			tz = target[3]
+			tx, ty, tz = target[1], target[2], target[3]
 		elseif targetTypeInt == targetedUnit then
 			do
 				local _
@@ -85,24 +83,20 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 			end
 		end
 		local px, py, pz = SpGetProjectilePosition(proID)
-		local pvx, pvy, pvz = SpGetProjectileVelocity(proID)
+		local pvx, pvy, pvz, speed = SpGetProjectileVelocity(proID)
 		local infos = projectiles[proID]
 		if math_sqrt((px - tx) ^ 2 + (py - ty) ^ 2 + (pz - tz) ^ 2) > tonumber(infos.lockon_dist) then
 			local nx, ny, nz = Spring.GetGroundNormal(px, pz)
 			local elevation = SpGetGroundHeight(px, pz) + tonumber(infos.cruise_min_height)
-			local pvy2
 			local correction = (pvx * nx + pvy * ny + pvz * nz) * ny
+			local pvy2
+			-- Always correct for ground clearance. Follow terrain after first ground clear.
+			-- Then, follow terrain also, but avoid going into steep dives, eg after cliffs.
 			if py < elevation then
 				pvy2 = pvy - correction
-				activeProjectiles[proID] = true
-			elseif py > elevation and activeProjectiles[proID] then
-				-- do not clamp to max height if
-				-- vertical velocity downward is more than 1/4 of current speed
-				-- probably just went off lip of steep cliff
-				local mag = math_sqrt(pvx * pvx + pvy * pvy + pvz * pvz)
-				if pvy > -mag * .25 then
-					pvy2 = pvy - correction
-				end
+				projectilesData[proID] = true
+			elseif py > elevation and pvy > speed * -0.25 and projectilesData[proID] then
+				pvy2 = pvy - correction
 			end
 			if pvy2 then
 				Spring.SetProjectilePosition(proID, px, elevation, pz)
