@@ -235,7 +235,7 @@ applyingFunctions.split = function(proID)
 			model = infos.model,
 			cegTag = infos.cegtag,
 		}
-		Spring.SpawnProjectile(WeaponDefNames[infos.def], projectileParams)
+		Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
 	end
 	Spring.SpawnCEG(infos.splitexplosionceg, px, py, pz, 0, 0, 0, 0, 0)
 	Spring.DeleteProjectile(proID)
@@ -258,7 +258,7 @@ applyingFunctions.cannonwaterpen = function(proID)
 		model = infos.model,
 		cegTag = infos.cegtag,
 	}
-	Spring.SpawnProjectile(WeaponDefNames[infos.def], projectileParams)
+	Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
 	Spring.SpawnCEG(infos.waterpenceg, px, py, pz, 0, 0, 0, 0, 0)
 	Spring.DeleteProjectile(proID)
 end
@@ -282,11 +282,11 @@ end
 
 checkingFunctions.torpwaterpenretarget = {}
 do
-	local checkFunction = checkingFunctions.retarget["always"]
+	local checkFunction = checkingFunctions.retarget.always
 	local applyFunction = applyingFunctions.torpwaterpen
 	checkingFunctions.torpwaterpenretarget["ypos<0"] = function(proID)
 		local result = checkFunction(proID)
-		local _, py, _ = SpGetProjectilePosition(proID)
+		local _, py = SpGetProjectilePosition(proID)
 		if py <= 0 then applyFunction(proID) end
 		return result
 	end
