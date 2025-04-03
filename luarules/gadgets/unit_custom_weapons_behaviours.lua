@@ -88,7 +88,7 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 		local xp, yp, zp = SpGetProjectilePosition(proID)
 		local vxp, vyp, vzp = SpGetProjectileVelocity(proID)
 		local infos = projectiles[proID]
-		if math_sqrt((xp - xx) ^ 2 + (yp - yy) ^ 2 + (zp - zz) ^ 2) > tonumber(infos.lockon_dist or 0) then
+		if math_sqrt((xp - xx) ^ 2 + (yp - yy) ^ 2 + (zp - zz) ^ 2) > tonumber(infos.lockon_dist) then
 			stop = false
 			local yg = SpGetGroundHeight(xp, zp)
 			local nx, ny, nz = Spring.GetGroundNormal(xp, zp)
