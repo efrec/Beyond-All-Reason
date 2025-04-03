@@ -43,6 +43,31 @@ for id, def in pairs(WeaponDefs) do
 		specialWeaponCustomDefs[id] = def.customParams
 	end
 end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+local function alwaysTrue()
+	return true
+end
+
+local function elevationIsNonpositive(proID)
+	local _, y, _ = SpGetProjectilePosition(proID)
+	return y <= 0
+end
+
+local function velocityIsNegative(proID)
+	local _, vy, _ = SpGetProjectileVelocity(proID)
+	return vy < 0
+end
+
+local function doNothing()
+	return
+end
+
+local defaultApply = doNothing
+local defaultCheck = { when = 'always', check = alwaysTrue }
+
+--------------------------------------------------------------------------------
 
 checkingFunctions.cruise = {}
 checkingFunctions.cruise["distance>0"] = function(proID)
@@ -92,18 +117,6 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 	return stop
 end
 
-applyingFunctions.cruise = function (proID)
-	return false
-end
-
-checkingFunctions.sector_fire = {}
-checkingFunctions.sector_fire["always"] = function (proID)
-	-- as soon as the siege projectile is created, pass true on the
-	-- checking function, to go to applying function
-	-- so the unit state is only checked when the projectile is created
-	return true
-end
-
 applyingFunctions.sector_fire = function (proID)
 	local infos = projectiles[proID]
 	local vx, vy, vz = SpGetProjectileVelocity(proID)
@@ -126,7 +139,6 @@ applyingFunctions.sector_fire = function (proID)
 	SpSetProjectileVelocity(proID, vx, vy, vz)
 end
 
-
 checkingFunctions.retarget = {}
 checkingFunctions.retarget["always"] = function(proID)
 	-- The projectile retargets only if both its target is dead and its unit retargets
@@ -145,40 +157,14 @@ checkingFunctions.retarget["always"] = function(proID)
 	return true
 end
 
-applyingFunctions.retarget = function (proID)
-	return false
-end
-
 checkingFunctions.cannonwaterpen = {}
-checkingFunctions.cannonwaterpen["ypos<0"] = function (proID)
-	local _,y,_ = Spring.GetProjectilePosition(proID)
-	if y <= 0 then
-		return true
-	else
-		return false
-	end
-end
+checkingFunctions.cannonwaterpen["ypos<0"] = elevationIsNonpositive
 
 checkingFunctions.split = {}
-checkingFunctions.split["yvel<0"] = function (proID)
-	local _,vy,_ = Spring.GetProjectileVelocity(proID)
-	if vy < 0 then
-		return true
-	else
-		return false
-	end
-end
+checkingFunctions.split["yvel<0"] = velocityIsNegative
 
 checkingFunctions.torpwaterpen = {}
-checkingFunctions.torpwaterpen["ypos<0"] = function (proID)
-	local _,py,_ = Spring.GetProjectilePosition(proID)
-	if py <= 0 then
-		return true
-	else
-		return false
-	end
-end
-
+checkingFunctions.torpwaterpen["ypos<0"] = elevationIsNonpositive
 
 checkingFunctions.torpwaterpenretarget = {}
 checkingFunctions.torpwaterpenretarget = {}
@@ -192,14 +178,6 @@ do
 		return result
 	end
 end
-
---fake function
-applyingFunctions.torpwaterpenretarget = function (proID)
-	return false
-
-end
-
-
 
 applyingFunctions.split = function (proID)
 	local px, py, pz = Spring.GetProjectilePosition(proID)
@@ -238,25 +216,6 @@ applyingFunctions.torpwaterpen = function(proID)
 	SpSetProjectileVelocity(proID, vx / 1.3, vyNew, vz / 1.3)
 end
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 applyingFunctions.cannonwaterpen = function (proID)
 	local px, py, pz = Spring.GetProjectilePosition(proID)
 	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
@@ -277,6 +236,38 @@ applyingFunctions.cannonwaterpen = function (proID)
 	Spring.DeleteProjectile(proID)
 end
 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+function gadget:Initialize()
+	for weaponDefID, weaponDef in pairs(WeaponDefs) do
+		if weaponDef.customParams.speceffect then
+			local speceffect = weaponDef.customParams.speceffect
+			local when = weaponDef.customParams.when
+			local apply = applyingFunctions[speceffect]
+			local checks = checkingFunctions[speceffect]
+			if apply or (checks and checks[when]) then
+				specialWeaponCustomDefs[weaponDefID] = weaponDef.customParams
+				if not apply then
+					applyingFunctions[speceffect] = defaultApply
+				elseif when == defaultCheck.when and (not checks or not checks[when]) then
+					checkingFunctions[speceffect] = checkingFunctions[speceffect] or {}
+					checkingFunctions[speceffect][defaultCheck.when] = defaultCheck.check
+				end
+			else
+				local message = "Custom weapon has bad custom params: " .. weaponDef.name
+				message = message .. ' (speceffect=' .. speceffect .. ',when=' .. (when or 'nil') .. ')'
+				Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+			end
+		end
+	end
+	if not next(specialWeaponCustomDefs) then
+		Spring.Log(gadget:GetInfo().name, LOG.INFO, "No custom weapons found. Removing.")
+		gadgetHandler:RemoveGadget(self)
+		return
+	end
+end
+
 function gadget:ProjectileCreated(proID, proOwnerID, weaponDefID)
 	if specialWeaponCustomDefs[weaponDefID] then
 		projectiles[proID] = specialWeaponCustomDefs[weaponDefID]
@@ -291,7 +282,7 @@ end
 
 function gadget:GameFrame(f)
 	for proID, infos in pairs(projectiles) do
-		if checkingFunctions[infos.speceffect][infos.when](proID) == true then
+		if checkingFunctions[infos.speceffect][infos.when](proID) then
 			applyingFunctions[infos.speceffect](proID)
 			projectiles[proID] = nil
 			active_projectiles[proID] = nil
