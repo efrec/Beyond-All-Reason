@@ -157,28 +157,9 @@ checkingFunctions.retarget["always"] = function(proID)
 	return true
 end
 
-checkingFunctions.cannonwaterpen = {}
-checkingFunctions.cannonwaterpen["ypos<0"] = elevationIsNonpositive
 
 checkingFunctions.split = {}
 checkingFunctions.split["yvel<0"] = velocityIsNegative
-
-checkingFunctions.torpwaterpen = {}
-checkingFunctions.torpwaterpen["ypos<0"] = elevationIsNonpositive
-
-checkingFunctions.torpwaterpenretarget = {}
-checkingFunctions.torpwaterpenretarget = {}
-do
-	local checkFunction = checkingFunctions.retarget.always
-	local applyFunction = applyingFunctions.torpwaterpen
-	checkingFunctions.torpwaterpenretarget["ypos<0"] = function(proID)
-		local result = checkFunction(proID)
-		local _, py = SpGetProjectilePosition(proID)
-		if py <= 0 then applyFunction(proID) end
-		return result
-	end
-end
-
 applyingFunctions.split = function (proID)
 	local px, py, pz = SpGetProjectilePosition(proID)
 	local vx, vy, vz, vw = SpGetProjectileVelocity(proID)
@@ -200,21 +181,10 @@ applyingFunctions.split = function (proID)
 	Spring.DeleteProjectile(proID)
 end
 
-applyingFunctions.torpwaterpen = function(proID)
-	local vx, vyOld, vz = SpGetProjectileVelocity(proID)
-	local targetType, targetID = SpGetProjectileTarget(proID)
-	local vyNew = 0
-	-- Only dive below surface if the target is at an appreciable depth.
-	if targetType == targetedUnit and targetID then
-		local _, unitPosY = Spring.GetUnitPosition(targetID)
-		if unitPosY and unitPosY < -10 then
-			vyNew = vyOld / 6
-		end
-	end
-	-- Brake without halting, else torpedoes may overshoot close targets.
-	SpSetProjectileVelocity(proID, vx / 1.3, vyNew, vz / 1.3)
-end
+-- Water penetration behaviors:
 
+checkingFunctions.cannonwaterpen = {}
+checkingFunctions.cannonwaterpen["ypos<0"] = elevationIsNonpositive
 applyingFunctions.cannonwaterpen = function (proID)
 	local px, py, pz = SpGetProjectilePosition(proID)
 	local vx, vy, vz = SpGetProjectileVelocity(proID)
@@ -233,6 +203,36 @@ applyingFunctions.cannonwaterpen = function (proID)
 	Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
 	Spring.SpawnCEG(infos.waterpenceg, px, py, pz,0,0,0,0,0)
 	Spring.DeleteProjectile(proID)
+end
+
+checkingFunctions.torpwaterpen = {}
+checkingFunctions.torpwaterpen["ypos<0"] = elevationIsNonpositive
+applyingFunctions.torpwaterpen = function(proID)
+	local vx, vyOld, vz = SpGetProjectileVelocity(proID)
+	local targetType, targetID = SpGetProjectileTarget(proID)
+	local vyNew = 0
+	-- Only dive below surface if the target is at an appreciable depth.
+	if targetType == targetedUnit and targetID then
+		local _, unitPosY = Spring.GetUnitPosition(targetID)
+		if unitPosY and unitPosY < -10 then
+			vyNew = vyOld / 6
+		end
+	end
+	-- Brake without halting, else torpedoes may overshoot close targets.
+	SpSetProjectileVelocity(proID, vx / 1.3, vyNew, vz / 1.3)
+end
+
+checkingFunctions.torpwaterpenretarget = {}
+checkingFunctions.torpwaterpenretarget = {}
+do
+	local checkFunction = checkingFunctions.retarget.always
+	local applyFunction = applyingFunctions.torpwaterpen
+	checkingFunctions.torpwaterpenretarget["ypos<0"] = function(proID)
+		local result = checkFunction(proID)
+		local _, py = SpGetProjectilePosition(proID)
+		if py <= 0 then applyFunction(proID) end
+		return result
+	end
 end
 
 --------------------------------------------------------------------------------
