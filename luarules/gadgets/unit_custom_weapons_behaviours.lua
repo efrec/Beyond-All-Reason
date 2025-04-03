@@ -129,23 +129,19 @@ end
 
 applyingFunctions.sector_fire = function (proID)
 	local infos = projectiles[proID]
-	local vx, vy, vz = SpGetProjectileVelocity(proID)
-	
 	local spread_angle = tonumber(infos.spread_angle)
 	local max_range_reduction = tonumber(infos.max_range_reduction)
-	
+
 	local angle_factor = (spread_angle * (random() - 0.5)) * mathPi / 180
+	local velocity_factor = 1 - (random() ^ (1 + max_range_reduction)) * max_range_reduction
+
 	local cos_angle = mathCos(angle_factor)
 	local sin_angle = mathSin(angle_factor)
-	
-	local vx_new = vx * cos_angle - vz * sin_angle
-	local vz_new = vx * sin_angle + vz * cos_angle
-	
-	local velocity_factor = 1 - (random() ^ (1 + max_range_reduction)) * max_range_reduction
-	
-	vx = vx_new * velocity_factor
-	vz = vz_new * velocity_factor
-	
+
+	local vx, vy, vz = SpGetProjectileVelocity(proID)
+	vx = vx * cos_angle - vz * sin_angle * velocity_factor
+	vz = vx * sin_angle + vz * cos_angle * velocity_factor
+
 	SpSetProjectileVelocity(proID, vx, vy, vz)
 end
 
