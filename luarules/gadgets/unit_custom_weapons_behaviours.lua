@@ -79,8 +79,7 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 			xx = target[1]
 			yy = target[2]
 			zz = target[3]
-		end
-		if targetTypeInt == targetedUnit then
+		elseif targetTypeInt == targetedUnit then
 			local _
 			_, _, _, _, _, _, xx, yy, zz = Spring.GetUnitPosition(target, true, true)
 		end
