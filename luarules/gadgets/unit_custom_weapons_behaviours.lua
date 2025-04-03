@@ -117,6 +117,24 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 	return stop
 end
 
+checkingFunctions.retarget = {}
+checkingFunctions.retarget["always"] = function(proID)
+	-- The projectile retargets only if both its target is dead and its unit retargets
+	local targetType, target = SpGetProjectileTarget(proID)
+	if targetType == targetedUnit and SpGetUnitIsDead(target) ~= false then
+		local ownerID = Spring.GetProjectileOwnerID(proID)
+		-- Hardcoded to target only with the primary weapon and target only units or ground
+		local ownerTargetType, _, ownerTarget = SpGetUnitWeaponTarget(ownerID, 1)
+		if ownerTargetType == 1 then
+			SpSetProjectileTarget(proID, ownerTarget, targetedUnit)
+		elseif ownerTargetType == 2 then
+			SpSetProjectileTarget(proID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
+		end
+		return false
+	end
+	return true
+end
+
 applyingFunctions.sector_fire = function (proID)
 	local infos = projectiles[proID]
 	local vx, vy, vz = SpGetProjectileVelocity(proID)
@@ -138,25 +156,6 @@ applyingFunctions.sector_fire = function (proID)
 	
 	SpSetProjectileVelocity(proID, vx, vy, vz)
 end
-
-checkingFunctions.retarget = {}
-checkingFunctions.retarget["always"] = function(proID)
-	-- The projectile retargets only if both its target is dead and its unit retargets
-	local targetType, target = SpGetProjectileTarget(proID)
-	if targetType == targetedUnit and SpGetUnitIsDead(target) ~= false then
-		local ownerID = Spring.GetProjectileOwnerID(proID)
-		-- Hardcoded to target only with the primary weapon and target only units or ground
-		local ownerTargetType, _, ownerTarget = SpGetUnitWeaponTarget(ownerID, 1)
-		if ownerTargetType == 1 then
-			SpSetProjectileTarget(proID, ownerTarget, targetedUnit)
-		elseif ownerTargetType == 2 then
-			SpSetProjectileTarget(proID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
-		end
-		return false
-	end
-	return true
-end
-
 
 checkingFunctions.split = {}
 checkingFunctions.split["yvel<0"] = velocityIsNegative
