@@ -180,20 +180,18 @@ if gadgetHandler:IsSyncedCode() then
     end
 	
 	
-	--a Hornet special, mangle different two things into working as one (they're otherwise mutually exclusive)
 	checkingFunctions.torpwaterpenretarget = {}
-    checkingFunctions.torpwaterpenretarget["ypos<0"] = function (proID)
-	
-		checkingFunctions.retarget["always"](proID)--subcontract that part
-	
-        local _,py,_ = Spring.GetProjectilePosition(proID)
-        if py <= 0 then
-			--and delegate that too
-			applyingFunctions.torpwaterpen(proID)
-        else
-            return false
-        end
-    end
+	checkingFunctions.torpwaterpenretarget = {}
+	do
+		local checkFunction = checkingFunctions.retarget.always
+		local applyFunction = applyingFunctions.torpwaterpen
+		checkingFunctions.torpwaterpenretarget["ypos<0"] = function(proID)
+			local result = checkFunction(proID)
+			local _, py = SpGetProjectilePosition(proID)
+			if py <= 0 then applyFunction(proID) end
+			return result
+		end
+	end
 	
 	--fake function
 	applyingFunctions.torpwaterpenretarget = function (proID)
