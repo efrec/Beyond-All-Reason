@@ -110,18 +110,19 @@ end
 
 checkingFunctions.retarget = {}
 checkingFunctions.retarget["always"] = function(proID)
-	-- The projectile retargets only if both its target is dead and its unit retargets
-	local targetType, target = SpGetProjectileTarget(proID)
-	if targetType == targetedUnit and SpGetUnitIsDead(target) ~= false then
-		local ownerID = Spring.GetProjectileOwnerID(proID)
-		-- Hardcoded to target only with the primary weapon and target only units or ground
-		local ownerTargetType, _, ownerTarget = SpGetUnitWeaponTarget(ownerID, 1)
-		if ownerTargetType == 1 then
-			SpSetProjectileTarget(proID, ownerTarget, targetedUnit)
-		elseif ownerTargetType == 2 then
-			SpSetProjectileTarget(proID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
+	if SpGetProjectileTimeToLive(proID) > 0 then
+		local targetType, target = SpGetProjectileTarget(proID)
+		if targetType == targetedUnit and SpGetUnitIsDead(target) ~= false then
+			local ownerID = Spring.GetProjectileOwnerID(proID)
+			-- Hardcoded to retarget only from the primary weapon and only units or ground
+			local ownerTargetType, _, ownerTarget = Spring.GetUnitWeaponTarget(ownerID, 1)
+			if ownerTargetType == 1 then
+				SpSetProjectileTarget(proID, ownerTarget, targetedUnit)
+			elseif ownerTargetType == 2 then
+				SpSetProjectileTarget(proID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
+			end
+			return false
 		end
-		return false
 	end
 	return true
 end
