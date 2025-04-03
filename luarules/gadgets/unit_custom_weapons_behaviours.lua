@@ -160,17 +160,22 @@ applyingFunctions.split = function (proID)
 	local vx, vy, vz, vw = SpGetProjectileVelocity(proID)
 	local ownerID = Spring.GetProjectileOwnerID(proID)
 	local infos = projectiles[proID]
+	local projectileDefID = defParamToID[infos.def]
+	local projectileParams = {
+		pos     = { px, py, pz },
+		owner   = ownerID,
+		ttl     = 3000,
+		gravity = -Game.gravity / 900,
+		model   = infos.model,
+		cegTag  = infos.cegtag,
+	}
 	for i = 1, tonumber(infos.number) do
-		local projectileParams = {
-			pos = { px, py, pz },
-			speed = { vx - vw * (random(-100, 100) / 880), vy - vw * (random(-100, 100) / 440), vz - vw * (random(-100, 100) / 880) },
-			owner = ownerID,
-			ttl = 3000,
-			gravity = -Game.gravity / 900,
-			model = infos.model,
-			cegTag = infos.cegtag,
+		projectileParams.speed = {
+			vx - vw * (random(-100, 100) / 880),
+			vy - vw * (random(-100, 100) / 440),
+			vz - vw * (random(-100, 100) / 880)
 		}
-		Spring.SpawnProjectile(defParamToID[infos.def], projectileParams)
+		Spring.SpawnProjectile(projectileDefID, projectileParams)
 	end
 	Spring.SpawnCEG(infos.splitexplosionceg, px, py, pz, 0, 0, 0, 0, 0)
 	Spring.DeleteProjectile(proID)
