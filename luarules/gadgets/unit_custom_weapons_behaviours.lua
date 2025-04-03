@@ -37,7 +37,7 @@ local targetedGround = string.byte('g')
 local targetedUnit = string.byte('u')
 
 local projectiles = {}
-local active_projectiles = {}
+local activeProjectiles = {}
 local checkingFunctions = {}
 local applyingFunctions = {}
 local specialWeaponCustomDefs = {}
@@ -94,8 +94,8 @@ checkingFunctions.cruise["distance>0"] = function(proID)
 			local correction = (pvx * nx + pvy * ny + pvz * nz) * ny
 			if py < elevation then
 				pvy2 = pvy - correction
-				active_projectiles[proID] = true
-			elseif py > elevation and active_projectiles[proID] then
+				activeProjectiles[proID] = true
+			elseif py > elevation and activeProjectiles[proID] then
 				-- do not clamp to max height if
 				-- vertical velocity downward is more than 1/4 of current speed
 				-- probably just went off lip of steep cliff
@@ -266,13 +266,13 @@ end
 function gadget:ProjectileCreated(proID, proOwnerID, weaponDefID)
 	if specialWeaponCustomDefs[weaponDefID] then
 		projectiles[proID] = specialWeaponCustomDefs[weaponDefID]
-		active_projectiles[proID] = nil
+		activeProjectiles[proID] = nil
 	end
 end
 
 function gadget:ProjectileDestroyed(proID)
 	projectiles[proID] = nil
-	active_projectiles[proID] = nil
+	activeProjectiles[proID] = nil
 end
 
 function gadget:GameFrame(f)
@@ -280,7 +280,7 @@ function gadget:GameFrame(f)
 		if checkingFunctions[infos.speceffect][infos.when](proID) then
 			applyingFunctions[infos.speceffect](proID)
 			projectiles[proID] = nil
-			active_projectiles[proID] = nil
+			activeProjectiles[proID] = nil
 		end
 	end
 end
