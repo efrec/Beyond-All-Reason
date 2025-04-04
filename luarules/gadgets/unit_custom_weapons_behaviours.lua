@@ -14,35 +14,66 @@ end
 
 if not gadgetHandler:IsSyncedCode() then return false end
 
+-- customparams = {
+--     speceffect      := string
+--     speceffect_when := string
+--     speceffect_def  := string?
+-- }
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
 local random = math.random
-
-local SpSetProjectileVelocity = Spring.SetProjectileVelocity
-local SpSetProjectileTarget = Spring.SetProjectileTarget
-
-local SpGetProjectileVelocity = Spring.GetProjectileVelocity
-local SpGetProjectileOwnerID = Spring.GetProjectileOwnerID
-local SpGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
-local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
-local SpGetProjectileTarget = Spring.GetProjectileTarget
-local SpGetUnitIsDead = Spring.GetUnitIsDead
-
-local projectiles = {}
-local active_projectiles = {}
-local checkingFunctions = {}
-local applyingFunctions = {}
 local math_sqrt = math.sqrt
 local mathCos = math.cos
 local mathSin = math.sin
 local mathPi = math.pi
 
-local specialWeaponCustomDefs = {}
-local weaponDefNamesID = {}
-for id, def in pairs(WeaponDefs) do
-	weaponDefNamesID[def.name] = id
-	if def.customParams.speceffect then
-		specialWeaponCustomDefs[id] = def.customParams
-	end
+local SpGetGroundHeight = Spring.GetGroundHeight
+local SpGetProjectileTarget = Spring.GetProjectileTarget
+local SpGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
+local SpGetProjectilePosition = Spring.GetProjectilePosition
+local SpGetProjectileVelocity = Spring.GetProjectileVelocity
+local SpGetUnitIsDead = Spring.GetUnitIsDead
+local SpSetProjectilePosition = Spring.SetProjectilePosition
+local SpSetProjectileTarget = Spring.SetProjectileTarget
+local SpSetProjectileVelocity = Spring.SetProjectileVelocity
+
+local targetedGround = string.byte('g')
+local targetedUnit = string.byte('u')
+local gravityPerFrame = -Game.gravity / (Game.gameSpeed * Game.gameSpeed)
+
+local projectiles = {}
+local projectilesData = {}
+local checkingFunctions = {}
+local applyingFunctions = {}
+local weaponCustomParams = {}
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+local function alwaysTrue()
+	return true
 end
+
+local function elevationIsNonpositive(proID)
+	local _, y = SpGetProjectilePosition(proID)
+	return y <= 0
+end
+
+local function velocityIsNegative(proID)
+	local _, vy = SpGetProjectileVelocity(proID)
+	return vy < 0
+end
+
+local function doNothing()
+	return
+end
+
+local defaultApply = doNothing
+local defaultCheck = { when = 'always', check = alwaysTrue }
+
+--------------------------------------------------------------------------------
 
 checkingFunctions.cruise = {}
 checkingFunctions.cruise["distance>0"] = function (proID)
@@ -72,7 +103,7 @@ checkingFunctions.cruise["distance>0"] = function (proID)
 		--Spring.Echo(Spring.GetGroundNormal(xp,zp))
 		--Spring.Echo(tonumber(infos.cruise_height)*slope)
 		if yp < yg + tonumber(infos.cruise_min_height) then
-			active_projectiles[proID] = true
+			projectilesData[proID] = true
 			Spring.SetProjectilePosition(proID,xp,yg + tonumber(infos.cruise_min_height),zp)
 			local norm = (vxp*nx+vyp*ny+vzp*nz)
 			xxv = vxp - norm*nx*0
@@ -80,7 +111,7 @@ checkingFunctions.cruise["distance>0"] = function (proID)
 			zzv = vzp - norm*nz*0
 			Spring.SetProjectileVelocity(proID,xxv,yyv,zzv)
 		end
-		if yp > yg + tonumber(infos.cruise_max_height) and active_projectiles[proID] and vyp > -mag*.25 then
+		if yp > yg + tonumber(infos.cruise_max_height) and projectilesData[proID] and vyp > -mag*.25 then
 			-- do not clamp to max height if
 			-- vertical velocity downward is more than 1/4 of current speed
 			-- probably just went off lip of steep cliff
@@ -241,7 +272,7 @@ applyingFunctions.split = function (proID)
 			model = infos.model,
 			cegTag = infos.cegtag,
 			}
-		Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
+		Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
 	end
 	Spring.SpawnCEG(infos.splitexplosionceg, px, py, pz,0,0,0,0,0)
 	Spring.DeleteProjectile(proID)
@@ -283,29 +314,72 @@ applyingFunctions.cannonwaterpen = function (proID)
 		model = infos.model,
 		cegTag = infos.cegtag,
 	}
-	Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
+	Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
 	Spring.SpawnCEG(infos.waterpenceg, px, py, pz,0,0,0,0,0)
 	Spring.DeleteProjectile(proID)
 end
 
+--------------------------------------------------------------------------------
+
+for speceffect in pairs(checkingFunctions) do
+	if not applyingFunctions[speceffect] then
+		applyingFunctions[speceffect] = defaultApply
+	end
+end
+
+for speceffect in pairs(applyingFunctions) do
+	if not checkingFunctions[speceffect] or not next(checkingFunctions[speceffect]) then
+		checkingFunctions[speceffect] = checkingFunctions[speceffect] or {}
+		checkingFunctions[speceffect][defaultCheck.when] = defaultCheck.check
+	end
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+function gadget:Initialize()
+	for weaponDefID, weaponDef in pairs(WeaponDefs) do
+		if weaponDef.customParams.speceffect then
+			local speceffect = weaponDef.customParams.speceffect
+			local when = weaponDef.customParams.speceffect_when
+			local def = weaponDef.customParams.speceffect_def
+			if def and not WeaponDefNames[def] then
+				local message = "Custom weapon has bad custom params: " .. weaponDef.name
+				message = message .. ' (def=' .. def .. ')'
+				Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+			elseif not checkingFunctions[speceffect][when] or not applyingFunctions[speceffect] then
+				local message = "Custom weapon has bad custom params: " .. weaponDef.name
+				message = message .. ' (speceffect=' .. speceffect .. ',speceffect_when=' .. (when or 'nil') .. ')'
+				Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+			else
+				weaponCustomParams[weaponDefID] = weaponDef.customParams
+			end
+		end
+	end
+	if not next(weaponCustomParams) then
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, "No custom weapons found. Removing.") -- todo: back to INFO
+		gadgetHandler:RemoveGadget(self)
+		return
+	end
+end
+
 function gadget:ProjectileCreated(proID, proOwnerID, weaponDefID)
-	if specialWeaponCustomDefs[weaponDefID] then
-		projectiles[proID] = specialWeaponCustomDefs[weaponDefID]
-		active_projectiles[proID] = nil
+	if weaponCustomParams[weaponDefID] then
+		projectiles[proID] = weaponCustomParams[weaponDefID]
 	end
 end
 
 function gadget:ProjectileDestroyed(proID)
 	projectiles[proID] = nil
-	active_projectiles[proID] = nil
+	projectilesData[proID] = nil
 end
 
 function gadget:GameFrame(f)
 	for proID, infos in pairs(projectiles) do
-		if checkingFunctions[infos.speceffect][infos.when](proID) == true then
+		if checkingFunctions[infos.speceffect][infos.speceffect_when](proID) then
 			applyingFunctions[infos.speceffect](proID)
 			projectiles[proID] = nil
-			active_projectiles[proID] = nil
+			projectilesData[proID] = nil
 		end
 	end
 end
