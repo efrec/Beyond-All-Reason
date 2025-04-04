@@ -185,8 +185,8 @@ end
 checkingFunctions.cannonwaterpen = {}
 checkingFunctions.cannonwaterpen["ypos<0"] = elevationIsNonpositive
 applyingFunctions.cannonwaterpen = function (proID)
-	local px, py, pz = Spring.GetProjectilePosition(proID)
-	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
+	local px, py, pz = SpGetProjectilePosition(proID)
+	local vx, vy, vz = SpGetProjectileVelocity(proID)
 	local nvx, nvy, nvz = vx * 0.5, vy * 0.5, vz * 0.5
 	local ownerID = Spring.GetProjectileOwnerID(proID)
 	local infos = projectiles[proID]
