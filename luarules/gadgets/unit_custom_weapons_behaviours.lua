@@ -127,9 +127,6 @@ checkingFunctions.cruise["distance>0"] = function (proID)
 		return true
 	end
 end
-applyingFunctions.cruise = function (proID)
-	return false
-end
 
 checkingFunctions.retarget = {}
 checkingFunctions.retarget["always"] = function (proID)
@@ -169,17 +166,8 @@ checkingFunctions.retarget["always"] = function (proID)
 
 	return false
 end
-applyingFunctions.retarget = function (proID)
-	return false
-end
 
 checkingFunctions.sector_fire = {}
-checkingFunctions.sector_fire["always"] = function (proID)
-	-- as soon as the siege projectile is created, pass true on the
-	-- checking function, to go to applying function
-	-- so the unit state is only checked when the projectile is created
-	return true
-end
 applyingFunctions.sector_fire = function (proID)
 	local infos = projectiles[proID]
 	local vx, vy, vz = SpGetProjectileVelocity(proID)
@@ -307,9 +295,6 @@ checkingFunctions.torpwaterpenretarget["ypos<0"] = function (proID)
 	else
 		return false
 	end
-end
-applyingFunctions.torpwaterpenretarget = function (proID)
-	return false
 end
 
 --------------------------------------------------------------------------------
