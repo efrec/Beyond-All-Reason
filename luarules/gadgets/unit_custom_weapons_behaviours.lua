@@ -183,7 +183,7 @@ end
 -- Water penetration behaviors
 
 checkingFunctions.cannonwaterpen = {}
-checkingFunctions.cannonwaterpen["ypos<0"] = elevationIsNonpositive
+checkingFunctions.cannonwaterpen["ypos<=0"] = elevationIsNonpositive
 applyingFunctions.cannonwaterpen = function(proID)
 	local px, py, pz = SpGetProjectilePosition(proID)
 	local vx, vy, vz = SpGetProjectileVelocity(proID)
@@ -205,7 +205,7 @@ applyingFunctions.cannonwaterpen = function(proID)
 end
 
 checkingFunctions.torpwaterpen = {}
-checkingFunctions.torpwaterpen["ypos<0"] = elevationIsNonpositive
+checkingFunctions.torpwaterpen["ypos<=0"] = elevationIsNonpositive
 applyingFunctions.torpwaterpen = function(proID)
 	local vx, vyOld, vz = SpGetProjectileVelocity(proID)
 	local targetType, targetID = SpGetProjectileTarget(proID)
