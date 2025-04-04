@@ -191,14 +191,7 @@ applyingFunctions.sector_fire = function (proID)
 end
 
 checkingFunctions.split = {}
-checkingFunctions.split["yvel<0"] = function (proID)
-	local _,vy,_ = Spring.GetProjectileVelocity(proID)
-	if vy < 0 then
-		return true
-	else
-		return false
-	end
-end
+checkingFunctions.split["yvel<0"] = velocityIsNegative
 applyingFunctions.split = function (proID)
 	local px, py, pz = Spring.GetProjectilePosition(proID)
 	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
@@ -224,14 +217,7 @@ end
 -- Water penetration behaviors
 
 checkingFunctions.cannonwaterpen = {}
-checkingFunctions.cannonwaterpen["ypos<0"] = function (proID)
-	local _,y,_ = Spring.GetProjectilePosition(proID)
-	if y <= 0 then
-		return true
-	else
-		return false
-	end
-end
+checkingFunctions.cannonwaterpen["ypos<0"] = elevationIsNonpositive
 applyingFunctions.cannonwaterpen = function (proID)
 	local px, py, pz = Spring.GetProjectilePosition(proID)
 	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
@@ -253,14 +239,7 @@ applyingFunctions.cannonwaterpen = function (proID)
 end
 
 checkingFunctions.torpwaterpen = {}
-checkingFunctions.torpwaterpen["ypos<0"] = function (proID)
-	local _,py,_ = Spring.GetProjectilePosition(proID)
-	if py <= 0 then
-		return true
-	else
-		return false
-	end
-end
+checkingFunctions.torpwaterpen["ypos<0"] = elevationIsNonpositive
 applyingFunctions.torpwaterpen = function (proID)
 	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
 	--if target is close under the shooter, however, this resetting makes the torp always miss, unless it has amazing tracking
