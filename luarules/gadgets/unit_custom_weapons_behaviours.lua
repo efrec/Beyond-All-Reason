@@ -2,13 +2,13 @@ local gadget = gadget ---@type Gadget
 
 function gadget:GetInfo()
 	return {
-		name      = "Custom weapon behaviours",
-		desc      = "Handler for special weapon behaviours",
-		author    = "Doo",
-		date      = "Sept 19th 2017",
-		license   = "GNU GPL, v2 or later",
-		layer     = 0,
-		enabled   = true
+		name    = "Custom weapon behaviours",
+		desc    = "Handler for special weapon behaviours",
+		author  = "Doo",
+		date    = "Sept 19th 2017",
+		license = "GNU GPL, v2 or later",
+		layer   = 0,
+		enabled = true
 	}
 end
 
@@ -134,7 +134,7 @@ checkingFunctions.retarget["always"] = function(proID)
 end
 
 checkingFunctions.sector_fire = {}
-applyingFunctions.sector_fire = function (proID)
+applyingFunctions.sector_fire = function(proID)
 	local infos = projectiles[proID]
 	local spread_angle = tonumber(infos.spread_angle)
 	local max_range_reduction = tonumber(infos.max_range_reduction)
@@ -154,7 +154,7 @@ end
 
 checkingFunctions.split = {}
 checkingFunctions.split["yvel<0"] = velocityIsNegative
-applyingFunctions.split = function (proID)
+applyingFunctions.split = function(proID)
 	local px, py, pz = SpGetProjectilePosition(proID)
 	local vx, vy, vz, vw = SpGetProjectileVelocity(proID)
 	local ownerID = Spring.GetProjectileOwnerID(proID)
@@ -184,29 +184,29 @@ end
 
 checkingFunctions.cannonwaterpen = {}
 checkingFunctions.cannonwaterpen["ypos<0"] = elevationIsNonpositive
-applyingFunctions.cannonwaterpen = function (proID)
+applyingFunctions.cannonwaterpen = function(proID)
 	local px, py, pz = SpGetProjectilePosition(proID)
 	local vx, vy, vz = SpGetProjectileVelocity(proID)
 	local nvx, nvy, nvz = vx * 0.5, vy * 0.5, vz * 0.5
 	local ownerID = Spring.GetProjectileOwnerID(proID)
 	local infos = projectiles[proID]
 	local projectileParams = {
-		pos = {px, py, pz},
-		speed = {nvx, nvy, nvz},
+		pos = { px, py, pz },
+		speed = { nvx, nvy, nvz },
 		owner = ownerID,
 		ttl = 3000,
-		gravity = -Game.gravity/3600,
+		gravity = -Game.gravity / 3600,
 		model = infos.model,
 		cegTag = infos.cegtag,
 	}
 	Spring.SpawnProjectile(WeaponDefNames[infos.def].id, projectileParams)
-	Spring.SpawnCEG(infos.waterpenceg, px, py, pz,0,0,0,0,0)
+	Spring.SpawnCEG(infos.waterpenceg, px, py, pz, 0, 0, 0, 0, 0)
 	Spring.DeleteProjectile(proID)
 end
 
 checkingFunctions.torpwaterpen = {}
 checkingFunctions.torpwaterpen["ypos<0"] = elevationIsNonpositive
-applyingFunctions.torpwaterpen = function (proID)
+applyingFunctions.torpwaterpen = function(proID)
 	local vx, vyOld, vz = SpGetProjectileVelocity(proID)
 	local targetType, targetID = SpGetProjectileTarget(proID)
 	local vyNew = 0
