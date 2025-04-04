@@ -180,6 +180,73 @@ applyingFunctions.split = function(proID)
 	Spring.DeleteProjectile(proID)
 end
 
+checkingFunctions.vertical_descent = {}
+do
+	local function addProjectileData(proID)
+		local tx, ty, tz
+		local targetType, target = SpGetProjectileTarget(proID)
+		if targetType == targetedGround then
+			tx, ty, tz = target[1], target[2], target[3]
+		elseif targetType == targetedUnit then
+			tx, ty, tz = Spring.GetUnitPosition(target)
+			ty = SpGetGroundHeight(tx, tz)
+			SpSetProjectileTarget(proID, tx, ty, tz)
+		end
+		local data = {
+			altitude = ty + tonumber(projectiles[proID].vertical_descent_altitude),
+			speedMax = WeaponDefs[Spring.GetProjectileDefID(proID)].projectilespeed,
+			rising   = true,
+			tx, math.max(0, ty), tz
+		}
+		projectilesData[proID] = data
+		return data
+	end
+
+	-- Cruise when far from target but try to "resemble" ballistic motion.
+	-- Then turn toward verticalization target first; then, toward ground.
+	checkingFunctions.vertical_descent["after launch"] = function(proID)
+		local data = projectilesData[proID] or addProjectileData(proID)
+		local vx, vy, vz, speed = SpGetProjectileVelocity(proID)
+		if vy > 0 and data.rising then
+			return false
+		else
+			data.rising = false
+			Spring.SetProjectileMoveControl(proID, true)
+		end
+
+		local px, py, pz = SpGetProjectilePosition(proID)
+		local distance2D = (px - data[1]) ^ 2 + (pz - data[3]) ^ 2
+		local altitudeDescent = tonumber(projectiles[proID].vertical_descent_altitude)
+		if distance2D > math.pi * altitudeDescent * altitudeDescent then
+			local lookahead = 5
+			vy = vy + (1 - (py + lookahead * vy) / data.altitude) / Game.gameSpeed
+			-- todo: Gravity and air drag forces aren't being modeled. Should they be?
+		else
+			local pitch = math.atan2(vy, math_sqrt(vx * vx + vz * vz))
+			distance2D = math_sqrt(distance2D)
+			if py > data[2] + altitudeDescent then
+				-- todo: This is a magic number situation, possibly for no good reason, because:
+				-- todo: The FR is just as easily met by drawing a quarter circle and pathing it.
+				-- todo: Consider force tracking on the projectile so we can just set new targets.
+				vy = vy - (math.atan2(py - data.altitude, distance2D) - pitch) * 1.33
+			elseif py > data[2] then
+				vy = (5 * vy - data.speedMax) / 6
+				vy = vy - (math.atan2(py - data[2], distance2D) - pitch) * 2
+			end
+		end
+		-- todo: I'm being computationally lazy and adjusting to the previous frame's velocities.
+		-- todo: Depending on the verticalization method you choose above, this may not work out.
+		if speed ~= 0 then
+			local normalize = speed > data.speedMax and data.speedMax or (speed + 0.1)
+			normalize = normalize / speed
+			vx, vy, vz = vx * normalize, vy * normalize, vz * normalize
+		end
+		SpSetProjectilePosition(proID, px + vx, py + vy, pz + vz)
+		SpSetProjectileVelocity(proID, vx, vy, vz)
+	end
+end
+
+
 -- Water penetration behaviors
 
 checkingFunctions.cannonwaterpen = {}
