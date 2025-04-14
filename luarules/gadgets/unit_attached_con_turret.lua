@@ -281,48 +281,9 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 	end
 end
 
-function gadget:UnitFinished(unitID, unitDefID, unitTeam)
-
-	local unitDef = UnitDefs[unitDefID]
-	-- for now, just corvac gets an attached con turret
-	if unitDef.name == "corvac" then
-		local xx,yy,zz = SpGetUnitPosition(unitID)
-		nano_id = Spring.CreateUnit("corvacct",xx,yy,zz,0,Spring.GetUnitTeam(unitID) )
-		if not nano_id then
-			-- unit limit hit or invalid spawn surface
-			return
-		end
-		Spring.UnitAttach(unitID,nano_id,3)
-		-- makes the attached con turret as non-interacting as possible
-		Spring.SetUnitBlocking(nano_id, false, false, false)
-		Spring.SetUnitNoSelect(nano_id,true)
-		attached_builders[nano_id] = unitID
-		attached_builder_def[nano_id] = SpGetUnitDefID(nano_id)
-	end
-	if unitDef.name == "legmohobp" then
-		local xx,yy,zz = SpGetUnitPosition(unitID)
-		nano_id = Spring.CreateUnit("legmohobpct",xx,yy,zz,0,Spring.GetUnitTeam(unitID) )
-		if not nano_id then
-			-- unit limit hit or invalid spawn surface
-			return
-		end
-		Spring.UnitAttach(unitID,nano_id,3)
-		-- makes the attached con turret as non-interacting as possible 
-		Spring.SetUnitBlocking(nano_id, false, false, false)
-        Spring.SetUnitNoSelect(nano_id,false)
-		attached_builders[nano_id] = unitID
-		attached_builder_def[nano_id] = SpGetUnitDefID(nano_id)
-	end
-
-end
-
 function gadget:GameFrame(gameFrame)
-
 	if gameFrame % 15 == 0 then
-	    -- go on a slowupdate cycle
-		for unitID, base_unit_id in pairs(attached_builders) do
-			auto_repair_routine(unitID,attached_builder_def[unitID])
-		end
+		retryUnitAttachments()
+		updateTurretCommands()
 	end
-
 end
