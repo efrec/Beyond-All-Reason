@@ -56,18 +56,61 @@ local attachedUnits = {}
 local attachedUnitBuildRadius = {}
 local detachedUnits = {}
 
---repairs and reclaims start at the edge of the unit radius
---so we need to increase our search radius by the maximum unit radius
-local max_unit_radius = 0
-function gadget:Initialize()
-
-	local radius = 0
-	for ix, udef in pairs(UnitDefs) do
-		dimensions = SpGetUnitDefDimensions(udef.id)
-		radius = dimensions.radius
-		max_unit_radius = math.max(radius,max_unit_radius)
+do
+	local function checkSameBuildOptions(unitDef1, unitDef2)
+		if #unitDef1.buildoptions == #unitDef2.buildoptions then
+			for _, unitName in ipairs(unitDef1.buildoptions) do
+				if not table.contains(unitDef2.buildoptions, unitName) then
+					return false
+				end
+			end
+			return true
+		end
+		return false
 	end
 
+	function gadget:Initialize()
+		for unitDefID, unitDef in pairs(UnitDefs) do
+			unitDefRadiusMax = math.max(unitDef.radius, unitDefRadiusMax)
+			if unitDef.customParams.attached_con_turret and not unitDef.customParams.attached_mex_replace then
+				local nanoDef = UnitDefNames[unitDef.customParams.attached_con_turret]
+				if checkSameBuildOptions(unitDef, nanoDef) then
+					attachedBuilderDefID[unitDefID] = nanoDef and nanoDef.id or nil
+				else
+					local message = "Unit and its attached con turret have different build lists: "
+					Spring.Log(gadget:GetInfo().name, LOG.ERROR, message .. unitDef.name)
+				end
+			elseif unitDef.customParams.mine or unitDef.modCategories.object or unitDef.customParams.objectify then
+				unitCannotBeAssisted[unitDefID] = true
+			end
+		end
+		if table.count(attachedBuilderDefID) == 0 then
+			gadgetHandler:RemoveGadget(self)
+		end
+		for _, unitID in Spring.GetAllUnits() do
+			local unitDefID = Spring.GetUnitDefID(unitID)
+			if attachedBuilderDefID[unitDefID] then
+				local attachedIDs = Spring.GetUnitIsTransporting(unitID)
+				local hasAttachedCon = false
+				for _, attachedID in ipairs(attachedIDs) do
+					local attachedDefID = Spring.GetUnitDefID(attachedID)
+					if attachedDefID == attachedBuilderDefID[unitDefID] then
+						attachedUnits[attachedID] = unitID
+						attachedUnitBuildRadius[attachedID] = UnitDefs[attachedDefID].buildDistance
+						hasAttachedCon = true
+						break
+					end
+				end
+				if not hasAttachedCon then
+					detachedUnits[unitID] = {
+						attempts  = 30, -- Some information loss; dunno age of unit.
+						frame     = Spring.GetGameFrame(),
+						unitDefID = unitDefID,
+					}
+				end
+			end
+		end
+	end
 end
 
 local function auto_repair_routine(unitID,unitDefID)
