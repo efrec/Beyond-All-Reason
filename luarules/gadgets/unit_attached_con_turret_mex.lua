@@ -140,12 +140,12 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 		end
 		for maybeDeadID, swapData in pairs(mexSwapID) do
 			if unitID == maybeDeadID then
-				mexSwapID[maybeDeadID] = nil
+				mexSwapID[unitID] = nil
 				if swapData.oldUnitID then
 					local _, metalReclaim = Spring.GetUnitCosts(swapData.oldUnitID)
 					Spring.AddTeamResource(swapData.unitTeamID, "metal", metalReclaim)
-					break
 				end
+				break
 			end
 		end
 	end
