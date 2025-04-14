@@ -264,6 +264,12 @@ local function updateTurretCommands()
 	end
 end
 
+function gadget:UnitFinished(unitID, unitDefID, unitTeam)
+	if attachedBuilderDefID[unitDefID] then
+		attachToUnit(unitID, unitDefID, unitTeam, 30)
+	end
+end
+
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
 	attachedUnits[unitID] = nil
 	attachedUnitBuildRadius[unitID] = nil
