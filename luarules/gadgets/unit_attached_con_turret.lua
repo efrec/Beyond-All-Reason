@@ -113,6 +113,44 @@ do
 	end
 end
 
+--------------------------------------------------------------------------------
+-- Process ---------------------------------------------------------------------
+
+local function attachToUnit(unitID, unitDefID, unitTeam, attempts)
+	if attempts > 0 then
+		local attachedDefID = attachedBuilderDefID[unitDefID]
+		local xx, yy, zz = spGetUnitPosition(unitID)
+		local facing = math.random(0, 3)
+		local attachedID = Spring.CreateUnit(attachedDefID, xx, yy, zz, facing, unitTeam)
+		if attachedID then
+			Spring.UnitAttach(unitID, attachedID, 3)
+			Spring.SetUnitBlocking(attachedID, false, false, false)
+			Spring.SetUnitNoSelect(attachedID, true)
+			attachedUnits[attachedID] = unitID
+			attachedUnitBuildRadius[attachedID] = UnitDefs[attachedDefID].buildDistance
+			detachedUnits[unitID] = nil
+		else
+			local detachedUnitData = detachedUnits[unitID]
+			if not detachedUnitData then
+				detachedUnitData = { unitDefID = unitDefID }
+				detachedUnits[unitID] = detachedUnitData
+			end
+			detachedUnitData.attempts = attempts - 1
+			detachedUnitData.frame = Spring.GetGameFrame()
+		end
+	else
+		Spring.DestroyUnit(unitID)
+	end
+end
+
+local function retryUnitAttachments(gameFrame)
+	for unitID, detachedUnitData in pairs(detachedUnits) do
+		if detachedUnitData.frame + Game.gameSpeed <= gameFrame then
+			attachToUnit(unitID, detachedUnitData.unitDefID, Spring.GetUnitTeam(unitID), detachedUnitData.attempts)
+		end
+	end
+end
+
 local function auto_repair_routine(unitID,unitDefID)
 
 	-- first, check command the body is performing
