@@ -108,21 +108,27 @@ function gadget:UnitGiven(unitID, unitDefID, newTeam, oldTeam)
 	end
 end
 
-function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projectileID, attackerID, attackerDefID, attackerTeam)
+do
+	local spGetUnitHealth = Spring.GetUnitHealth
+	local function attachedUnitPreDamaged(unitID, unitDefID, unitTeam, damage)
+		local health, maxHealth = spGetUnitHealth(unitID)
+		if health - damage <= 0 then
+			local xx, yy, zz = Spring.GetUnitPosition(unitID)
+			local facing = Spring.GetUnitBuildFacing(unitID)
+			local name = UnitDefs[unitDefID].name
+			if damage < maxHealth * 0.25 then
+				local featureID = Spring.CreateFeature(name .. "_dead", xx, yy, zz, facing, unitTeam)
+				Spring.SetFeatureResurrect(featureID, name, facing, 0)
+			elseif damage < maxHealth * 0.5 then
+				Spring.CreateFeature(name .. "_heap", xx, yy, zz, facing, unitTeam)
+			end
+		end
+	end
 
-	if unitDefID ~= legmohoconctDefID and unitDefID ~= legmohoconctDefIDScav then
-        return
-    end
-	local health, maxHealth = spGetUnitHealth(unitID)
-	if health - damage <= 0 then
-		local xx, yy, zz = Spring.GetUnitPosition(unitID)
-		local facing = Spring.GetUnitBuildFacing(unitID)
-		local name = UnitDefs[unitDefID].name
-		if damage < maxHealth * 0.25 then
-			local featureID = Spring.CreateFeature(name .. "_dead", xx, yy, zz, facing, unitTeam)
-			Spring.SetFeatureResurrect(featureID, name, facing, 0)
-		elseif damage < maxHealth * 0.5 then
-			Spring.CreateFeature(name .. "_heap", xx, yy, zz, facing, unitTeam)
+	function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projectileID,
+		                           attackerID, attackerDefID, attackerTeam)
+		if not paralyzer and conDefIDs[unitDefID] then
+			attachedUnitPreDamaged(unitID, unitDefID, unitTeam, damage)
 		end
 	end
 end
