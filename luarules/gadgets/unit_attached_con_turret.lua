@@ -151,6 +151,12 @@ local function retryUnitAttachments(gameFrame)
 	end
 end
 
+local function updateTurretHeading(unitID, dx, dz)
+	local heading1 = spGetHeadingFromVector(dx, dz)
+	local heading2 = spGetUnitHeading(unitID)
+	spCallCOBScript(unitID, "UpdateHeading", 0, heading1 - heading2 + 32768)
+end
+
 local function updateTurretCommands()
 	for turretID, unitID in pairs(attachedUnits) do
 		local ux, _, uz = spGetUnitPosition(turretID)
