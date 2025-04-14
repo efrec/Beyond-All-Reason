@@ -113,20 +113,16 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 	if unitDefID ~= legmohoconctDefID and unitDefID ~= legmohoconctDefIDScav then
         return
     end
-	local health,maxHealth = Spring.GetUnitHealth(unitID)
-	if health-damage < 0 then																		-- when damaged and killed
-		local xx,yy,zz = Spring.GetUnitPosition(unitID)
+	local health, maxHealth = spGetUnitHealth(unitID)
+	if health - damage <= 0 then
+		local xx, yy, zz = Spring.GetUnitPosition(unitID)
 		local facing = Spring.GetUnitBuildFacing(unitID)
-		local scav = ""
-		if UnitDefs[unitDefID].customParams.isscavenger or unitTeam == Spring.Utilities.GetScavTeamID() then scav = "_scav" end
-		
-		if damage < (maxHealth / 4) then
-			--Spring.Echo("Legmohocon feature created")															-- if damage is <25% of max health spawn wreck
-			local featureID = Spring.CreateFeature("legmohocon" .. scav .. "_dead" , xx, yy, zz, facing, unitTeam)
-			Spring.SetFeatureResurrect(featureID, "legmohocon" .. scav, facing, 0)
-		end
-		if damage > (maxHealth / 4) and damage < (maxHealth / 2) then								-- if damage is >25% and <50% of max health spawn heap
-			Spring.CreateFeature("legmohocon_heap", xx, yy, zz, facing, unitTeam)
+		local name = UnitDefs[unitDefID].name
+		if damage < maxHealth * 0.25 then
+			local featureID = Spring.CreateFeature(name .. "_dead", xx, yy, zz, facing, unitTeam)
+			Spring.SetFeatureResurrect(featureID, name, facing, 0)
+		elseif damage < maxHealth * 0.5 then
+			Spring.CreateFeature(name .. "_heap", xx, yy, zz, facing, unitTeam)
 		end
 	end
 end
