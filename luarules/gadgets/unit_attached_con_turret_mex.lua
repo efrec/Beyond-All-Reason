@@ -133,17 +133,20 @@ do
 	end
 end
 
-function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam)		-- if con dies remove imex
-	
-	if unitDefID ~= legmohoconctDefID and unitDefID ~= legmohoconctDefIDScav then 
-        return 
-    end
-	if Spring.GetUnitTransporter(unitID) then
-		Spring.DestroyUnit(Spring.GetUnitTransporter(unitID), false, true)
-	end
-	for destroyedUnitID, destroyedUnitData in pairs(mexesToSwap) do
-		if unitID == destroyedUnitID then
-			mexesToSwap[destroyedUnitID] = nil
+function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam)
+	if conDefIDs[unitDefID] then
+		if Spring.GetUnitTransporter(unitID) then
+			Spring.DestroyUnit(Spring.GetUnitTransporter(unitID), false, true)
+		end
+		for maybeDeadID, swapData in pairs(mexSwapID) do
+			if unitID == maybeDeadID then
+				mexSwapID[maybeDeadID] = nil
+				if swapData.oldUnitID then
+					local _, metalReclaim = Spring.GetUnitCosts(swapData.oldUnitID)
+					Spring.AddTeamResource(swapData.unitTeamID, "metal", metalReclaim)
+					break
+				end
+			end
 		end
 	end
 end
