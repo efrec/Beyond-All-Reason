@@ -1,46 +1,60 @@
 local gadget = gadget ---@type Gadget
 
 function gadget:GetInfo()
-    return {
-        name      = 'Attached Construction Turret',
-        desc      = 'Attaches a builder to another mobile unit, so builder can repair while moving',
-        author    = 'Itanthias',
-        version   = 'v1.1',
-        date      = 'July 2023',
-        license   = 'GNU GPL, v2 or later',
-        layer     = 12,
-        enabled   = true
-    }
+	return {
+		name    = 'Attached Construction Turret',
+		desc    = 'Attaches a builder to another mobile unit, so builder can repair while moving',
+		author  = 'Itanthias',
+		version = 'v1.1',
+		date    = 'July 2023',
+		license = 'GNU GPL, v2 or later',
+		layer   = 12,
+		enabled = true
+	}
 end
 
 if not gadgetHandler:IsSyncedCode() then
-    return false
+	return false
 end
 
+--------------------------------------------------------------------------------
+-- Localize --------------------------------------------------------------------
+
+local spCallCOBScript = Spring.CallCOBScript
+local spGetFeatureDefID = Spring.GetFeatureDefID
+local spGetFeaturePosition = Spring.GetFeaturePosition
+local spGetFeatureRadius = Spring.GetFeatureRadius
+local spGetFeatureResurrect = Spring.GetFeatureResurrect
+local spGetFeaturesInCylinder = Spring.GetFeaturesInCylinder
+local spGetHeadingFromVector = Spring.GetHeadingFromVector
+local spGetUnitCommands = Spring.GetUnitCommands
+local spGetUnitDefID = Spring.GetUnitDefID
+local spGetUnitFeatureSeparation = Spring.GetUnitFeatureSeparation
+local spGetUnitHeading = Spring.GetUnitHeading
+local spGetUnitHealth = Spring.GetUnitHealth
+local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
+local spGetUnitPosition = Spring.GetUnitPosition
+local spGetUnitRadius = Spring.GetUnitRadius
+local spGetUnitSeparation = Spring.GetUnitSeparation
+local spGetUnitsInCylinder = Spring.GetUnitsInCylinder
+local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
 local CMD_REPAIR = CMD.REPAIR
 local CMD_RECLAIM = CMD.RECLAIM
-local SpGetUnitCommands = Spring.GetUnitCommands
-local SpGiveOrderToUnit = Spring.GiveOrderToUnit
-local SpGetUnitPosition = Spring.GetUnitPosition
-local SpGetFeaturePosition = Spring.GetFeaturePosition
-local SpGetUnitDefID = Spring.GetUnitDefID
-local SpGetUnitsInCylinder = Spring.GetUnitsInCylinder
-local SpGetUnitAllyTeam = Spring.GetUnitAllyTeam
-local SpGetFeaturesInCylinder = Spring.GetFeaturesInCylinder
-local SpGetFeatureDefID = Spring.GetFeatureDefID
-local SpGetFeatureResurrect = Spring.GetFeatureResurrect
-local SpGetUnitHealth = Spring.GetUnitHealth
-local SpGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
-local SpGetUnitDefDimensions = Spring.GetUnitDefDimensions
-local SpGetFeatureRadius = Spring.GetFeatureRadius
-local SpGetUnitRadius = Spring.GetUnitRadius
-local SpGetUnitFeatureSeparation = Spring.GetUnitFeatureSeparation
-local SpGetUnitSeparation = Spring.GetUnitSeparation
+local EMPTY = {}
+local FEATURE_BASE_INDEX = Game.maxUnits
+local FEATURE_NO_UNITDEF = ""
 
-local SpGetHeadingFromVector = Spring.GetHeadingFromVector
-local SpGetUnitHeading = Spring.GetUnitHeading
-local SpCallCOBScript = Spring.CallCOBScript
+--------------------------------------------------------------------------------
+-- Initialize ------------------------------------------------------------------
+
+local attachedBuilderDefID = {}
+local unitCannotBeAssisted = {}
+local unitDefRadiusMax = 0
+
+local attachedUnits = {}
+local attachedUnitBuildRadius = {}
+local detachedUnits = {}
 
 --repairs and reclaims start at the edge of the unit radius
 --so we need to increase our search radius by the maximum unit radius
