@@ -20,12 +20,20 @@ local mexDefIDs = {}       -- The constructed mex unit. Maps to its hidden repla
 local conDefIDs = {}       -- The replacement constructor which is selectable, takes damage, etc.
 local mexSwapID = {}       -- Handles pending replacements of constructed mexes with attached hidden/turret units.
 
-function gadget:UnitFinished(unitID, unitDefID, unitTeam)
-	if unitDefID ~= legmohoconDefID and unitDefID ~= legmohoconDefIDScav then
-        return
-    end
+function gadget:Initialize()
+	for unitDefID, unitDef in ipairs(UnitDefs) do
+		if unitDef.customParams.attached_con_turret and unitDef.customParams.attached_mex_replace then
+			local conDefID = UnitDefNames[unitDef.customParams.attached_con_turret].id
+			local repDefID = UnitDefNames[unitDef.customParams.attached_mex_replace].id
+			mexDefIDs[unitDefID] = { conDefID = conDefID, mexDefID = repDefID }
+			conDefIDs[conDefID] = true
+		end
+	end
+	if not next(mexDefIDs) then
+		gadgetHandler:RemoveGadget(self)
+	end
+end
 
-	mexesToSwap[unitID] = {unitDefID = unitDefID, unitTeam = unitTeam, frame = Spring.GetGameFrame() + 1}
 end
 
 local function swapMex(unitID, unitDefID, unitTeam)
