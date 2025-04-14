@@ -264,11 +264,15 @@ local function updateTurretCommands()
 	end
 end
 
-attached_builders = {}
-attached_builder_def = {}
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
-	attached_builders[unitID] = nil
-	attached_builder_def[unitID] = nil
+	attachedUnits[unitID] = nil
+	attachedUnitBuildRadius[unitID] = nil
+	if detachedUnits[unitID] then
+		detachedUnits[unitID] = nil
+		local _, metalRefund, energyRefund = Spring.GetUnitCosts(unitID)
+		Spring.AddTeamResource(unitTeam, "metal", metalRefund)
+		Spring.AddTeamResource(unitTeam, "energy", energyRefund)
+	end
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
