@@ -1,25 +1,24 @@
 function gadget:GetInfo()
-    return {
-        name      = 'Legion Con Turret Metal Extractor',
-        desc      = 'Allows the mex to function as a con turret by replacing it with a fake mex with a con turret attached',
-        author    = 'EnderRobo',
-        version   = 'v1',
-        date      = 'September 2024',
-        license   = 'GNU GPL, v2 or later',
-        layer     = 12,
-        enabled   = true
-    }
+	return {
+		name    = 'Attached Con Turret on Metal Extractor',
+		desc    = 'Allows the mex to function as a con turret by replacing it with a fake mex with a con turret attached',
+		author  = 'EnderRobo',
+		version = 'v1',
+		date    = 'September 2024',
+		license = 'GNU GPL, v2 or later',
+		layer   = 12, -- TODO: explain layer
+		enabled = true,
+	}
 end
 
 if not gadgetHandler:IsSyncedCode() then
-    return false
+	return false
 end
 
-local legmohoconDefID = UnitDefNames["legmohocon"] and UnitDefNames["legmohocon"].id
-local legmohoconctDefID = UnitDefNames["legmohoconct"] and UnitDefNames["legmohoconct"].id
-local legmohoconDefIDScav = UnitDefNames["legmohocon_scav"] and UnitDefNames["legmohocon_scav"].id
-local legmohoconctDefIDScav = UnitDefNames["legmohoconct_scav"] and UnitDefNames["legmohoconct_scav"].id
-local mexesToSwap = {}
+local ALLY_UNITS_FLAG = -3 -- See LuaUtils.UnitAllegiance, fake teamID (<0) for passing unit queries.
+local mexDefIDs = {}       -- The constructed mex unit. Maps to its hidden replacement and attached con unit IDs.
+local conDefIDs = {}       -- The replacement constructor which is selectable, takes damage, etc.
+local mexSwapID = {}       -- Handles pending replacements of constructed mexes with attached hidden/turret units.
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 	if unitDefID ~= legmohoconDefID and unitDefID ~= legmohoconDefIDScav then
