@@ -23,10 +23,10 @@ local mexSwapID = {}       -- Handles pending replacements of constructed mexes 
 function gadget:Initialize()
 	for unitDefID, unitDef in ipairs(UnitDefs) do
 		if unitDef.customParams.attached_con_turret and unitDef.customParams.attached_mex_replace then
-			local conDefID = UnitDefNames[unitDef.customParams.attached_con_turret].id
+			local conDefID = UnitDefNames[unitDef.customParams.attached_con_turret ].id
 			local repDefID = UnitDefNames[unitDef.customParams.attached_mex_replace].id
 			mexDefIDs[unitDefID] = { conDefID = conDefID, mexDefID = repDefID }
-			conDefIDs[conDefID] = true
+			conDefIDs[ conDefID] = true
 		end
 	end
 	if not next(mexDefIDs) then
