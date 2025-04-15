@@ -176,7 +176,7 @@ local function updateTurretCommands()
 			end
 			local distance
 			if command then
-				if command.id < 0 and command.id ~= turretID then
+				if command.id < 0 and -command.id ~= unitID and -command.id ~= turretID then
 					local tx, tz = command.params[1], command.params[3]
 					if tx then
 						local objectRadius = spGetUnitRadius(-command.id)
