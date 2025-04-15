@@ -152,9 +152,9 @@ local function retryUnitAttachments(gameFrame)
 end
 
 local function updateTurretHeading(unitID, dx, dz)
-	local heading1 = spGetHeadingFromVector(dx, dz)
+	local heading1 = spGetHeadingFromVector(dx, dz) - 32768 -- offset half-pi from GetHeadingFromVectorF
 	local heading2 = spGetUnitHeading(unitID)
-	spCallCOBScript(unitID, "UpdateHeading", 0, heading1 - heading2 + 32768)
+	spCallCOBScript(unitID, "UpdateHeading", 0, heading1 - heading2)
 end
 
 local function updateTurretCommands()
@@ -261,6 +261,7 @@ local function updateTurretCommands()
 
 		-- Exhaust attempt and issue stop order.
 		spGiveOrderToUnit(turretID, CMD.STOP, EMPTY, EMPTY)
+		updateTurretHeading(unitID, 0, 0)
 	end
 end
 
