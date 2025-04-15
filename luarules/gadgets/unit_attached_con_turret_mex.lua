@@ -35,20 +35,22 @@ function gadget:Initialize()
 end
 
 do
-	local function getUpgradedMex(newMexID)
+	local function getMexUnderneath(newMexID)
 		local ux, _, uz = Spring.GetUnitPosition(newMexID)
 		local units = Spring.GetUnitsInCylinder(ux, uz, 4, ALLY_UNITS_FLAG)
 		for _, unitID in ipairs(units) do
-			local unitDefID = Spring.GetUnitDefID(unitID)
-			if UnitDefs[unitDefID].extractsMetal then
-				return unitID, unitDefID
+			if unitID ~= newMexID then
+				local unitDefID = Spring.GetUnitDefID(unitID)
+				if UnitDefs[unitDefID].extractsMetal > 0 then
+					return unitID, unitDefID
+				end
 			end
 		end
 	end
 
 	function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 		if mexDefIDs[unitDefID] then
-			local oldUnitID, oldUnitDefID = getUpgradedMex(unitID)
+			local oldUnitID, oldUnitDefID = getMexUnderneath(unitID)
 			mexSwapID[unitID] = {
 				unitDefID    = unitDefID,
 				builderTeam  = unitTeam,
