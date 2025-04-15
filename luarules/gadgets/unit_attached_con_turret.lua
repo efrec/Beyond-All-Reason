@@ -279,7 +279,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 end
 
 function gadget:GameFrame(gameFrame)
-	if gameFrame % 15 == 0 then
+	if gameFrame % 11 == 0 then
 		retryUnitAttachments()
 		for turretID, unitID in pairs(attachedUnits) do
 			local dx, dz = updateTurretCommand(turretID, unitID)
