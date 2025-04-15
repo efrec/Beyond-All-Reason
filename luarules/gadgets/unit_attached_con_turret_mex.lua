@@ -6,7 +6,7 @@ function gadget:GetInfo()
 		version = 'v1',
 		date    = 'September 2024',
 		license = 'GNU GPL, v2 or later',
-		layer   = 12, -- TODO: explain layer
+		layer   = -1, -- before unit_mex_upgrade_reclaimer
 		enabled = true,
 	}
 end
@@ -50,6 +50,8 @@ do
 
 	function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 		if mexDefIDs[unitDefID] then
+			-- Must run before UnitFinished in unit_mex_upgrade_reclaimer (depending on transferInstantly).
+			-- Double-work between these two gadgets is (mostly) okay since mexes are not mass constructed.
 			local oldUnitID, oldUnitDefID = getMexUnderneath(unitID)
 			mexSwapID[unitID] = {
 				unitDefID    = unitDefID,
@@ -62,38 +64,39 @@ do
 end
 
 do
-	local function swapMexAndAttachCon(mexUnitID, swapData)
-		mexSwapID[mexUnitID] = nil
-		local newUnitTeam = Spring.GetUnitTeam(mexUnitID)
-		local mx, my, mz = Spring.GetUnitPosition(mexUnitID)
-		local facing = Spring.GetUnitBuildFacing(mexUnitID)
-		local _, metalSpent, energySpent = Spring.GetUnitCosts(mexUnitID)
-		local health = Spring.GetUnitHealth(mexUnitID)
-		local extractMetal = Spring.GetUnitMetalExtraction(mexUnitID)
-		Spring.DestroyUnit(mexUnitID, false, true, nil, true)
-		local metalReclaim
-		if swapData.oldUnitID then
-			_, metalReclaim = Spring.GetUnitCosts(swapData.oldUnitID)
-			Spring.DestroyUnit(swapData.oldUnitID, false, true, nil, true)
-		end
+	---Runs before unit_mex_upgrade_reclaimer so doesn't bother refunding up/side-graded mexes.
+	---This destroys units and then forces free their IDs to try to remain within the unit cap.
+	---I have no idea if that causes problems, e.g. with gadgets that assume a unitID is valid.
+	local function swapMexAndAttachCon(oldMexID, swapData)
+		mexSwapID[oldMexID] = nil
+		local newUnitTeam = Spring.GetUnitTeam(oldMexID)
+		local mx, my, mz = Spring.GetUnitPosition(oldMexID)
+		local facing = Spring.GetUnitBuildFacing(oldMexID)
+		local _, metalSpent, energySpent = Spring.GetUnitCosts(oldMexID)
+		local health = Spring.GetUnitHealth(oldMexID)
+		local extractMetal = Spring.GetUnitMetalExtraction(oldMexID)
+		Spring.DestroyUnit(oldMexID, false, true, nil, true) -- TODO: Test for errors from invalidated ID.
+
 		local newMexID = Spring.CreateUnit(mexDefIDs[swapData.unitDefID].mexDefID, mx, my, mz, facing, newUnitTeam)
 		local newConID = Spring.CreateUnit(mexDefIDs[swapData.unitDefID].conDefID, mx, my, mz, facing, newUnitTeam)
 		if newMexID and newConID then
-			Spring.AddTeamResource(swapData.builderTeam, "metal", metalReclaim or 0)
-			Spring.SetUnitBlocking(newMexID, true, true, false)
-			Spring.SetUnitNoSelect(newMexID, true)
-			Spring.SetUnitHealth(newMexID, health)
-			Spring.SetUnitResourcing(newMexID, "umm", -extractMetal)
+			Spring.SetUnitBlocking(  newMexID, true, true, false)
+			Spring.SetUnitNoSelect(  newMexID, true)
+			Spring.SetUnitNoGroup(   newMexID, true)
+			Spring.SetUnitHealth(    newMexID, health)
+			Spring.SetUnitResourcing(newMexID, "umm", extractMetal * -1)
 			Spring.SetUnitResourcing(newConID, "umm", extractMetal)
 			Spring.UnitAttach(newMexID, newConID, 6)
 			return
-		elseif newMexID or newConID then
+		end
+
+		if newMexID or newConID then
 			Spring.DestroyUnit(newMexID or newConID, false, true, nil, true)
 		end
 		if swapData.oldUnitDefID then
 			Spring.CreateUnit(swapData.oldUnitDefID, mx, my, mz, facing, newUnitTeam)
 		end
-		Spring.AddTeamResource(swapData.builderTeam, "metal", metalSpent)
+		Spring.AddTeamResource(swapData.builderTeam,  "metal",  metalSpent)
 		Spring.AddTeamResource(swapData.builderTeam, "energy", energySpent)
 	end
 
