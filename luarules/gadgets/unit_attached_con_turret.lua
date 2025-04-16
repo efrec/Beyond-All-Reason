@@ -27,7 +27,7 @@ local spGetFeatureRadius = Spring.GetFeatureRadius
 local spGetFeatureResurrect = Spring.GetFeatureResurrect
 local spGetFeaturesInCylinder = Spring.GetFeaturesInCylinder
 local spGetHeadingFromVector = Spring.GetHeadingFromVector
-local spGetUnitCommands = Spring.GetUnitCommands
+local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
 local spGetUnitDefID = Spring.GetUnitDefID
 local spGetUnitFeatureSeparation = Spring.GetUnitFeatureSeparation
 local spGetUnitHeading = Spring.GetUnitHeading
@@ -44,6 +44,8 @@ local CMD_RECLAIM = CMD.RECLAIM
 local EMPTY = {}
 local FEATURE_BASE_INDEX = Game.maxUnits
 local FEATURE_NO_UNITDEF = ""
+local FILTER_ALLY_UNITS = -3
+local FILTER_ENEMY_UNITS = -4
 
 --------------------------------------------------------------------------------
 -- Initialize ------------------------------------------------------------------
@@ -151,108 +153,88 @@ local function retryUnitAttachments(gameFrame)
 	end
 end
 
----Try to apply chassis-unit commands to the turret-unit. Otherwise, issue a smart command with special behaviors.
----@param turretID integer
----@param unitID integer
----@return number? commandXOffset Determines turret reorientation. When nil, uses the unit heading.
----@return number? commandZOffset
-local function updateTurretCommand(turretID, unitID)
-	local ux, _, uz = spGetUnitPosition(turretID)
-	local radius = attachedUnitBuildRadius[turretID]
-	do
-		local commands = spGetUnitCommands(unitID, 1)
-		local command = commands and commands[1]
-		if command and (command.id < 0 or (
-				(command.id == CMD_REPAIR or command.id == CMD_RECLAIM) and
-				#command.params ~= 4
-			))
-		then
-			spGiveOrderToUnit(turretID, command.id, command.params, EMPTY)
-		else
-			commands = spGetUnitCommands(turretID, 1)
-			command = commands and commands[1]
-		end
-		local distance
-		if command then
-			if command.id < 0 and -command.id ~= unitID and -command.id ~= turretID then
-				local tx, tz = command.params[1], command.params[3]
-				if tx then
-					local objectRadius = spGetUnitRadius(-command.id)
-					distance = math.sqrt((ux - tx) ^ 2 + (uz - tz) ^ 2) - objectRadius
+local function giveTurretSameCommand(turretID, unitID, unitX, unitZ, radius)
+	local command, _, _, param1, param2, param3, param4 = spGetUnitCurrentCommand(unitID)
+	if	not command or (command >= 0 and command ~= CMD_REPAIR and command ~= CMD_RECLAIM)
+		or param4
+		or not spGiveOrderToUnit(turretID, command, { param1, param2, param3, param4 }, EMPTY)
+	then
+		command, _, _, param1, param2, param3, param4 = spGetUnitCurrentCommand(turretID)
+	end
+	if command and not param4 then
+		if command < 0 and -command ~= unitID and -command ~= turretID then
+			if radius > math.sqrt((unitX - param1) ^ 2 + (unitZ - param3) ^ 2) - spGetUnitRadius(-command) then
+				return unitX - param1, unitZ - param3
+			end
+		elseif command == CMD_REPAIR or command == CMD_RECLAIM then
+			if param1 < FEATURE_BASE_INDEX then
+				if radius > spGetUnitSeparation(turretID, param1, false, true) then
+					local cx, cy, cz = spGetUnitPosition(param1)
+					return unitX - cx, unitZ - cz
 				end
-			elseif command.id == CMD_REPAIR or command.id == CMD_RECLAIM then
-				if command.params[1] < FEATURE_BASE_INDEX then
-					distance = Spring.GetUnitSeparation(turretID, command.params[1], true, true)
-				else
-					distance = Spring.GetUnitFeatureSeparation(turretID, command.params[1] - FEATURE_BASE_INDEX, true, true)
-				end
+			elseif radius > spGetUnitFeatureSeparation(turretID, param1 - FEATURE_BASE_INDEX, false, true) then
+				local cx, cy, cz = spGetFeaturePosition(param1 - FEATURE_BASE_INDEX)
+				return unitX - cx, unitZ - cz
 			end
 		end
-		if distance and distance <= radius then
-			return ux - tx, uz - tz
-		end
 	end
+end
 
-	-- Attached unit has no valid, explicit command. Search for automatic/smart behaviors in priority order:
-	-- (1) repair ally (2) reclaim enemy (3) reclaim non-ressurectable feature (4) build existing nanoframe.
-
-	local nearUnits = spGetUnitsInCylinder(ux, uz, radius + unitDefRadiusMax)
-	local teamID = Spring.GetUnitTeam(unitID)
-	local testUnitBuildAssist = {}
-
-	for i = #nearUnits, 1, -1 do
-		local nearID = nearUnits[i]
-		if
-			nearID ~= unitID and nearID ~= turretID and
-			radius > spGetUnitSeparation(nearID, turretID, true) - spGetUnitRadius(nearID)
-		then
-			if Spring.AreTeamsAllied(teamID, Spring.GetUnitTeam(nearID)) then
-				if UnitDefs[spGetUnitDefID(nearID)].repairable then
-					local health, maxHealth, _, _, buildProgress = spGetUnitHealth(nearID)
-					if buildProgress == 1 and health < maxHealth then
-						spGiveOrderToUnit(turretID, CMD_REPAIR, { nearID }, EMPTY)
-						local tx, _, tz = spGetUnitPosition(nearID)
-						return ux - tx, uz - tz
-					end
+---Performs a search for the first executable automatic/smart behavior, in priority order:
+---(1) repair ally (2) reclaim enemy (3) reclaim non-ressurectable feature (4) build-assist allied unit.
+local function giveTurretAutoCommand(turretID, unitID, unitX, unitZ, radius)
+	local assistUnits = {}
+	local alliedUnits = spGetUnitsInCylinder(unitX, unitZ, radius + unitDefRadiusMax, FILTER_ALLY_UNITS)
+	for _, nearID in ipairs(alliedUnits) do
+		if nearID ~= unitID and nearID ~= turretID and radius > spGetUnitSeparation(nearID, unitID, false, true) then
+			if UnitDefs[spGetUnitDefID(nearID)].repairable then
+				local health, maxHealth, _, _, buildProgress = spGetUnitHealth(nearID)
+				if buildProgress == 1 and health < maxHealth then
+					spGiveOrderToUnit(turretID, CMD_REPAIR, { nearID }, EMPTY)
+					local cx, _, cz = spGetUnitPosition(nearID)
+					return unitX - cx, unitZ - cz
 				end
-				testUnitBuildAssist[#testUnitBuildAssist+1] = nearID
-				nearUnits[i] = nil
 			end
-		else
-			nearUnits[i] = nil
+			assistUnits[#assistUnits+1] = nearID
 		end
 	end
-
-	for _, nearID in pairs(nearUnits) do
+	local enemyUnits = spGetUnitsInCylinder(unitX, unitZ, radius + unitDefRadiusMax, FILTER_ENEMY_UNITS)
+	for _, nearID in ipairs(enemyUnits) do
 		if UnitDefs[spGetUnitDefID(nearID)].reclaimable then
 			spGiveOrderToUnit(turretID, CMD_RECLAIM, { nearID }, EMPTY)
-			local tx, _, tz = spGetUnitPosition(nearID)
-			return ux - tx, uz - tz
+			local cx, _, cz = spGetUnitPosition(nearID)
+			return unitX - cx, unitZ - cz
 		end
 	end
-
-	local nearFeatures = spGetFeaturesInCylinder(ux, uz, radius + unitDefRadiusMax)
-	for _, nearID in ipairs(nearFeatures) do
-		local nearDefID = spGetFeatureDefID(nearID)
-		if
-			FeatureDefs[nearDefID].reclaimable and spGetFeatureResurrect(nearID) == FEATURE_NO_UNITDEF and
-			radius > spGetUnitFeatureSeparation(turretID, nearID, true, true)
+	local features = spGetFeaturesInCylinder(unitX, unitZ, radius + unitDefRadiusMax)
+	for _, nearID in ipairs(features) do
+		if	FeatureDefs[spGetFeatureDefID(nearID)].reclaimable and
+			spGetFeatureResurrect(nearID) == FEATURE_NO_UNITDEF and
+			radius > spGetUnitFeatureSeparation(unitID, nearID, false, true)
 		then
 			spGiveOrderToUnit(turretID, CMD_RECLAIM, { nearID + FEATURE_BASE_INDEX }, EMPTY)
-			local tx, _, tz = spGetFeaturePosition(nearID)
-			return ux - tx, uz - tz
+			local cx, _, cz = Spring.GetFeaturePosition(nearID)
+			return unitX - cx, unitZ - cz
 		end
 	end
-
-	for _, nearID in ipairs(testUnitBuildAssist) do
+	for _, nearID in ipairs(assistUnits) do
 		if spGetUnitIsBeingBuilt(nearID) and not unitCannotBeAssisted[spGetUnitDefID(nearID)] then
 			spGiveOrderToUnit(turretID, CMD_REPAIR, { nearID }, EMPTY)
-			local tx, _, tz = spGetUnitPosition(nearID)
-			return ux - tx, uz - tz
+			local cx, _, cz = spGetUnitPosition(nearID)
+			return unitX - cx, unitZ - cz
 		end
 	end
-
 	spGiveOrderToUnit(turretID, CMD.STOP, EMPTY, EMPTY)
+end
+
+local function updateTurretCommand(turretID, unitID)
+	local ux, uy, uz = spGetUnitPosition(turretID)
+	local radius = attachedUnitBuildRadius[turretID]
+	local dx, dz = giveTurretSameCommand(turretID, unitID, ux, uz, radius)
+	if dx == nil then
+		dx, dz = giveTurretAutoCommand(turretID, unitID, ux, uz, radius)
+	end
+	return dx, dz
 end
 
 local function updateTurretHeading(turretID, dx, dz)
