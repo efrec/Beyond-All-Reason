@@ -157,7 +157,7 @@ local function giveTurretSameCommand(turretID, unitID, unitX, unitZ, radius)
 	local command, _, _, param1, param2, param3, param4 = spGetUnitCurrentCommand(unitID)
 	if	not command or (command >= 0 and command ~= CMD_REPAIR and command ~= CMD_RECLAIM)
 		or param4
-		or not spGiveOrderToUnit(turretID, command, { param1, param2, param3, param4 }, EMPTY)
+		or not spGiveOrderToUnit(turretID, command, { param1, param2, param3 }, EMPTY)
 	then
 		command, _, _, param1, param2, param3, param4 = spGetUnitCurrentCommand(turretID)
 	end
