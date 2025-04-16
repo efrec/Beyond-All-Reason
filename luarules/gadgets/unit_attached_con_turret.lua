@@ -57,6 +57,7 @@ local unitDefRadiusMax = 0
 local attachedUnits = {}
 local attachedUnitBuildRadius = {}
 local detachedUnits = {}
+local resurrectedUnits = {}
 
 do
 	local function checkSameBuildOptions(unitDef1, unitDef2)
@@ -85,10 +86,14 @@ do
 			elseif unitDef.customParams.mine or unitDef.modCategories.object or unitDef.customParams.objectify then
 				unitCannotBeAssisted[unitDefID] = true
 			end
+			if unitDef.canResurrect then
+				canResurrect[unitDefID] = true
+			end
 		end
 		if table.count(attachedBuilderDefID) == 0 then
 			gadgetHandler:RemoveGadget(self)
 		end
+
 		for _, unitID in Spring.GetAllUnits() do
 			local unitDefID = Spring.GetUnitDefID(unitID)
 			if attachedBuilderDefID[unitDefID] then
@@ -255,6 +260,12 @@ local function updateTurretHeading(turretID, dx, dz, unitID)
 	spCallCOBScript(turretID, "UpdateHeading", 0, headingNew - headingCurrent)
 end
 
+function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
+	if builderID and attachedBuilderDefID[unitDefID] and canResurrect[spGetUnitDefID(builderID)] then
+		resurrectedUnits[unitID] = Spring.GetGameFrame()
+	end
+end
+
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 	if attachedBuilderDefID[unitDefID] then
 		attachToUnit(unitID, unitDefID, unitTeam, 30)
@@ -267,9 +278,14 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 	if detachedUnits[unitID] then
 		detachedUnits[unitID] = nil
 		local _, metalRefund, energyRefund = Spring.GetUnitCosts(unitID)
-		Spring.AddTeamResource(unitTeam,  "metal",  metalRefund)
-		Spring.AddTeamResource(unitTeam, "energy", energyRefund)
+		if not resurrectedUnits[unitID] then
+			Spring.AddTeamResource(unitTeam,  "metal",  metalRefund)
+			Spring.AddTeamResource(unitTeam, "energy", energyRefund)
+		elseif resurrectedUnits[unitID] > Spring.GetGameFrame() - 900 then
+			Spring.AddTeamResource(unitTeam, "energy", energyRefund)
+		end
 	end
+	resurrectedUnits[unitID] = nil
 end
 
 function gadget:GameFrame(gameFrame)
