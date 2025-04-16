@@ -249,9 +249,9 @@ local function updateTurretCommand(turretID, unitID)
 	return dx, dz
 end
 
-local function updateTurretHeading(turretID, dx, dz)
+local function updateTurretHeading(turretID, dx, dz, unitID)
 	local headingCurrent = spGetUnitHeading(turretID)
-	local headingNew = dx and spGetHeadingFromVector(dx, dz) - 32768 or spGetUnitHeading(attachedUnits[turretID])
+	local headingNew = dx and spGetHeadingFromVector(dx, dz) - 32768 or spGetUnitHeading(unitID)
 	spCallCOBScript(turretID, "UpdateHeading", 0, headingNew - headingCurrent)
 end
 
@@ -277,7 +277,7 @@ function gadget:GameFrame(gameFrame)
 		retryUnitAttachments()
 		for turretID, unitID in pairs(attachedUnits) do
 			local dx, dz = updateTurretCommand(turretID, unitID)
-			updateTurretHeading(turretID, dx, dz)
+			updateTurretHeading(turretID, dx, dz, unitID)
 		end
 	end
 end
