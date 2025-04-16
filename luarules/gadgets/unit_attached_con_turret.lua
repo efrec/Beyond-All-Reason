@@ -180,10 +180,12 @@ local function giveTurretSameCommand(turretID, unitID, unitX, unitZ, radius)
 	end
 end
 
----See unit_prevent_cloaked_unit_reclaim; we should not issue commands here that will be disallowed.
+---This gadget has a polling rate, so should not issue orders that will be disallowed.
+---See unit_prevent_cloaked_unit_reclaim for the order logic.
 local function preventEnemyUnitReclaim(enemyID, teamID)
-	return not UnitDefs[spGetUnitDefID(enemyID)].reclaimable or
-		Spring.GetUnitIsCloaked(enemyID) and not Spring.IsUnitInRadar(enemyID, Spring.GetTeamAllyTeamID(teamID))
+	local enemyUnitDef = UnitDefs[spGetUnitDefID(enemyID)]
+	return	(not enemyUnitDef.reclaimable) or
+			(enemyUnitDef.canCloak and Spring.GetUnitIsCloaked(enemyID) and not Spring.IsUnitInRadar(enemyID, Spring.GetTeamAllyTeamID(teamID)))
 end
 
 ---Performs a search for the first executable automatic/smart behavior, in priority order:
