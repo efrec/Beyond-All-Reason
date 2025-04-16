@@ -180,6 +180,11 @@ local function giveTurretSameCommand(turretID, unitID, unitX, unitZ, radius)
 	end
 end
 
+---See unit_prevent_cloaked_unit_reclaim; we should not issue commands here that will be disallowed.
+local function preventUnitReclaim(unitID, enemyID)
+	return Spring.GetUnitIsCloaked(enemyID) and not Spring.IsUnitInRadar(enemyID, Spring.GetUnitAllyTeam(unitID))
+end
+
 ---Performs a search for the first executable automatic/smart behavior, in priority order:
 ---(1) repair ally (2) reclaim enemy (3) reclaim non-ressurectable feature (4) build-assist allied unit.
 local function giveTurretAutoCommand(turretID, unitID, unitX, unitZ, radius)
@@ -200,7 +205,7 @@ local function giveTurretAutoCommand(turretID, unitID, unitX, unitZ, radius)
 	end
 	local enemyUnits = spGetUnitsInCylinder(unitX, unitZ, radius + unitDefRadiusMax, FILTER_ENEMY_UNITS)
 	for _, nearID in ipairs(enemyUnits) do
-		if UnitDefs[spGetUnitDefID(nearID)].reclaimable then
+		if UnitDefs[spGetUnitDefID(nearID)].reclaimable and not preventUnitReclaim(unitID, nearID) then
 			spGiveOrderToUnit(turretID, CMD_RECLAIM, { nearID }, EMPTY)
 			local cx, _, cz = spGetUnitPosition(nearID)
 			return unitX - cx, unitZ - cz
