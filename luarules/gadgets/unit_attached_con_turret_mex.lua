@@ -35,9 +35,9 @@ function gadget:Initialize()
 end
 
 do
-	local function getMexUnderneath(newMexID)
+	local function getMexUnderneath(newMexID, teamID)
 		local ux, _, uz = Spring.GetUnitPosition(newMexID)
-		local units = Spring.GetUnitsInCylinder(ux, uz, 4, ALLY_UNITS_FLAG)
+		local units = CallAsTeam(teamID, Spring.GetUnitsInCylinder, ux, uz, 4, ALLY_UNITS_FLAG)
 		for _, unitID in ipairs(units) do
 			if unitID ~= newMexID then
 				local unitDefID = Spring.GetUnitDefID(unitID)
@@ -52,7 +52,7 @@ do
 		if mexDefIDs[unitDefID] then
 			-- Must run before UnitFinished in unit_mex_upgrade_reclaimer (depending on transferInstantly).
 			-- Double-work between these two gadgets is (mostly) okay since mexes are not mass constructed.
-			local oldUnitID, oldUnitDefID = getMexUnderneath(unitID)
+			local oldUnitID, oldUnitDefID = getMexUnderneath(unitID, unitTeam)
 			mexSwapID[unitID] = {
 				unitDefID    = unitDefID,
 				builderTeam  = unitTeam,
