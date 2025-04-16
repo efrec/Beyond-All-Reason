@@ -196,7 +196,8 @@ local function giveTurretAutoCommand(turretID, unitID, unitX, unitZ, radius)
 	local alliedUnits = CallAsTeam(unitTeamID, spGetUnitsInCylinder, unitX, unitZ, radius + unitDefRadiusMax, FILTER_ALLY_UNITS)
 	for _, allyID in ipairs(alliedUnits) do
 		if allyID ~= unitID and allyID ~= turretID and radius > spGetUnitSeparation(allyID, unitID, false, true) then
-			if UnitDefs[spGetUnitDefID(allyID)].repairable then
+			local allyDefID = spGetUnitDefID(maybeBuildID)
+			if UnitDefs[allyDefID].repairable then
 				local health, maxHealth, _, _, buildProgress = spGetUnitHealth(allyID)
 				if buildProgress == 1 and health < maxHealth then
 					spGiveOrderToUnit(turretID, CMD_REPAIR, { allyID }, EMPTY)
@@ -204,7 +205,9 @@ local function giveTurretAutoCommand(turretID, unitID, unitX, unitZ, radius)
 					return unitX - cx, unitZ - cz
 				end
 			end
-			assistUnits[#assistUnits+1] = allyID
+			if not unitCannotBeAssisted[allyDefID] then
+				assistUnits[#assistUnits+1] = allyID
+			end
 		end
 	end
 	local enemyUnits = CallAsTeam(unitTeamID, spGetUnitsInCylinder, unitX, unitZ, radius + unitDefRadiusMax, FILTER_ENEMY_UNITS)
@@ -227,7 +230,7 @@ local function giveTurretAutoCommand(turretID, unitID, unitX, unitZ, radius)
 		end
 	end
 	for _, maybeBuildID in ipairs(assistUnits) do
-		if spGetUnitIsBeingBuilt(maybeBuildID) and not unitCannotBeAssisted[spGetUnitDefID(maybeBuildID)] then
+		if spGetUnitIsBeingBuilt(maybeBuildID) then
 			spGiveOrderToUnit(turretID, CMD_REPAIR, { maybeBuildID }, EMPTY)
 			local cx, _, cz = spGetUnitPosition(maybeBuildID)
 			return unitX - cx, unitZ - cz
