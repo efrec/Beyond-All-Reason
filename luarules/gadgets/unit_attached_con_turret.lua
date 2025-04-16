@@ -181,51 +181,53 @@ local function giveTurretSameCommand(turretID, unitID, unitX, unitZ, radius)
 end
 
 ---See unit_prevent_cloaked_unit_reclaim; we should not issue commands here that will be disallowed.
-local function preventUnitReclaim(unitID, enemyID)
-	return Spring.GetUnitIsCloaked(enemyID) and not Spring.IsUnitInRadar(enemyID, Spring.GetUnitAllyTeam(unitID))
+local function preventEnemyUnitReclaim(enemyID, teamID)
+	return not UnitDefs[spGetUnitDefID(enemyID)].reclaimable or
+		Spring.GetUnitIsCloaked(enemyID) and not Spring.IsUnitInRadar(enemyID, Spring.GetTeamAllyTeamID(teamID))
 end
 
 ---Performs a search for the first executable automatic/smart behavior, in priority order:
 ---(1) repair ally (2) reclaim enemy (3) reclaim non-ressurectable feature (4) build-assist allied unit.
 local function giveTurretAutoCommand(turretID, unitID, unitX, unitZ, radius)
+	local unitTeamID = Spring.GetUnitTeam(unitID)
 	local assistUnits = {}
-	local alliedUnits = spGetUnitsInCylinder(unitX, unitZ, radius + unitDefRadiusMax, FILTER_ALLY_UNITS)
-	for _, nearID in ipairs(alliedUnits) do
-		if nearID ~= unitID and nearID ~= turretID and radius > spGetUnitSeparation(nearID, unitID, false, true) then
-			if UnitDefs[spGetUnitDefID(nearID)].repairable then
-				local health, maxHealth, _, _, buildProgress = spGetUnitHealth(nearID)
+	local alliedUnits = CallAsTeam(unitTeamID, spGetUnitsInCylinder, unitX, unitZ, radius + unitDefRadiusMax, FILTER_ALLY_UNITS)
+	for _, allyID in ipairs(alliedUnits) do
+		if allyID ~= unitID and allyID ~= turretID and radius > spGetUnitSeparation(allyID, unitID, false, true) then
+			if UnitDefs[spGetUnitDefID(allyID)].repairable then
+				local health, maxHealth, _, _, buildProgress = spGetUnitHealth(allyID)
 				if buildProgress == 1 and health < maxHealth then
-					spGiveOrderToUnit(turretID, CMD_REPAIR, { nearID }, EMPTY)
-					local cx, _, cz = spGetUnitPosition(nearID)
+					spGiveOrderToUnit(turretID, CMD_REPAIR, { allyID }, EMPTY)
+					local cx, _, cz = spGetUnitPosition(allyID)
 					return unitX - cx, unitZ - cz
 				end
 			end
-			assistUnits[#assistUnits+1] = nearID
+			assistUnits[#assistUnits+1] = allyID
 		end
 	end
-	local enemyUnits = spGetUnitsInCylinder(unitX, unitZ, radius + unitDefRadiusMax, FILTER_ENEMY_UNITS)
-	for _, nearID in ipairs(enemyUnits) do
-		if UnitDefs[spGetUnitDefID(nearID)].reclaimable and not preventUnitReclaim(unitID, nearID) then
-			spGiveOrderToUnit(turretID, CMD_RECLAIM, { nearID }, EMPTY)
-			local cx, _, cz = spGetUnitPosition(nearID)
+	local enemyUnits = CallAsTeam(unitTeamID, spGetUnitsInCylinder, unitX, unitZ, radius + unitDefRadiusMax, FILTER_ENEMY_UNITS)
+	for _, enemyID in ipairs(enemyUnits) do
+		if radius > spGetUnitSeparation(enemyID, unitID, false, true) and not preventEnemyUnitReclaim(enemyID, unitTeamID) then
+			spGiveOrderToUnit(turretID, CMD_RECLAIM, { enemyID }, EMPTY)
+			local cx, _, cz = spGetUnitPosition(enemyID)
 			return unitX - cx, unitZ - cz
 		end
 	end
 	local features = spGetFeaturesInCylinder(unitX, unitZ, radius + unitDefRadiusMax)
-	for _, nearID in ipairs(features) do
-		if	FeatureDefs[spGetFeatureDefID(nearID)].reclaimable and
-			spGetFeatureResurrect(nearID) == FEATURE_NO_UNITDEF and
-			radius > spGetUnitFeatureSeparation(unitID, nearID, false, true)
+	for _, featureID in ipairs(features) do
+		if	FeatureDefs[spGetFeatureDefID(featureID)].reclaimable and
+			spGetFeatureResurrect(featureID) == FEATURE_NO_UNITDEF and
+			radius > spGetUnitFeatureSeparation(unitID, featureID, false, true)
 		then
-			spGiveOrderToUnit(turretID, CMD_RECLAIM, { nearID + FEATURE_BASE_INDEX }, EMPTY)
-			local cx, _, cz = Spring.GetFeaturePosition(nearID)
+			spGiveOrderToUnit(turretID, CMD_RECLAIM, { featureID + FEATURE_BASE_INDEX }, EMPTY)
+			local cx, _, cz = Spring.GetFeaturePosition(featureID)
 			return unitX - cx, unitZ - cz
 		end
 	end
-	for _, nearID in ipairs(assistUnits) do
-		if spGetUnitIsBeingBuilt(nearID) and not unitCannotBeAssisted[spGetUnitDefID(nearID)] then
-			spGiveOrderToUnit(turretID, CMD_REPAIR, { nearID }, EMPTY)
-			local cx, _, cz = spGetUnitPosition(nearID)
+	for _, maybeBuildID in ipairs(assistUnits) do
+		if spGetUnitIsBeingBuilt(maybeBuildID) and not unitCannotBeAssisted[spGetUnitDefID(maybeBuildID)] then
+			spGiveOrderToUnit(turretID, CMD_REPAIR, { maybeBuildID }, EMPTY)
+			local cx, _, cz = spGetUnitPosition(maybeBuildID)
 			return unitX - cx, unitZ - cz
 		end
 	end
@@ -260,7 +262,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 	if detachedUnits[unitID] then
 		detachedUnits[unitID] = nil
 		local _, metalRefund, energyRefund = Spring.GetUnitCosts(unitID)
-		Spring.AddTeamResource(unitTeam, "metal", metalRefund)
+		Spring.AddTeamResource(unitTeam,  "metal",  metalRefund)
 		Spring.AddTeamResource(unitTeam, "energy", energyRefund)
 	end
 end
