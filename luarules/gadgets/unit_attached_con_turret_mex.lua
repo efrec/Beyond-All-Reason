@@ -36,8 +36,10 @@ end
 
 do
 	local function getMexUnderneath(newMexID, teamID)
-		local ux, _, uz = Spring.GetUnitPosition(newMexID)
-		local units = CallAsTeam(teamID, Spring.GetUnitsInCylinder, ux, uz, 4, ALLY_UNITS_FLAG)
+		local ux, uy, uz = Spring.GetUnitPosition(newMexID)
+		local width = Game.squareSize / 2
+		local units = CallAsTeam(teamID, Spring.GetUnitsInRectangle,
+			ux - width, uz - width, ux + width, uz + width, ALLY_UNITS_FLAG)
 		for _, unitID in ipairs(units) do
 			if unitID ~= newMexID then
 				local unitDefID = Spring.GetUnitDefID(unitID)
