@@ -579,7 +579,7 @@ local function getBaseStats(unitDefID)
 
 	-- TODO: Why are there two? This is a running theme.
 	if positive(unitDef.customParams.metal_extractor or unitDef.extractsMetal) then
-		summary.metalExtraction = unitDef.customParams.metal_extractor
+		summary.metalExtraction = unitDef.customParams.metal_extractor or unitDef.extractsMetal
 	elseif positive(unitDef.metalMake) then
 		summary.metalProduction = unitDef.metalMake
 	end
