@@ -19,7 +19,7 @@ end
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
-local armorTypesHidden         = { "standard", "walls", "indestructable" } -- [sic]
+local armorTypesHidden         = { "standard", "shields", "indestructable" } -- [sic]
 local showSelectedUnits        = true
 local displayNumberMax         = 999999
 
@@ -146,13 +146,13 @@ end
 local function getBaseStats(unitDefID)
 	-- Accessing UnitDefs is slower than other tables. We want to get around it.
 	local unitDef = UnitDefs[unitDefID]
+	local isExplodingUnit = unitDef.customParams.unitgroup == "explo"
 
 	-- We have to extensively transform weapon def properties to humanize them.
 	local weaponSummary = {}
 	local damageBurstTotal, damageRateTotal = 0, 0
 	local effectBurstTotal, effectRateTotal = 0, 0
 	local empBurstTotal, empRateTotal = 0, 0
-	local isExplodingUnit = unitDef.customParams.unitgroup == "explo"
 	do
 		local weaponDefs = {}
 		local weaponCounts = {}
@@ -221,25 +221,26 @@ local function getBaseStats(unitDefID)
 			local accuracyMoveError  = weaponDef.targetMoveError
 			local sprayAngleMax      = weaponDef.sprayAngle
 			local projectiles        = weaponDef.projectiles
+			-- TODO: burst fire on BeamLaser and other considerations per weapon type
 			-- TODO: missile dance (Catapult), sector fire (Tremor)
 
 			-- Projectile properties
 			local baseArmorTypeIndex
 			if weaponDef.customParams.armorTypeFocus then
 				baseArmorTypeIndex = weaponDef.customParams.armorTypeFocus
-			elseif unitDef.weapons[i].badtargetcategory == "NOTSUB" then
-				baseArmorTypeIndex = Game.armorTypes.subs
 			elseif unitDef.weapons[i].badtargetcategory == "NOTAIR" then
 				baseArmorTypeIndex = Game.armorTypes.vtol
+			elseif unitDef.weapons[i].badtargetcategory == "NOTSUB" then
+				baseArmorTypeIndex = Game.armorTypes.subs
 			elseif unitDef.weapons[i].onlytargetcategory == "MINE" then
 				baseArmorTypeIndex = Game.armorTypes.mine
+				addToTotals = false
 			else
 				baseArmorTypeIndex = defaultArmorTypeIndex
 			end
 
 			local baseDamage = weaponDef.damages[baseArmorTypeIndex]
 			local defaultDamage = weaponDef.damages[defaultArmorTypeIndex]
-
 			local areaOfEffect = not weaponDef.impactOnly and weaponDef.damageAreaOfEffect
 			areaOfEffect = areaOfEffect and areaOfEffect > 8 and areaOfEffect or nil
 
@@ -281,6 +282,7 @@ local function getBaseStats(unitDefID)
 				local damage = munition.damages[baseArmorTypeIndex]
 				local scatter = munition.range + munition.areaofeffect * 0.5
 				effectBurst = damage * weaponDef.customParams.cluster_number
+				-- TODO: Some cluster weapons work more like a sprayAngle than an extended damage area of effect.
 				if areaOfEffect then
 					areaOfEffect = (areaOfEffect * baseDamage + scatter * effectBurst) / (baseDamage + effectBurst)
 				else
@@ -294,16 +296,16 @@ local function getBaseStats(unitDefID)
 				effectExplain = i18n.explain_area_timed_damage
 				areaOfEffect = max(areaOfEffect or 0, unitDef.customParams.area_ondeath_range)
 				effectBurst = unitDef.customParams.area_ondeath_damage * unitDef.customParams.area_ondeath_time
-			else
+			elseif baseDamage ~= 0 then
 				local temporalExplain, temporalRate
 				if burst and (burst - 1) * burstRate >= 0.5 and (burst - 1) * burstRate / reload >= 0.5 then
 					temporalExplain = i18n.explain_extended_burst
-					temporalRate = baseDamage / burstRate - baseDamage / reload
+					temporalRate = baseDamage / ((burst - 1) * burstRate) - baseDamage / reload
 				elseif stockpileTime and stockpileTime > reload and stockpileLimit > 1 then
 					temporalExplain = i18n.explain_extended_stockpile
 					temporalRate = baseDamage * (1 - reload / stockpileTime)
 				end
-				if temporalRate and temporalRate > 5 and temporalRate / (max(1, baseDamage) / reload) >= 0.5 then
+				if temporalRate and temporalRate > 5 and temporalRate / baseDamage * reload >= 0.5 then
 					effectExplain = temporalExplain
 					effectRate = temporalRate
 				end
@@ -316,10 +318,7 @@ local function getBaseStats(unitDefID)
 				xpToDPS = false
 			else
 				if weaponDef.commandfire then
-					if not effectExplain then
-						effectExplain = i18n.explain_commandfire
-						effectBurst, effectRate = baseDamage, baseDamage / reload
-					end
+					effectExplain = effectExplain or i18n.explain_commandfire
 					effectBurst, effectRate = effectBurst + baseDamage, effectRate + baseDamage / reload
 				else
 					damageBurst, damageRate = baseDamage, baseDamage / reload
@@ -333,7 +332,7 @@ local function getBaseStats(unitDefID)
 			if baseDamage ~= 0 then
 				local defaultDamageRate = round(100 * defaultDamage / baseDamage)
 				local groupByDamageRate = { [defaultDamageRate] = { "default" } }
-				for armorTypeIndex in ipairs(armorTypesDisplayIndex) do
+				for _, armorTypeIndex in ipairs(armorTypesDisplayIndex) do
 					local percent = round(100 * weaponDef.damages[armorTypeIndex] / baseDamage)
 					if percent ~= defaultDamageRate then
 						local group = groupByDamageRate[percent] or {}
@@ -348,6 +347,7 @@ local function getBaseStats(unitDefID)
 						p, table.concat(groupByDamageRate[p], ", "))
 				end
 			elseif effectBurst ~= 0 then
+				-- This damage type is scripted so is arbitrary. We assume it is uniform:
 				damageModifiers[1] = "100%% default"
 				-- Non-default armor types can be hidden from display:
 				if armorTypesDisplayNames.indestructable then -- [sic]
@@ -424,14 +424,12 @@ local function getBaseStats(unitDefID)
 				weapon.isWeakAccuracy = true
 			end
 
-			if baseArmorTypeIndex ~= defaultArmorTypeIndex then
-				if baseArmorTypeIndex == Game.armorTypes.vtol then
-					weapon.isAntiAir = true
-				elseif baseArmorTypeIndex == Game.armorTypes.mines then
-					weapon.isAntiMine = true
-				elseif baseArmorTypeIndex == Game.armorTypes.subs then
-					weapon.isAntiSubmarine = true
-				end
+			if baseArmorTypeIndex == Game.armorTypes.vtol then
+				weapon.isAntiAir = true
+			elseif baseArmorTypeIndex == Game.armorTypes.mines then
+				weapon.isAntiMine = true
+			elseif baseArmorTypeIndex == Game.armorTypes.subs then
+				weapon.isAntiSubmarine = true
 			end
 
 			if addToTotals then
@@ -594,7 +592,7 @@ local function getBaseStats(unitDefID)
 
 	-- The self-repair rate of mines and (eg) walls isn't a notable feature of these units.
 	-- It just makes them behave more predictably when encountered. Should usually suppress.
-	if not isExplodingUnit and not unitDef.customParams.objectify then
+	if not isExplodingUnit and unitDef.repairable then
 		local autoHealRate = positive(unitDef.autoheal)
 		if autoHealRate and autoHealRate / unitDef.health < 1 / (2 * 60) then
 			summary.autoHealRate = autoHealRate
@@ -632,8 +630,7 @@ local function getBaseStats(unitDefID)
 	end
 
 	if replayDamageStats and replayDamageStats[unitDef.name] then
-		local effectiveness = replayDamageStats[unitDef.name].killed_cost / replayDamageStats[unitDef.name].cost
-		summary.effectiveness = effectiveness
+		summary.effectiveness = replayDamageStats[unitDef.name].killed_cost / replayDamageStats[unitDef.name].cost
 	end
 
 	return summary
