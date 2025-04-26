@@ -1,0 +1,12 @@
+<rml>
+
+    <head>
+        <title>Unit statistics popover</title>
+        <link type="text/rcss" href="unit_statistics.rcss" />
+    </head>
+
+    <body id="unit_statistics" data-model="unit_statistics">
+        <div>{{ visible ? "unit stats go brr" : "whack" }}
+    </body>
+
+</rml>
