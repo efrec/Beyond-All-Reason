@@ -20,8 +20,8 @@ end
 -- Configuration ---------------------------------------------------------------
 
 local armorTypesHidden         = { "standard", "shields", "indestructable" } -- [sic]
-local showSelectedUnits        = true
 local displayNumberMax         = 999999
+local showSelectedUnits        = true
 
 local damageStatsPath          = "LuaUI/Config/BAR_damageStats.lua"
 local widgetRmlPath            = "luaui/rmlwidgets/unit_statistics/unit_statistics.rml"
@@ -579,7 +579,7 @@ local function getBaseStats(unitDefID)
 
 	-- TODO: Why are there two? This is a running theme.
 	if positive(unitDef.customParams.metal_extractor or unitDef.extractsMetal) then
-		summary.metalExtraction = unitDef.customParams.metal_extractor
+		summary.metalExtraction = unitDef.customParams.metal_extractor or unitDef.extractsMetal
 	elseif positive(unitDef.metalMake) then
 		summary.metalProduction = unitDef.metalMake
 	end
