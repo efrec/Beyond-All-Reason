@@ -24,7 +24,7 @@ local displayNumberMax         = 999999
 local showSelectedUnits        = true
 
 local damageStatsPath          = "LuaUI/Config/BAR_damageStats.lua"
-local widgetRmlPath            = "luaui/rmlwidgets/unit_statistics/unit_statistics.rml"
+local widgetRmlPath            = "LuaUI/RmlWidgets/unit_statistics/unit_statistics.rml"
 
 --------------------------------------------------------------------------------
 -- Cached globals --------------------------------------------------------------

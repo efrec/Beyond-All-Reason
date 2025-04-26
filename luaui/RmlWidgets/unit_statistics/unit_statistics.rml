@@ -1,12 +1,41 @@
 <rml>
 
     <head>
-        <title>Unit statistics popover</title>
-        <link type="text/rcss" href="unit_statistics.rcss" />
+        <title>Rml Starter</title>
+        <style>
+            #rml-starter-widget {
+                pointer-events: auto;
+                width: 400dp;
+                right: 0;
+                top: 50%;
+                transform: translateY(-90%);
+                position: absolute;
+                margin-right: 10dp;
+            }
+
+            #main-content {
+                padding: 10dp;
+                border-radius: 8dp;
+                z-index: 1;
+            }
+        </style>
     </head>
 
-    <body id="unit_statistics" data-model="unit_statistics">
-        <div>Is <i>this</i> your unit: {{baseStats.name}}</div>
+    <body>
+        <div id="rml-starter-widget" data-model="unit_statistics">
+            <div id="main-content">
+                <h1>Welcome to an Rml Starter Widget</h1>
+                <p>This is a simple example of an RMLUI widget.</p>
+                <p>Each rml widget must reside in a folder of the same name in the <span>luaui/RmlWidgets/</span>
+                    directory and contain at least a <span>widget.lua</span> file and a <span>widget.rml</span>file.
+                </p>
+                <p>
+                    The widget.lua file is the main entry point for the widget and is responsible for loading the rml
+                    file and creating the widget. The widget.rml file is the main layout file for the widget and
+                    contains the structure and styling of the widget. The widget.lua file can also contain any
+                    additional logic or functionality that you want to add to your widget.
+                </p>
+            </div>
+        </div>
     </body>
-
 </rml>
