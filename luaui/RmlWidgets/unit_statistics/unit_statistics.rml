@@ -6,7 +6,7 @@
     </head>
 
     <body id="unit_statistics" data-model="unit_statistics">
-        <div>{{ visible ? "unit stats go brr" : "whack" }}
+        <div>Is <i>this</i> your unit: {{baseStats.name}}</div>
     </body>
 
 </rml>

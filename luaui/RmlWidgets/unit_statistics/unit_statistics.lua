@@ -105,7 +105,7 @@ local inBuildMenu = false
 
 local document
 local dataModelHandle
-local dataModelName = "unit-statistics"
+local dataModelName = "unit_statistics"
 local dataModelInitial = {
 	visible   = false,
 	expanded  = false,
