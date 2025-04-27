@@ -81,11 +81,6 @@ if Spring.GetModOptions().map_tidal then
 	})[Spring.GetModOptions().map_tidal]
 end
 
-local anonymousTeamMode = Spring.GetModOptions().teamcolors_anonymous_mode
-local anonymousTeamName = "?????"
-local anonymousTeamColor
-
-local spectating = Spring.GetSpectatingState()
 local myTeamID = Spring.GetMyTeamID()
 
 -- Local state setup
@@ -115,14 +110,6 @@ local dataModelInitial = {
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
-
-local function getTeamColorCode(teamID)
-	return "rcss_color_code"
-end
-
-local function getTeamName(teamID)
-	return "team_name"
-end
 
 local function descending(a, b)
 	return a > b
@@ -901,7 +888,6 @@ function widget:Reload(event)
 end
 
 function widget:PlayerChanged()
-	spectating = Spring.GetSpectatingState()
 	myTeamID = Spring.GetMyTeamID()
 end
 
