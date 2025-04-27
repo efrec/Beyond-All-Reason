@@ -24,7 +24,7 @@ local displayNumberMax         = 999999
 local showSelectedUnits        = true
 
 local damageStatsPath          = "LuaUI/Config/BAR_damageStats.lua"
-local widgetRmlPath            = "LuaUI/RmlWidgets/unit_statistics/unit_statistics.rml"
+local widgetRmlPath            = "luaui/RmlWidgets/unit_statistics/unit_statistics.rml"
 
 --------------------------------------------------------------------------------
 -- Cached globals --------------------------------------------------------------
@@ -36,19 +36,19 @@ local min                      = math.min
 local ceil                     = math.ceil
 local round                    = math.round
 
+local spGetActiveCommand       = Spring.GetActiveCommand
 local spGetModKeyState         = Spring.GetModKeyState
 local spGetMouseState          = Spring.GetMouseState
-local spGetMyTeamID            = Spring.GetMyTeamID
-local spGetPlayerInfo          = Spring.GetPlayerInfo
-local spGetTeamColor           = Spring.GetTeamColor
-local spGetTeamInfo            = Spring.GetTeamInfo
-local spGetTeamResources       = Spring.GetTeamResources
 local spIsUserWriting          = Spring.IsUserWriting
 local spTraceScreenRay         = Spring.TraceScreenRay
 
+local spAreTeamsAllied         = Spring.AreTeamsAllied
+local spGetTeamResources       = Spring.GetTeamResources
 local spGetUnitDefID           = Spring.GetUnitDefID
 local spGetUnitExperience      = Spring.GetUnitExperience
-local spGetUnitSensorRadius    = Spring.GetUnitSensorRadius
+local spGetUnitHealth          = Spring.GetUnitHealth
+local spGetUnitIsBeingBuilt    = Spring.GetUnitIsBeingBuilt
+local spGetUnitMoveTypeData    = Spring.GetUnitMoveTypeData
 local spGetUnitTeam            = Spring.GetUnitTeam
 local spGetUnitWeaponState     = Spring.GetUnitWeaponState
 
@@ -217,10 +217,10 @@ local function getBaseStats(unitDefID)
 			end
 
 			-- Firing properties
-			local accuracyError      = weaponDef.accuracy
-			local accuracyMoveError  = weaponDef.targetMoveError
-			local sprayAngleMax      = weaponDef.sprayAngle
-			local projectiles        = weaponDef.projectiles
+			local accuracyError     = weaponDef.accuracy
+			local accuracyMoveError = weaponDef.targetMoveError
+			local sprayAngleMax     = weaponDef.sprayAngle
+			local projectiles       = weaponDef.projectiles
 			-- TODO: burst fire on BeamLaser and other considerations per weapon type
 			-- TODO: missile dance (Catapult), sector fire (Tremor)
 
@@ -529,32 +529,25 @@ local function getBaseStats(unitDefID)
 
 	-- Welcome to hell, where metalMake <> makesMetal and both are numbers:
 
-	-- TODO: This part is non-cache-able, technically, though the issue is rare.
-	-- TODO: So there should be a third table binding, maybe to a "buildHelper".
-	-- TODO: So there should be a separate function to get it, "getBuildHelper".
 	if inBuildOrder then
-		if not inBuildMenu then
-			-- Requires {Land|WaterSubmerged|WaterSurface}:
-			local categories = unitDef.modCategories
-			if categories.hover then
-				summary.requiresLand = true
-				summary.requiresWaterSurface = true
-			elseif categories.ship then
-				summary.requiresWaterSurface = true
-			elseif categories.underwater then
-				summary.requiresWaterSubmerged = true
-			elseif categories.canbeuw then
-				summary.requiresLand = true
-				summary.requiresWaterSubmerged = true
-			else
-				summary.requiresLand = true
-			end
-			-- Requires {Geothermal|MetalSpot}:
-			if unitDef.needGeo then
-				summary.requiresGeothermal = true
-			elseif positive(unitDef.customParams.metal_extractor or unitDef.extractsMetal) then
-				summary.requiresMetalSpot = true
-			end
+		local categories = unitDef.modCategories
+		if categories.hover then
+			summary.requiresLand = true
+			summary.requiresWaterSurface = true
+		elseif categories.ship then
+			summary.requiresWaterSurface = true
+		elseif categories.underwater then
+			summary.requiresWaterSubmerged = true
+		elseif categories.canbeuw then
+			summary.requiresLand = true
+			summary.requiresWaterSubmerged = true
+		else
+			summary.requiresLand = true
+		end
+		if unitDef.needGeo then
+			summary.requiresGeothermal = true
+		elseif positive(unitDef.customParams.metal_extractor or unitDef.extractsMetal) then
+			summary.requiresMetalSpot = true
 		end
 	end
 
@@ -573,7 +566,6 @@ local function getBaseStats(unitDefID)
 			end
 		elseif unitDef.needGeo then
 			summary.isGeothermalExtractor = true
-			-- TODO: unstable/volatile/explosive check?
 		end
 	end
 
@@ -609,11 +601,11 @@ local function getBaseStats(unitDefID)
 		end
 	end
 
-	if not unitDef.isBuilding and not unitDef.isFactory and positive(unitDef.speed) then
+	if positive(unitDef.speed) then
 		summary.speed = unitDef.speed
 		summary.acceleration = unitDef.maxAcc * convertPerFrameSquared
 		summary.turnRate = unitDef.turnRate * headingToRadianPerSecond
-	else
+	elseif unitDef.isBuilding and unitDef.isFactory then
 		summary.footprint = ("%.0f x %.0f"):format(unitDef.xsize or 1, unitDef.zsize or 1)
 	end
 
@@ -642,9 +634,9 @@ end
 ---@param expanded boolean Whether to include information typically hidden from view.
 ---@return table compliment
 local function getUnitStats(unitID, summary, expanded)
-	local unitTeam = Spring.GetUnitTeam(unitID)
-	local isAlliedUnit = Spring.AreTeamsAllied(myTeamID, unitTeam)
-	local isBeingBuilt, buildProgress = Spring.GetUnitIsBeingBuilt(unitID)
+	local unitTeam = spGetUnitTeam(unitID)
+	local isAlliedUnit = spAreTeamsAllied(myTeamID, unitTeam)
+	local isBeingBuilt, buildProgress = spGetUnitIsBeingBuilt(unitID)
 	if isBeingBuilt then
 		local mCost = summary.metalCost
 		local eCost = summary.energyCost
@@ -659,8 +651,8 @@ local function getUnitStats(unitID, summary, expanded)
 			energyUnspent = eCost * (1 - buildProgress),
 		}
 		if isAlliedUnit then
-			local mStored, _, _, mIncome, _, _, _, mReceived = Spring.GetTeamResources(unitTeam, "metal")
-			local eStored, _, _, eIncome, _, _, _, eReceived = Spring.GetTeamResources(unitTeam, "energy")
+			local mStored, _, _, mIncome, _, _, _, mReceived = spGetTeamResources(unitTeam, "metal")
+			local eStored, _, _, eIncome, _, _, _, eReceived = spGetTeamResources(unitTeam, "energy")
 			local metalTimer = max(0, mCost * (1 - buildProgress) - mStored) / (mIncome + mReceived)
 			local energyTimer = max(0, eCost * (1 - buildProgress) - eStored) / (eIncome + eReceived)
 			-- local buildTimer = summary.buildTime / < this would be a lot of work to get tbh >
@@ -673,14 +665,14 @@ local function getUnitStats(unitID, summary, expanded)
 		return compliment
 	elseif isAlliedUnit then
 		-- todo: check if in death anims or something? idk prolly tho
-		local unitExperience = Spring.GetUnitExperience(unitID)
+		local unitExperience = spGetUnitExperience(unitID)
 		local compliment = {
 			unitID     = unitID,
 			unitTeam   = unitTeam,
 			experience = unitExperience,
 		}
 		if unitExperience > 0 then
-			local _, healthMax = Spring.GetUnitHealth(unitID)
+			local _, healthMax = spGetUnitHealth(unitID)
 			if summary.armorMultiplier then
 				local isArmored, armoredMultiple = Spring.GetUnitArmored(unitID)
 				if isArmored and armoredMultiple > 0 then
@@ -693,9 +685,9 @@ local function getUnitStats(unitID, summary, expanded)
 				local weapon = summary.weaponSummary[i]
 				if weapon.experienceBonuses and (expanded or not weapon.hidden) then
 					local changes  = {}
-					local reload   = Spring.GetUnitWeaponState(unitID, weapon.index, "reloadTime")
-					local accuracy = Spring.GetUnitWeaponState(unitID, weapon.index, "accuracy")
-					local range    = Spring.GetUnitWeaponState(unitID, weapon.index, "range")
+					local reload   = spGetUnitWeaponState(unitID, weapon.index, "reloadTime")
+					local accuracy = spGetUnitWeaponState(unitID, weapon.index, "accuracy")
+					local range    = spGetUnitWeaponState(unitID, weapon.index, "range")
 					if reload and reload < weapon.reload then changes.reload = reload end
 					if accuracy and accuracy < weapon.accuracy then changes.accuracy = accuracy end
 					if range and range > weapon.range then changes.range = range end
@@ -707,7 +699,7 @@ local function getUnitStats(unitID, summary, expanded)
 			end
 		end
 		if summary.speed then
-			local moveTypeData = Spring.GetUnitMoveTypeData(unitID)
+			local moveTypeData = spGetUnitMoveTypeData(unitID)
 			if moveTypeData.maxSpeed ~= summary.speed then
 				-- TODO: Add explain_ and an icon showing slowdown is from terrain, transported mass, etc.
 				compliment.speed = moveTypeData.maxSpeed
@@ -786,32 +778,45 @@ do
 		return true
 	end
 
+	local function sameDefID(units)
+		local unitDefID = spGetUnitDefID(units[1])
+		for i = 2, #units do
+			if unitDefID ~= spGetUnitDefID(units[i]) then
+				return false
+			end
+		end
+		return true
+	end
+
 	local function showAction()
-		local _, buildDefID = Spring.GetActiveCommand()
+		local _, buildDefID = spGetActiveCommand()
 		inBuildOrder, inBuildMenu = false, false
 		if buildDefID and buildDefID < 0 then
 			showUnitDefID = -buildDefID
 			inBuildOrder = true
 		elseif WG.buildmenu and WG.buildmenu.hoverID then
 			showUnitDefID = WG.buildmenu.hoverID
-			inBuildOrder = true
 			inBuildMenu = true
 		else
-			if selectedUnits[1] then
-				showUnitID = selectedUnits[1]
+			local unambiguous, unitDefID = sameDefID(selectedUnits)
+			if unambiguous then
+				showUnitDefID = unitDefID
+				if #selectedUnits == 1 then
+					showUnitID = selectedUnits[1]
+				end
 			else
-				local mx, my = Spring.GetMouseState()
-				local hitType, hitID = Spring.TraceScreenRay(mx, my)
-				showUnitID = hitType == "unit" and hitID
+				local mx, my = spGetMouseState()
+				local hitType, hitID = spTraceScreenRay(mx, my)
+				if hitType == "unit" then
+					showUnitID = hitID
+					showUnitDefID = spGetUnitDefID(hitID)
+				else
+					showStatistics = false
+					return
+				end
 			end
-			showUnitDefID = showUnitID and Spring.GetUnitDefID(showUnitID)
 		end
-
-		if not showUnitDefID then
-			showStatistics = false
-		else
-			showStatistics = true
-		end
+		showStatistics = true
 	end
 
 	local function hideAction()
@@ -821,7 +826,7 @@ do
 	end
 
 	local function showUnitStatistics(unitDefID, unitID)
-		showUnitDefID = unitDefID or (unitID and Spring.GetUnitDefID(unitID))
+		showUnitDefID = unitDefID or (unitID and spGetUnitDefID(unitID))
 		showUnitID = unitID
 		showStatistics = showUnitDefID and true or false
 		return showStatistics
@@ -911,9 +916,9 @@ do
 		if showUnitDefID
 			and (not WG.topbar or not WG.topbar.showingQuit())
 			and (not WG.chat or not WG.chat.isInputActive())
-			and (not Spring.IsUserWriting())
+			and (not spIsUserWriting())
 		then
-			local _, _, _, shift = Spring.GetModKeyState()
+			local _, _, _, shift = spGetModKeyState()
 			local baseStats = unitDefStatistics[showUnitDefID]
 			local unitStats = showUnitID and getUnitStats(showUnitID, baseStats, shift)
 			dataModelHandle.visible = true
