@@ -305,6 +305,8 @@ local function getBaseStats(unitDefID)
 				xpToDPS = false
 			else
 				if weaponDef.commandfire then
+					-- This is a third category of "effect" damage which complicates its description.
+					-- But it is more clear to present ability-like damage separate from base damage.
 					effectExplain = effectExplain or i18n.explain_commandfire
 					effectBurst, effectRate = effectBurst + baseDamage, effectRate + baseDamage / reload
 				else
