@@ -677,9 +677,9 @@ local function getUnitStats(unitID, summary, expanded)
 					local reload   = spGetUnitWeaponState(unitID, weapon.index, "reloadTime")
 					local accuracy = spGetUnitWeaponState(unitID, weapon.index, "accuracy")
 					local range    = spGetUnitWeaponState(unitID, weapon.index, "range")
-					if reload and reload < weapon.reload then changes.reload = reload end
-					if accuracy and accuracy < weapon.accuracy then changes.accuracy = accuracy end
-					if range and range > weapon.range then changes.range = range end
+					if reload and reload < weapon.reload - 0.05 then changes.reload = reload end
+					if accuracy and accuracy < weapon.accuracy * 0.99 then changes.accuracy = accuracy end
+					if range and range > weapon.range + 0.5 then changes.range = range end
 					if next(changes) then weaponChanges[i] = changes end
 				end
 			end
