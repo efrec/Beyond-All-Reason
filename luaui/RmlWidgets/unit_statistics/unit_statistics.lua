@@ -859,6 +859,7 @@ do
 			return
 		end
 		document:ReloadStyleSheet()
+		document:Show()
 		return true
 	end
 
