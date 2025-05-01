@@ -404,13 +404,16 @@ local function getBaseStats(unitDefID)
 			}
 
 			-- Not sure if there are performance-oriented flags to add. This is a rough idea of one.
-			-- There might be a tutorial-mode UI where you see a short pros/cons list or something,
-			-- but tbh you don't need a "dynamic" UI to do that. So doing it like this is pointless?
 			if range * (accuracyError + accuracyMoveError * 0.25 + sprayAngleMax / projectiles) > (
-					areaOfEffect and (32767 * 0.25 + areaOfEffect * edgeEffectiveness) * 0.5
+					areaOfEffect
+					and (32767 * 0.25 + areaOfEffect * edgeEffectiveness) * 0.5
 					or 32767 * 0.25 * 0.5)
 			then
-				weapon.isWeakAccuracy = true
+				weapon.weaknessAccuracy = true
+			elseif weaponDef.customParams.speceffect ~= "split" and weaponDef.movingAccuracy > weaponDef.accuracy * 2 then
+				weapon.weaknessMovingAccuracy = true
+			elseif range > 300 and accuracyMoveError > 1 or weaponDef.predictBoost < 0.1 then
+				weapon.weaknessMovingTargets = true
 			end
 
 			if baseArmorTypeIndex == Game.armorTypes.vtol then
