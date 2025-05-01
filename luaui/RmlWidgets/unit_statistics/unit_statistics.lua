@@ -183,7 +183,7 @@ local function getBaseStats(unitDefID)
 				name = i18n.deathexplosion
 				range = weaponDef.damageAreaOfEffect * 0.5
 				reload = 1
-				addToTotals = isExplodingUnit
+				addToTotals = false
 			elseif weaponDefID == selfDWeaponDefID then
 				name = i18n.selfdestruct
 				range = weaponDef.damageAreaOfEffect * 0.5
@@ -237,10 +237,8 @@ local function getBaseStats(unitDefID)
 				projectiles = projectiles * weaponDef.customParams.number
 				weaponDef = WeaponDefNames[weaponDef.customParams.speceffect_def]
 				weaponDefID = weaponDef.id
-				-- TODO: Technically there's a small sprayAngle from the split scatter.
-				areaOfEffect = not weaponDef.impactOnly and weaponDef.damageAreaOfEffect
-				areaOfEffect = areaOfEffect and areaOfEffect > 8 and areaOfEffect or nil
 				baseArmorTypeIndex = weaponDef.customParams.armorTypeFocus or defaultArmorTypeIndex
+				baseDamage = weaponDef.damages[baseArmorTypeIndex]
 				defaultDamage = weaponDef.damages[defaultArmorTypeIndex]
 				if not weaponDef.impactOnly and weaponDef.damageAreaOfEffect > 8 then
 					areaOfEffect = weaponDef.damageAreaOfEffect
@@ -253,11 +251,18 @@ local function getBaseStats(unitDefID)
 			local edgeEffectiveness, impulseFactorNet, craterFactorNet
 			if areaOfEffect then
 				edgeEffectiveness = weaponDef.edgeEffectiveness
-				impulseFactorNet = weaponDef.damages.impulseFactor
-				impulseFactorNet = impulseFactorNet + weaponDef.damages.impulseBoost / max(baseDamage, 1)
-				impulseFactorNet = impulseFactorNet > 0.123 and impulseFactorNet or nil
-				craterFactorNet = positive(positive(weaponDef.craterMult, 0) +
-					positive(weaponDef.damages.craterBoost, 0) / max(defaultDamage, 1))
+				-- NB: 0.123 is the approximate slope of the mass/health curve. For the most part, then,
+				-- only a net impulse factor above this amount deals nonlethal damage that pushes units:
+				if baseDamage >= 1 and weaponDef.damages.impulseFactor then
+					impulseFactorNet = weaponDef.damages.impulseFactor +
+						weaponDef.damages.impulseBoost / baseDamage
+					if impulseFactorNet <= 0.123 then impulseFactorNet = nil end
+				end
+				-- There is no proper scale here. Terrain has its own hardness. Do whatever sounds good.
+				if defaultDamage >= 1 and weaponDef.damages.craterMult then
+					craterFactorNet = weaponDef.damages.craterMult + weaponDef.damages.craterBoost / defaultDamage
+					if craterFactorNet <= 0.123 then craterFactorNet = nil end
+				end
 			end
 
 			-- Effect damage consists of scripted effects (which deal burst) and temporal effects (which change DPS).
@@ -267,16 +272,15 @@ local function getBaseStats(unitDefID)
 			local effectExplain
 			local effectBurst, effectRate = 0, 0
 			if weaponDef.customParams.spark_basedamage then
-				effectExplain = i18n.explain_spark -- TODO: effect explanation text in i18n for tooltips
+				effectExplain = i18n.explain_spark
 				local damage = weaponDef.customParams.spark_basedamage * weaponDef.customParams.spark_forkdamage
 				effectBurst = damage * weaponDef.customParams.spark_maxunits
 			elseif weaponDef.customParams.cluster then
 				effectExplain = i18n.explain_cluster
 				local munition = WeaponDefNames[weaponDef.customParams.cluster_def]
 				local damage = munition.damages[baseArmorTypeIndex]
-				local scatter = munition.range + munition.areaofeffect * 0.5
+				local scatter = munition.range + munition.areaofeffect * (1 + munition.egdeEffectiveness) * 0.5 * 0.5
 				effectBurst = damage * weaponDef.customParams.cluster_number
-				-- TODO: Some cluster weapons work more like a sprayAngle than an extended damage area of effect.
 				if areaOfEffect then
 					areaOfEffect = (areaOfEffect * baseDamage + scatter * effectBurst) / (baseDamage + effectBurst)
 				else
