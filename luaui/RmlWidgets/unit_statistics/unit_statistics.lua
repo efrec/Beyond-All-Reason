@@ -228,8 +228,10 @@ local function getBaseStats(unitDefID)
 
 			local baseDamage = weaponDef.damages[baseArmorTypeIndex]
 			local defaultDamage = weaponDef.damages[defaultArmorTypeIndex]
-			local areaOfEffect = not weaponDef.impactOnly and weaponDef.damageAreaOfEffect
-			areaOfEffect = areaOfEffect and areaOfEffect > 8 and areaOfEffect or nil
+			local areaOfEffect
+			if not weaponDef.impactOnly and weaponDef.damageAreaOfEffect > 8 then
+				areaOfEffect = weaponDef.damageAreaOfEffect
+			end
 
 			if weaponDef.customParams.speceffect == "split" then
 				projectiles = projectiles * weaponDef.customParams.number
@@ -240,7 +242,12 @@ local function getBaseStats(unitDefID)
 				areaOfEffect = areaOfEffect and areaOfEffect > 8 and areaOfEffect or nil
 				baseArmorTypeIndex = weaponDef.customParams.armorTypeFocus or defaultArmorTypeIndex
 				defaultDamage = weaponDef.damages[defaultArmorTypeIndex]
-				baseDamage = weaponDef.damages[baseArmorTypeIndex]
+				if not weaponDef.impactOnly and weaponDef.damageAreaOfEffect > 8 then
+					areaOfEffect = weaponDef.damageAreaOfEffect
+				else
+					areaOfEffect = nil
+					-- TODO: What should replace the net aoe, then? Spray angle?
+				end
 			end
 
 			local edgeEffectiveness, impulseFactorNet, craterFactorNet
@@ -279,7 +286,8 @@ local function getBaseStats(unitDefID)
 				effectExplain = i18n.explain_area_timed_damage
 				areaOfEffect = max(areaOfEffect or 0, weaponDef.customParams.area_onhit_range)
 				effectBurst = weaponDef.customParams.area_onhit_damage * weaponDef.customParams.area_onhit_time
-			elseif unitDef.customParams.area_ondeath and (weaponDefID == deathWeaponDefID or weaponDefID == selfDWeaponDefID) then
+			elseif (weaponDefID == deathWeaponDefID or weaponDefID == selfDWeaponDefID)
+				and unitDef.customParams.area_ondeath_damage then
 				effectExplain = i18n.explain_area_timed_damage
 				areaOfEffect = max(areaOfEffect or 0, unitDef.customParams.area_ondeath_range)
 				effectBurst = unitDef.customParams.area_ondeath_damage * unitDef.customParams.area_ondeath_time
@@ -355,8 +363,8 @@ local function getBaseStats(unitDefID)
 
 			-- NB: Damage must be be entirely paralyzing or non-paralyzing per weapon.
 			-- Widgets are not the correct way to enforce anything/find errors though.
-			local paralyzeDamageTime = positive(weaponDef.damages.paralyzeDamageTime)
 			local empBurst, empRate = 0, 0
+			local paralyzeDamageTime = positive(weaponDef.damages.paralyzeDamageTime)
 			if paralyzeDamageTime then
 				empBurst, empRate = damageBurst, damageRate
 				damageBurst, damageRate = 0, 0
