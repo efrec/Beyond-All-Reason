@@ -1162,7 +1162,7 @@ end
 ---@param vector table
 ---@param angleSpread number [0, pi] which is the half-angle
 local function randomizeConic(vector, angleSpread)
-	refill(vector, randomFromConic(vector, 1, angleSpread))
+	refill(vector, randomFromConic(vector, 0, angleSpread))
 end
 
 ---Add a scatter angle to an existing vector.
