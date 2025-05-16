@@ -1759,29 +1759,34 @@ local function updateBallistics(position, velocity, speedMax, gravity)
 end
 
 ---Simple controlled movement that ignores gravity. Does not pursue moving targets.
+---
 ---Modifies `position` and `velocity`.
 ---@param position table
 ---@param target table
----@param velocity number
+---@param velocity table
 ---@param speedMax number
 ---@param acceleration number
----@param turnAngle number
-local function updateGuidance(position, target, velocity, speedMax, acceleration, turnAngle)
+---@param turnAngleMax number
+---@param chaseFactor number [0, 1] 0 = hard turn toward target, 1 = constant slow turn toward target ("chases" it)
+local function updateGuidance(position, velocity, target, speedMax, acceleration, turnAngleMax, chaseFactor)
 	local displacement = float3a
 	displacement[1] = target[1] - position[1]
 	displacement[2] = target[2] - position[2]
 	displacement[3] = target[3] - position[3]
-	displacement[4] = magnitude(displacement)
+	local distance = magnitude(displacement)
+	displacement[4] = distance
 
-	local angle = angularSeparation(velocity, displacement)
+	local angleBetween = getAngleBetween(velocity, displacement)
+	local cos_angle = math_cos(angleBetween)
 
-	if angle > turnAngle * 1.01 then
-		mixRotation(velocity, displacement, turnAngle / angle, true)
-	elseif angle >= 1e-3 then
-		rotateTo(velocity, displacement)
+	if angleBetween > RAD_EPSILON then
+		local turnFrames = turnAngleMax / angleBetween
+		local moveFrames = distance / (velocity[4] * math_cos(angleBetween))
+		local factor = turnFrames - chaseFactor * moveFrames / (turnFrames + moveFrames)
+		slerp(velocity, displacement, factor)
 	end
 
-	updateSpeedAndPosition(position, velocity, acceleration, speedMax)
+	updateSpeedAndPosition(position, velocity, acceleration * cos_angle, speedMax)
 end
 
 ---Simple controlled movement under gravity. Does not pursue moving targets.
