@@ -41,7 +41,7 @@ local spSetProjectileVelocity = Spring.SetProjectileVelocity
 
 local multiply = vector.multiply
 local dot = vector.dot
-local randomAngleAndLengthXZ = vector.randomFromConicXZ
+local randomFromConicXZ = vector.randomFromConicXZ
 
 local targetedGround = string.byte('g')
 local targetedUnit = string.byte('u')
@@ -209,7 +209,7 @@ specialEffects.sector_fire = function(projectileID, params)
 	local angleMax = tonumber(params.spread_angle) * pi / 180 * 0.5
 	local rangeReductionMax = -1 * tonumber(params.max_range_reduction)
 
-	velocity[1], velocity[3] = randomAngleAndLengthXZ(velocity, angleMax, rangeReductionMax)
+	velocity[1], velocity[3] = randomFromConicXZ(velocity, angleMax, rangeReductionMax)
 	spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 
 	return true
