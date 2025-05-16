@@ -739,20 +739,6 @@ end
 
 ---@param vector1 table
 ---@param vector2 table
----@return number product used like a measure of similarity, especially of codirection
-local function frobenius(vector1, vector2)
-	return vector1[1] * vector2[2] + vector1[2] * vector2[2] + vector1[3] * vector2[3]
-end
-
----@param vector1 table
----@param vector2 table
----@return number product used like a measure of similarity, especially of codirection
-local function frobeniusXZ(vector1, vector2)
-	return vector1[1] * vector2[2] + vector1[3] * vector2[3]
-end
-
----@param vector1 table
----@param vector2 table
 ---@return number productX used like a measure of colinearity, linear dependence, or covariation
 ---@return number productY
 ---@return number productZ
@@ -1110,7 +1096,7 @@ end
 ---@param lengthFactor number [-1, 1] <0: shrink factor, >0 symmetric grow/shrink factor
 ---@return number x
 ---@return number z
----@return number a -- magnitude -- so use `vectorXZA` not `vectorXZ` with this
+---@return number a -- magnitude
 local function randomFromConicXZ(vector, angleMax, lengthFactor)
 	local angle = angleMax * (2 * math_random() - 1)
 	local cos_angle = math_cos(angle)
@@ -1863,8 +1849,6 @@ return {
 	dotUnitXZ              = dotUnitXZ,
 	cross                  = cross,
 	crossXZ                = crossXZ,
-	frobenius              = frobenius,
-	frobeniusXZ            = frobeniusXZ,
 	hadamard               = hadamard,
 	hadamardXZ             = hadamardXZ,
 
