@@ -146,6 +146,8 @@ return {
 					subs = 600,
 				},
 				customparams = {
+					cruise_and_verticalize = true,
+					cruise_altitude = "auto",
 					projectile_destruction_method = "descend",
 					overrange_distance = 1507,
 				},

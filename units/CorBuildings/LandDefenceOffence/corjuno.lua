@@ -141,6 +141,8 @@ return {
 				weapontype = "StarburstLauncher",
 				weaponvelocity = 500,
 				customparams = {
+					cruise_and_verticalize = true,
+					cruise_altitude = "auto",
 					stockpilelimit = 20,
 					lups_noshockwave = 1,
 					nofire = true,

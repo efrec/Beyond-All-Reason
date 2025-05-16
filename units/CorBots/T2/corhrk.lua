@@ -141,6 +141,8 @@ return {
 					default = 800,
 				},
 				customparams = {
+					cruise_and_verticalize = true,
+					cruise_altitude = "auto",
 					projectile_destruction_method = "descend",
 					overrange_distance = 1392,
 				},
