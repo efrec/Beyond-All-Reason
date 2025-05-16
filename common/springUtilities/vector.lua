@@ -63,37 +63,45 @@
 --------------------------------------------------------------------------------
 -- Initialization --------------------------------------------------------------
 
-local math_abs = math.abs
-local math_clamp = math.clamp
-local math_min = math.min
-local math_max = math.max
+local math_abs    = math.abs
+local math_clamp  = math.clamp
+local math_min    = math.min
+local math_max    = math.max
 local math_random = math.random
-local math_sqrt = math.sqrt
-local math_cos = math.cos
-local math_sin = math.sin
-local math_acos = math.acos
-local math_asin = math.asin
-local math_atan2 = math.atan2
-local math_pi = math.pi
+local math_sqrt   = math.sqrt
+local math_cos    = math.cos
+local math_sin    = math.sin
+local math_acos   = math.acos
+local math_asin   = math.asin
+local math_atan2  = math.atan2
+local math_pi     = math.pi
 
--- Reusable tables for a zero-allocation module:
-local float3 = { 0, 0, 0 }
-local float3a = { 0, 0, 0, 0 }
+-- Acceptability criteria for some calculations
+local RAD_EPSILON = 1e-8
+local DEG_EPSILON = RAD_EPSILON * 180 / math_pi
+local ARC_EPSILON = 1e-6
+local XYZ_EPSILON = 1e-3
 
-local dirUp = { 0, 1, 0, 1 }
-local dirDown = { 0, -1, 0, 1 }
-local dirLeft = { -1, 0, 0, 1 }
-local dirRight = { 1, 0, 0, 1 }
-local dirForward = { 0, 0, 1, 1 }
+-- Vector space conventions
+local dirUp       = { 0, 1, 0, 1 }
+local dirDown     = { 0, -1, 0, 1 }
+local dirLeft     = { -1, 0, 0, 1 }
+local dirRight    = { 1, 0, 0, 1 }
+local dirForward  = { 0, 0, 1, 1 }
 local dirBackward = { 0, 0, -1, 1 }
 
--- For use when readability matters (which is never, apparently):
-local indexX = 1
-local indexY = 2
-local indexZ = 3
-local indexA = 4
+-- Reusable tables for zero-allocation module
+local float3      = { 0, 0, 0 }
+local float3a     = { 0, 0, 0, 0 }
 
-local cross, magnitude, magnitudeXZ -- fix for lexical scope
+-- For use when readability matters (which is never, apparently)
+local indexX      = 1
+local indexY      = 2
+local indexZ      = 3
+local indexA      = 4
+
+-- Fixes for lexical scope
+local cross, magnitude, magnitudeXZ
 
 --------------------------------------------------------------------------------
 -- Table construction ----------------------------------------------------------
