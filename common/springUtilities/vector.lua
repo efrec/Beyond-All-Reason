@@ -168,6 +168,7 @@ end
 -- Table reuse -----------------------------------------------------------------
 
 ---Fill an existing vector with all the values in another vector.
+---
 ---Modifies `vector1` and overrides the augment.
 ---@param vector1 table
 ---@param vector2 table
@@ -189,6 +190,7 @@ end
 
 ---Fill an existing vector with the values in another vector.
 ---The magnitude is recalculated only if it was already set in vector1.
+---
 ---Modifies `vector1` and updates its augment, if present.
 ---@param vector1 table
 ---@param vector2 table
@@ -203,6 +205,7 @@ end
 
 ---Fill an existing vector with the values in another vector.
 ---The magnitude is recalculated only if it was already set in vector1.
+---
 ---Modifies `vector1` and updates its augment, if present.
 ---@param vector1 table
 ---@param vector2 table
@@ -216,6 +219,7 @@ end
 
 ---Fill a vector with the values from a list of multi-values, similar to `pack(...)`.
 ---Even if a 4th argument is passed, the augment is updated only if it was set already.
+---
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
 ---@param arg1 number
@@ -437,6 +441,127 @@ local function divideXZ(vector, value)
 	end
 end
 
+---Rescale a vector to length 1. Does not set the augment term.
+---
+---Modifies `vector`.
+---@param vector table
+local function normalize(vector)
+	local scale = getMagnitude(vector)
+	vector[1] = vector[1] / scale
+	vector[2] = vector[2] / scale
+	vector[3] = vector[3] / scale
+end
+
+---Rescale a vector to length 1. Does not set the augment term.
+---
+---Modifies `vector`.
+---@param vector table
+local function normalizeXZ(vector)
+	local scale = getMagnitudeXZ(vector)
+	vector[1] = vector[1] / scale
+	vector[3] = vector[3] / scale
+end
+
+---Rescale a vector to a value, or set its augment term if no value is given.
+---
+---Modifies `vector`.
+---@param vector table
+---@param value number
+local function setMagnitude(vector, value)
+	if not value then
+		value = magnitude(vector)
+	else
+		local scale = value / magnitude(vector)
+		vector[1] = vector[1] * scale
+		vector[2] = vector[2] * scale
+		vector[3] = vector[3] * scale
+	end
+	vector[4] = value
+end
+
+---Rescale a vector to a value, or set its augment term if no value is given.
+---
+---Modifies `vector`.
+---@param vector table
+---@param value number
+local function setMagnitudeXZ(vector, value)
+	if not value then
+		value = magnitudeXZ(vector)
+	else
+		local scale = value / magnitudeXZ(vector)
+		vector[1] = vector[1] * scale
+		vector[3] = vector[3] * scale
+	end
+	vector[4] = value
+end
+
+---Set the weight term of a vector, or augment and normalize it if no weight is given.
+---
+---Modifies `vector`.
+---@param vector table
+local function setWeight(vector, value)
+	if value then
+		normalize(vector)
+	else
+		value = magnitude(vector)
+		vector[1] = vector[1] / value
+		vector[2] = vector[2] / value
+		vector[3] = vector[3] / value
+	end
+	vector[4] = value
+end
+
+---Set the weight term of a vector, or augment and normalize it if no weight is given.
+---
+---Modifies `vector`.
+---@param vector table
+local function setWeightXZ(vector, value)
+	if value then
+		normalize(vector)
+	else
+		value = magnitudeXZ(vector)
+		vector[1] = vector[1] / value
+		vector[3] = vector[3] / value
+	end
+	vector[4] = value
+end
+
+---Normalize an augmented vector to length 1.
+---
+---Modifies `vector`.
+---@param vector table
+local function toUnitary(vector)
+	local scale = vector[4]
+	vector[1] = vector[1] / scale
+	vector[2] = vector[2] / scale
+	vector[3] = vector[3] / scale
+	vector[4] = 1
+end
+
+---Denormalize a weighted vector into an augmented vector.
+---
+---Modifies `vector`.
+---@param vector table
+local function toUnweighted(vector)
+	local scale = vector[4]
+	vector[1] = vector[1] * scale
+	vector[2] = vector[2] * scale
+	vector[3] = vector[3] * scale
+	vector[4] = scale
+end
+
+---Normalize a standard or augmented vector into a weighted vector.
+---
+---Modifies `vector`.
+---@param vector table
+local function toWeighted(vector)
+	local scale = getMagnitude(vector)
+	vector[1] = vector[1] / scale
+	vector[2] = vector[2] / scale
+	vector[3] = vector[3] / scale
+	vector[4] = scale
+end
+
 ---Modifies `vector1` and updates its augment, if present.
 ---@param vector1 table
 ---@param vector2 table
@@ -522,7 +647,8 @@ local function mixMagnitudeXZ(vector1, vector2, factor)
 	end
 end
 
----Fails when `vector1` and `vector2` have opposite direction.
+---Fails when `vector1` and `vector2` have opposite direction. Not good, only fast.
+---
 ---Modifies `vector1`.
 ---@param vector1 table
 ---@param vector2 table
@@ -538,7 +664,8 @@ local function mixRotation(vector1, vector2, factor)
 	vector1[3] = (vector1[3] * (1 - factor) + vector2[3] * m1 / m2 * factor) * scale
 end
 
----Fails when `vector1` and `vector2` have opposite direction.
+---Fails when `vector1` and `vector2` have opposite direction. Not good, only fast.
+---
 ---Modifies `vector1`.
 ---@param vector1 table
 ---@param vector2 table
@@ -572,116 +699,37 @@ local function rotateToXZ(vector1, vector2)
 	vector1[3] = vector2[3] * scale
 end
 
----Rescale a vector to length 1. Does not set the augment term.
----Modifies `vector`.
----@param vector table
-local function normalize(vector)
-	local scale = getMagnitude(vector)
-	vector[1] = vector[1] / scale
-	vector[2] = vector[2] / scale
-	vector[3] = vector[3] / scale
-end
+---Spherical linear interpolation between two vectors with numerical safety checks.
+---
+---Modifies `vector1`.
+---@param vector1 table
+---@param vector2 table
+---@param factor number [0, 1]
+local function slerp(vector1, vector2, factor)
+	local ARC_EPSILON = ARC_EPSILON -- avoid div-zero errors
+	if factor > ARC_EPSILON then
+		if 1 - factor > ARC_EPSILON then
+			local v11, v12, v13 = vector1[1], vector1[2], vector1[3]
+			local v21, v22, v23 = vector2[1], vector2[2], vector2[3]
+			local m1 = getMagnitude(vector1)
+			local m2 = getMagnitude(vector2)
 
----Rescale a vector to length 1. Does not set the augment term.
----Modifies `vector`.
----@param vector table
-local function normalizeXZ(vector)
-	local scale = getMagnitudeXZ(vector)
-	vector[1] = vector[1] / scale
-	vector[3] = vector[3] / scale
-end
+			local cos_angle = (v11 * v21 + v12 * v22 + v13 * v23) / (m1 * m2)
 
----Rescale a vector to a value, or set its augment term if no value is given.
----Modifies `vector`.
----@param vector table
----@param value number
-local function setMagnitude(vector, value)
-	if not value then
-		value = magnitude(vector)
-	else
-		local scale = value / magnitude(vector)
-		vector[1] = vector[1] * scale
-		vector[2] = vector[2] * scale
-		vector[3] = vector[3] * scale
+			if 1 - math_abs(cos_angle) > ARC_EPSILON then
+				local angle = math_acos(cos_angle)
+				local weight1 = math_sin((1 - factor) * angle) / m1
+				local weight2 = math_sin(factor * angle) / m2
+				local scale = m1 / math_sin(angle)
+
+				vector1[1] = (v11 * weight1 + v21 * weight2) * scale
+				vector1[2] = (v12 * weight1 + v22 * weight2) * scale
+				vector1[3] = (v13 * weight1 + v23 * weight2) * scale
+			end
+		else
+			rotateTo(vector1, vector2)
+		end
 	end
-	vector[4] = value
-end
-
----Rescale a vector to a value, or set its augment term if no value is given.
----Modifies `vector`.
----@param vector table
----@param value number
-local function setMagnitudeXZ(vector, value)
-	if not value then
-		value = magnitudeXZ(vector)
-	else
-		local scale = value / magnitudeXZ(vector)
-		vector[1] = vector[1] * scale
-		vector[3] = vector[3] * scale
-	end
-	vector[4] = value
-end
-
----Set the weight term of a vector, or augment and normalize it if no weight is given.
----Modifies `vector`.
----@param vector table
-local function setWeight(vector, value)
-	if value then
-		normalize(vector)
-	else
-		value = magnitude(vector)
-		vector[1] = vector[1] / value
-		vector[2] = vector[2] / value
-		vector[3] = vector[3] / value
-	end
-	vector[4] = value
-end
-
----Set the weight term of a vector, or augment and normalize it if no weight is given.
----Modifies `vector`.
----@param vector table
-local function setWeightXZ(vector, value)
-	if value then
-		normalize(vector)
-	else
-		value = magnitudeXZ(vector)
-		vector[1] = vector[1] / value
-		vector[3] = vector[3] / value
-	end
-	vector[4] = value
-end
-
----Normalize an augmented vector to length 1.
----Modifies `vector`.
----@param vector table
-local function toUnitary(vector)
-	local scale = vector[4]
-	vector[1] = vector[1] / scale
-	vector[2] = vector[2] / scale
-	vector[3] = vector[3] / scale
-	vector[4] = 1
-end
-
----Denormalize a weighted vector into an augmented vector.
----Modifies `vector`.
----@param vector table
-local function toUnweighted(vector)
-	local scale = vector[4]
-	vector[1] = vector[1] * scale
-	vector[2] = vector[2] * scale
-	vector[3] = vector[3] * scale
-	vector[4] = scale
-end
-
----Normalize a standard or augmented vector into a weighted vector.
----Modifies `vector`.
----@param vector table
-local function toWeighted(vector)
-	local scale = getMagnitude(vector)
-	vector[1] = vector[1] / scale
-	vector[2] = vector[2] / scale
-	vector[3] = vector[3] / scale
-	vector[4] = scale
 end
 
 --------------------------------------------------------------------------------
@@ -811,14 +859,14 @@ end
 ---@param vector1 table
 ---@param vector2 table
 ---@return number radians
-local function angularSeparation(vector1, vector2)
+local function getAngleBetween(vector1, vector2)
 	return math_acos(dot(vector1, vector2) / getMagnitude(vector1) / getMagnitude(vector2))
 end
 
 ---@param vector1 table
 ---@param vector2 table
 ---@return number radians
-local function angularSeparationXZ(vector1, vector2)
+local function getAngleBetweenXZ(vector1, vector2)
 	return math_acos(dotXZ(vector1, vector2) / getMagnitudeXZ(vector1) / getMagnitudeXZ(vector2))
 end
 
@@ -1312,6 +1360,7 @@ local function isInSphere(vector, origin, radius)
 end
 
 ---Constrain a vector to a set of absolute coordinates.
+---
 ---Modifies `vector`.
 ---@param vector table
 ---@param xMin number
@@ -1327,6 +1376,7 @@ local function limitBox(vector, xMin, xMax, yMin, yMax, zMin, zMax)
 end
 
 ---Constrain a vector to a conic envelope opening downward from `peak`.
+---
 ---Modifies `vector`.
 ---@param vector table
 ---@param peak table
@@ -1367,6 +1417,7 @@ local function limitConeDown(vector, peak, angle)
 end
 
 ---Constrain a vector to a conic envelope opening upward from `peak`.
+---
 ---Modifies `vector`.
 ---@param vector table
 local function limitConeUp(vector, peak, angle)
@@ -1405,6 +1456,7 @@ local function limitConeUp(vector, peak, angle)
 end
 
 ---Constrain a vector to a radius around a given vertical axis, set by a point.
+---
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
 local function limitCylinder(vector, originXZ, radius)
@@ -1422,6 +1474,7 @@ local function limitCylinder(vector, originXZ, radius)
 end
 
 ---Constrain a vector to a radius around a given point.
+---
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
 local function limitSphere(vector, origin, radius)
@@ -1516,7 +1569,7 @@ end
 ---@param acceleration number
 ---@param speedMax number
 local function updateSpeedAndPosition(position, velocity, acceleration, speedMax)
-	local speed = velocity[4]
+	local speed = velocity[4] or magnitude(velocity)
 	local speedNew = speed + acceleration
 	local ratio = speedNew < speedMax and speedNew / speed or 1
 	velocity[1] = velocity[1] * ratio
@@ -1528,6 +1581,7 @@ local function updateSpeedAndPosition(position, velocity, acceleration, speedMax
 end
 
 ---tbh, this is just `vector.add`.
+---
 ---Modifies `position`.
 ---@param position table
 ---@param velocity table
@@ -1566,28 +1620,10 @@ end
 ---Modifies `velocity`.
 ---@param velocity table
 ---@param angle number
-local function turnUp(velocity, angle)
-	local speed = velocity[4]
-	local pitch = math_asin(velocity[2] / speed)
-	if math_abs(pitch - math_pi / 2) <= angle then
-		velocity[1], velocity[3] = 0, 0
-		velocity[2] = speed
-	else
-		pitch = pitch + angle
-		local cos_pitch = math_cos(pitch)
-		velocity[1] = velocity[1] * cos_pitch
-		velocity[2] = speed * math_sin(pitch)
-		velocity[3] = velocity[3] * cos_pitch
-	end
-end
-
----Modifies `velocity`.
----@param velocity table
----@param angle number
 local function turnDown(velocity, angle)
 	local speed = velocity[4]
 	local pitch = math_asin(velocity[2] / speed)
-	if math_abs(pitch + math_pi / 2) <= angle then
+	if pitch - angle <= -math_pi / 2 + RAD_EPSILON then
 		velocity[1], velocity[3] = 0, 0
 		velocity[2] = -speed
 	else
@@ -1599,9 +1635,28 @@ local function turnDown(velocity, angle)
 	end
 end
 
+---Modifies `velocity`.
+---@param velocity table
+---@param angle number
+local function turnUp(velocity, angle)
+	local speed = velocity[4]
+	local pitch = math_asin(velocity[2] / speed)
+	if pitch - angle < math_pi / 2 - RAD_EPSILON then
+		velocity[1], velocity[3] = 0, 0
+		velocity[2] = speed
+	else
+		pitch = pitch + angle
+		local cos_pitch = math_cos(pitch)
+		velocity[1] = velocity[1] * cos_pitch
+		velocity[2] = speed * math_sin(pitch)
+		velocity[3] = velocity[3] * cos_pitch
+	end
+end
+
 ---Does not use the actual left-orientation of an object, solely considering trajectory.
 ---Thus, gradually moves toward horizontal if not already moving at level.
 ---Fails when `velocity` is vertical because "left" and "right" are relative terms.
+---
 ---Modifies `velocity`.
 ---@param velocity table
 ---@param angle number
@@ -1609,7 +1664,7 @@ local function turnLeft(velocity, angle)
 	local heading = math_atan2(velocity[1], velocity[3])
 	local speedUp = velocity[2]
 	local speed = velocity[4]
-	if speedUp == 0 or math_abs(speedUp / speed) < 1e-3 then
+	if speedUp == 0 or math_abs(speedUp / speed) < ARC_EPSILON then
 		heading = heading + angle
 		local cos_heading = math_cos(heading)
 		local sin_heading = math_sin(heading)
@@ -1637,6 +1692,7 @@ end
 ---Does not use the actual right-orientation of an object, solely considering trajectory.
 ---Thus, gradually moves toward horizontal if not already moving at level.
 ---Fails when `velocity` is vertical because "left" and "right" are relative terms.
+---
 ---Modifies `velocity`.
 ---@param velocity table
 ---@param angle number
@@ -1644,7 +1700,7 @@ local function turnRight(velocity, angle)
 	local heading = math_atan2(velocity[1], velocity[3])
 	local speedUp = velocity[2]
 	local speed = velocity[4]
-	if speedUp == 0 or math_abs(speedUp / speed) < 1e-3 then
+	if speedUp == 0 or math_abs(speedUp / speed) < ARC_EPSILON then
 		heading = heading - angle
 		local cos_heading = math_cos(heading)
 		local sin_heading = math_sin(heading)
@@ -1670,6 +1726,7 @@ local function turnRight(velocity, angle)
 end
 
 ---Basic movement under gravity. Does not allow terminal speeds above the base speed.
+---
 ---Modifies `position` and `velocity`.
 ---@param position table
 ---@param velocity table
@@ -1721,6 +1778,7 @@ local function updateGuidance(position, target, velocity, speedMax, acceleration
 end
 
 ---Simple controlled movement under gravity. Does not pursue moving targets.
+---
 ---Modifies `position` and `velocity`.
 ---@param position table
 ---@param target table
@@ -1864,8 +1922,8 @@ return {
 	distanceXZ             = distanceXZ,
 	distanceSquared        = distanceSquared,
 	distanceSquaredXZ      = distanceSquaredXZ,
-	angularSeparation      = angularSeparation,
-	angularSeparationXZ    = angularSeparationXZ,
+	getAngleBetween        = getAngleBetween,
+	getAngleBetweenXZ      = getAngleBetweenXZ,
 	projection             = projection,
 	projectionXZ           = projectionXZ,
 	rejection              = rejection,
