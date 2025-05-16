@@ -147,7 +147,7 @@ end
 
 --------------------------------------------------------------------------------
 
-local function cruise(position, velocity, altitude)
+local function cruise(projectileID, position, velocity, altitude)
 	local normal = toFloat3(spGetGroundNormal(position[1], position[3]))
 	local attitude = velocity[2] - dot(velocity, normal) * normal[2]
 	spSetProjectilePosition(projectileID, position[1], altitude, position[3])
@@ -170,12 +170,12 @@ specialEffects.cruise = function(projectileID, params)
 			local cruiseHeight = spGetGroundHeight(position[1], position[3]) + tonumber(params.cruise_min_height)
 
 			if position[2] < cruiseHeight then
-				cruise(position, velocity, cruiseHeight)
+				cruise(projectileID, position, velocity, cruiseHeight)
 				projectileData[projectileID] = true
 			elseif projectileData[projectileID] and
 				position[2] > cruiseHeight and velocity[2] > velocity[4] * -0.25
 			then
-				cruise(position, velocity, cruiseHeight)
+				cruise(projectileID, position, velocity, cruiseHeight)
 			end
 
 			return false
