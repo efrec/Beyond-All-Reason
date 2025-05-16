@@ -1106,7 +1106,7 @@ local function randomFromConic(vector, angleMax, lengthFactor)
 	local wx, wy, wz -- = cross(u, v)
 
 	-- Our choice of basis can condition the cross product so
-	-- that there is zero numerical instability in the result:
+	-- that there is less numerical instability in the result:
 	if vx <= vy and vx <= vz then
 		ux, uy, uz = 1, 0, 0
 		wx, wy, wz = 0, -vz, vy
@@ -1128,14 +1128,17 @@ local function randomFromConic(vector, angleMax, lengthFactor)
 	local rz = sin_theta * math_sin(phi)
 
 	if lengthFactor ~= 0 then
+		local scaleMin, scaleMax
 		if lengthFactor > 0 then
 			-- Grow/shrink symmetrically
-			length = _random_annulus(length * (1 - lengthFactor * 0.5), length * (1 + lengthFactor * 0.5))
-		elseif lengthFactor < 0 and lengthFactor > -1 then
+			scaleMin = 1 - lengthFactor * 0.5
+			scaleMax = 1 + lengthFactor * 0.5
+		else
 			-- Shrink only
-			length = _random_annulus(length * (1 - lengthFactor), 1)
+			scaleMin = 1 + lengthFactor
+			scaleMax = 1
 		end
-		length = math_max(length, 0)
+		length = length * _random_annulus(math_max(0, scaleMin), scaleMax)
 	end
 
 	return
@@ -1159,22 +1162,26 @@ local function randomFromConicXZ(vector, angleMax, lengthFactor)
 	local sin_angle = math_sin(angle)
 
 	local length = getMagnitude(vector)
+	local scale = 1
 
 	if lengthFactor ~= 0 then
+		local scaleMin, scaleMax
 		if lengthFactor > 0 then
 			-- Grow/shrink symmetrically
-			length = _random_annulus(length * (1 - lengthFactor * 0.5), length * (1 + lengthFactor * 0.5))
-		elseif lengthFactor < 0 and lengthFactor > -1 then
+			scaleMin = 1 - lengthFactor * 0.5
+			scaleMax = 1 + lengthFactor * 0.5
+		else
 			-- Shrink only
-			length = _random_annulus(length * (1 - lengthFactor), 1)
+			scaleMin = 1 + lengthFactor
+			scaleMax = 1
 		end
-		length = math_max(length, 0)
+		scale = _random_annulus(math_max(0, scaleMin), scaleMax)
 	end
 
 	return
-		(vector[1] * cos_angle - vector[3] * sin_angle) * length,
-		(vector[3] * sin_angle + vector[3] * cos_angle) * length,
-		length
+		(vector[1] * cos_angle - vector[3] * sin_angle) * scale,
+		(vector[1] * sin_angle + vector[3] * cos_angle) * scale,
+		length * scale
 end
 
 ---Add scatter/jitter/etc. to an existing vector.
