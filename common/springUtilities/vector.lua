@@ -478,14 +478,11 @@ end
 ---@return y number
 ---@return z number
 local function _mix_multivalue(v11, v12, v13, v21, v22, v23, factor)
-	if factor > 0 then
-		return
-			v11 * (1 - factor) + v21 * factor,
-			v12 * (1 - factor) + v22 * factor,
-			v13 * (1 - factor) + v23 * factor
-	else
-		return v11, v12, v13
-	end
+	factor = math_clamp(factor, 0, 1)
+	return
+		v11 * (1 - factor) + v21 * factor,
+		v12 * (1 - factor) + v22 * factor,
+		v13 * (1 - factor) + v23 * factor
 end
 
 ---Modifies `vector1` and updates its augment, if present.
@@ -493,14 +490,13 @@ end
 ---@param vector2 table
 ---@param factor number interpolation factor, from 0 to 1
 local function mixMagnitude(vector1, vector2, factor)
-	if factor > 0 then
-		factor = (1 - factor) + factor * getMagnitude(vector2) / getMagnitude(vector1)
-		vector1[1] = vector1[1] * factor
-		vector1[2] = vector1[2] * factor
-		vector1[3] = vector1[3] * factor
-		if vector[4] then
-			vector[4] = vector[4] * factor
-		end
+	factor = math_clamp(factor, 0, 1)
+	local scale = (1 - factor) + factor * getMagnitude(vector2) / getMagnitude(vector1)
+	vector1[1] = vector1[1] * scale
+	vector1[2] = vector1[2] * scale
+	vector1[3] = vector1[3] * scale
+	if vector[4] then
+		vector[4] = vector[4] * scale
 	end
 end
 
@@ -509,13 +505,12 @@ end
 ---@param vector2 table
 ---@param factor number interpolation factor, from 0 to 1
 local function mixMagnitudeXZ(vector1, vector2, factor)
-	if factor > 0 then
-		factor = (1 - factor) + factor * getMagnitudeXZ(vector2) / getMagnitudeXZ(vector1)
-		vector1[1] = vector1[1] * factor
-		vector1[3] = vector1[3] * factor
-		if vector[4] then
-			vector[4] = vector[4] * factor
-		end
+	factor = math_clamp(factor, 0, 1)
+	local scale = (1 - factor) + factor * getMagnitudeXZ(vector2) / getMagnitudeXZ(vector1)
+	vector1[1] = vector1[1] * scale
+	vector1[3] = vector1[3] * scale
+	if vector[4] then
+		vector[4] = vector[4] * scale
 	end
 end
 
@@ -524,16 +519,15 @@ end
 ---@param vector1 table
 ---@param vector2 table
 ---@param factor number interpolation factor, from 0 to 1
-local function mixRotation(vector1, vector2, factor, rescale)
-	if factor > 0 then
-		local m1 = getMagnitude(vector1)
-		local m2 = getMagnitude(vector2)
-		-- Preserves scale of `vector1`. Redundant for unit vectors.
-		local scale = m1 / (m1 * (1 - factor) + m2 * m1 / m2 * factor)
-		vector1[1] = (vector1[1] * (1 - factor) + vector2[1] * m1 / m2 * factor) * scale
-		vector1[2] = (vector1[2] * (1 - factor) + vector2[2] * m1 / m2 * factor) * scale
-		vector1[3] = (vector1[3] * (1 - factor) + vector2[3] * m1 / m2 * factor) * scale
-	end
+local function mixRotation(vector1, vector2, factor)
+	factor = math_clamp(factor, 0, 1)
+	local m1 = getMagnitude(vector1)
+	local m2 = getMagnitude(vector2)
+	-- Preserves scale of `vector1`. Redundant for unit vectors.
+	local scale = m1 / (m1 * (1 - factor) + m2 * m1 / m2 * factor)
+	vector1[1] = (vector1[1] * (1 - factor) + vector2[1] * m1 / m2 * factor) * scale
+	vector1[2] = (vector1[2] * (1 - factor) + vector2[2] * m1 / m2 * factor) * scale
+	vector1[3] = (vector1[3] * (1 - factor) + vector2[3] * m1 / m2 * factor) * scale
 end
 
 ---Fails when `vector1` and `vector2` have opposite direction.
@@ -542,15 +536,13 @@ end
 ---@param vector2 table
 ---@param factor number interpolation factor, from 0 to 1
 local function mixRotationXZ(vector1, vector2, factor, rescale)
-	if factor > 0 then
-		factor = math_min(1, factor)
-		local m1 = getMagnitudeXZ(vector1)
-		local m2 = getMagnitudeXZ(vector2)
-		-- Preserves scale of `vector1`. Redundant for unit vectors.
-		local scale = m1 / (m1 * (1 - factor) + m2 * m1 / m2 * factor)
-		vector1[1] = (vector1[1] * (1 - factor) + vector2[1] * m1 / m2 * factor) * scale
-		vector1[3] = (vector1[3] * (1 - factor) + vector2[3] * m1 / m2 * factor) * scale
-	end
+	factor = math_clamp(factor, 0, 1)
+	local m1 = getMagnitudeXZ(vector1)
+	local m2 = getMagnitudeXZ(vector2)
+	-- Preserves scale of `vector1`. Redundant for unit vectors.
+	local scale = m1 / (m1 * (1 - factor) + m2 * m1 / m2 * factor)
+	vector1[1] = (vector1[1] * (1 - factor) + vector2[1] * m1 / m2 * factor) * scale
+	vector1[3] = (vector1[3] * (1 - factor) + vector2[3] * m1 / m2 * factor) * scale
 end
 
 ---Modifies `vector1`.
@@ -950,7 +942,7 @@ end
 -- Randomization ---------------------------------------------------------------
 
 ---@param vector table
----@param factor number
+---@param length number? default = 1
 ---@return number x
 ---@return number y
 ---@return number z
@@ -971,7 +963,7 @@ local function random(length)
 end
 
 ---@param vector table
----@param factor number
+---@param length number
 ---@return number x
 ---@return number z
 local function randomXZ(length)
@@ -982,21 +974,16 @@ local function randomXZ(length)
 		math_sin(angle) * length
 end
 
----Create a random vector similar to an existing one. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Get random components by deviating away from an existing vector's components.
+---`factor` scales with magnitude.
 ---@param vector table
----@param factor number
----@param value number
+---@param factor number [0, 1] random deviation from original
 ---@return number x
 ---@return number y
 ---@return number z
-local function randomFrom(vector, factor, value)
-	local scale
-	if factor == 0 then
-		scale = value
-	else
-		scale = getMagnitude(vector) * factor + value
-	end
+local function randomFrom(vector, factor)
+	factor = math_clamp(factor, 0, 1)
+	local scale = factor * (2 * math_random() - 1) * getMagnitude(vector)
 	local rx, ry, rz = random()
 	return
 		vector[1] + rx * scale,
@@ -1004,28 +991,23 @@ local function randomFrom(vector, factor, value)
 		vector[3] + rz * scale
 end
 
----Create a random vector similar to an existing one. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Get random components by deviating away from an existing vector's components.
+---`factor` scales with magnitude.
 ---@param vector table
----@param factor number
----@param value number
+---@param factor number [0, 1] random deviation from original
 ---@return number x
 ---@return number z
-local function randomFromXZ(vector, factor, value)
-	local scale
-	if factor == 0 then
-		scale = value
-	else
-		scale = getMagnitudeXZ(vector) * factor + value
-	end
+local function randomFromXZ(vector, factor)
+	factor = math_clamp(factor, 0, 1)
+	local scale = factor * (2 * math_random() - 1) * getMagnitudeXZ(vector)
 	local rx, rz = randomXZ()
 	return
 		vector[1] + rx * scale,
 		vector[3] + rz * scale
 end
 
----Create a random vector similar to an existing one. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Get random components by deviating away from an existing vector's components.
+---`factor` scales with magnitude.
 ---@param vector table
 ---@param factorX number
 ---@param factorY number
@@ -1041,8 +1023,8 @@ local function randomFrom3D(vector, factorX, factorY, factorZ)
 		vector[3] + (2 * math_random() - 1) * factorZ * scale
 end
 
----Create a random vector similar to an existing one. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Get random components by deviating away from an existing vector's components.
+---`factor` scales with magnitude.
 ---@param vector table
 ---@param factorX number
 ---@param factorY number
@@ -1056,127 +1038,201 @@ local function randomFrom2D(vector, factorX, factorZ)
 		vector[3] + (2 * math_random() - 1) * factorZ * scale
 end
 
----Create a random vector by scattering the angle of an existing one. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Select a random radius between two concentric circles (or shells) uniformly.
+---@param inner number
+---@param outer number
+---@return number radius between `inner` and `outer`
+local function _random_annulus(inner, outer)
+	local innerSquared = inner * inner
+	return math_sqrt(innerSquared + (outer * outer - innerSquared) * math_random())
+end
+
+---Get random components from scattering and scaling an existing vector's components.
+---`lengthFactor` scales with magnitude.
 ---@param vector table
----@param factor number
----@param angleSpread number [0, pi] which is the half-angle
+---@param angleMax number (0, pi] which is the half-angle
+---@param lengthFactor number [-1, 1] <0: shrink factor, >0 symmetric grow/shrink factor
 ---@return number x
 ---@return number y
 ---@return number z
-local function randomFromConic(vector, factor, angleSpread)
-	-- slight optimization over:
-	-- return mix({ versor(vector) }, { random() }, factor)
-	local scale = getMagnitude(vector)
-	local v1, v2, v3 = vector[1] / scale, vector[2] / scale, vector[3] / scale
-	local r1, r2, r3 = random()
-	local m1, m2, m3 = _mix_multivalue(v1, v2, v3, r1, r2, r3, angleSpread / math_pi)
-	scale = scale * factor
-	return m1 * scale, m2 * scale, m3 * scale
+---@return number a magnitude
+local function randomFromConic(vector, angleMax, lengthFactor)
+	local length = getMagnitude(vector)
+
+	local ux, uy, uz -- = arbitrary vector not aligned with `v`
+	local vx, vy, vz = vector[1] / length, vector[2] / length, vector[3] / length
+	local wx, wy, wz -- = cross(u, v)
+
+	-- Our choice of basis can condition the cross product so
+	-- that there is zero numerical instability in the result:
+	if vx <= vy and vx <= vz then
+		ux, uy, uz = 1, 0, 0
+		wx, wy, wz = 0, -vz, vy
+	elseif vy <= vz then
+		ux, uy, uz = 0, 1, 0
+		wx, wy, wz = vz, 0, -vx
+	else
+		ux, uy, uz = 0, 0, 1
+		wx, wy, wz = -vy, vx, 0
+	end
+
+	local r1 = math_random()
+	local cos_theta = (1 - r1) + r1 * math_cos(angleMax)
+	local sin_theta = math_sqrt(1 - cos_theta * cos_theta)
+	local phi = math_random() * 2 * math_pi
+
+	local rx = sin_theta * math_cos(phi)
+	local ry = cos_theta -- aligned with `v`
+	local rz = sin_theta * math_sin(phi)
+
+	if lengthFactor ~= 0 then
+		if lengthFactor > 0 then
+			-- Grow/shrink symmetrically
+			length = _random_annulus(length * (1 - lengthFactor * 0.5), length * (1 + lengthFactor * 0.5))
+		elseif lengthFactor < 0 and lengthFactor > -1 then
+			-- Shrink only
+			length = _random_annulus(length * (1 - lengthFactor), 1)
+		end
+		length = math_max(length, 0)
+	end
+
+	return
+		(vx * ry + ux * rx + wx * rz) * length,
+		(vy * ry + uy * rx + wy * rz) * length,
+		(vz * ry + uz * rx + wz * rz) * length,
+		length
 end
 
----Create a random vector by scattering the angle of an existing one. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Get random components from scattering and scaling an existing vector's components.
+---`lengthFactor` scales with magnitude.
 ---@param vector table
----@param factor number
----@param angleSpread number [0, pi] which is the half-angle
+---@param angleMax number (0, pi] which is the half-angle
+---@param lengthFactor number [-1, 1] <0: shrink factor, >0 symmetric grow/shrink factor
 ---@return number x
 ---@return number z
-local function randomFromConicXZ(vector, factor, angleSpread)
-	if factor > 0 then
-		local angle = angleSpread * (2 * math_random() - 1)
-		local angleX = math_cos(angle)
-		local angleZ = math_sin(angle)
-		return
-			(vector[1] * angleX - vector[3] * angleZ) * factor,
-			(vector[3] * angleZ + vector[3] * angleX) * factor
+---@return number a -- magnitude -- so use `vectorXZA` not `vectorXZ` with this
+local function randomFromConicXZ(vector, angleMax, lengthFactor)
+	local angle = angleMax * (2 * math_random() - 1)
+	local cos_angle = math_cos(angle)
+	local sin_angle = math_sin(angle)
+
+	local length = getMagnitude(vector)
+
+	if lengthFactor ~= 0 then
+		if lengthFactor > 0 then
+			-- Grow/shrink symmetrically
+			length = _random_annulus(length * (1 - lengthFactor * 0.5), length * (1 + lengthFactor * 0.5))
+		elseif lengthFactor < 0 and lengthFactor > -1 then
+			-- Shrink only
+			length = _random_annulus(length * (1 - lengthFactor), 1)
+		end
+		length = math_max(length, 0)
 	end
+
+	return
+		(vector[1] * cos_angle - vector[3] * sin_angle) * length,
+		(vector[3] * sin_angle + vector[3] * cos_angle) * length,
+		length
 end
 
----Add scatter/jitter/etc. to an existing vector. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Add scatter/jitter/etc. to an existing vector.
+---`factor` scales with magnitude.
 ---
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
 ---@param factor number
 local function randomize(vector, factor)
-	local scale = factor * getMagnitude(vector)
-	vector[1] = vector[1] + (2 * math_random() - 1) * scale
-	vector[2] = vector[2] + (2 * math_random() - 1) * scale
-	vector[3] = vector[3] + (2 * math_random() - 1) * scale
-	if vector[4] then
-		vector[4] = magnitude(vector)
+	if factor > 0 then
+		local scale = factor * getMagnitude(vector)
+		vector[1] = vector[1] + (2 * math_random() - 1) * scale
+		vector[2] = vector[2] + (2 * math_random() - 1) * scale
+		vector[3] = vector[3] + (2 * math_random() - 1) * scale
+		if vector[4] then
+			vector[4] = magnitude(vector)
+		end
 	end
 end
 
----Add scatter/jitter/etc. to an existing vector. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Add scatter/jitter/etc. to an existing vector.
+---`factor` scales with magnitude.
 ---
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
 ---@param factor number
 local function randomizeXZ(vector, factor)
-	local scale = factor * getMagnitude(vector)
-	vector[1] = vector[1] + (2 * math_random() - 1) * scale
-	vector[3] = vector[3] + (2 * math_random() - 1) * scale
-	if vector[4] then
-		vector[4] = magnitudeXZ(vector)
+	if factor > 0 then
+		local scale = factor * getMagnitude(vector)
+		vector[1] = vector[1] + (2 * math_random() - 1) * scale
+		vector[3] = vector[3] + (2 * math_random() - 1) * scale
+		if vector[4] then
+			vector[4] = magnitudeXZ(vector)
+		end
 	end
 end
 
----Add scatter/jitter/etc. to an existing vector. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Add scatter/jitter/etc. to an existing vector.
+---`factor{XYZ}` scales with magnitude.
 ---
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
 ---@param factor number
 local function randomize3D(vector, factorX, factorY, factorZ)
-	local scale = getMagnitude(vector)
-	vector[1] = vector[1] + (2 * math_random() - 1) * factorX * scale
-	vector[2] = vector[2] + (2 * math_random() - 1) * factorY * scale
-	vector[3] = vector[3] + (2 * math_random() - 1) * factorZ * scale
-	if vector[4] then
-		vector[4] = magnitude(vector)
+	-- still don't trust you crazy kids to check your bounds:
+	if factorX > 0 or factorY > 0 or factorZ > 0 then
+		if factorX < 0 then factorX = 0 end
+		if factorY < 0 then factorY = 0 end
+		if factorZ < 0 then factorZ = 0 end
+		local scale = getMagnitude(vector)
+		vector[1] = vector[1] + (2 * math_random() - 1) * factorX * scale
+		vector[2] = vector[2] + (2 * math_random() - 1) * factorY * scale
+		vector[3] = vector[3] + (2 * math_random() - 1) * factorZ * scale
+		if vector[4] then
+			vector[4] = magnitude(vector)
+		end
 	end
 end
 
----Add scatter/jitter/etc. to an existing vector. `factor` scales with magnitude.
----Useful for relative values like velocities, not absolute ones like position.
+---Add scatter/jitter/etc. to an existing vector.
+---`factor{XZ}` scales with magnitude.
 ---
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
 ---@param factor number
 local function randomize2D(vector, factorX, factorZ)
-	local scale = getMagnitude(vector)
-	vector[1] = vector[1] + (2 * math_random() - 1) * factorX * scale
-	vector[3] = vector[3] + (2 * math_random() - 1) * factorZ * scale
-	if vector[4] then
-		vector[4] = magnitudeXZ(vector)
+	if factorX > 0 or factorZ > 0 then
+		if factorX < 0 then factorX = 0 end
+		if factorZ < 0 then factorZ = 0 end
+		local scale = getMagnitude(vector)
+		vector[1] = vector[1] + (2 * math_random() - 1) * factorX * scale
+		vector[3] = vector[3] + (2 * math_random() - 1) * factorZ * scale
+		if vector[4] then
+			vector[4] = magnitudeXZ(vector)
+		end
 	end
 end
 
----Add a scatter angle to an existing vector.
----Useful for relative values like velocities, not absolute ones like position.
+---Add scattering and scaling to an existing vector's components.
+---`lengthFactor` scales with magnitude.
 ---
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
----@param angleSpread number [0, pi] which is the half-angle
-local function randomizeConic(vector, angleSpread)
-	refill(vector, randomFromConic(vector, 0, angleSpread))
+---@param angleMax number (0, pi] which is the half-angle
+---@param lengthFactor number [-1, 1] <0: shrink factor, >0 symmetric grow/shrink factor
+local function randomizeConic(vector, angleMax, lengthFactor)
+	vector[1], vector[2], vector[3], vector[4] = randomFromConic(vector, angleMax, lengthFactor or 0)
 end
 
----Add a scatter angle to an existing vector.
----Useful for relative values like velocities, not absolute ones like position.
+---Add scattering and scaling to an existing vector's components.
+---`lengthFactor` scales with magnitude.
 ---
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
----@param angleSpread number [0, pi] which is the half-angle
-local function randomizeConicXZ(vector, angleSpread)
-	local angle = angleSpread * (2 * math_random() - 1)
-	local angleX = math_cos(angle)
-	local angleZ = math_sin(angle)
-	vector[1] = vector[1] * angleX - vector[3] * angleZ
-	vector[3] = vector[3] * angleZ + vector[3] * angleX
+---@param angleMax number (0, pi] which is the half-angle
+---@param lengthFactor number [-1, 1] <0: shrink factor, >0 symmetric grow/shrink factor
+local function randomizeConicXZ(vector, angleMax, lengthFactor)
+	-- If you are only randomizing xz, but have a valid y,
+	-- then this result will give you the wrong magnitude:
+	vector[1], vector[3], vector[4] = randomFromConicXZ(vector, angleMax, lengthFactor or 0)
 end
 
 --------------------------------------------------------------------------------
@@ -1397,21 +1453,24 @@ end
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
 ---@param vectorMask table must be a unitary vector
----@param factor number reduction intensity, [0 to 1], where 1 is a binary mask
+---@param factor number reduction intensity, [0 to 1], where 1+ is a binary mask
 local function mask(vector, vectorMask, factor)
-	local angle = dot(vector, vectorMask) -- negative for obtuse angles
-	if angle <= 0 then
-		if factor >= 1 then
-			vector[1], vector[2], vector[3] = 0, 0, 0
-			if vector[4] then vector[4] = 0 end
-		else
-			local m = getMagnitude(vector)
-			local scale = 1 - math_clamp(factor * (1 - angle / m) + angle / m, 0, 1)
-			vector[1] = vector[1] * scale
-			vector[2] = vector[2] * scale
-			vector[3] = vector[3] * scale
-			if vector[4] then
-				vector[4] = m * scale
+	if factor > 0 then
+		local angle = dot(vector, vectorMask)
+		-- We only care about perpendicular or obtuse angles:
+		if angle <= 0 then
+			if factor >= 1 then
+				vector[1], vector[2], vector[3] = 0, 0, 0
+				if vector[4] then vector[4] = 0 end
+			else
+				local m = getMagnitude(vector)
+				local scale = 1 - (angle / m * (1 - factor) + factor)
+				vector[1] = vector[1] * scale
+				vector[2] = vector[2] * scale
+				vector[3] = vector[3] * scale
+				if vector[4] then
+					vector[4] = m * scale
+				end
 			end
 		end
 	end
@@ -1425,20 +1484,23 @@ end
 ---Modifies `vector` and updates its augment, if present.
 ---@param vector table
 ---@param vectorMask table must be a unitary vector
----@param factor number reduction intensity, [0 to 1], where 1 is a binary mask
+---@param factor number reduction intensity, [0 to 1], where 1+ is a binary mask
 local function maskXZ(vector, vectorMask, factor)
-	local angle = dotXZ(vector, vectorMask) -- negative for obtuse angles
-	if angle <= 0 then
-		if factor >= 1 then
-			vector[1], vector[3] = 0, 0
-			if vector[4] then vector[4] = 0 end
-		else
-			local m = getMagnitude(vector)
-			local scale = 1 - math_clamp(factor * (1 - angle / m) + angle / m, 0, 1)
-			vector[1] = vector[1] * scale
-			vector[3] = vector[3] * scale
-			if vector[4] then
-				vector[4] = m * scale
+	if factor > 0 then
+		local angle = dotXZ(vector, vectorMask)
+		-- We only care about perpendicular or obtuse angles:
+		if angle <= 0 then
+			if factor >= 1 then
+				vector[1], vector[3] = 0, 0
+				if vector[4] then vector[4] = 0 end
+			else
+				local m = getMagnitude(vector)
+				local scale = 1 - (angle / m * (1 - factor) + factor)
+				vector[1] = vector[1] * scale
+				vector[3] = vector[3] * scale
+				if vector[4] then
+					vector[4] = m * scale
+				end
 			end
 		end
 	end
