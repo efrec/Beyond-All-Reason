@@ -165,7 +165,7 @@ local function getPositionAndVelocity(projectileID)
 	return position, velocity
 end
 
-local toFloat3
+local repack3
 do
 	local float3 = {}
 
@@ -174,7 +174,7 @@ do
 	---@param y number
 	---@param z number
 	---@return table float3
-	toFloat3 = function(x, y, z)
+	repack3 = function(x, y, z)
 		local float3 = float3
 		float3[1], float3[2], float3[3] = x, y, z
 		return float3
@@ -270,7 +270,7 @@ local function newProjectile(projectileID, weaponDefID)
 	if targetType == targetedUnit or target[2] < 0 then
 		if targetType == targetedUnit then
 			local targetID = target
-			target = toFloat3(Spring.GetUnitPosition(targetID))
+			target = repack3(Spring.GetUnitPosition(targetID))
 			target[2] = Spring.GetGroundHeight(target[1], target[3])
 		end
 		if target[2] < 0 then
@@ -352,7 +352,7 @@ local function verticalize(projectileID, projectile)
 		)
 		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 	else
-		rotateTo(velocity, toFloat3(displacement(position, projectile.target)))
+		rotateTo(velocity, repack3(displacement(position, projectile.target)))
 		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 		Spring.SetProjectileMoveControl(projectileID, false)
 		verticalizing[projectileID] = nil
