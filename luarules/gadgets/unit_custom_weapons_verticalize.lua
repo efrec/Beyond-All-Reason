@@ -68,6 +68,7 @@ local turnDown = vector.turnDown
 
 local gravityPerFrame = -Game.gravity / Game.gameSpeed ^ 2
 
+local targetedFeature = string.byte('f')
 local targetedGround = string.byte('g')
 local targetedUnit = string.byte('u')
 
@@ -149,6 +150,7 @@ for weaponDefID = 0, #WeaponDefs do
 end
 
 local ascending = {}
+local leveling = {}
 local cruising = {}
 local verticalizing = {}
 
@@ -267,25 +269,28 @@ local function newProjectile(projectileID, weaponDefID)
 	local position, velocity = getPositionAndVelocity(projectileID)
 	local targetType, target = Spring.GetProjectileTarget(projectileID)
 
-	if targetType == targetedUnit or target[2] < 0 then
+	if type(target) == "number" then
 		if targetType == targetedUnit then
-			local targetID = target
-			target = repack3(Spring.GetUnitPosition(targetID))
-			target[2] = Spring.GetGroundHeight(target[1], target[3])
+			target = { Spring.GetUnitPosition(target) }
+		elseif targetType == targetedFeature then
+			target = { Spring.GetFeaturePosition(targets) }
+		else
+			return -- interceptors should not verticalize
 		end
-		if target[2] < 0 then
-			target[2] = 0
-		end
-	elseif targetType ~= targetedGround then
-		return
+		target[2] = Spring.GetGroundHeight(target[1], target[3])
 	end
 
+	if target[2] < 0 then
+		target[2] = 0
+	end
+
+	-- todo: if the projectile hasn't reached full speed yet, this turnRadius check is too wide
 	if not position:isInCylinder(target, 2 * weapon.turnRadius) then
 		local ascendHeight = target[2] + weapon.cruiseHeight - weapon.turnRadius
 
 		local projectile = {
 			target       = target,
-			ascendHeight = math.max(ascendHeight, weapon.heightIntoTurn),
+			ascendHeight = math.max(ascendHeight, position[2] + weapon.heightIntoTurn),
 			cruiseHeight = weapon.cruiseHeight,
 			turnRadius   = weapon.turnRadius,
 			acceleration = weapon.acceleration,
@@ -294,68 +299,131 @@ local function newProjectile(projectileID, weaponDefID)
 			turnRate     = weapon.turnRate,
 		}
 
-		if target[2] - position[2] <= weapon.heightIntoTurn + 1 then
+		-- todo: not doing respawning for now
+		-- todo: instead, making this code work even when it probably should just break tbh
+		if target[2] - position[2] <= weapon.heightIntoTurn + math.huge then
 			-- This will level out after `uptime` is reached and path toward the target,
 			-- then the StarburstProjectile disables its `turnToTarget` extremely early:
-			local cruiseHeightTarget = ascendHeight + weapon.turnRadius
+			local cruiseHeightTarget = projectile.ascendHeight + weapon.turnRadius
 			Spring.SetProjectileTarget(projectileID, target[1], cruiseHeightTarget, target[3])
 			ascending[projectileID] = projectile
 		else
 			-- StarburstProjectile will run out of uptime too soon.
 			-- We fix that by respawning them with a larger uptime:
 			-- respawnProjectile(projectileID, projectile, getUptime(projectile, position))
-			Spring.Echo('[verticalize] position, target, heightIntoTurn:', position, target, heightIntoTurn)
 		end
 	end
 end
 
+local function ping(message)
+	Spring.MarkerAddPoint(position[1], position[2], position[3], message)
+end
+
 local function ascend(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
+
 	if projectile.ascendHeight - position[2] < velocity[4] then
 		ascending[projectileID] = nil
-		cruising[projectileID] = projectile
+		leveling[projectileID] = projectile
+	end
+end
+
+-- The turn radius should be slightly tight but must look like a natural "drop" onto target.
+-- Velocity, especially, can cause the smoke trails to draw jagged lines, so smooth it out.
+local function getDropRadiusXZ(projectile, velocity, level)
+	-- todo: is there some derivation for '5'? vibes?
+	return (2 * level) * (projectile.turnRadius + 5 * velocity[4])
+end
+
+local function turnToLevel(projectileID, projectile)
+	local position, velocity = getPositionAndVelocity(projectileID)
+
+	local pitchPrevious = projectile.pitch or 0
+	local pitchCurrent = math.atan2(velocity[2], velocity[4])
+
+	-- It's the responsibility of the uptime min/max ranging to allow for a specific
+	-- maximum pitch between the initial ascend height and the final vertical height
+
+	if pitchCurrent < math_pi / 8 then -- todo: so we should know what that max angle is
+		local level = 1 + math.asin(pitchCurrent)
+		level = level * level
+
+		local radiusXZ = getDropRadiusXZ(projectile, velocity, level)
+
+		if math_abs(pitchCurrent - pitchPrevious) >= 1e-6 and
+			not position:isInCylinder(projectile.target, radiusXZ)
+		then
+			projectile.pitch = pitchCurrent
+		else
+			projectile.pitch = nil
+			projectile.level = level
+
+			leveling[projectileID] = nil
+			cruising[projectileID] = projectile
+		end
 	end
 end
 
 local function cruise(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
-	if position:isInCylinder(projectile.target, 1.25 * projectile.turnRadius + velocity[4]) then
+
+	local radiusXZ = getDropRadiusXZ(projectile, velocity, projectile.level)
+
+	-- Spring.Echo(table.toString(position))
+	-- Spring.Echo(table.toString(projectile.target))
+	-- ping(vector.displacementXZ(position, projectile.target) .. ', ' .. radiusXZ)
+
+	-- local target = projectile.target
+	-- Spring.MarkerAddPoint(target[1], target[2], target[3], '?')
+
+	if position:isInCylinder(projectile.target, radiusXZ) then
 		Spring.SetProjectileMoveControl(projectileID, true)
+
 		local target = projectile.target
-		Spring.SetProjectileTarget(projectileID, target[1], target[2], target[3]) -- not that it matters
+		Spring.SetProjectileTarget(projectileID, target[1], target[2], target[3])
+
 		cruising[projectileID] = nil
 		verticalizing[projectileID] = projectile
 	end
 end
 
 ---Controls the projectile in two stages, first diving toward vertically down,
----then tracking exactly onto the target. (Imprecision should be added earlier
----in the initial setup for the weapon when the `target` is first evaluated.)
+---then tracking exactly onto the target position.
 ---@param projectileID integer
 ---@param projectile table
 local function verticalize(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
-	local verticalHeight = projectile.target[2] + projectile.cruiseHeight - projectile.turnRadius
 
-	if position[2] + velocity[2] >= verticalHeight then
-		local chaseFactor = 1 -- 100% laziness during turn to target
-		vector.updateGuidance(
+	-- Target is stationary so there is no pursuit cone.
+	-- This is just lazy guidance to smooth out the turn.
+	local chaseFactor = 0.25
+
+	-- if position[2] + velocity[2] < verticalHeight or
+	if not vector.updateGuidance(
 			position, velocity, projectile.target,
-			projectile.speedMax, 0, projectile.turnRate / Game.gameSpeed,
+			projectile.speedMax,
+			projectile.acceleration,
+			projectile.turnRate, -- ?
 			chaseFactor
 		)
-		spSetProjectilePosition(
-			projectileID,
-			position[1] + velocity[1],
-			position[2] + velocity[2],
-			position[3] + velocity[3]
-		)
-		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
-	else
-		rotateTo(velocity, repack3(displacement(position, projectile.target)))
+	then
+		-- Guidance did not update our path. We are likely about to impact.
+		local verticalHeight = projectile.target[2] + projectile.cruiseHeight - projectile.turnRadius
+
+		if position[2] > verticalHeight then
+			rotateTo(velocity, repack3(displacement(position, projectile.target)))
+		else
+			-- Impact imminent
+			vector.accelerate(velocity, projectile.acceleration, projectile.speedMax)
+		end
+
 		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 		Spring.SetProjectileMoveControl(projectileID, false)
+
 		verticalizing[projectileID] = nil
+	else
+		spSetProjectilePosition(projectileID, position[1], position[2], position[3])
+		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 	end
 end
 
@@ -368,7 +436,7 @@ function gadget:Initialize()
 		gadgetHandler:RemoveGadget(self)
 	end
 
-	-- tired of it:
+	-- todo: obviously do not delete everyone's projectiles in production
 	local big = 1e9
 	for _, projectileID in ipairs(Spring.GetProjectilesInRectangle(-big, -big, big, big, false, false)) do
 		Spring.DeleteProjectile(projectileID)
@@ -383,6 +451,7 @@ end
 
 function gadget:ProjectileDestroyed(projectileID, ownerID, weaponDefID)
 	ascending[projectileID] = nil
+	leveling[projectileID] = nil
 	cruising[projectileID] = nil
 	verticalizing[projectileID] = nil
 end
@@ -390,6 +459,10 @@ end
 function gadget:GameFrame(frame)
 	for projectileID, projectile in pairs(ascending) do
 		ascend(projectileID, projectile)
+	end
+
+	for projectileID, projectile in pairs(leveling) do
+		turnToLevel(projectileID, projectile)
 	end
 
 	for projectileID, projectile in pairs(cruising) do
