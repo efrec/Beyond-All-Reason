@@ -53,6 +53,7 @@ local gravityPerFrame = -Game.gravity / gameSpeed ^ 2
 -- Initialization --------------------------------------------------------------
 
 local weapons = {}
+local subweaponDefID = {}
 
 for weaponDefID, weaponDef in pairs(WeaponDefs) do
 	if weaponDef.customParams.speceffect then
@@ -63,6 +64,9 @@ for weaponDefID, weaponDef in pairs(WeaponDefs) do
 			Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
 		else
 			weapons[weaponDefID] = weaponDef.customParams
+			if name then
+				subweaponDefID[name] = WeaponDefNames[name].id
+			end
 		end
 
 		-- TODO: Remove deprecate warning once modders have had time to fix.
@@ -81,7 +85,7 @@ local projectileData = {}
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
-local toFloat3
+local repack3
 do
 	local float3 = { 0, 0, 0 }
 
@@ -90,14 +94,14 @@ do
 	---@param y number?
 	---@param z number?
 	---@return table float3
-	toFloat3 = function(x, y, z)
+	repack3 = function(x, y, z)
 		local float3 = float3
 		float3[1], float3[2], float3[3] = x, y, z
 		return float3
 	end
 end
 
-local toFloat3a
+local repack3a
 do
 	local float3a = { 0, 0, 0, 0 }
 
@@ -107,22 +111,15 @@ do
 	---@param z number?
 	---@param a number? the "augment" of a vector generally stores a magnitude term
 	---@return table float3
-	toFloat3a = function(x, y, z)
+	repack3a = function(x, y, z)
 		local float3a = float3a
 		float3a[1], float3a[2], float3a[3], float3a[4] = x, y, z, a
 		return float3a
 	end
 end
 
-local position = { 0, 0, 0 }
+local position = { 0, 0, 0, isInSphere = vector.isInSphere }
 local velocity = { 0, 0, 0, 0 }
-
-function position:isInSphere(target, radius)
-	local dx = self[1] - target[1]
-	local dy = self[2] - target[2]
-	local dz = self[3] - target[3]
-	return dx * dx + dy * dy + dz * dz <= radius * radius
-end
 
 local function getPositionAndVelocity(projectileID)
 	local position, velocity = position, velocity
@@ -147,10 +144,10 @@ end
 
 --------------------------------------------------------------------------------
 
-local function cruise(projectileID, position, velocity, altitude)
-	local normal = toFloat3(spGetGroundNormal(position[1], position[3]))
+local function cruise(projectileID, position, velocity, positionY)
+	local normal = repack3(spGetGroundNormal(position[1], position[3]))
 	local attitude = velocity[2] - dot(velocity, normal) * normal[2]
-	spSetProjectilePosition(projectileID, position[1], altitude, position[3])
+	spSetProjectilePosition(projectileID, position[1], positionY, position[3])
 	spSetProjectileVelocity(projectileID, velocity[1], attitude, velocity[3])
 end
 
@@ -161,7 +158,7 @@ specialEffects.cruise = function(projectileID, params)
 
 		if targetType == targetedUnit then
 			local targetID = target
-			target = toFloat3(select(4, spGetUnitPosition(targetID, false, true)))
+			target = repack3(select(4, spGetUnitPosition(targetID, false, true)))
 		end
 
 		if not position:isInSphere(target, tonumber(params.lockon_dist)) then
@@ -203,7 +200,7 @@ specialEffects.retarget = function(projectileID, params)
 end
 
 specialEffects.sector_fire = function(projectileID, params)
-	local velocity = toFloat3a(spGetProjectileVelocity(projectileID))
+	local velocity = repack3a(spGetProjectileVelocity(projectileID))
 
 	-- Using the half-angle (departure from centerline) in radians:
 	local angleMax = tonumber(params.spread_angle) * pi / 180 * 0.5
@@ -218,14 +215,13 @@ end
 local function split(projectileID, params)
 	local position, velocity = position, velocity -- upvalues
 	position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
-
-	local speed = toFloat3()
-	local getRandomSpeed = vector.randomFrom3D
-
+	
 	Spring.DeleteProjectile(projectileID)
 	Spring.SpawnCEG(params.splitexplosionceg, position[1], position[2], position[3])
 
-	local projectileDefID = WeaponDefNames[params.speceffect_def].id
+	local projectileDefID = subweaponDefID[params.speceffect_def]
+	local speed = repack3()
+	
 	local projectileParams = {
 		pos     = position,
 		speed   = speed,
@@ -235,6 +231,8 @@ local function split(projectileID, params)
 		model   = params.model,
 		cegTag  = params.cegtag,
 	}
+
+	local getRandomSpeed = vector.randomFrom3D
 
 	for _ = 1, tonumber(params.number) do
 		speed[1], speed[2], speed[3] = getRandomSpeed(velocity, 0.088, 0.044, 0.088)
@@ -267,9 +265,9 @@ local function cannonWaterPen(projectileID, params)
 		cegTag  = params.cegtag,
 	}
 
-	Spring.SpawnProjectile(WeaponDefNames[params.speceffect_def].id, projectileParams)
-	Spring.SpawnCEG(params.waterpenceg, position[1], position[2], position[3])
 	Spring.DeleteProjectile(projectileID)
+	Spring.SpawnProjectile(subweaponDefID[params.speceffect_def], projectileParams)
+	Spring.SpawnCEG(params.waterpenceg, position[1], position[2], position[3])
 end
 
 specialEffects.cannonwaterpen = function(projectileID, params)
@@ -280,7 +278,7 @@ specialEffects.cannonwaterpen = function(projectileID, params)
 end
 
 local function torpedoWaterPen(projectileID)
-	local velocity = toFloat3(spGetProjectileVelocity(projectileID))
+	local velocity = repack3(spGetProjectileVelocity(projectileID))
 
 	multiply(velocity, 1 / 1.3)
 
