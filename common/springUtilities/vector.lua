@@ -1803,21 +1803,28 @@ local function updateGuidance(position, velocity, target, speedMax, acceleration
 	if distance > XYZ_PATH_EPSILON then
 		local angleBetween = getAngleBetween(velocity, displacement)
 		local cos_angle = math_cos(angleBetween)
-		local acceleration = accelerationMax * cos_angle
+
+		local forwardness = 1 - cos_angle * cos_angle
+		local acceleration = accelerationMax * forwardness
 
 		if angleBetween > RAD_EPSILON then
+			-- Such that `slerp` will turn by exactly `turnAngleMax`:
 			local angleFactor = turnAngleMax / angleBetween
-			chaseFactor = chaseFactor * cos_angle
-			if chaseFactor < ARC_NORMAL_EPSILON then
-				local distanceFactor = velocity[4] * cos_angle / distance
-				angleFactor = angleFactor * (1 - chaseFactor * distanceFactor / (distanceFactor + angleFactor))
-			end
+
+			-- With more time and distance, we can be lazier, allowing guidance to follow a "chase cone"
+			-- instead of tracking directly onto its target. This helps slightly to follow moving targets.
+			local distanceFactor = velocity[4] * cos_angle / distance
+			chaseFactor = chaseFactor * forwardness
+			angleFactor = angleFactor * (1 - chaseFactor * distanceFactor / (distanceFactor + angleFactor))
 
 			slerp(velocity, displacement, angleFactor)
 		end
 
 		updateSpeedAndPosition(position, velocity, acceleration, speedMax)
+
 		return true
+	else
+		return false
 	end
 end
 
