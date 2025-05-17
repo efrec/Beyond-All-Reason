@@ -4,18 +4,18 @@
 --------------------------------------------------------------------------------
 -- Definitions and etc ---------------------------------------------------------
 
--- All vectors are presupposed to be in Cartesian coordinates, e.g. x, y, and z,
+-- All vectors are presupposed to be in Cartesian coordinates (e.g. x, y, and z)
 -- and are generalized tables, meaning that they do not make use of metamethods,
--- and can contain other fields like `vector.isDirty`, or whatever else.
+-- might contain other fields like `vector.isDirty`, and so on.
 
 -- These functions work with a few "subtypes" of vector that cannot be mixed:
 -- *  standard vector3 = { x, y, z }
 -- * augmented vector3 = { x, y, z, magnitude }
--- *  weighted vector3 = { dx, dy, dz, magnitude } (supported the least for now)
+-- *  weighted vector3 = { dx, dy, dz, magnitude } (used the least)
 
--- Where the magnitudes above also have two types which again cannot be mixed:
--- * 2D magnitude = sqrt(x^2 + z^2)
+-- The magnitudes above also have two types, which are also not interchangeable:
 -- * 3D magnitude = sqrt(x^2 + y^2 + x^2)
+-- * 2D magnitude = sqrt(x^2 + z^2)
 
 --------------------------------------------------------------------------------
 -- Working with RecoilEngine ---------------------------------------------------
@@ -47,18 +47,20 @@
 -- Whenever you need them in a table, create one as above; e.g., `{ random() }`;
 -- and, if that ignites your pantalones, `function f() return { random() } end`.
 
--- There is not much more to do to improve on performance, without stepping into
--- specific use cases. We can remove some of the `getMagnitude` calls, which are
--- preferred for their convenience, and replace them with identical instructions
--- which are local to the function, and we can avoid updating the augment terms,
--- which some programs may never set so will never benefit from checking. That's
--- about all. The blood price has been paid.
+-- More ideally, you should include reusable tables, possibly with helper code:
 
--- That's a lot of words to say that, in Lua, it is simply faster to do this:
--- * local v1 = vector[1]; return v1 * v1
--- Than this:
--- * return vector[1] * vector[1]
--- And so we do. Except for all the times that we don't.
+-- > local repack3
+-- > do
+-- >     local vector3 = { 0, 0, 0 } -- gated access is not guaranteed
+-- >     repack3 = function(x, y, z)
+-- >         local vector3 = vector3
+-- >         vector3[1], vector3[2], vector3[3] = x, y, z
+-- >         return vector3
+-- >     end
+-- > end
+
+-- There is not much more to do to improve on performance without stepping into
+-- specific cases. There is room to improve, but this blood price has been paid.
 
 --------------------------------------------------------------------------------
 -- Initialization --------------------------------------------------------------
@@ -76,11 +78,17 @@ local math_asin   = math.asin
 local math_atan2  = math.atan2
 local math_pi     = math.pi
 
--- Acceptability criteria for some calculations
-local RAD_EPSILON = 1e-8
-local DEG_EPSILON = RAD_EPSILON * 180 / math_pi
+-- Boundary and acceptability constants
 local ARC_EPSILON = 1e-6
+local ARC_NORMAL_EPSILON = 1 - ARC_EPSILON
+local ARC_OPPOSITE_EPSILON = ARC_EPSILON
+
+local RAD_EPSILON = 1e-8
+local RAD_NORMAL_EPSILON = math_pi * 0.5 - RAD_EPSILON
+local RAD_OPPOSITE_EPSILON = math_pi - RAD_EPSILON
+
 local XYZ_EPSILON = 1e-3
+local XYZ_PATH_EPSILON = 1
 
 -- Vector space conventions
 local dirUp       = { 0, 1, 0, 1 }
@@ -568,15 +576,19 @@ end
 ---@param factor number interpolation factor, from 0 to 1
 local function mix(vector1, vector2, factor)
 	if factor > 0 then
-		vector1[1] = vector1[1] * (1 - factor) + vector2[1] * factor
-		vector1[2] = vector1[2] * (1 - factor) + vector2[2] * factor
-		vector1[3] = vector1[3] * (1 - factor) + vector2[3] * factor
-		if vector1[4] then
-			if vector2[4] then
-				vector1[4] = vector1[4] * (1 - factor) + vector2[4] * factor
-			else
-				vector1[4] = magnitude(vector1)
+		if factor < 1 then
+			vector1[1] = vector1[1] * (1 - factor) + vector2[1] * factor
+			vector1[2] = vector1[2] * (1 - factor) + vector2[2] * factor
+			vector1[3] = vector1[3] * (1 - factor) + vector2[3] * factor
+			if vector1[4] then
+				if vector2[4] then
+					vector1[4] = vector1[4] * (1 - factor) + vector2[4] * factor
+				else
+					vector1[4] = magnitude(vector1)
+				end
 			end
+		else
+			refill(vector1, vector2)
 		end
 	end
 end
@@ -587,14 +599,18 @@ end
 ---@param factor number interpolation factor, from 0 to 1
 local function mixXZ(vector1, vector2, factor)
 	if factor > 0 then
-		vector1[1] = vector1[1] * (1 - factor) + vector2[1] * factor
-		vector1[3] = vector1[3] * (1 - factor) + vector2[3] * factor
-		if vector1[4] then
-			if vector2[4] then
-				vector1[4] = vector1[4] * (1 - factor) + vector2[4] * factor
-			else
-				vector1[4] = magnitudeXZ(vector1)
+		if factor < 1 then
+			vector1[1] = vector1[1] * (1 - factor) + vector2[1] * factor
+			vector1[3] = vector1[3] * (1 - factor) + vector2[3] * factor
+			if vector1[4] then
+				if vector2[4] then
+					vector1[4] = vector1[4] * (1 - factor) + vector2[4] * factor
+				else
+					vector1[4] = magnitude(vector1)
+				end
 			end
+		else
+			refillXZ(vector1, vector2)
 		end
 	end
 end
@@ -628,8 +644,8 @@ local function mixMagnitude(vector1, vector2, factor)
 	vector1[1] = vector1[1] * scale
 	vector1[2] = vector1[2] * scale
 	vector1[3] = vector1[3] * scale
-	if vector[4] then
-		vector[4] = vector[4] * scale
+	if vector1[4] then
+		vector1[4] = vector1[4] * scale
 	end
 end
 
@@ -642,8 +658,8 @@ local function mixMagnitudeXZ(vector1, vector2, factor)
 	local scale = (1 - factor) + factor * getMagnitudeXZ(vector2) / getMagnitudeXZ(vector1)
 	vector1[1] = vector1[1] * scale
 	vector1[3] = vector1[3] * scale
-	if vector[4] then
-		vector[4] = vector[4] * scale
+	if vector1[4] then
+		vector1[4] = vector1[4] * scale
 	end
 end
 
@@ -705,10 +721,10 @@ end
 ---@param vector1 table
 ---@param vector2 table
 ---@param factor number [0, 1]
+---@param integer misalignment -1: opposite vectors, 1: parallel vectors
 local function slerp(vector1, vector2, factor)
-	local ARC_EPSILON = ARC_EPSILON -- avoid div-zero errors
 	if factor > ARC_EPSILON then
-		if 1 - factor > ARC_EPSILON then
+		if factor < ARC_NORMAL_EPSILON then
 			local v11, v12, v13 = vector1[1], vector1[2], vector1[3]
 			local v21, v22, v23 = vector2[1], vector2[2], vector2[3]
 			local m1 = getMagnitude(vector1)
@@ -716,7 +732,7 @@ local function slerp(vector1, vector2, factor)
 
 			local cos_angle = (v11 * v21 + v12 * v22 + v13 * v23) / (m1 * m2)
 
-			if 1 - math_abs(cos_angle) > ARC_EPSILON then
+			if math_abs(cos_angle) < ARC_NORMAL_EPSILON then
 				local angle = math_acos(cos_angle)
 				local weight1 = math_sin((1 - factor) * angle) / m1
 				local weight2 = math_sin(factor * angle) / m2
@@ -725,6 +741,8 @@ local function slerp(vector1, vector2, factor)
 				vector1[1] = (v11 * weight1 + v21 * weight2) * scale
 				vector1[2] = (v12 * weight1 + v22 * weight2) * scale
 				vector1[3] = (v13 * weight1 + v23 * weight2) * scale
+			else
+				return cos_angle < 0 and -1 or 1
 			end
 		else
 			rotateTo(vector1, vector2)
@@ -1630,7 +1648,7 @@ end
 local function turnDown(velocity, angle)
 	local speed = velocity[4]
 	local pitch = math_asin(velocity[2] / speed)
-	if pitch - angle <= -math_pi / 2 + RAD_EPSILON then
+	if pitch - angle <= -RAD_NORMAL_EPSILON then
 		velocity[1], velocity[3] = 0, 0
 		velocity[2] = -speed
 	else
@@ -1648,7 +1666,7 @@ end
 local function turnUp(velocity, angle)
 	local speed = velocity[4]
 	local pitch = math_asin(velocity[2] / speed)
-	if pitch - angle < math_pi / 2 - RAD_EPSILON then
+	if pitch + angle >= RAD_NORMAL_EPSILON then
 		velocity[1], velocity[3] = 0, 0
 		velocity[2] = speed
 	else
@@ -1734,23 +1752,28 @@ end
 
 ---Basic movement under gravity. Does not allow terminal speeds above the base speed.
 ---
----Modifies `position` and `velocity`.
+---Modifies `position` and `velocity`, and lazy-evaluates speed.
 ---@param position table
 ---@param velocity table
 ---@param speedMax number
 ---@param gravity number
 local function updateBallistics(position, velocity, speedMax, gravity)
 	velocity[2] = velocity[2] - gravity
-	local speed = magnitude(velocity)
+	local speed = velocity[4]
 
-	if speed > speedMax then
-		local ratio = speed / speedMax
-		velocity[1] = velocity[1] * ratio
-		velocity[2] = velocity[2] * ratio
-		velocity[3] = velocity[3] * ratio
-		velocity[4] = speedMax
+	if speed + gravity > speedMax then
+		speed = magnitude(velocity)	
+		if speed > speedMax then
+			local ratio = speed / speedMax
+			velocity[1] = velocity[1] * ratio
+			velocity[2] = velocity[2] * ratio
+			velocity[3] = velocity[3] * ratio
+			velocity[4] = speedMax
+		else
+			velocity[4] = speed
+		end
 	else
-		velocity[4] = speed
+		velocity[4] = nil
 	end
 
 	position[1] = position[1] + velocity[1]
@@ -1765,10 +1788,11 @@ end
 ---@param target table
 ---@param velocity table
 ---@param speedMax number
----@param acceleration number
+---@param accelerationMax number
 ---@param turnAngleMax number
----@param chaseFactor number [0, 1] 0 = hard turn toward target, 1 = constant slow turn toward target ("chases" it)
-local function updateGuidance(position, velocity, target, speedMax, acceleration, turnAngleMax, chaseFactor)
+---@param chaseFactor number [0, 2] where 0: hard turn toward target, 1: constant slow turn toward target up to 90 degrees, 2: ridiculously lazy
+---@return boolean updated
+local function updateGuidance(position, velocity, target, speedMax, accelerationMax, turnAngleMax, chaseFactor)
 	local displacement = float3a
 	displacement[1] = target[1] - position[1]
 	displacement[2] = target[2] - position[2]
@@ -1776,17 +1800,25 @@ local function updateGuidance(position, velocity, target, speedMax, acceleration
 	local distance = magnitude(displacement)
 	displacement[4] = distance
 
-	local angleBetween = getAngleBetween(velocity, displacement)
-	local cos_angle = math_cos(angleBetween)
+	if distance > XYZ_PATH_EPSILON then
+		local angleBetween = getAngleBetween(velocity, displacement)
+		local cos_angle = math_cos(angleBetween)
+		local acceleration = accelerationMax * cos_angle
 
-	if angleBetween > RAD_EPSILON then
-		local turnFrames = turnAngleMax / angleBetween
-		local moveFrames = distance / (velocity[4] * math_cos(angleBetween))
-		local factor = turnFrames - chaseFactor * moveFrames / (turnFrames + moveFrames)
-		slerp(velocity, displacement, factor)
+		if angleBetween > RAD_EPSILON then
+			local angleFactor = turnAngleMax / angleBetween
+			chaseFactor = chaseFactor * cos_angle
+			if chaseFactor < ARC_NORMAL_EPSILON then
+				local distanceFactor = velocity[4] * cos_angle / distance
+				angleFactor = angleFactor * (1 - chaseFactor * distanceFactor / (distanceFactor + angleFactor))
+			end
+
+			slerp(velocity, displacement, angleFactor)
+		end
+
+		updateSpeedAndPosition(position, velocity, acceleration, speedMax)
+		return true
 	end
-
-	updateSpeedAndPosition(position, velocity, acceleration * cos_angle, speedMax)
 end
 
 ---Simple controlled movement under gravity. Does not pursue moving targets.
@@ -1826,11 +1858,12 @@ local function updateSemiballistics(position, target, velocity, speedMax, accele
 			local t2 = (-speed - discriminant) / (2 * a)
 			if t1 >= 0 and t2 >= 0 then
 				tti = math_min(t1, t2)
-			elseif t1 > 0 then
+			elseif t1 >= 0 then
 				tti = t1
 			elseif t2 >= 0 then
 				tti = t2
-			else
+			end
+			if not tti or tti < 1 then
 				return
 			end
 		end
@@ -1992,3 +2025,30 @@ return {
 	updateGuidance         = updateGuidance,
 	updateSemiballistics   = updateSemiballistics,
 }
+
+--------------------------------------------------------------------------------
+-- Footnotes -------------------------------------------------------------------
+
+-- This module contains a number of functions that _do not_ check for div-zero.
+-- These are elementary operations (or their prototypes) that will always, 100%
+-- of the time, exist inside of other functions while serving specific purposes.
+
+-- There are also subtle pitfalls that require more explanation:
+
+-- - Very few functions force the augment (`vector[4]`) term to update, which
+--   can lead to magnitudes becoming incorrect or stale following mutations.
+-- - The `slerp` rotation interpolation does not attempt to handle cases where
+--   the two vectors are exactly opposite (though, it indicates this result).
+-- - The functions `turnLeft` and `turnRight` are basic prototypical movements
+--   that you'd likely adapt for your own use case. Still, they do not check
+--   at all for vectors aligned with the up/down axis, so might emit `NaN`s.
+
+-- Once you start getting into use-case code, more results are provided when
+-- a vector mutates or fails to mutate so you can handle this logically:
+
+-- - The `updateBallistics` function is unique (so far) for un-setting its
+--   augmented term rather than reevaluating it and for doing so silently.
+-- - The `updateGuidance` function may avoid updating position and velocity
+--   when its guidance strategy cannot be met, but it indicates this result.
+-- - The `updateSemiballistics` function has an empty return on any failure
+--   and returns an acceleration plan for future frames on a success.
