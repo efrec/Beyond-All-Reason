@@ -30,36 +30,36 @@
 -- might contain other fields like `vector.isDirty`, and so on.
 
 -- These functions work with a few "subtypes" of vector that cannot be mixed:
--- *  standard vector3 = { x, y, z }
--- * augmented vector3 = { x, y, z, magnitude }
--- *  weighted vector3 = { dx, dy, dz, magnitude } (used the least)
+-- >  standard vector3 = { x, y, z }
+-- > augmented vector3 = { x, y, z, magnitude }
+-- >  weighted vector3 = { dx, dy, dz, magnitude } (used the least)
 
 -- The magnitudes above also have two types, which are also not interchangeable:
--- * 3D magnitude = sqrt(x^2 + y^2 + x^2)
--- * 2D magnitude = sqrt(x^2 + z^2)
+-- > 3D magnitude = sqrt(x^2 + y^2 + x^2)
+-- > 2D magnitude = sqrt(x^2 + z^2)
 
 --------------------------------------------------------------------------------
 -- Working with RecoilEngine ---------------------------------------------------
 
 -- RecoilEngine tends to return multi-values, not tables, which you must assign:
--- * position = { GetUnitPosition(unitID) }
--- * position = pack(GetUnitPosition(unitID))
+-- > position = { GetUnitPosition(unitID) }
+-- > position = pack(GetUnitPosition(unitID))
 
 -- When you can, you should update existing tables, rather than replacing them:
--- * position[1], position[2], position[3] = GetUnitPosition(unitID)
--- * repack(position, GetUnitPosition(unitID))
+-- > position[1], position[2], position[3] = GetUnitPosition(unitID)
+-- > repack(position, GetUnitPosition(unitID))
 
 -- When RecoilEngine does return a table, of course you can assign it directly:
--- * position = GetUnitPositionTable(unitID)
+-- > position = GetUnitPositionTable(unitID)
 
 -- Unless you need to maintain references to the original, in which case:
--- * copyInto(position, GetUnitPositionTable(unitID))
--- * refill(position, GetUnitPositionTable(unitID))
+-- > copyInto(position, GetUnitPositionTable(unitID))
+-- > refill(position, GetUnitPositionTable(unitID))
 
 -- Finally, since Recoil uses X-Z as its ground plane and Y as its up direction,
 -- most vector functions have a 2D version that uses the XZ plane only, like so:
--- * repackXZ(positionXZ, GetUnitPosition(unitID))
--- * refillXZ(positionXZ, GetUnitPositionTable(unitID))
+-- > repackXZ(positionXZ, GetUnitPosition(unitID))
+-- > refillXZ(positionXZ, GetUnitPositionTable(unitID))
 
 --------------------------------------------------------------------------------
 -- Initialization --------------------------------------------------------------
@@ -113,7 +113,25 @@ local cross, magnitude, magnitudeXZ
 --------------------------------------------------------------------------------
 -- Table construction ----------------------------------------------------------
 
--- * These are the module's only functions allowed to return the `table` type: *
+-- These are the only functions in the module that return the `table` type.
+-- Refer to the module's instructions, above, for better ways to handle vectors.
+
+---Get the epsilon values used to determine numerical stability and accuracy.
+---@return table settings
+local function tolerances()
+	return {
+		ARC_EPSILON          = ARC_EPSILON,
+		ARC_NORMAL_EPSILON   = ARC_NORMAL_EPSILON,
+		ARC_OPPOSITE_EPSILON = ARC_OPPOSITE_EPSILON,
+
+		RAD_EPSILON          = RAD_EPSILON,
+		RAD_NORMAL_EPSILON   = RAD_NORMAL_EPSILON,
+		RAD_OPPOSITE_EPSILON = RAD_OPPOSITE_EPSILON,
+
+		XYZ_EPSILON          = XYZ_EPSILON,
+		XYZ_PATH_EPSILON     = XYZ_PATH_EPSILON,
+	}
+end
 
 ---Create a new copy of a vector. If the original is augmented, then the copy is.
 ---@param vector table
@@ -151,23 +169,6 @@ end
 ---@return table
 local function vectorXZa(x, z, augment)
 	return { x, 0, z, augment or math_sqrt(x * x + z * z) }
-end
-
----Get the epsilon values used to determine numerical stability and accuracy.
----@return table settings
-local function getTolerances()
-	return {
-		ARC_EPSILON          = ARC_EPSILON,
-		ARC_NORMAL_EPSILON   = ARC_NORMAL_EPSILON,
-		ARC_OPPOSITE_EPSILON = ARC_OPPOSITE_EPSILON,
-
-		RAD_EPSILON          = RAD_EPSILON,
-		RAD_NORMAL_EPSILON   = RAD_NORMAL_EPSILON,
-		RAD_OPPOSITE_EPSILON = RAD_OPPOSITE_EPSILON,
-
-		XYZ_EPSILON          = XYZ_EPSILON,
-		XYZ_PATH_EPSILON     = XYZ_PATH_EPSILON,
-	}
 end
 
 --------------------------------------------------------------------------------
@@ -1956,12 +1957,13 @@ end
 -- Export ----------------------------------------------------------------------
 
 return {
+	tolerances             = tolerances,
+
 	copy                   = copy,
 	vector3                = vector3,
 	vector3a               = vector3a,
 	vectorXZ               = vectorXZ,
 	vectorXZa              = vectorXZa,
-	getTolerances          = getTolerances,
 
 	copyFrom               = copyFrom,
 	zeroes                 = zeroes,
@@ -2087,42 +2089,42 @@ return {
 -- Footnotes -------------------------------------------------------------------
 
 -- 1. Write code that doesn't suck and then comment it:
--- 
+--
 -- You need to keep track of normalization, denormalization, and augmentation
 -- while writing code. Your reviewer also needs to be able to do this.
--- 
+--
 -- Add comments when normalization is not needed and when it is guaranteed, etc.
--- 
+--
 -- 2. If you're having div-zero problems, no you're not:
--- 
+--
 -- This module contains a number of functions that _do not_ check for div-zero.
--- 
+--
 -- These are elementary operations (or their prototypes) that will always, 100%
 -- of the time, exist inside of other functions while serving specific purposes.
 -- You need to be able to verify for yourself when to check boundary conditions.
--- 
--- The set of tolerances values, if needed, is available from `getTolerances`.
--- 
+--
+-- The set of tolerances values, if needed, is available from `tolerances`.
+--
 -- 3. There are some obvious pitfalls and few subtle ones:
--- 
+--
 -- - Only a few functions force the augment (`vector[4]`) term to update, which
 --   can lead to magnitudes becoming incorrect or stale following mutations.
--- 
+--
 -- - The `slerp` rotation interpolation does not attempt to handle cases where
 --   the two vectors are exactly opposite (though, it indicates this result).
--- 
+--
 -- - The functions `turnLeft` and `turnRight` are basic prototypical movements
 --   that you'd likely adapt for your own use case. Still, they do not check
 --   at all for vectors aligned with the Up/Down axis, so might emit `NaN`s.
--- 
+--
 -- 4. Some functions are here as prototypes for you to build from, so they have
 --    occasional quirks that are unlike the rest of the functions in the module.
--- 
+--
 -- - The `updateBallistics` function is unique (so far) for un-setting its
 --   augmented term rather than reevaluating it and for doing so silently.
--- 
+--
 -- - The `updateGuidance` function may avoid updating position and velocity
 --   when its guidance strategy cannot be met. It indicates this result.
--- 
+--
 -- - The `updateSemiballistics` function has an empty return on any failure
 --   and returns an acceleration plan for future frames on a success.
