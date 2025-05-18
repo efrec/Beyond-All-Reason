@@ -65,48 +65,48 @@
 --------------------------------------------------------------------------------
 -- Initialization --------------------------------------------------------------
 
-local math_abs    = math.abs
-local math_clamp  = math.clamp
-local math_min    = math.min
-local math_max    = math.max
-local math_random = math.random
-local math_sqrt   = math.sqrt
-local math_cos    = math.cos
-local math_sin    = math.sin
-local math_acos   = math.acos
-local math_asin   = math.asin
-local math_atan2  = math.atan2
-local math_pi     = math.pi
+local math_abs             = math.abs
+local math_clamp           = math.clamp
+local math_min             = math.min
+local math_max             = math.max
+local math_random          = math.random
+local math_sqrt            = math.sqrt
+local math_cos             = math.cos
+local math_sin             = math.sin
+local math_acos            = math.acos
+local math_asin            = math.asin
+local math_atan2           = math.atan2
+local math_pi              = math.pi
 
 -- Boundary and acceptability constants
-local ARC_EPSILON = 1e-6
-local ARC_NORMAL_EPSILON = 1 - ARC_EPSILON
+local ARC_EPSILON          = 1e-6
+local ARC_NORMAL_EPSILON   = 1 - ARC_EPSILON
 local ARC_OPPOSITE_EPSILON = ARC_EPSILON
 
-local RAD_EPSILON = 1e-8
-local RAD_NORMAL_EPSILON = math_pi * 0.5 - RAD_EPSILON
+local RAD_EPSILON          = 1e-8
+local RAD_NORMAL_EPSILON   = math_pi * 0.5 - RAD_EPSILON
 local RAD_OPPOSITE_EPSILON = math_pi - RAD_EPSILON
 
-local XYZ_EPSILON = 1e-3
-local XYZ_PATH_EPSILON = 1
+local XYZ_EPSILON          = 1e-3
+local XYZ_PATH_EPSILON     = 1
 
 -- Vector space conventions
-local dirUp       = { 0, 1, 0, 1 }
-local dirDown     = { 0, -1, 0, 1 }
-local dirLeft     = { -1, 0, 0, 1 }
-local dirRight    = { 1, 0, 0, 1 }
-local dirForward  = { 0, 0, 1, 1 }
-local dirBackward = { 0, 0, -1, 1 }
+local dirUp                = { 0, 1, 0, 1 }
+local dirDown              = { 0, -1, 0, 1 }
+local dirLeft              = { -1, 0, 0, 1 }
+local dirRight             = { 1, 0, 0, 1 }
+local dirForward           = { 0, 0, 1, 1 }
+local dirBackward          = { 0, 0, -1, 1 }
 
 -- Reusable tables for zero-allocation module
-local float3      = { 0, 0, 0 }
-local float3a     = { 0, 0, 0, 0 }
+local float3               = { 0, 0, 0 }
+local float3a              = { 0, 0, 0, 0 }
 
 -- For use when readability matters (which is never, apparently)
-local indexX      = 1
-local indexY      = 2
-local indexZ      = 3
-local indexA      = 4
+local indexX               = 1
+local indexY               = 2
+local indexZ               = 3
+local indexA               = 4
 
 -- Fixes for lexical scope
 local cross, magnitude, magnitudeXZ
@@ -116,14 +116,30 @@ local cross, magnitude, magnitudeXZ
 
 -- * These are the module's only functions allowed to return the `table` type: *
 
----Create a new copy of a vector.
+---Create a new copy of a vector. If the original is augmented, then the copy is.
 ---@param vector table
 ---@return table
 local function copy(vector)
 	return { vector[1], vector[2], vector[3], vector[4] }
 end
 
----Create a new vector from the typical X and Z multi-value returns of an `*XZ` function.
+---@param x number
+---@param y number
+---@param z number
+---@return table vector3
+local function vector3(x, y, z)
+	return { x, y, z }
+end
+
+---@param x number
+---@param y number
+---@param z number
+---@param a number augment term
+---@return table vector3a
+local function vector3a(x, y, z, a)
+	return { x, y, z, a }
+end
+
 ---@param x any
 ---@param z any
 ---@return table
@@ -131,45 +147,28 @@ local function vectorXZ(x, z)
 	return { x, 0, z }
 end
 
----Create a new augmented vector from the typical X and Z multi-value returns of an `*XZ` function.
 ---@param x any
 ---@param z any
 ---@return table
-local function vectorXZA(x, z, augment)
+local function vectorXZa(x, z, augment)
 	return { x, 0, z, augment or math_sqrt(x * x + z * z) }
 end
 
--- * Moved here for completeness from the section "Normals and orthonormals": *
+---Get the epsilon values used to determine numerical stability and accuracy.
+---@return table settings
+local function getTolerances()
+	return {
+		ARC_EPSILON          = ARC_EPSILON,
+		ARC_NORMAL_EPSILON   = ARC_NORMAL_EPSILON,
+		ARC_OPPOSITE_EPSILON = ARC_OPPOSITE_EPSILON,
 
----Get a vector that is normal to both vector1 and vector2. Result is not unique.
----The normal compliment space of two vectors contains at least two elements.
----The space becomes large when the two vectors are not mutually normal.
----@param vector1 table
----@param vector2 table
----@return table normal
-local function getCommonNormal(vector1, vector2)
-	return { cross(vector1, vector2) }
-end
+		RAD_EPSILON          = RAD_EPSILON,
+		RAD_NORMAL_EPSILON   = RAD_NORMAL_EPSILON,
+		RAD_OPPOSITE_EPSILON = RAD_OPPOSITE_EPSILON,
 
----Get a unit vector that is normal to both vector1 and vector2. Result is not unique.
----The normal compliment space of two vectors contains at least two elements.
----The space becomes large when the two vectors are not mutually normal.
----@param vector1 table
----@param vector2 table
----@return table orthonormal
-local function getCommonOrthonormal(vector1, vector2)
-	local v11 = vector1[1]
-	local v12 = vector1[2]
-	local v13 = vector1[3]
-	local v21 = vector2[1]
-	local v22 = vector2[2]
-	local v23 = vector2[3]
-	local o1 = -v22 * v13 + v12 * v23
-	local o2 = -v11 * v23 + v21 * v13
-	local o3 = -v21 * v12 + v11 * v22
-	local norm = math_sqrt(o1 * o1 + o2 * o2 + o3 * o3)
-	o1, o2, o3 = o1 / norm, o2 / norm, o3 / norm
-	return { o1, o2, o3, 1 }
+		XYZ_EPSILON          = XYZ_EPSILON,
+		XYZ_PATH_EPSILON     = XYZ_PATH_EPSILON,
+	}
 end
 
 --------------------------------------------------------------------------------
@@ -180,15 +179,11 @@ end
 ---Modifies `vector1` and overrides the augment.
 ---@param vector1 table
 ---@param vector2 table
-local function copyInto(vector1, vector2)
+local function copyFrom(vector1, vector2)
 	vector1[1] = vector2[1]
 	vector1[2] = vector2[2]
 	vector1[3] = vector2[3]
 	vector1[4] = vector2[4]
-end
-
-local function clear(vector)
-	vector[1], vector[2], vector[3], vector[4] = nil, nil, nil, nil
 end
 
 local function zeroes(vector)
@@ -244,38 +239,30 @@ local function repack(vector, arg1, arg2, arg3, arg4)
 end
 
 ---Fill a vector with the values from a list of multi-values, similar to `pack`.
----Even if a 4th argument is passed, the augment is updated only if it was set already.
 ---
 ---Modifies `vector` and updates its augment, if present.
----
----This has an unintuitive behavior (which may not suit your specific use case):
----
----- When _exactly_ two arguments are passed, it assumes they are x and z.
----- When _exactly_ three arguments are passed, it assumes they are x, y, and z.
----- When four or more arguments are passed, it assumes they are x, y, z, and w.
----- __Otherwise, this method will `clear` the values in `vector`__.
 ---@param vector table
 ---@param arg1 number
 ---@param arg2 number
----@param ... unknown
-local function repackXZ(vector, arg1, arg2, ...)
-	if arg1 and arg2 then
-		local n = select("#", ...)
-		vector[1] = arg1
-		if n == 0 then
-			vector[3] = arg2
-		else
-			vector[3] = select(1, ...)
-			if vector[4] then
-				if n >= 2 then
-					vector[4] = select(3, ...)
-				else
-					magnitudeXZ(vector)
-				end
-			end
-		end
-	else
-		clear(vector)
+---@param arg3 number?
+local function repackXZ(vector, arg1, arg2)
+	vector[1] = arg1
+	vector[3] = arg2
+end
+
+---Fill a vector with the values from a list of multi-values, similar to `pack`.
+---Even if a 3rd argument is passed, the augment is updated only if it was set already.
+---
+---Modifies `vector` and updates its augment, if present.
+---@param vector table
+---@param arg1 number
+---@param arg2 number
+---@param arg3 number?
+local function repackXZa(vector, arg1, arg2, arg3)
+	vector[1] = arg1
+	vector[3] = arg2
+	if vector[4] then
+		vector[4] = arg3 or magnitudeXZ(vector)
 	end
 end
 
@@ -785,7 +772,6 @@ local function dotUnitXZ(vector1, vector2)
 	return (product > 1 and 1) or (product < -1 and -1) or product
 end
 
----Use getCommonNormal to receive a vector. The result is more clear that way.
 ---@param vector1 table
 ---@param vector2 table
 ---@return number productX
@@ -927,23 +913,6 @@ end
 --------------------------------------------------------------------------------
 -- General vector measures -----------------------------------------------------
 
----@param vector1 table
----@param vector2 table
-local function displacement(vector1, vector2)
-	return
-		vector2[1] - vector1[1],
-		vector2[2] - vector1[2],
-		vector2[3] - vector1[3]
-end
-
----@param vector1 table
----@param vector2 table
-local function displacementXZ(vector1, vector2)
-	return
-		vector2[1] - vector1[1],
-		vector2[3] - vector1[3]
-end
-
 ---Get the coordinate values of a codirectional unit vector.
 ---@param vector table
 ---@return number dx
@@ -965,8 +934,78 @@ local function versorXZ(vector)
 	return vector[1] / scale, vector[3] / scale, 1
 end
 
+---@param vector1 table
+---@param vector2 table
+local function displacement(vector1, vector2)
+	return
+		vector2[1] - vector1[1],
+		vector2[2] - vector1[2],
+		vector2[3] - vector1[3]
+end
+
+---@param vector1 table
+---@param vector2 table
+local function displacementXZ(vector1, vector2)
+	return
+		vector2[1] - vector1[1],
+		vector2[3] - vector1[3]
+end
+
 --------------------------------------------------------------------------------
 -- Normals and orthonormals ----------------------------------------------------
+
+---Get two normalized basis vectors to pair with an existing vector.
+---The basis is completely arbitrary but is conditioned for numerical stability.
+---@param vector table
+---@return integer ux arbitrary axis-aligned basis vector
+---@return integer uy
+---@return integer uz
+---@return number vx from `vector`
+---@return number vy
+---@return number vz
+---@return number wx = cross(u, v)
+---@return number wy
+---@return number wz
+local function basisFrom(vector)
+	local vx, vy, vz = vector[1], vector[2], vector[3]
+	local ux, uy, uz -- arbitrarily chosen against values in `v`
+	local wx, wy, wz -- cross(u, v)
+
+	if vx <= vy and vx <= vz then
+		ux, uy, uz = 1, 0, 0
+		wx, wy, wz = 0, -vz, vy
+	elseif vy <= vz then
+		ux, uy, uz = 0, 1, 0
+		wx, wy, wz = vz, 0, -vx
+	else
+		ux, uy, uz = 0, 0, 1
+		wx, wy, wz = -vy, vx, 0
+	end
+
+	return
+		ux, uy, uz,
+		vx, vy, vz,
+		wx, wy, wz
+end
+
+---Repack two normalized basis vectors, as determined from an input vector, and
+---return the (non-normalized) input vector (without updating the vector).
+---
+---Modifies `basis1` and `basis2`, and returns the values from `vector`.
+---@param vector table
+---@param basis1 table
+---@param basis2 table
+---@return number vx
+---@return number vy
+---@return number vz
+local function repackBasis(vector, basis1, basis2)
+	local vx, vy, vz;
+	-- basis is in <u, v, w>:
+	basis1[1], basis1[2], basis1[3],
+	vx, vy, vz,
+	basis2[1], basis2[2], basis2[3] = basisFrom(vector)
+	return vx, vy, vz
+end
 
 ---@param vector1 table
 ---@param vector2 table
@@ -995,8 +1034,6 @@ end
 local function areOrthonormalXZ(vector1, vector2)
 	return isUnitaryXZ(vector1) and isUnitaryXZ(vector2) and dotXZ(vector1, vector2) == 0
 end
-
--- See section "Table construction" above for getCommonNormal, getCommonOrthonormal.
 
 --------------------------------------------------------------------------------
 -- Randomization ---------------------------------------------------------------
@@ -1117,24 +1154,10 @@ end
 ---@return number z
 ---@return number a magnitude
 local function randomFromConic(vector, angleMax, lengthFactor)
+	local ux, uy, uz, vx, vy, vz, wx, wy, wz = basisFrom(vector)
 	local length = getMagnitude(vector)
 
-	local ux, uy, uz -- = arbitrary vector not aligned with `v`
-	local vx, vy, vz = vector[1] / length, vector[2] / length, vector[3] / length
-	local wx, wy, wz -- = cross(u, v)
-
-	-- Our choice of basis can condition the cross product so
-	-- that there is less numerical instability in the result:
-	if vx <= vy and vx <= vz then
-		ux, uy, uz = 1, 0, 0
-		wx, wy, wz = 0, -vz, vy
-	elseif vy <= vz then
-		ux, uy, uz = 0, 1, 0
-		wx, wy, wz = vz, 0, -vx
-	else
-		ux, uy, uz = 0, 0, 1
-		wx, wy, wz = -vy, vx, 0
-	end
+	vx, vy, vz = vx / length, vy / length, vz / length
 
 	local r1 = math_random()
 	local cos_theta = (1 - r1) + r1 * math_cos(angleMax)
@@ -1762,7 +1785,7 @@ local function updateBallistics(position, velocity, speedMax, gravity)
 	local speed = velocity[4]
 
 	if speed + gravity > speedMax then
-		speed = magnitude(velocity)	
+		speed = magnitude(velocity)
 		if speed > speedMax then
 			local ratio = speed / speedMax
 			velocity[1] = velocity[1] * ratio
@@ -1781,7 +1804,8 @@ local function updateBallistics(position, velocity, speedMax, gravity)
 	position[3] = position[3] + velocity[3]
 end
 
----Simple controlled movement that ignores gravity. Does not pursue moving targets.
+---Simple controlled movement that ignores gravity. Does not pursue moving targets efficiently.
+---You can start with low initial pursuit guidance (chaseFactor = 2) to prevent overcorrection.
 ---
 ---Modifies `position` and `velocity`.
 ---@param position table
@@ -1790,7 +1814,7 @@ end
 ---@param speedMax number
 ---@param accelerationMax number
 ---@param turnAngleMax number
----@param chaseFactor number [0, 2] where 0: hard turn toward target, 1: constant slow turn toward target up to 90 degrees, 2: ridiculously lazy
+---@param chaseFactor number [0, 2] where 0: full turn to target, 1: constant turn to target, 2: excessively lazy
 ---@return boolean updated
 local function updateGuidance(position, velocity, target, speedMax, accelerationMax, turnAngleMax, chaseFactor)
 	local displacement = float3a
@@ -1828,7 +1852,7 @@ local function updateGuidance(position, velocity, target, speedMax, acceleration
 	end
 end
 
----Simple controlled movement under gravity. Does not pursue moving targets.
+---Simple controlled movement under gravity. Does not pursue moving targets efficiently.
 ---
 ---Modifies `position` and `velocity`.
 ---@param position table
@@ -1838,7 +1862,7 @@ end
 ---@param acceleration number
 ---@param turnAngle number
 ---@param gravity number
----@return number? accelerationX terms for desired constant acceleration onto target (`nil` when unresolved)
+---@return number? accelerationX `number` desired constant acceleration | `nil` if unresolved
 ---@return number? accelerationY
 ---@return number? accelerationZ
 local function updateSemiballistics(position, target, velocity, speedMax, acceleration, turnAngle, gravity)
@@ -1876,6 +1900,8 @@ local function updateSemiballistics(position, target, velocity, speedMax, accele
 		end
 	end
 
+	-- todo: This compensates for `speedMax` in the calcs above, but not in the below:
+
 	-- The ideal guidance is taken to be constant acceleration towards the target:
 	local accelX = (target[1] - positionX - velocityX * tti) * 2 / (tti * tti)
 	local accelY = (target[2] - positionY - velocityY * tti) * 2 / (tti * tti)
@@ -1885,24 +1911,27 @@ local function updateSemiballistics(position, target, velocity, speedMax, accele
 	accelY = accelY + gravity
 
 	local accelWanted = math_sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ)
+
 	local forward = accelX * velocityX + accelY * velocityY + accelZ * velocityZ
 	local angular = math_sqrt(accelWanted * accelWanted - forward * forward)
 
-	if
-		forward <= acceleration and angular <= turnAccel or
+	if forward <= acceleration and angular <= turnAccel or
 		-- Turn rate is just free acceleration, if you're willing to cheat, which we are, so:
 		forward <= acceleration + turnAccel * 0.5 and angular <= turnAccel - (forward - acceleration)
 	then
 		velocityX = velocityX + accelX
 		velocityY = velocityY + accelY - gravity
 		velocityZ = velocityZ + accelZ
+
 		velocity[1] = velocityX
 		velocity[2] = velocityY
 		velocity[3] = velocityZ
 		velocity[4] = math_sqrt(velocityX * velocityX + velocityY * velocityY + velocityZ * velocityZ)
+
 		position[1] = positionX + velocityX
 		position[2] = positionY + velocityY
 		position[3] = positionZ + velocityZ
+
 		return accelX, accelY, accelZ
 	end
 end
@@ -1912,16 +1941,19 @@ end
 
 return {
 	copy                   = copy,
+	vector3                = vector3,
+	vector3a               = vector3a,
 	vectorXZ               = vectorXZ,
-	vectorXZA              = vectorXZA,
+	vectorXZa              = vectorXZa,
+	getTolerances          = getTolerances,
 
-	clear                  = clear,
+	copyFrom               = copyFrom,
 	zeroes                 = zeroes,
-	copyInto               = copyInto,
 	refill                 = refill,
 	refillXZ               = refillXZ,
 	repack                 = repack,
 	repackXZ               = repackXZ,
+	repackXZa              = repackXZa,
 
 	magnitude              = magnitude,
 	magnitudeXZ            = magnitudeXZ,
@@ -1944,14 +1976,6 @@ return {
 	multiplyXZ             = multiplyXZ,
 	divide                 = divide,
 	divideXZ               = divideXZ,
-	mix                    = mix,
-	mixXZ                  = mixXZ,
-	mixMagnitude           = mixMagnitude,
-	mixMagnitudeXZ         = mixMagnitudeXZ,
-	mixRotation            = mixRotation,
-	mixRotationXZ          = mixRotationXZ,
-	rotateTo               = rotateTo,
-	rotateToXZ             = rotateToXZ,
 	normalize              = normalize,
 	normalizeXZ            = normalizeXZ,
 	setMagnitude           = setMagnitude,
@@ -1960,6 +1984,14 @@ return {
 	setWeightXZ            = setWeightXZ,
 	toUnitary              = toUnitary,
 	toUnweighted           = toUnweighted,
+	mix                    = mix,
+	mixXZ                  = mixXZ,
+	mixMagnitude           = mixMagnitude,
+	mixMagnitudeXZ         = mixMagnitudeXZ,
+	mixRotation            = mixRotation,
+	mixRotationXZ          = mixRotationXZ,
+	rotateTo               = rotateTo,
+	rotateToXZ             = rotateToXZ,
 
 	dot                    = dot,
 	dotXZ                  = dotXZ,
@@ -1980,17 +2012,18 @@ return {
 	projectionXZ           = projectionXZ,
 	rejection              = rejection,
 	rejectionXZ            = rejectionXZ,
-	displacement           = displacement,
-	displacementXZ         = displacementXZ,
 
 	versor                 = versor,
 	versorXZ               = versorXZ,
+	displacement           = displacement,
+	displacementXZ         = displacementXZ,
+
+	basisFrom              = basisFrom,
+	repackBasis            = repackBasis,
 	areNormal              = areNormal,
 	areNormalXZ            = areNormalXZ,
 	areOrthonormal         = areOrthonormal,
 	areOrthonormalXZ       = areOrthonormalXZ,
-	getCommonNormal        = getCommonNormal,
-	getCommonOrthonormal   = getCommonOrthonormal,
 
 	random                 = random,
 	randomXZ               = randomXZ,
@@ -2036,9 +2069,15 @@ return {
 --------------------------------------------------------------------------------
 -- Footnotes -------------------------------------------------------------------
 
+-- You need to keep track of normalization, denormalization, and augmentation
+-- while writing code. Your reviewer also needs to be able to do this. Add
+-- comments when normalization is not needed and when it is guaranteed, etc.
+
 -- This module contains a number of functions that _do not_ check for div-zero.
 -- These are elementary operations (or their prototypes) that will always, 100%
 -- of the time, exist inside of other functions while serving specific purposes.
+-- You need to be able to verify for yourself when to check boundary conditions.
+-- The set of tolerances values, if needed, is available from `getTolerances`.
 
 -- There are also subtle pitfalls that require more explanation:
 
@@ -2048,7 +2087,7 @@ return {
 --   the two vectors are exactly opposite (though, it indicates this result).
 -- - The functions `turnLeft` and `turnRight` are basic prototypical movements
 --   that you'd likely adapt for your own use case. Still, they do not check
---   at all for vectors aligned with the up/down axis, so might emit `NaN`s.
+--   at all for vectors aligned with the Up/Down axis, so might emit `NaN`s.
 
 -- Once you start getting into use-case code, more results are provided when
 -- a vector mutates or fails to mutate so you can handle this logically:
@@ -2056,6 +2095,6 @@ return {
 -- - The `updateBallistics` function is unique (so far) for un-setting its
 --   augmented term rather than reevaluating it and for doing so silently.
 -- - The `updateGuidance` function may avoid updating position and velocity
---   when its guidance strategy cannot be met, but it indicates this result.
+--   when its guidance strategy cannot be met. It indicates this result.
 -- - The `updateSemiballistics` function has an empty return on any failure
 --   and returns an acceleration plan for future frames on a success.
