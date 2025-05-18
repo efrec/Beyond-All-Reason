@@ -43,6 +43,7 @@ local multiply = vector.multiply
 local dot = vector.dot
 local isInSphere = vector.isInSphere
 local randomFromConicXZ = vector.randomFromConicXZ
+local randomFrom3D = vector.randomFrom3D
 
 local targetedGround = string.byte('g')
 local targetedUnit = string.byte('u')
@@ -221,10 +222,8 @@ local function split(projectileID, params)
 		cegTag  = params.cegtag,
 	}
 
-	local getRandomSpeed = vector.randomFrom3D
-
 	for _ = 1, tonumber(params.number) do
-		speed[1], speed[2], speed[3] = getRandomSpeed(velocity, 0.088, 0.044, 0.088)
+		speed[1], speed[2], speed[3] = randomFrom3D(velocity, 0.088, 0.044, 0.088)
 		Spring.SpawnProjectile(projectileDefID, projectileParams)
 	end
 end
