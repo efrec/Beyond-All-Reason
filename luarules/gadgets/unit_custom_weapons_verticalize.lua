@@ -394,7 +394,10 @@ local function verticalize(projectileID, projectile)
 		chaseFactor
 	)
 
-	if not updated then
+	if updated then
+		spSetProjectilePosition(projectileID, position[1], position[2], position[3])
+		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
+	else
 		if updated == false then
 			-- Projectile is almost directly on top of the target.
 			vector.accelerate(velocity, projectile.acceleration, projectile.speedMax)
@@ -405,12 +408,9 @@ local function verticalize(projectileID, projectile)
 
 		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 		Spring.SetProjectileMoveControl(projectileID, false)
-		verticalizing[projectileID] = nil
-		return
-	end
 
-	spSetProjectilePosition(projectileID, position[1], position[2], position[3])
-	spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
+		verticalizing[projectileID] = nil
+	end
 end
 
 --------------------------------------------------------------------------------
