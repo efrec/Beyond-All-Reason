@@ -110,7 +110,7 @@ do
 	---@param y number?
 	---@param z number?
 	---@param a number? the "augment" of a vector generally stores a magnitude term
-	---@return table float3
+	---@return table float3a
 	repack3a = function(x, y, z)
 		local float3a = float3a
 		float3a[1], float3a[2], float3a[3], float3a[4] = x, y, z, a
@@ -142,7 +142,7 @@ local function isUnitUnderwater(unitID)
 	return math.bit_and(Spring.GetUnitPhysicalState(target), 4) ~= 0
 end
 
---------------------------------------------------------------------------------
+-- Weapon behaviors ------------------------------------------------------------
 
 local function cruise(projectileID, position, velocity, positionY)
 	local normal = repack3(spGetGroundNormal(position[1], position[3]))
@@ -184,16 +184,21 @@ end
 specialEffects.retarget = function(projectileID, params)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
 		local targetType, target = spGetProjectileTarget(projectileID)
+
 		if targetType == targetedUnit and spGetUnitIsDead(target) ~= false then
 			local ownerID = Spring.GetProjectileOwnerID(projectileID)
+
 			-- Hardcoded to retarget only from the primary weapon and only units or ground
 			local ownerTargetType, _, ownerTarget = Spring.GetUnitWeaponTarget(ownerID, 1)
-			if ownerTargetType == 1 then
-				spSetProjectileTarget(projectileID, ownerTarget, targetedUnit)
-			elseif ownerTargetType == 2 then
-				spSetProjectileTarget(projectileID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
+
+			if ownerTargetType then
+				if ownerTargetType == 1 then
+					spSetProjectileTarget(projectileID, ownerTarget, targetedUnit)
+				elseif ownerTargetType == 2 then
+					spSetProjectileTarget(projectileID, ownerTarget[1], ownerTarget[2], ownerTarget[3])
+				end
+				return false
 			end
-			return false
 		end
 	end
 	return true
@@ -215,13 +220,13 @@ end
 local function split(projectileID, params)
 	local position, velocity = position, velocity -- upvalues
 	position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
-	
+
 	Spring.DeleteProjectile(projectileID)
 	Spring.SpawnCEG(params.splitexplosionceg, position[1], position[2], position[3])
 
 	local projectileDefID = subweaponDefID[params.speceffect_def]
 	local speed = repack3()
-	
+
 	local projectileParams = {
 		pos     = position,
 		speed   = speed,
@@ -250,10 +255,13 @@ end
 -- Water penetration behaviors
 
 local function cannonWaterPen(projectileID, params)
-	local position, velocity = position, velocity -- upvalues
-	velocity[1], velocity[2], velocity[3] = spGetProjectileVelocity(projectileID)
+	local position = position
+	-- `speed` needs to parse as a float3 engine-side:
+	velocity = repack3(spGetProjectileVelocity(projectileID))
 
-	multiply(velocity, 0.5)
+	velocity[1] = velocity[1] * 0.5
+	velocity[2] = velocity[2] * 0.5
+	velocity[3] = velocity[3] * 0.5
 
 	local projectileParams = {
 		pos     = position,
