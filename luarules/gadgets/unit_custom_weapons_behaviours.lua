@@ -41,6 +41,7 @@ local spSetProjectileVelocity = Spring.SetProjectileVelocity
 
 local multiply = vector.multiply
 local dot = vector.dot
+local isInSphere = vector.isInSphere
 local randomFromConicXZ = vector.randomFromConicXZ
 
 local targetedGround = string.byte('g')
@@ -140,19 +141,16 @@ specialEffects.cruise = function(projectileID, params)
 		local targetType, target = spGetProjectileTarget(projectileID)
 
 		if targetType == targetedUnit then
-			local targetID = target
-			target = repack3(select(4, spGetUnitPosition(targetID, false, true)))
+			target = repack3(select(4, spGetUnitPosition(target, false, true)))
 		end
 
-		if not position:isInSphere(target, tonumber(params.lockon_dist)) then
-			-- Always correct for ground clearance. Follow terrain after first ground clear.
-			-- Then, follow terrain also, but avoid going into steep dives, eg after cliffs.
+		if not isInSphere(position, target, tonumber(params.lockon_dist)) then
 			local cruiseHeight = spGetGroundHeight(position[1], position[3]) + tonumber(params.cruise_min_height)
 
 			if position[2] < cruiseHeight then
 				cruise(projectileID, position, velocity, cruiseHeight)
 				projectileData[projectileID] = true
-			elseif projectileData[projectileID] and
+			elseif projectileData[projectileID] and -- avoid steep dives after cliffs:
 				position[2] > cruiseHeight and velocity[2] > velocity[4] * -0.25
 			then
 				cruise(projectileID, position, velocity, cruiseHeight)
@@ -209,6 +207,7 @@ local function split(projectileID, params)
 	Spring.SpawnCEG(params.splitexplosionceg, position[1], position[2], position[3])
 
 	local projectileDefID = subweaponDefID[params.speceffect_def]
+	-- `speed` needs to parse as a float3 engine-side:
 	local speed = repack3()
 
 	local projectileParams = {
