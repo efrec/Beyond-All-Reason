@@ -47,6 +47,13 @@ end
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
+-- Configuration ---------------------------------------------------------------
+
+local cruisePitchMax = 30
+local cruiseHeightMin = 50    -- barely above ground
+local cruiseHeightMax = 10000 -- soaring off-screen
+
+--------------------------------------------------------------------------------
 -- Localization ----------------------------------------------------------------
 
 local vector = VFS.Include("common/springUtilities/vector.lua")
@@ -63,8 +70,10 @@ local spSetProjectilePosition = Spring.SetProjectilePosition
 local spSetProjectileVelocity = Spring.SetProjectileVelocity
 
 local displacement = vector.displacement
+local distanceXZ = vector.distanceXZ
 local rotateTo = vector.rotateTo
-local turnDown = vector.turnDown
+local accelerate = vector.accelerate
+local updateGuidance = vector.updateGuidance
 
 local gravityPerFrame = -Game.gravity / Game.gameSpeed ^ 2
 
@@ -75,77 +84,97 @@ local targetedUnit = string.byte('u')
 --------------------------------------------------------------------------------
 -- Initialization --------------------------------------------------------------
 
+cruisePitchMax = cruisePitchMax * math_pi / 180
+
 local weapons = {}
 
 for weaponDefID = 0, #WeaponDefs do
 	local weaponDef = WeaponDefs[weaponDefID]
 
-	if weaponDef.type == "StarburstLauncher" and weaponDef.customParams.cruise_and_verticalize then
-		local cruiseHeight = weaponDef.customParams.cruise_altitude
+	if weaponDef.customParams.cruise_and_verticalize and weaponDef.type == "StarburstLauncher" then
+		local cruiseHeight, uptimeMin, uptimeMax
 
-		if cruiseHeight and cruiseHeight ~= "auto" then
-			cruiseHeight = tonumber(cruiseHeight)
-		end
-
-		if cruiseHeight then
-			local speedMin = weaponDef.startvelocity
-			local speedMax = weaponDef.projectilespeed
-			local acceleration = weaponDef.weaponAcceleration
-			local turnRate = weaponDef.turnRate
-
-			local uptimeFrames = weaponDef.uptime * Game.gameSpeed
-			local uptimeAccelFrames = 0
-			if acceleration and acceleration ~= 0 then
-				uptimeAccelFrames = math.min(
-					(speedMax - speedMin) / acceleration,
-					uptimeFrames
-				)
-			end
-			local speedIntoTurn = speedMin + uptimeAccelFrames * acceleration
-
-			local turnHeight = speedIntoTurn * (uptimeFrames - uptimeAccelFrames * 0.5)
-			local turnRadius = speedMax / turnRate / math_pi -- something odd with the scale
-
-			if cruiseHeight == "auto" then
-				-- The natural flight level of the weapon:
-				cruiseHeight = turnHeight + turnRadius
-				-- Spring.Echo('[verticalize] cruiseHeight = ' ..
-				-- 	cruiseHeight .. ' for ' .. weaponDef.name .. '(' .. turnHeight .. ',' .. turnRadius .. ')')
+		if weaponDef.customParams.cruise_altitude then
+			if weaponDef.customParams.cruise_altitude == "auto" then
+				cruiseHeight = "auto" -- determined from uptime and other stats
 			else
 				cruiseHeight = tonumber(cruiseHeight)
 			end
-
-			-- From scraping the ground to soaring off-screen:
-			cruiseHeight = math.clamp(cruiseHeight, 50, 10000)
-
-			local weapon = {
-				cruiseHeight   = cruiseHeight,
-				turnRadius     = turnRadius,
-				uptimeFrames   = uptimeFrames,
-				heightIntoTurn = turnHeight,
-
-				acceleration   = acceleration,
-				speedMin       = speedMin,
-				speedMax       = speedMax,
-				turnRate       = turnRate,
-			}
-
-			-- SpawnProjectiles properties:
-			if weaponDef.myGravity then
-				weapon.gravity = weaponDef.myGravity
-			end
-			if weaponDef.model then
-				weapon.model = weaponDef.model
-			end
-			if weaponDef.cegTag then
-				weapon.cegtag = weaponDef.cegTag
-			end
-
-			Script.SetWatchProjectile(weaponDefID, true)
-			weapons[weaponDefID] = weapon
-		else
-			Spring.Log(gadget:GetInfo().name, LOG.WARNING, 'Missing cruise_altitude: ' .. weaponDef.names)
 		end
+
+		if weaponDef.customParams.uptime_min then
+			uptimeMin = tonumber(weaponDef.customParams.uptime)
+			uptimeMax = weaponDef.uptime
+		else
+			uptimeMin = weaponDef.uptime
+		end
+
+		-- This uses the engine's motion controls so must derive the extents of that motion:
+
+		local speedMin = weaponDef.startvelocity
+		local speedMax = weaponDef.projectilespeed
+		local acceleration = weaponDef.weaponAcceleration
+		local turnRate = weaponDef.turnRate
+
+		local uptimeMinFrames = uptimeMin * Game.gameSpeed
+
+		local accelerationFrames = 0
+		if acceleration and acceleration ~= 0 then
+			accelerationFrames = math.min(
+				(speedMax - speedMin) / acceleration,
+				uptimeMinFrames
+			)
+		end
+
+		local turnSpeedMin = speedMin + accelerationFrames * acceleration
+
+		local turnHeightMin = turnSpeedMin * (uptimeMinFrames - accelerationFrames * 0.5)
+		local turnRadiusMax = speedMax / turnRate / math_pi
+
+		if cruiseHeight == "auto" then
+			cruiseHeight = turnHeightMin + turnRadiusMax
+		end
+
+		cruiseHeight = math.clamp(cruiseHeight, cruiseHeightMin, cruiseHeightMax)
+
+		if not uptimeMax then
+			local ttl = weaponDef.flightTime or weaponDef.range / speedMax
+			uptimeMax = math.max(uptimeMin, ttl / 3)
+		end
+
+		local uptimeMaxFrames = uptimeMax * Game.gameSpeed
+
+		local rangeMinimum = 2 * (turnSpeedMin / turnRate / math_pi)
+
+		local weapon = {
+			heightIntoTurn  = turnHeightMin,
+			cruiseHeight    = cruiseHeight,
+			turnRadius      = turnRadiusMax,
+
+			uptimeMinFrames = uptimeMinFrames,
+			uptimeMaxFrames = uptimeMaxFrames,
+			rangeMinimum    = rangeMinimum,
+
+			acceleration    = acceleration,
+			speedMin        = speedMin,
+			speedMax        = speedMax,
+			turnRate        = turnRate,
+		}
+
+		-- Additional properties for SpawnProjectiles:
+		if weaponDef.myGravity then
+			weapon.gravity = weaponDef.myGravity
+		end
+
+		if weaponDef.model then
+			weapon.model = weaponDef.model
+		end
+
+		if weaponDef.cegTag then
+			weapon.cegtag = weaponDef.cegTag
+		end
+
+		weapons[weaponDefID] = weapon
 	end
 end
 
@@ -169,13 +198,7 @@ end
 
 local repack3
 do
-	local float3 = {}
-
-	---Fill a reusable helper table rather than create/destroy intermediate tables.
-	---@param x number
-	---@param y number
-	---@param z number
-	---@return table float3
+	local float3 = { 0, 0, 0 }
 	repack3 = function(x, y, z)
 		local float3 = float3
 		float3[1], float3[2], float3[3] = x, y, z
@@ -183,86 +206,92 @@ do
 	end
 end
 
--- local function getUptime(params, position)
--- 	local speedMin = params.speedMin
--- 	local speedMax = params.speedMax
--- 	local acceleration = params.acceleration
+local function getUptime(params, position)
+	local speedMin = params.speedMin
+	local speedMax = params.speedMax
+	local acceleration = params.acceleration
 
--- 	local height = (params.target[2] - position[2]) + (params.cruiseHeight - params.turnRadius)
+	local heightDifference = params.target[2] - position[2]
+	local heightFromWeapon = params.cruiseHeight - params.turnRadius
 
--- 	if height <= 0 then
--- 		return 0 -- precluded by other logic elsewhere
--- 	elseif acceleration == 0 or speedMin == speedMax then
--- 		return height / speedMax
--- 	end
+	-- todo: ascendHeight will change
+	local height = math.max(heightDifference + heightFromWeapon, heightFromWeapon)
 
--- 	local accelTime = (speedMax - speedMin) / acceleration
--- 	local accelDistance = speedMin * accelTime + 0.5 * acceleration * accelTime * accelTime
+	if height <= speedMax then
+		return 0
+	elseif acceleration == 0 or speedMin == speedMax then
+		return height / speedMax
+	end
 
--- 	if accelDistance <= height then
--- 		-- todo: brain tired, there's a better way
--- 		local flatTime = (height - accelDistance) / speedMax
--- 		local speedAvg = (flatTime * speedMax + accelTime * (speedMax - speedMin) * 0.5) / (flatTime + accelTime)
+	local accelTime = (speedMax - speedMin) / acceleration
+	local accelDistance = speedMin * accelTime + 0.5 * acceleration * accelTime * accelTime
 
--- 		return height / speedAvg
--- 	else
--- 		-- Solve distance = 0.5 a t^2 + v_0 t for time t:
--- 		local a, b, c = 0.5 * acceleration, speedMin, -height
--- 		local discriminant = b * b - 4 * a * c
+	if accelDistance <= height then
+		local flatTime = (height - accelDistance) / speedMax
+		local speedAvg = (flatTime * speedMax + accelTime * (speedMax - speedMin) * 0.5) / (flatTime + accelTime)
 
--- 		if discriminant < 0 then
--- 			return -- borked and cannot be unborked
--- 		else
--- 			discriminant = math_sqrt(discriminant)
--- 		end
+		return height / speedAvg
+	else
+		-- Solve distance = 0.5 a t^2 + v_0 t for time t:
+		-- todo: why did I do this when accel is positive?
+		local a, b, c = 0.5 * acceleration, speedMin, -height
+		local discriminant = b * b - 4 * a * c
 
--- 		local t1 = (-b + discriminant) / (2 * a)
--- 		local t2 = (-b - discriminant) / (2 * a)
+		if discriminant < 0 then
+			return 0 -- borked and cannot be unborked but we will try anyway
+		else
+			discriminant = math_sqrt(discriminant)
 
--- 		return (t1 >= 0 and t2 >= 0) and math.min(t1, t2) or (t1 >= 0 and t1 or t2)
--- 	end
--- end
+			local t1 = (-b + discriminant) / (2 * a)
+			local t2 = (-b - discriminant) / (2 * a)
+
+			return (t1 >= 0 and t2 >= 0) and math.min(t1, t2) or (t1 >= 0 and t1 or t2)
+		end
+	end
+end
 
 local respawning = false
 
--- local respawnProjectile
--- do
--- 	local respawnCache = {
--- 		pos   = position, -- these table refs never change
--- 		speed = velocity, -- LuaUtils::ParseFloatArray needs this to be a float3
--- 	}
+local respawnProjectile
+do
+	local spawnCache = {
+		pos   = position,
+		speed = velocity,
+	}
 
--- 	respawnProjectile = function(projectileID, params, uptime)
--- 		if uptime then
--- 			local weaponDefID = Spring.GetProjectileDefID(projectileID)
+	respawnProjectile = function(projectileID, params, uptime)
+		if uptime then
+			local weaponDefID = Spring.GetProjectileDefID(projectileID)
 
--- 			local _, velocity = getPositionAndVelocity(projectileID)
--- 			velocity[4] = nil -- to pass float3 check in ParseProjectileParams
+			local _, velocity = getPositionAndVelocity(projectileID)
+			velocity[4] = nil -- pass as float3 to ParseProjectileParams
 
--- 			respawnCache.owner = Spring.GetProjectileOwnerID(projectileID)
--- 			respawnCache.ttl = Spring.GetProjectileTimeToLive(projectileID)
--- 			respawnCache['end'] = params.target
--- 			respawnCache.gravity = params.gravity
--- 			respawnCache.model = params.model
--- 			respawnCache.cegTag = params.cegTag
--- 			respawnCache.uptime = uptime
+			spawnCache.owner = Spring.GetProjectileOwnerID(projectileID)
+			spawnCache.ttl = Spring.GetProjectileTimeToLive(projectileID)
+			spawnCache['end'] = params.target
+			spawnCache.gravity = params.gravity
+			spawnCache.model = params.model
+			spawnCache.cegTag = params.cegTag
+			spawnCache.uptime = uptime
 
--- 			Spring.DeleteProjectile(projectileID)
+			Spring.DeleteProjectile(projectileID)
 
--- 			respawning = true
--- 			local respawnID = Spring.SpawnProjectile(weaponDefID, respawnCache)
--- 			respawning = false
+			respawning = true
 
--- 			if respawnID then
--- 				ascending[respawnID] = params
--- 			end
--- 		else
--- 			-- Try to restore relatively normal behavior:
--- 			local target = params.target
--- 			Spring.SetProjectileTarget(projectileID, target[1], target[2], target[3])
--- 		end
--- 	end
--- end
+			local respawnID = Spring.SpawnProjectile(weaponDefID, spawnCache)
+
+			respawning = false
+
+			if respawnID then
+				ascending[respawnID] = params
+			end
+		else
+			-- Restore default behavior:
+			local target = params.target
+			Spring.SetProjectileTarget(projectileID, target[1], target[2], target[3])
+		end
+	end
+end
 
 local function newProjectile(projectileID, weaponDefID)
 	local weapon = weapons[weaponDefID]
@@ -275,7 +304,7 @@ local function newProjectile(projectileID, weaponDefID)
 		elseif targetType == targetedFeature then
 			target = { Spring.GetFeaturePosition(targets) }
 		else
-			return -- interceptors should not verticalize
+			return
 		end
 		target[2] = Spring.GetGroundHeight(target[1], target[3])
 	end
@@ -284,13 +313,15 @@ local function newProjectile(projectileID, weaponDefID)
 		target[2] = 0
 	end
 
-	-- todo: if the projectile hasn't reached full speed yet, this turnRadius check is too wide
-	if not position:isInCylinder(target, 2 * weapon.turnRadius) then
-		local ascendHeight = target[2] + weapon.cruiseHeight - weapon.turnRadius
+	if not position:isInCylinder(target, weapon.rangeMinimum) then
+		local ascentAboveLauncher = position[2] + weapon.heightIntoTurn
+		local ascentAboveTarget = target[2] + weapon.cruiseHeight - weapon.turnRadius
+
+		local ascent = math.max(ascentAboveLauncher, ascentAboveTarget)
 
 		local projectile = {
 			target       = target,
-			ascendHeight = math.max(ascendHeight, position[2] + weapon.heightIntoTurn),
+			ascendHeight = ascent,
 			cruiseHeight = weapon.cruiseHeight,
 			turnRadius   = weapon.turnRadius,
 			acceleration = weapon.acceleration,
@@ -299,9 +330,11 @@ local function newProjectile(projectileID, weaponDefID)
 			turnRate     = weapon.turnRate,
 		}
 
-		-- todo: not doing respawning for now
-		-- todo: instead, making this code work even when it probably should just break tbh
-		if target[2] - position[2] <= weapon.heightIntoTurn + math.huge then
+		local cruiseDistance = distanceXZ(position, target) - weapon.rangeMinimum
+		local cruiseHeightTolerance = cruiseDistance * math_sin(cruisePitchMax)
+
+		-- todo: a weapon property maybe
+		if target[2] - position[2] <= weapon.heightIntoTurn + cruiseHeightTolerance then
 			-- This will level out after `uptime` is reached and path toward the target,
 			-- then the StarburstProjectile disables its `turnToTarget` extremely early:
 			local cruiseHeightTarget = projectile.ascendHeight + weapon.turnRadius
@@ -310,7 +343,7 @@ local function newProjectile(projectileID, weaponDefID)
 		else
 			-- StarburstProjectile will run out of uptime too soon.
 			-- We fix that by respawning them with a larger uptime:
-			-- respawnProjectile(projectileID, projectile, getUptime(projectile, position))
+			respawnProjectile(projectileID, projectile, getUptime(projectile, position))
 		end
 	end
 end
@@ -384,7 +417,7 @@ local function verticalize(projectileID, projectile)
 	-- At large distances, make guidance slightly lazier:
 	local chaseFactor = 0.25
 
-	local updated = vector.updateGuidance(
+	local updated = updateGuidance(
 		position,
 		velocity,
 		projectile.target,
@@ -400,10 +433,10 @@ local function verticalize(projectileID, projectile)
 	else
 		if updated == false then
 			-- Projectile is almost directly on top of the target.
-			vector.accelerate(velocity, projectile.acceleration, projectile.speedMax)
+			accelerate(velocity, projectile.acceleration, projectile.speedMax)
 		else
 			-- Guidance failed. That's not good. Try to fix this:
-			vector.rotateTo(velocity, repack3(displacement(position, projectile.target)))
+			rotateTo(velocity, repack3(displacement(position, projectile.target)))
 		end
 
 		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
@@ -417,9 +450,13 @@ end
 -- Engine call-ins -------------------------------------------------------------
 
 function gadget:Initialize()
-	if table.count(weapons) == 0 then
+	if not next(weapons) then
 		Spring.Log(gadget:GetInfo().name, LOG.ERROR, "No weapons found.")
 		gadgetHandler:RemoveGadget(self)
+	else
+		for weaponDefID in pairs(weapons) do
+			Script.SetWatchProjectile(weaponDefID, true)
+		end
 	end
 
 	-- todo: obviously do not delete everyone's projectiles in production
