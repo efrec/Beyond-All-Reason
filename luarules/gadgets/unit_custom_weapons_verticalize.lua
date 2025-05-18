@@ -315,10 +315,6 @@ local function newProjectile(projectileID, weaponDefID)
 	end
 end
 
-local function ping(message)
-	Spring.MarkerAddPoint(position[1], position[2], position[3], message)
-end
-
 local function ascend(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
 
@@ -328,32 +324,35 @@ local function ascend(projectileID, projectile)
 	end
 end
 
--- The turn radius should be slightly tight but must look like a natural "drop" onto target.
--- Velocity, especially, can cause the smoke trails to draw jagged lines, so smooth it out.
-local function getDropRadiusXZ(projectile, velocity, level)
-	-- todo: is there some derivation for '5'? vibes?
-	return (2 * level) * (projectile.turnRadius + 5 * velocity[4])
+---Determines the end of the cruise distance on the horizontal flight plan.
+---The expected result is a smoothed-out turn slightly wider than the projectile's `turnRadius`.
+---@param turnRadius number
+---@param speed number
+---@param level number [0, 2] 0: vertical down, 1: level, 2: vertical up
+---@return number radius
+local function getDropRadiusXZ(turnRadius, speed, level)
+	-- Fast projectiles create long smoke trails (per frame) which look very jagged.
+	-- On aesthetic grounds, then, smoothing out the turn by widening it looks better.
+	return (turnRadius + 5 * speed) * (2 * level)
 end
 
 local function turnToLevel(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
+	local speed = velocity[4]
 
-	local pitchPrevious = projectile.pitch or 0
-	local pitchCurrent = math.atan2(velocity[2], velocity[4])
+	local pitchLast = projectile.pitch or 0
+	local pitch = math.atan2(velocity[2], speed)
 
-	-- It's the responsibility of the uptime min/max ranging to allow for a specific
-	-- maximum pitch between the initial ascend height and the final vertical height
+	-- todo: It's the responsibility of the uptime min/max ranging to allow for a specific
+	-- todo: maximum pitch between the initial ascend height and the final vertical height
+	if pitch < math_pi / 8 then -- todo: so we should know what that max angle is
+		local level = (1 + math.asin(pitch)) ^ 2
+		local radiusXZ = getDropRadiusXZ(projectile.turnRadius, speed, level)
 
-	if pitchCurrent < math_pi / 8 then -- todo: so we should know what that max angle is
-		local level = 1 + math.asin(pitchCurrent)
-		level = level * level
-
-		local radiusXZ = getDropRadiusXZ(projectile, velocity, level)
-
-		if math_abs(pitchCurrent - pitchPrevious) >= 1e-6 and
-			not position:isInCylinder(projectile.target, radiusXZ)
+		if not position:isInCylinder(projectile.target, radiusXZ) and
+			math_abs(pitch - pitchLast) >= 1e-6
 		then
-			projectile.pitch = pitchCurrent
+			projectile.pitch = pitch
 		else
 			projectile.pitch = nil
 			projectile.level = level
@@ -367,19 +366,11 @@ end
 local function cruise(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
 
-	local radiusXZ = getDropRadiusXZ(projectile, velocity, projectile.level)
+	local target = projectile.target
+	local radiusXZ = getDropRadiusXZ(projectile.turnRadius, velocity[4], projectile.level)
 
-	-- Spring.Echo(table.toString(position))
-	-- Spring.Echo(table.toString(projectile.target))
-	-- ping(vector.displacementXZ(position, projectile.target) .. ', ' .. radiusXZ)
-
-	-- local target = projectile.target
-	-- Spring.MarkerAddPoint(target[1], target[2], target[3], '?')
-
-	if position:isInCylinder(projectile.target, radiusXZ) then
+	if position:isInCylinder(target, radiusXZ) then
 		Spring.SetProjectileMoveControl(projectileID, true)
-
-		local target = projectile.target
 		Spring.SetProjectileTarget(projectileID, target[1], target[2], target[3])
 
 		cruising[projectileID] = nil
@@ -387,44 +378,41 @@ local function cruise(projectileID, projectile)
 	end
 end
 
----Controls the projectile in two stages, first diving toward vertically down,
----then tracking exactly onto the target position.
----@param projectileID integer
----@param projectile table
 local function verticalize(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
 
-	-- Target is stationary so there is no pursuit cone.
-	-- This is just lazy guidance to smooth out the turn.
+	-- At large distances, make guidance slightly lazier:
 	local chaseFactor = 0.25
 
-	-- if position[2] + velocity[2] < verticalHeight or
-	if not vector.updateGuidance(
-			position, velocity, projectile.target,
-			projectile.speedMax,
-			projectile.acceleration,
-			projectile.turnRate, -- ?
-			chaseFactor
-		)
-	then
-		-- Guidance did not update our path. We are likely about to impact.
-		local verticalHeight = projectile.target[2] + projectile.cruiseHeight - projectile.turnRadius
+	local updated = vector.updateGuidance(
+		position,
+		velocity,
+		projectile.target,
+		projectile.speedMax,
+		projectile.acceleration,
+		projectile.turnRate,
+		chaseFactor
+	)
 
-		if position[2] > verticalHeight then
-			rotateTo(velocity, repack3(displacement(position, projectile.target)))
-		else
-			-- Impact imminent
+	if not updated then
+		if updated == false then
+			-- Projectile is almost directly on top of the target.
 			vector.accelerate(velocity, projectile.acceleration, projectile.speedMax)
+			spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
+			Spring.SetProjectileMoveControl(projectileID, false)
+			verticalizing[projectileID] = nil
+			return
+		else
+			-- Guidance failed. That's not good. Try to fix this:
+			vector.rotateTo(velocity, repack3(displacement(position, projectile.target)))
+			Spring.SetProjectileMoveControl(projectileID, false)
+			verticalizing[projectileID] = nil
+			return
 		end
-
-		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
-		Spring.SetProjectileMoveControl(projectileID, false)
-
-		verticalizing[projectileID] = nil
-	else
-		spSetProjectilePosition(projectileID, position[1], position[2], position[3])
-		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 	end
+
+	spSetProjectilePosition(projectileID, position[1], position[2], position[3])
+	spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 end
 
 --------------------------------------------------------------------------------
