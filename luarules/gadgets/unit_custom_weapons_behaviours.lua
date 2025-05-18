@@ -101,24 +101,7 @@ do
 	end
 end
 
-local repack3a
-do
-	local float3a = { 0, 0, 0, 0 }
-
-	---Fills a reusable helper table rather than create/destroy intermediate tables.
-	---@param x number?
-	---@param y number?
-	---@param z number?
-	---@param a number? the "augment" of a vector generally stores a magnitude term
-	---@return table float3a
-	repack3a = function(x, y, z)
-		local float3a = float3a
-		float3a[1], float3a[2], float3a[3], float3a[4] = x, y, z, a
-		return float3a
-	end
-end
-
-local position = { 0, 0, 0, isInSphere = vector.isInSphere }
+local position = { 0, 0, 0 }
 local velocity = { 0, 0, 0, 0 }
 
 local function getPositionAndVelocity(projectileID)
