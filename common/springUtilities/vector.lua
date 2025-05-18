@@ -80,12 +80,12 @@ local math_pi              = math.pi
 
 -- Boundary and acceptability constants
 local ARC_EPSILON          = 1e-6
-local ARC_NORMAL_EPSILON   = 1 - ARC_EPSILON
-local ARC_OPPOSITE_EPSILON = ARC_EPSILON
+local ARC_NORMAL_EPSILON   = 1 - 1e-6
+local ARC_OPPOSITE_EPSILON = -1 + 1e-6
 
 local RAD_EPSILON          = 1e-8
-local RAD_NORMAL_EPSILON   = math_pi * 0.5 - RAD_EPSILON
-local RAD_OPPOSITE_EPSILON = math_pi - RAD_EPSILON
+local RAD_NORMAL_EPSILON   = math_pi * 0.5 - 1e-8
+local RAD_OPPOSITE_EPSILON = math_pi - 1e-8
 
 local XYZ_EPSILON          = 1e-3
 local XYZ_PATH_EPSILON     = 1
@@ -602,23 +602,18 @@ local function mixXZ(vector1, vector2, factor)
 	end
 end
 
----Helper for using `mix` with multi-value returns.
----@param v11 number
----@param v12 number
----@param v13 number
----@param v21 number
----@param v22 number
----@param v23 number
----@param factor number
----@return x number
----@return y number
----@return z number
-local function _mix_multivalue(v11, v12, v13, v21, v22, v23, factor)
-	factor = math_clamp(factor, 0, 1)
-	return
-		v11 * (1 - factor) + v21 * factor,
-		v12 * (1 - factor) + v22 * factor,
-		v13 * (1 - factor) + v23 * factor
+---Module internal. Helper function for the mixMagnitude's.
+---@param vector1 table
+---@param vector2 table
+local function _copy_magnitude(vector1, vector2)
+	setMagnitude(vector1, getMagnitude(vector2))
+end
+
+---Module internal. Helper function for the mixMagnitude's.
+---@param vector1 table
+---@param vector2 table
+local function _copy_magnitude_xz(vector1, vector2)
+	setMagnitudeXZ(vector1, getMagnitudeXZ(vector2))
 end
 
 ---Modifies `vector1` and updates its augment, if present.
@@ -626,13 +621,18 @@ end
 ---@param vector2 table
 ---@param factor number interpolation factor, from 0 to 1
 local function mixMagnitude(vector1, vector2, factor)
-	factor = math_clamp(factor, 0, 1)
-	local scale = (1 - factor) + factor * getMagnitude(vector2) / getMagnitude(vector1)
-	vector1[1] = vector1[1] * scale
-	vector1[2] = vector1[2] * scale
-	vector1[3] = vector1[3] * scale
-	if vector1[4] then
-		vector1[4] = vector1[4] * scale
+	if factor > 0 then
+		if factor < 1 then
+			local scale = (1 - factor) + factor * getMagnitude(vector2) / getMagnitude(vector1)
+			vector1[1] = vector1[1] * scale
+			vector1[2] = vector1[2] * scale
+			vector1[3] = vector1[3] * scale
+			if vector1[4] then
+				vector1[4] = vector1[4] * scale
+			end
+		else
+			_copy_magnitude(vector1, vector2)
+		end
 	end
 end
 
@@ -641,46 +641,18 @@ end
 ---@param vector2 table
 ---@param factor number interpolation factor, from 0 to 1
 local function mixMagnitudeXZ(vector1, vector2, factor)
-	factor = math_clamp(factor, 0, 1)
-	local scale = (1 - factor) + factor * getMagnitudeXZ(vector2) / getMagnitudeXZ(vector1)
-	vector1[1] = vector1[1] * scale
-	vector1[3] = vector1[3] * scale
-	if vector1[4] then
-		vector1[4] = vector1[4] * scale
+	if factor > 0 then
+		if factor < 1 then
+			local scale = (1 - factor) + factor * getMagnitudeXZ(vector2) / getMagnitudeXZ(vector1)
+			vector1[1] = vector1[1] * scale
+			vector1[3] = vector1[3] * scale
+			if vector1[4] then
+				vector1[4] = vector1[4] * scale
+			end
+		else
+			_copy_magnitude_xz(vector1, vector2)
+		end
 	end
-end
-
----Fails when `vector1` and `vector2` have opposite direction. Not good, only fast.
----
----Modifies `vector1`.
----@param vector1 table
----@param vector2 table
----@param factor number interpolation factor, from 0 to 1
-local function mixRotation(vector1, vector2, factor)
-	factor = math_clamp(factor, 0, 1)
-	local m1 = getMagnitude(vector1)
-	local m2 = getMagnitude(vector2)
-	-- Preserves scale of `vector1`. Redundant for unit vectors.
-	local scale = m1 / (m1 * (1 - factor) + m2 * m1 / m2 * factor)
-	vector1[1] = (vector1[1] * (1 - factor) + vector2[1] * m1 / m2 * factor) * scale
-	vector1[2] = (vector1[2] * (1 - factor) + vector2[2] * m1 / m2 * factor) * scale
-	vector1[3] = (vector1[3] * (1 - factor) + vector2[3] * m1 / m2 * factor) * scale
-end
-
----Fails when `vector1` and `vector2` have opposite direction. Not good, only fast.
----
----Modifies `vector1`.
----@param vector1 table
----@param vector2 table
----@param factor number interpolation factor, from 0 to 1
-local function mixRotationXZ(vector1, vector2, factor, rescale)
-	factor = math_clamp(factor, 0, 1)
-	local m1 = getMagnitudeXZ(vector1)
-	local m2 = getMagnitudeXZ(vector2)
-	-- Preserves scale of `vector1`. Redundant for unit vectors.
-	local scale = m1 / (m1 * (1 - factor) + m2 * m1 / m2 * factor)
-	vector1[1] = (vector1[1] * (1 - factor) + vector2[1] * m1 / m2 * factor) * scale
-	vector1[3] = (vector1[3] * (1 - factor) + vector2[3] * m1 / m2 * factor) * scale
 end
 
 ---Modifies `vector1`.
@@ -708,7 +680,7 @@ end
 ---@param vector1 table
 ---@param vector2 table
 ---@param factor number [0, 1]
----@param integer misalignment -1: opposite vectors, 1: parallel vectors
+---@return integer? misalignment `nil`: none, `-1`: opposite vectors, `1`: parallel vectors
 local function slerp(vector1, vector2, factor)
 	if factor > ARC_EPSILON then
 		if factor < ARC_NORMAL_EPSILON then
@@ -733,6 +705,49 @@ local function slerp(vector1, vector2, factor)
 			end
 		else
 			rotateTo(vector1, vector2)
+		end
+	end
+end
+
+---Fails when `vector1` and `vector2` have opposite direction. Not good, only fast.
+---
+---Modifies `vector1`.
+---@param vector1 table
+---@param vector2 table
+---@param factor number interpolation factor, from 0 to 1
+local function mixRotation(vector1, vector2, factor)
+	if factor > 0 then
+		if factor < 1 then
+			local m1 = getMagnitude(vector1)
+			local m2 = getMagnitude(vector2)
+			-- Preserves scale of `vector1`. Redundant for unit vectors.
+			local scale = m1 / (m1 * (1 - factor) + m2 * m1 / m2 * factor)
+			vector1[1] = (vector1[1] * (1 - factor) + vector2[1] * m1 / m2 * factor) * scale
+			vector1[2] = (vector1[2] * (1 - factor) + vector2[2] * m1 / m2 * factor) * scale
+			vector1[3] = (vector1[3] * (1 - factor) + vector2[3] * m1 / m2 * factor) * scale
+		else
+			rotateTo(vector1, vector2)
+		end
+	end
+end
+
+---Fails when `vector1` and `vector2` have opposite direction. Not good, only fast.
+---
+---Modifies `vector1`.
+---@param vector1 table
+---@param vector2 table
+---@param factor number interpolation factor, from 0 to 1
+local function mixRotationXZ(vector1, vector2, factor, rescale)
+	if factor > 0 then
+		if factor < 1 then
+			local m1 = getMagnitudeXZ(vector1)
+			local m2 = getMagnitudeXZ(vector2)
+			-- Preserves scale of `vector1`. Redundant for unit vectors.
+			local scale = m1 / (m1 * (1 - factor) + m2 * m1 / m2 * factor)
+			vector1[1] = (vector1[1] * (1 - factor) + vector2[1] * m1 / m2 * factor) * scale
+			vector1[3] = (vector1[3] * (1 - factor) + vector2[3] * m1 / m2 * factor) * scale
+		else
+			rotateToXZ(vector1, vector2)
 		end
 	end
 end
@@ -1988,10 +2003,11 @@ return {
 	mixXZ                  = mixXZ,
 	mixMagnitude           = mixMagnitude,
 	mixMagnitudeXZ         = mixMagnitudeXZ,
-	mixRotation            = mixRotation,
-	mixRotationXZ          = mixRotationXZ,
 	rotateTo               = rotateTo,
 	rotateToXZ             = rotateToXZ,
+	slerp                  = slerp,
+	mixRotation            = mixRotation,
+	mixRotationXZ          = mixRotationXZ,
 
 	dot                    = dot,
 	dotXZ                  = dotXZ,
