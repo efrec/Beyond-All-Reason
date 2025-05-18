@@ -398,17 +398,15 @@ local function verticalize(projectileID, projectile)
 		if updated == false then
 			-- Projectile is almost directly on top of the target.
 			vector.accelerate(velocity, projectile.acceleration, projectile.speedMax)
-			spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
-			Spring.SetProjectileMoveControl(projectileID, false)
-			verticalizing[projectileID] = nil
-			return
 		else
 			-- Guidance failed. That's not good. Try to fix this:
 			vector.rotateTo(velocity, repack3(displacement(position, projectile.target)))
-			Spring.SetProjectileMoveControl(projectileID, false)
-			verticalizing[projectileID] = nil
-			return
 		end
+
+		spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
+		Spring.SetProjectileMoveControl(projectileID, false)
+		verticalizing[projectileID] = nil
+		return
 	end
 
 	spSetProjectilePosition(projectileID, position[1], position[2], position[3])
