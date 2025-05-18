@@ -128,10 +128,10 @@ end
 
 -- Weapon behaviors ------------------------------------------------------------
 
-local function cruise(projectileID, position, velocity, positionY)
+local function cruise(projectileID, position, velocity, cruiseHeight)
 	local normal = repack3(spGetGroundNormal(position[1], position[3]))
 	local attitude = velocity[2] - dot(velocity, normal) * normal[2]
-	spSetProjectilePosition(projectileID, position[1], positionY, position[3])
+	spSetProjectilePosition(projectileID, position[1], cruiseHeight, position[3])
 	spSetProjectileVelocity(projectileID, velocity[1], attitude, velocity[3])
 end
 
@@ -150,8 +150,9 @@ specialEffects.cruise = function(projectileID, params)
 			if position[2] < cruiseHeight then
 				cruise(projectileID, position, velocity, cruiseHeight)
 				projectileData[projectileID] = true
-			elseif projectileData[projectileID] and -- avoid steep dives after cliffs:
-				position[2] > cruiseHeight and velocity[2] > velocity[4] * -0.25
+			elseif projectileData[projectileID] and
+				position[2] > cruiseHeight and
+				velocity[2] > velocity[4] * -0.25 -- avoid steep dives after cliffs
 			then
 				cruise(projectileID, position, velocity, cruiseHeight)
 			end

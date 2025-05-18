@@ -1129,10 +1129,11 @@ end
 ---@return number z
 local function randomFrom3D(vector, factorX, factorY, factorZ)
 	local scale = getMagnitude(vector)
+	local rx, ry, rz = random()
 	return
-		vector[1] + (2 * math_random() - 1) * factorX * scale,
-		vector[2] + (2 * math_random() - 1) * factorY * scale,
-		vector[3] + (2 * math_random() - 1) * factorZ * scale
+		vector[1] + rx * factorX * scale,
+		vector[2] + ry * factorY * scale,
+		vector[3] + rz * factorZ * scale
 end
 
 ---Get random components by deviating away from an existing vector's components.
@@ -1145,9 +1146,10 @@ end
 ---@return number z
 local function randomFrom2D(vector, factorX, factorZ)
 	local scale = getMagnitude(vector)
+	local rx, rz = randomXZ()
 	return
-		vector[1] + (2 * math_random() - 1) * factorX * scale,
-		vector[3] + (2 * math_random() - 1) * factorZ * scale
+		vector[1] + rx * factorX * scale,
+		vector[3] + rz * factorZ * scale
 end
 
 ---Select a random radius between two concentric circles (or shells) uniformly.
