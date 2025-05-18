@@ -205,7 +205,8 @@ specialEffects.retarget = function(projectileID, params)
 end
 
 specialEffects.sector_fire = function(projectileID, params)
-	local velocity = repack3a(spGetProjectileVelocity(projectileID))
+	local velocity = velocity
+	velocity[1], velocity[2], velocity[3], velocity[4] = spGetProjectileVelocity(projectileID)
 
 	-- Using the half-angle (departure from centerline) in radians:
 	local angleMax = tonumber(params.spread_angle) * pi / 180 * 0.5
