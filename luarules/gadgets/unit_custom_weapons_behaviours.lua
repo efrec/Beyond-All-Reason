@@ -326,7 +326,6 @@ function gadget:GameFrame(frame)
 	for projectileID, params in pairs(projectiles) do
 		if params.speceffect(projectileID, params) then
 			projectiles[projectileID] = nil
-			projectileData[projectileID] = nil
 		end
 	end
 end
