@@ -805,6 +805,14 @@ cross = function(vector1, vector2)
 		-v21 * v12 + v11 * v22
 end
 
+---Module internal. Get the cross product of two unrolled vectors.
+local function _cross_multivalue(v11, v12, v13, v21, v22, v23)
+	return
+		-v22 * v13 + v12 * v23,
+		-v11 * v23 + v21 * v13,
+		-v21 * v12 + v11 * v22
+end
+
 ---@param vector1 table
 ---@param vector2 table
 ---@return number productY only the y value is needed given that x = 0 and z = 0 always
@@ -1619,6 +1627,148 @@ local function maskXZ(vector, vectorMask, factor)
 end
 
 --------------------------------------------------------------------------------
+-- Coordinate systems ----------------------------------------------------------
+
+---@param vector table
+---@return number theta `θ` [0, 2 pi) angle around the up-axis in x-z
+---@return number phi `φ` [-pi, pi] angle below/above the x-z plane
+---@return number magnitude
+local function getPolarCoordinates(vector)
+	local vx, vy, vz = vector[1], vector[2], vector[3]
+	local theta = math_atan2(vz, vx)
+	local phi = math_atan2(vy, math_sqrt(vx * vx + vz * vz))
+	return theta, phi, getMagnitude(vector)
+end
+
+---@param vector table
+---@return number theta `θ` [0, 2 pi) angle in the x-z plane
+---@return number magnitude
+local function getPolarCoordinatesXZ(vector)
+	return math_atan2(vector[3], vector[1]), getMagnitudeXZ(vector)
+end
+
+---Modifies `vector` and updates its augment, if present.
+---@param vector any
+---@param theta any
+---@param phi any
+---@param length any
+local function setPolarCoordinates(vector, theta, phi, length)
+	local scale = length and length / getMagnitude(vector) or 1
+	local cos_phi = math_cos(phi)
+	vector[1] = math_cos(theta) * cos_phi * length
+	vector[2] = math_sin(phi) * length
+	vector[3] = math_sin(theta) * cos_phi * length
+	if length and vector[4] then
+		vector[4] = length
+	end
+end
+
+---Modifies `vector` and updates its augment, if present.
+local function setPolarCoordinatesXZ(vector, theta, length)
+	local scale = length and length / getMagnitudeXZ(vector) or 1
+	vector[1] = math_cos(theta) * length
+	vector[3] = math_sin(theta) * length
+	if length and vector[4] then
+		vector[4] = length
+	end
+end
+
+--------------------------------------------------------------------------------
+-- General geometry ------------------------------------------------------------
+
+---Gives the components of two vector3s, one a point in the plane, the other the normal.
+---The equation of the plane can be tested as `dot(vector - point, normal)`.
+---@param point1 table
+---@param point2 table
+---@param point3 table
+---@return number dx planar normal
+---@return number dy
+---@return number dz
+---@return number x point on the plane
+---@return number y
+---@return number z
+local function getPlane(point1, point2, point3)
+	local dis21, dis22, dis23 = displacement(point2, point1)
+	local dot12 = dot(point1, point2)
+	local a1, a2, a3 = dis21 * dot12, dis21 * dot12, dis23 * dot12
+
+	local dis31, dis32, dis33 = displacement(point3, point1)
+	local dot13 = dot(point1, point3)
+	local b1, b2, b3 = dis31 * dot13, dis31 * dot13, dis33 * dot13
+
+	local nx, ny, nz = _cross_multivalue(a1, a2, a3, b1, b2, b3)
+
+	return nx, ny, nz, point1[1], point1[2], point1[3]
+end
+
+---Get the coordinates marking the intersection, if colliding, or the nearest point, if not,
+---of a ray and a plane. The plane is set by a point (any) in the plane and the planar normal.
+---@param pointRay table
+---@param direction table
+---@param pointPlane table
+---@param normal table
+---@return number x coordinates
+---@return number y
+---@return number z
+---@return boolean collision `true`: intersection, `false`: nearest point
+local function getRayPlaneApproach(pointRay, direction, pointPlane, normal)
+	local rx = pointRay[1]
+	local ry = pointRay[2]
+	local rz = pointRay[3]
+
+	local product = dot(direction, normal)
+
+	if math_abs(product) > ARC_EPSILON then
+		local d1 = pointPlane[1] - rx
+		local d2 = pointPlane[2] - ry
+		local d3 = pointPlane[3] - rz
+		local t = (d1 * normal[1] + d2 * normal[2] + d3 * normal[3]) / product
+
+		if t >= 0 then
+			return
+				rx + t * direction[1],
+				ry + t * direction[2],
+				rz + t * direction[3],
+				true
+		else
+			return rx, ry, rz, false
+		end
+	end
+end
+
+---Get the coordinates marking the intersection, if colliding,
+---or the nearest point, if not, of a ray and a sphere.
+---@param point table
+---@param direction table
+---@param origin table
+---@param radius any
+---@return number x coordinates
+---@return number y
+---@return number z
+---@return boolean collision `true`: intersection, `false`: nearest point
+local function getRaySphereApproach(point, direction, origin, radius)
+	local px, py, pz = point[1], point[2], point[3]
+	local rx, ry, rz = direction[1], direction[2], direction[3]
+	local ox, oy, oz = origin[1], origin[2], origin[3]
+
+	-- Parameterize the ray as extending along a direction `t`:
+	local t = math_max(0, rx * (ox - px) + ry * (oy - py) + rz * (oz - pz))
+
+	local dx = (px + t * rx) - ox
+	local dy = (py + t * ry) - oy
+	local dz = (pz + t * rz) - oz
+
+	local d2 = dx * dx + dy * dy + dz * dz
+
+	if d2 > radius * radius then
+		local scale = radius / (radius + math_sqrt(d2))
+		return ox + dx * scale, oy + dy * scale, oz + dz * scale, false
+	else
+		return ox + dx, oy + dy, oz + dz, true
+	end
+end
+
+--------------------------------------------------------------------------------
 -- General kinematics ----------------------------------------------------------
 
 -- A vector module shouldn't get into these kinds of specifics, but in our case
@@ -1637,9 +1787,11 @@ local function updateSpeedAndPosition(position, velocity, acceleration, speedMax
 	local speed = velocity[4] or magnitude(velocity)
 	local speedNew = speed + acceleration
 	local ratio = speedNew < speedMax and speedNew / speed or 1
+
 	velocity[1] = velocity[1] * ratio
 	velocity[2] = velocity[2] * ratio
 	velocity[3] = velocity[3] * ratio
+
 	position[1] = position[1] + velocity[1]
 	position[2] = position[2] + velocity[2]
 	position[3] = position[3] + velocity[3]
@@ -2071,6 +2223,15 @@ return {
 	limitSphere            = limitSphere,
 	mask                   = mask,
 	maskXZ                 = maskXZ,
+
+	getPolarCoordinates    = getPolarCoordinates,
+	getPolarCoordinatesXZ  = getPolarCoordinatesXZ,
+	setPolarCoordinates    = setPolarCoordinates,
+	setPolarCoordinatesXZ  = setPolarCoordinatesXZ,
+
+	getPlane               = getPlane,
+	getRayPlaneApproach    = getRayPlaneApproach,
+	getRaySphereApproach   = getRaySphereApproach,
 
 	updateSpeedAndPosition = updateSpeedAndPosition,
 	updatePosition         = updatePosition,
