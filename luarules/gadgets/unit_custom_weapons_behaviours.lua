@@ -187,34 +187,18 @@ specialEffects.retarget = function(projectileID, params)
 	return true
 end
 
+specialEffects.sector_fire = function(projectileID, params)
+	local velocity = velocity -- upvalue
+	velocity[1], velocity[2], velocity[3], velocity[4] = spGetProjectileVelocity(projectileID)
 
-checkingFunctions.sector_fire = {}
-checkingFunctions.sector_fire["always"] = function(proID)
-	-- as soon as the siege projectile is created, pass true on the
-	-- checking function, to go to applying function
-	-- so the unit state is only checked when the projectile is created
+	-- Using the half-angle (departure from centerline) in radians:
+	local angleMax = tonumber(params.spread_angle) * pi / 180 * 0.5
+	local rangeReductionMax = -1 * tonumber(params.max_range_reduction)
+
+	velocity[1], velocity[3] = randomFromConicXZ(velocity, angleMax, rangeReductionMax)
+	spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
+
 	return true
-end
-applyingFunctions.sector_fire = function(proID)
-	local infos = projectiles[proID]
-	local vx, vy, vz = SpGetProjectileVelocity(proID)
-
-	local spread_angle = tonumber(infos.spread_angle)
-	local max_range_reduction = tonumber(infos.max_range_reduction)
-
-	local angle_factor = (spread_angle * (math_random() - 0.5)) * mathPi / 180
-	local cos_angle = mathCos(angle_factor)
-	local sin_angle = mathSin(angle_factor)
-
-	local vx_new = vx * cos_angle - vz * sin_angle
-	local vz_new = vx * sin_angle + vz * cos_angle
-
-	local velocity_factor = 1 - (math_random() ^ (1 + max_range_reduction)) * max_range_reduction
-
-	vx = vx_new * velocity_factor
-	vz = vz_new * velocity_factor
-
-	SpSetProjectileVelocity(proID, vx, vy, vz)
 end
 
 checkingFunctions.split = {}
