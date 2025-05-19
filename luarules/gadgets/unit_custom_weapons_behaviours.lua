@@ -180,7 +180,7 @@ specialEffects.sector_fire = function(projectileID, params)
 	velocity[1], velocity[2], velocity[3], velocity[4] = spGetProjectileVelocity(projectileID)
 
 	-- Using the half-angle (departure from centerline) in radians:
-	local angleMax = tonumber(params.spread_angle) * pi / 180 * 0.5
+	local angleMax = tonumber(params.spread_angle) * math_pi / 180 * 0.5
 	local rangeReductionMax = -1 * tonumber(params.max_range_reduction)
 
 	velocity[1], velocity[3] = randomFromConicXZ(velocity, angleMax, rangeReductionMax)
