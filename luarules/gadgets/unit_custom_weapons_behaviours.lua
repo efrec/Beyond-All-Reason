@@ -21,10 +21,6 @@ end
 
 local vector = VFS.Include("common/springUtilities/vector.lua")
 
-local math_random = math.random
-local math_sqrt = math.sqrt
-local math_cos = math.cos
-local math_sin = math.sin
 local math_pi = math.pi
 
 local spGetGroundHeight = Spring.GetGroundHeight
