@@ -263,14 +263,16 @@ specialEffects.torpwaterpen = function(projectileID, params)
 	end
 end
 
-local retargetCopy = specialEffects.retarget
-local torpedoCopy = specialEffects.torpwaterpen
+do
+	local retarget = specialEffects.retarget
+	local torpedoWaterPen = specialEffects.torpwaterpen
 
-specialEffects.torpwaterpenretarget = function(projectileID, params)
-	if not projectileData[projectileID] and torpedoCopy(projectileID) then
-		projectileData[projectileID] = true
+	specialEffects.torpwaterpenretarget = function(projectileID, params)
+		if not projectileData[projectileID] and torpedoWaterPen(projectileID) then
+			projectileData[projectileID] = true
+		end
+		return retarget(projectileID, params)
 	end
-	return retargetCopy(projectileID, params)
 end
 
 --------------------------------------------------------------------------------
