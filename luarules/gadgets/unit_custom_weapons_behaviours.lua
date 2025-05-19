@@ -83,12 +83,26 @@ end
 
 local position = { 0, 0, 0 }
 local velocity = { 0, 0, 0, 0 }
+local spawnCache = {
+	pos     = position,
+	speed   = repack3(), -- not `velocity`; ParseProjectile needs a float3
+	ttl     = 3000,
+	gravity = gravityPerFrame,
+}
 
 local function getPositionAndVelocity(projectileID)
 	local position, velocity = position, velocity
 	position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
 	velocity[1], velocity[2], velocity[3], velocity[4] = spGetProjectileVelocity(projectileID)
 	return position, velocity
+end
+
+local function getSpawnCache(projectileID, weaponParams)
+	local spawnCache = spawnCache
+	spawnCache.cegTag = params.cegtag
+	spawnCache.model = params.model
+	spawnCache.owner = Spring.GetProjectileOwnerID(projectileID)
+	return spawnCache
 end
 
 local function isProjectileFalling(projectileID)
@@ -179,22 +193,14 @@ specialEffects.sector_fire = function(projectileID, params)
 	return true
 end
 
-local splitParams = {
-	pos     = position,
-	speed   = repack3(), -- not `velocity`; ParseProjectile needs a float3
-	ttl     = 3000,
-	gravity = gravityPerFrame,
-}
-
 local function split(projectileID, params)
 	local position, velocity = position, velocity -- upvalues
 	position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
 
+	local splitParams = getSpawnCache(projectileID, weaponParams)
+
 	Spring.DeleteProjectile(projectileID)
 	Spring.SpawnCEG(params.splitexplosionceg, position[1], position[2], position[3])
-
-	splitParams.cegTag = params.cegtag
-	splitParams.model = params.model
 
 	local projectileDefID = subweaponDefID[params.speceffect_def]
 	local speed = repack3()
@@ -214,21 +220,13 @@ end
 
 -- Water penetration behaviors
 
-local waterpenParams = {
-	pos     = position,
-	speed   = repack3(),
-	ttl     = 3000,
-	gravity = gravityPerFrame * 0.5,
-}
-
 local function cannonWaterPen(projectileID, params)
 	local position = position -- upvalue
 	local velocity = repack3(spGetProjectileVelocity(projectileID))
 
 	multiply(velocity, 0.5)
 
-	waterpenParams.cegTag = params.cegtag
-	waterpenParams.model = params.model
+	local waterpenParams = getSpawnCache(projectileID, weaponParams)
 
 	Spring.DeleteProjectile(projectileID)
 	Spring.SpawnProjectile(subweaponDefID[params.speceffect_def], waterpenParams)
