@@ -132,7 +132,6 @@ do
 	local float3 = { 0, 0, 0 }
 
 	---Replaces `select(4, spGetUnitPosition(targetID, false, true))`, which is slow.
-	---Direct assignment is much faster than using varargs, first of all, but also
 	---`select` tables the varargs, which fully defeats the point of a reusable table.
 	getUnitAimPosition = function(targetID)
 		local _; -- sink for unused args
