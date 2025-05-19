@@ -128,60 +128,40 @@ local function isUnitUnderwater(unitID)
 end
 
 -- Weapon behaviors ------------------------------------------------------------
-checkingFunctions.cruise = {}
-checkingFunctions.cruise["distance>0"] = function(proID)
-	--Spring.Echo()
 
-	if Spring.GetProjectileTimeToLive(proID) <= 0 then
-		return true
-	end
-	local targetTypeInt, target = Spring.GetProjectileTarget(proID)
-	local xx, yy, zz
-	local xxv, yyv, zzv
-	if targetTypeInt == string.byte('g') then
-		xx = target[1]
-		yy = target[2]
-		zz = target[3]
-	end
-	if targetTypeInt == string.byte('u') then
-		_, _, _, _, _, _, xx, yy, zz = Spring.GetUnitPosition(target, true, true)
-	end
-	local xp, yp, zp = Spring.GetProjectilePosition(proID)
-	local vxp, vyp, vzp = Spring.GetProjectileVelocity(proID)
-	local mag = math_sqrt(vxp * vxp + vyp * vyp + vzp * vzp)
-	local infos = projectiles[proID]
-	if math_sqrt((xp - xx) ^ 2 + (yp - yy) ^ 2 + (zp - zz) ^ 2) > tonumber(infos.lockon_dist) then
-		yg = Spring.GetGroundHeight(xp, zp)
-		nx, ny, nz, slope = Spring.GetGroundNormal(xp, zp)
-		--Spring.Echo(Spring.GetGroundNormal(xp,zp))
-		--Spring.Echo(tonumber(infos.cruise_height)*slope)
-		if yp < yg + tonumber(infos.cruise_min_height) then
-			active_projectiles[proID] = true
-			Spring.SetProjectilePosition(proID, xp, yg + tonumber(infos.cruise_min_height), zp)
-			local norm = (vxp * nx + vyp * ny + vzp * nz)
-			xxv = vxp - norm * nx * 0
-			yyv = vyp - norm * ny
-			zzv = vzp - norm * nz * 0
-			Spring.SetProjectileVelocity(proID, xxv, yyv, zzv)
-		end
-		if yp > yg + tonumber(infos.cruise_max_height) and active_projectiles[proID] and vyp > -mag * .25 then
-			-- do not clamp to max height if
-			-- vertical velocity downward is more than 1/4 of current speed
-			-- probably just went off lip of steep cliff
-			Spring.SetProjectilePosition(proID, xp, yg + tonumber(infos.cruise_max_height), zp)
-			local norm = (vxp * nx + vyp * ny + vzp * nz)
-			xxv = vxp - norm * nx * 0
-			yyv = vyp - norm * ny
-			zzv = vzp - norm * nz * 0
-			Spring.SetProjectileVelocity(proID, xxv, yyv, zzv)
-		end
-		return false
-	else
-		return true
-	end
+local function attitudeCorrection(projectileID, position, velocity, cruiseHeight)
+	local normal = repack3(spGetGroundNormal(position[1], position[3]))
+	local attitude = velocity[2] - dot(velocity, normal) * normal[2]
+	spSetProjectilePosition(projectileID, position[1], cruiseHeight, position[3])
+	spSetProjectileVelocity(projectileID, velocity[1], attitude, velocity[3])
 end
-applyingFunctions.cruise = function(proID)
-	return false
+
+specialEffects.cruise = function(projectileID, params)
+	if spGetProjectileTimeToLive(projectileID) > 0 then
+		local position, velocity = getPositionAndVelocity(projectileID)
+		local targetType, target = spGetProjectileTarget(projectileID)
+
+		if targetType == targetedUnit then
+			target = repack3(select(4, spGetUnitPosition(target, false, true)))
+		end
+
+		if not isInSphere(position, target, tonumber(params.lockon_dist)) then
+			local cruiseHeight = spGetGroundHeight(position[1], position[3]) + tonumber(params.cruise_min_height)
+
+			if position[2] < cruiseHeight then
+				attitudeCorrection(projectileID, position, velocity, cruiseHeight)
+				projectileData[projectileID] = true
+			elseif projectileData[projectileID] and
+				position[2] > cruiseHeight and
+				velocity[2] > velocity[4] * -0.25 -- avoid steep dives after cliffs
+			then
+				attitudeCorrection(projectileID, position, velocity, cruiseHeight)
+			end
+
+			return false
+		end
+	end
+	return true
 end
 
 checkingFunctions.retarget = {}
@@ -240,14 +220,14 @@ applyingFunctions.sector_fire = function(proID)
 	local spread_angle = tonumber(infos.spread_angle)
 	local max_range_reduction = tonumber(infos.max_range_reduction)
 
-	local angle_factor = (spread_angle * (random() - 0.5)) * mathPi / 180
+	local angle_factor = (spread_angle * (math_random() - 0.5)) * mathPi / 180
 	local cos_angle = mathCos(angle_factor)
 	local sin_angle = mathSin(angle_factor)
 
 	local vx_new = vx * cos_angle - vz * sin_angle
 	local vz_new = vx * sin_angle + vz * cos_angle
 
-	local velocity_factor = 1 - (random() ^ (1 + max_range_reduction)) * max_range_reduction
+	local velocity_factor = 1 - (math_random() ^ (1 + max_range_reduction)) * max_range_reduction
 
 	vx = vx_new * velocity_factor
 	vz = vz_new * velocity_factor
