@@ -127,13 +127,28 @@ local function attitudeCorrection(projectileID, position, velocity, cruiseHeight
 	spSetProjectileVelocity(projectileID, velocity[1], attitude, velocity[3])
 end
 
+local getUnitAimPosition
+do
+	local float3 = { 0, 0, 0 }
+
+	---Replaces `select(4, spGetUnitPosition(targetID, false, true))`, which is slow.
+	---Direct assignment is much faster than using varargs, first of all, but also
+	---`select` tables the varargs, which fully defeats the point of a reusable table.
+	getUnitAimPosition = function(targetID)
+		local _; -- sink for unused args
+		local aim = float3
+		_, _, _, aim[1], aim[2], aim[3] = spGetUnitPosition(targetID, false, true)
+		return aim
+	end
+end
+
 specialEffects.cruise = function(params, projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
 		local position, velocity = getPositionAndVelocity(projectileID)
 		local targetType, target = spGetProjectileTarget(projectileID)
 
 		if targetType == targetedUnit then
-			target = repack3(select(4, spGetUnitPosition(target, false, true)))
+			target = getUnitAimPosition(target) -- replace with table
 		end
 
 		if not isInSphere(position, target, params.lockon_dist) then
