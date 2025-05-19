@@ -44,19 +44,26 @@ local randomFrom3D = vector.randomFrom3D
 local targetedGround = string.byte('g')
 local targetedUnit = string.byte('u')
 
-local gameSpeed = Game.gameSpeed
-local gravityPerFrame = -Game.gravity / gameSpeed ^ 2
-
 --------------------------------------------------------------------------------
 -- Initialization --------------------------------------------------------------
 
 local specialEffects = {}
+local specialEffectKeys = { speceffect_def = true, cegtag = true, model = true }
 
 local weapons = {}
-local subweaponDefID = {}
 
 local projectiles = {}
 local projectileData = {}
+
+local position = { 0, 0, 0 }
+local velocity = { 0, 0, 0, 0 }
+
+local spawnCache = {
+	pos     = position,
+	speed   = { 0, 0, 0 }, -- not `velocity`; ParseProjectile needs a float3
+	ttl     = 3000,
+	gravity = -Game.gravity / (Game.gameSpeed ^ 2),
+}
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
@@ -77,15 +84,6 @@ do
 	end
 end
 
-local position = { 0, 0, 0 }
-local velocity = { 0, 0, 0, 0 }
-local spawnCache = {
-	pos     = position,
-	speed   = repack3(), -- not `velocity`; ParseProjectile needs a float3
-	ttl     = 3000,
-	gravity = gravityPerFrame,
-}
-
 local function getPositionAndVelocity(projectileID)
 	local position, velocity = position, velocity
 	position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
@@ -93,7 +91,7 @@ local function getPositionAndVelocity(projectileID)
 	return position, velocity
 end
 
-local function getSpawnCache(projectileID, weaponParams)
+local function getSpawnCache(projectileID, params)
 	local spawnCache = spawnCache
 	spawnCache.cegTag = params.cegtag
 	spawnCache.model = params.model
@@ -117,6 +115,11 @@ end
 
 -- Weapon behaviors ------------------------------------------------------------
 
+-- Cruise
+
+specialEffectKeys.lockon_dist = true
+specialEffectKeys.cruise_min_height = true
+
 local function attitudeCorrection(projectileID, position, velocity, cruiseHeight)
 	local normal = repack3(spGetGroundNormal(position[1], position[3]))
 	local attitude = velocity[2] - dot(velocity, normal) * normal[2]
@@ -124,7 +127,7 @@ local function attitudeCorrection(projectileID, position, velocity, cruiseHeight
 	spSetProjectileVelocity(projectileID, velocity[1], attitude, velocity[3])
 end
 
-specialEffects.cruise = function(projectileID, params)
+specialEffects.cruise = function(params, projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
 		local position, velocity = getPositionAndVelocity(projectileID)
 		local targetType, target = spGetProjectileTarget(projectileID)
@@ -133,8 +136,8 @@ specialEffects.cruise = function(projectileID, params)
 			target = repack3(select(4, spGetUnitPosition(target, false, true)))
 		end
 
-		if not isInSphere(position, target, tonumber(params.lockon_dist)) then
-			local cruiseHeight = spGetGroundHeight(position[1], position[3]) + tonumber(params.cruise_min_height)
+		if not isInSphere(position, target, params.lockon_dist) then
+			local cruiseHeight = spGetGroundHeight(position[1], position[3]) + params.cruise_min_height
 
 			if position[2] < cruiseHeight then
 				attitudeCorrection(projectileID, position, velocity, cruiseHeight)
@@ -152,7 +155,9 @@ specialEffects.cruise = function(projectileID, params)
 	return true
 end
 
-specialEffects.retarget = function(projectileID, params)
+-- Retarget
+
+specialEffects.retarget = function(params, projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
 		local targetType, target = spGetProjectileTarget(projectileID)
 
@@ -175,13 +180,18 @@ specialEffects.retarget = function(projectileID, params)
 	return true
 end
 
-specialEffects.sector_fire = function(projectileID, params)
+-- Sector fire
+
+specialEffectKeys.max_range_reduction = true
+specialEffectKeys.spread_angle = true
+
+specialEffects.sector_fire = function(params, projectileID)
 	local velocity = velocity -- upvalue
 	velocity[1], velocity[2], velocity[3], velocity[4] = spGetProjectileVelocity(projectileID)
 
 	-- Using the half-angle (departure from centerline) in radians:
-	local angleMax = tonumber(params.spread_angle) * math_pi / 180 * 0.5
-	local rangeReductionMax = -1 * tonumber(params.max_range_reduction)
+	local angleMax = params.spread_angle * math_pi / 180 * 0.5
+	local rangeReductionMax = -1 * params.max_range_reduction
 
 	velocity[1], velocity[3] = randomFromConicXZ(velocity, angleMax, rangeReductionMax)
 	spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
@@ -189,7 +199,12 @@ specialEffects.sector_fire = function(projectileID, params)
 	return true
 end
 
-local function split(projectileID, params)
+-- Split
+
+specialEffectKeys.splitexplosionceg = true
+specialEffectKeys.number = true
+
+local function split(params, projectileID)
 	local position, velocity = position, velocity -- upvalues
 	position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
 
@@ -198,25 +213,27 @@ local function split(projectileID, params)
 	Spring.DeleteProjectile(projectileID)
 	Spring.SpawnCEG(params.splitexplosionceg, position[1], position[2], position[3])
 
-	local projectileDefID = subweaponDefID[params.speceffect_def]
+	local projectileDefID = params.speceffect_def
 	local speed = repack3()
 
-	for _ = 1, tonumber(params.number) do
+	for _ = 1, params.number do
 		speed[1], speed[2], speed[3] = randomFrom3D(velocity, 0.088, 0.044, 0.088)
 		Spring.SpawnProjectile(projectileDefID, splitParams)
 	end
 end
 
-specialEffects.split = function(projectileID, params)
+specialEffects.split = function(params, projectileID)
 	if isProjectileFalling(projectileID) then
 		split(projectileID, params)
 		return true
 	end
 end
 
--- Water penetration behaviors
+-- Cannon water penetration
 
-local function cannonWaterPen(projectileID, params)
+specialEffectKeys.waterpenceg = true
+
+local function cannonWaterPen(params, projectileID)
 	local position = position -- upvalue
 	local velocity = repack3(spGetProjectileVelocity(projectileID))
 
@@ -225,16 +242,18 @@ local function cannonWaterPen(projectileID, params)
 	local waterpenParams = getSpawnCache(projectileID, weaponParams)
 
 	Spring.DeleteProjectile(projectileID)
-	Spring.SpawnProjectile(subweaponDefID[params.speceffect_def], waterpenParams)
+	Spring.SpawnProjectile(params.speceffect_def, waterpenParams)
 	Spring.SpawnCEG(params.waterpenceg, position[1], position[2], position[3])
 end
 
-specialEffects.cannonwaterpen = function(projectileID, params)
+specialEffects.cannonwaterpen = function(params, projectileID)
 	if isProjectileInWater(projectileID) then
 		cannonWaterPen(projectileID, params)
 		return true
 	end
 end
+
+-- Torpedo water penetration
 
 local function torpedoWaterPen(projectileID)
 	local velocity = repack3(spGetProjectileVelocity(projectileID))
@@ -252,60 +271,117 @@ local function torpedoWaterPen(projectileID)
 	spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 end
 
-specialEffects.torpwaterpen = function(projectileID, params)
+specialEffects.torpwaterpen = function(params, projectileID)
 	if isProjectileInWater(projectileID) then
 		torpedoWaterPen(projectileID)
 		return true
 	end
 end
 
+-- Torpedo water penetration and retarget
+
 do
 	local retarget = specialEffects.retarget
 	local torpedoWaterPen = specialEffects.torpwaterpen
 
-	specialEffects.torpwaterpenretarget = function(projectileID, params)
+	specialEffects.torpwaterpenretarget = function(params, projectileID)
 		if not projectileData[projectileID] and torpedoWaterPen(projectileID) then
 			projectileData[projectileID] = true
 		end
-		return retarget(projectileID, params)
+		return retarget(projectileID)
 	end
 end
 
 --------------------------------------------------------------------------------
 -- Engine call-ins -------------------------------------------------------------
 
-function gadget:Initialize()
-	for weaponDefID = 0, #WeaponDefs do
-		local weaponDef = WeaponDefs[weaponDefID]
+do
+	local metatables = {}
 
-		if weaponDef.customParams.speceffect then
-			local effect = weaponDef.customParams.speceffect
-			local method = specialEffects[effect]
-			local subDef = weaponDef.customParams.speceffect_def
+	for effect, method in pairs(specialEffects) do
+		-- for `method` to access params as `self`:
+		metatables[effect] = { __call = method }
+	end
 
-			if not method then
-				local message = "Weapon has unrecognized speceffect: " .. weaponDef.name
+	local function getSpecialEffectKeys(weaponDef)
+		local custom = weaponDef.customParams
+
+		local keys = {}
+
+		-- idr how to `table.copy(weaponDef.customParams)`, or if you even can, so:
+		for key in pairs(specialEffectKeys) do
+			keys[key] = custom[key]
+		end
+
+		if custom.def or custom.when then
+			-- modders/tweakdefs will keep using these for a while, probably
+			local message = "weapondef has deprecated customparams: " .. weaponDef.name
+			Spring.Log(gadget:GetInfo().name, LOG.DEPRECATED, message)
+			custom.speceffect_def, custom.when = custom.def, nil
+		end
+
+		-- get customparams as non-strings
+		for key, value in pairs(keys) do
+			if tonumber(value) then
+				keys[key] = tonumber(value)
+			end
+		end
+
+		return keys
+	end
+
+	local function parseCustomEffect(weaponDef)
+		local success = true
+
+		local effectName = weaponDef.customParams.speceffect
+
+		if not metatables[effectName] then
+			local message = weaponDef.name .. " has unrecognized speceffect: " .. effectName
+			Spring.Log(gadget:GetInfo().name, LOG.WARNING, message)
+			success = false
+		end
+
+		local params = getSpecialEffectKeys(weaponDef)
+
+		local spawnDefName = params.speceffect_def
+
+		if spawnDefName then
+			local spawnDef = WeaponDefNames[spawnDefName]
+
+			if not spawnDef then
+				local message = weaponDef.name .. " has unrecognized speceffect_def: " .. spawnDefName
 				Spring.Log(gadget:GetInfo().name, LOG.WARNING, message)
-			elseif subDef and not WeaponDefNames[subDef] then
-				local message = "Weapon has missing speceffect_def: " .. weaponDef.name
-				Spring.Log(gadget:GetInfo().name, LOG.WARNING, message)
+				success = false
 			else
-				local weapon = table.copy(weaponDef.customParams)
-				weapon.speceffect = method
-				weapon.speceffect_def = name and WeaponDefNames[name].id or nil
-				weapons[weaponDefID] = weapon
+				params.speceffect_def = spawnDef.id
 			end
+		end
 
-			if weaponDef.customParams.def or weaponDef.customParams.when then
-				local message = "Deprecated speceffect customparams (def/when): " .. weaponDef.name
-				Spring.Log(gadget:GetInfo().name, LOG.DEPRECATED, message)
-			end
+		if success then
+			return effectName, params
 		end
 	end
 
-	if not next(weapons) then
-		Spring.Log(gadget:GetInfo().name, LOG.INFO, "No custom weapons found.")
-		gadgetHandler:RemoveGadget(self)
+	function gadget:Initialize()
+		for weaponDefID = 0, #WeaponDefs do
+			local weaponDef = WeaponDefs[weaponDefID]
+
+			if weaponDef.customParams and weaponDef.customParams.speceffect then
+				local effectName, params = parseCustomEffect(weaponDef)
+
+				if effectName and params then
+					weapons[weaponDefID] = setmetatable(params, metatables[effectName])
+				end
+			end
+		end
+
+		if not next(weapons) then
+			Spring.Log(gadget:GetInfo().name, LOG.INFO, "No custom weapons found.")
+			gadgetHandler:RemoveGadget(self)
+			return
+		end
+
+		spawnCache.pos = repack3() -- reused table
 	end
 end
 
@@ -319,8 +395,8 @@ function gadget:ProjectileDestroyed(projectileID)
 end
 
 function gadget:GameFrame(frame)
-	for projectileID, params in pairs(projectiles) do
-		if params.speceffect(projectileID, params) then
+	for projectileID, effect in pairs(projectiles) do
+		if effect(projectileID) then
 			projectiles[projectileID] = nil
 		end
 	end
