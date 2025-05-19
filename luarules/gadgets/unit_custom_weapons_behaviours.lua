@@ -287,23 +287,14 @@ specialEffects.torpwaterpen = function(projectileID, params)
 	end
 end
 
---a Hornet special, mangle different two things into working as one (they're otherwise mutually exclusive)
-checkingFunctions.torpwaterpenretarget = {}
-checkingFunctions.torpwaterpenretarget["ypos<0"] = function(proID)
-	checkingFunctions.retarget["always"](proID) --subcontract that part
+local retargetCopy = specialEffects.retarget
+local torpedoCopy = specialEffects.torpwaterpen
 
-	local _, py, _ = Spring.GetProjectilePosition(proID)
-	if py <= 0 then
-		--and delegate that too
-		applyingFunctions.torpwaterpen(proID)
-	else
-		return false
+specialEffects.torpwaterpenretarget = function(projectileID, params)
+	if not projectileData[projectileID] and torpedoCopy(projectileID) then
+		projectileData[projectileID] = true
 	end
-end
-
---fake function
-applyingFunctions.torpwaterpenretarget = function(proID)
-	return false
+	return retargetCopy(projectileID, params)
 end
 
 --------------------------------------------------------------------------------
