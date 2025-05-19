@@ -16,37 +16,118 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
-local random = math.random
+--------------------------------------------------------------------------------
+-- Localization ----------------------------------------------------------------
+
+local vector = VFS.Include("common/springUtilities/vector.lua")
+
+local math_random = math.random
 local math_sqrt = math.sqrt
-local mathCos = math.cos
-local mathSin = math.sin
-local mathPi = math.pi
+local math_cos = math.cos
+local math_sin = math.sin
+local math_pi = math.pi
 
-local SpSetProjectileVelocity = Spring.SetProjectileVelocity
-local SpSetProjectileTarget = Spring.SetProjectileTarget
+local spGetGroundHeight = Spring.GetGroundHeight
+local spGetGroundNormal = Spring.GetGroundNormal
+local spGetProjectilePosition = Spring.GetProjectilePosition
+local spGetProjectileTarget = Spring.GetProjectileTarget
+local spGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
+local spGetProjectileVelocity = Spring.GetProjectileVelocity
+local spGetUnitIsDead = Spring.GetUnitIsDead
+local spGetUnitPosition = Spring.GetUnitPosition
+local spSetProjectilePosition = Spring.SetProjectilePosition
+local spSetProjectileTarget = Spring.SetProjectileTarget
+local spSetProjectileVelocity = Spring.SetProjectileVelocity
 
-local SpGetProjectileVelocity = Spring.GetProjectileVelocity
-local SpGetProjectileOwnerID = Spring.GetProjectileOwnerID
-local SpGetProjectileTimeToLive = Spring.GetProjectileTimeToLive
-local SpGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
-local SpGetProjectileTarget = Spring.GetProjectileTarget
-local SpGetUnitIsDead = Spring.GetUnitIsDead
+local multiply = vector.multiply
+local dot = vector.dot
+local isInSphere = vector.isInSphere
+local randomFromConicXZ = vector.randomFromConicXZ
+local randomFrom3D = vector.randomFrom3D
 
+local targetedGround = string.byte('g')
+local targetedUnit = string.byte('u')
 
-local projectiles = {}
-local active_projectiles = {}
-local checkingFunctions = {}
-local applyingFunctions = {}
+local gameSpeed = Game.gameSpeed
+local gravityPerFrame = -Game.gravity / gameSpeed ^ 2
 
-local specialWeaponCustomDefs = {}
-local weaponDefNamesID = {}
-for id, def in pairs(WeaponDefs) do
-	weaponDefNamesID[def.name] = id
-	if def.customParams.speceffect then
-		specialWeaponCustomDefs[id] = def.customParams
+--------------------------------------------------------------------------------
+-- Initialization --------------------------------------------------------------
+
+local weapons = {}
+local subweaponDefID = {}
+
+for weaponDefID, weaponDef in pairs(WeaponDefs) do
+	if weaponDef.customParams.speceffect then
+		local name = weaponDef.customParams.speceffect_def
+		if name and not WeaponDefNames[name] then
+			local message = "Weapon has bad custom params: " .. weaponDef.name
+			message = message .. ' (speceffect_def=' .. name .. ')'
+			Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+		else
+			weapons[weaponDefID] = weaponDef.customParams
+			if name then
+				subweaponDefID[name] = WeaponDefNames[name].id
+			end
+		end
+
+		-- TODO: Remove deprecate warning once modders have had time to fix.
+		if weaponDef.customParams.def or weaponDef.customParams.when then
+			local message = "Deprecated speceffect customparams: " .. weaponDef.name
+			Spring.Log(gadget:GetInfo().name, LOG.DEPRECATED, message)
+		end
 	end
 end
 
+local specialEffects = {}
+
+local projectiles = {}
+local projectileData = {}
+
+--------------------------------------------------------------------------------
+-- Local functions -------------------------------------------------------------
+
+local repack3
+do
+	local float3 = { 0, 0, 0 }
+
+	---Fills a reusable helper table rather than create/destroy intermediate tables.
+	---@param x number?
+	---@param y number?
+	---@param z number?
+	---@return table float3
+	repack3 = function(x, y, z)
+		local float3 = float3
+		float3[1], float3[2], float3[3] = x, y, z
+		return float3
+	end
+end
+
+local position = { 0, 0, 0 }
+local velocity = { 0, 0, 0, 0 }
+
+local function getPositionAndVelocity(projectileID)
+	local position, velocity = position, velocity
+	position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
+	velocity[1], velocity[2], velocity[3], velocity[4] = spGetProjectileVelocity(projectileID)
+	return position, velocity
+end
+
+local function isProjectileFalling(projectileID)
+	velocity[1], velocity[2], velocity[3], velocity[4] = spGetProjectileVelocity(projectileID)
+	return velocity[2] < 0
+end
+
+local function isProjectileInWater(projectileID)
+	position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
+	return position[2] <= 0
+end
+
+local function isUnitUnderwater(unitID)
+	return math.bit_and(Spring.GetUnitPhysicalState(target), 4) ~= 0
+end
+
+-- Weapon behaviors ------------------------------------------------------------
 checkingFunctions.cruise = {}
 checkingFunctions.cruise["distance>0"] = function(proID)
 	--Spring.Echo()
@@ -283,24 +364,30 @@ applyingFunctions.torpwaterpenretarget = function(proID)
 	return false
 end
 
-function gadget:ProjectileCreated(proID, proOwnerID, weaponDefID)
-	if specialWeaponCustomDefs[weaponDefID] then
-		projectiles[proID] = specialWeaponCustomDefs[weaponDefID]
-		active_projectiles[proID] = nil
+--------------------------------------------------------------------------------
+-- Engine call-ins -------------------------------------------------------------
+
+function gadget:Initialize()
+	if not next(weapons) then
+		Spring.Log(gadget:GetInfo().name, LOG.INFO, "No custom weapons found.")
+		gadgetHandler:RemoveGadget(self)
 	end
 end
 
-function gadget:ProjectileDestroyed(proID)
-	projectiles[proID] = nil
-	active_projectiles[proID] = nil
+function gadget:ProjectileCreated(projectileID, proOwnerID, weaponDefID)
+	projectiles[projectileID] = weapons[weaponDefID]
+end
+
+function gadget:ProjectileDestroyed(projectileID)
+	projectiles[projectileID] = nil
+	projectileData[projectileID] = nil
 end
 
 function gadget:GameFrame(f)
-	for proID, infos in pairs(projectiles) do
-		if checkingFunctions[infos.speceffect][infos.when](proID) == true then
-			applyingFunctions[infos.speceffect](proID)
-			projectiles[proID] = nil
-			active_projectiles[proID] = nil
+	for projectileID, params in pairs(projectiles) do
+		if specialEffects[params.speceffect](projectileID, params) then
+			projectiles[projectileID] = nil
+			projectileData[projectileID] = nil
 		end
 	end
 end
