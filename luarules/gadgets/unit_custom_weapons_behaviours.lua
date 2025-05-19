@@ -203,7 +203,7 @@ end
 
 local splitParams = {
 	pos     = position,
-	speed   = repack3(),
+	speed   = repack3(), -- not `velocity`; ParseProjectile needs a float3
 	ttl     = 3000,
 	gravity = gravityPerFrame,
 }
@@ -234,33 +234,34 @@ specialEffects.split = function(projectileID, params)
 	end
 end
 
-checkingFunctions.cannonwaterpen = {}
-checkingFunctions.cannonwaterpen["ypos<0"] = function(proID)
-	local _, y, _ = Spring.GetProjectilePosition(proID)
-	if y <= 0 then
-		return true
-	else
-		return false
-	end
+-- Water penetration behaviors
+
+local waterpenParams = {
+	pos     = position,
+	speed   = repack3(),
+	ttl     = 3000,
+	gravity = gravityPerFrame * 0.5,
+}
+
+local function cannonWaterPen(projectileID, params)
+	local position = position -- upvalue
+	local velocity = repack3(spGetProjectileVelocity(projectileID))
+
+	multiply(velocity, 0.5)
+
+	waterpenParams.cegTag = params.cegtag
+	waterpenParams.model = params.model
+
+	Spring.DeleteProjectile(projectileID)
+	Spring.SpawnProjectile(subweaponDefID[params.speceffect_def], waterpenParams)
+	Spring.SpawnCEG(params.waterpenceg, position[1], position[2], position[3])
 end
-applyingFunctions.cannonwaterpen = function(proID)
-	local px, py, pz = Spring.GetProjectilePosition(proID)
-	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
-	local nvx, nvy, nvz = vx * 0.5, vy * 0.5, vz * 0.5
-	local ownerID = Spring.GetProjectileOwnerID(proID)
-	local infos = projectiles[proID]
-	local projectileParams = {
-		pos = { px, py, pz },
-		speed = { nvx, nvy, nvz },
-		owner = ownerID,
-		ttl = 3000,
-		gravity = -Game.gravity / 3600,
-		model = infos.model,
-		cegTag = infos.cegtag,
-	}
-	Spring.SpawnProjectile(weaponDefNamesID[infos.def], projectileParams)
-	Spring.SpawnCEG(infos.waterpenceg, px, py, pz, 0, 0, 0, 0, 0)
-	Spring.DeleteProjectile(proID)
+
+specialEffects.cannonwaterpen = function(projectileID, params)
+	if isProjectileInWater(projectileID) then
+		cannonWaterPen(projectileID, params)
+		return true
+	end
 end
 
 checkingFunctions.torpwaterpen = {}
