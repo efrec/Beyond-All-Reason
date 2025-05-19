@@ -54,32 +54,10 @@ local gravityPerFrame = -Game.gravity / gameSpeed ^ 2
 --------------------------------------------------------------------------------
 -- Initialization --------------------------------------------------------------
 
+local specialEffects = {}
+
 local weapons = {}
 local subweaponDefID = {}
-
-for weaponDefID, weaponDef in pairs(WeaponDefs) do
-	if weaponDef.customParams.speceffect then
-		local name = weaponDef.customParams.speceffect_def
-		if name and not WeaponDefNames[name] then
-			local message = "Weapon has bad custom params: " .. weaponDef.name
-			message = message .. ' (speceffect_def=' .. name .. ')'
-			Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
-		else
-			weapons[weaponDefID] = weaponDef.customParams
-			if name then
-				subweaponDefID[name] = WeaponDefNames[name].id
-			end
-		end
-
-		-- TODO: Remove deprecate warning once modders have had time to fix.
-		if weaponDef.customParams.def or weaponDef.customParams.when then
-			local message = "Deprecated speceffect customparams: " .. weaponDef.name
-			Spring.Log(gadget:GetInfo().name, LOG.DEPRECATED, message)
-		end
-	end
-end
-
-local specialEffects = {}
 
 local projectiles = {}
 local projectileData = {}
@@ -301,6 +279,34 @@ end
 -- Engine call-ins -------------------------------------------------------------
 
 function gadget:Initialize()
+	for weaponDefID = 0, #WeaponDefs do
+		local weaponDef = WeaponDefs[weaponDefID]
+
+		if weaponDef.customParams.speceffect then
+			local effect = weaponDef.customParams.speceffect
+			local method = specialEffects[effect]
+			local subDef = weaponDef.customParams.speceffect_def
+
+			if not method then
+				local message = "Weapon has unrecognized speceffect: " .. weaponDef.name
+				Spring.Log(gadget:GetInfo().name, LOG.WARNING, message)
+			elseif subDef and not WeaponDefNames[subDef] then
+				local message = "Weapon has missing speceffect_def: " .. weaponDef.name
+				Spring.Log(gadget:GetInfo().name, LOG.WARNING, message)
+			else
+				local weapon = table.copy(weaponDef.customParams)
+				weapon.speceffect = method
+				weapon.speceffect_def = name and WeaponDefNames[name].id or nil
+				weapons[weaponDefID] = weapon
+			end
+
+			if weaponDef.customParams.def or weaponDef.customParams.when then
+				local message = "Deprecated speceffect customparams (def/when): " .. weaponDef.name
+				Spring.Log(gadget:GetInfo().name, LOG.DEPRECATED, message)
+			end
+		end
+	end
+
 	if not next(weapons) then
 		Spring.Log(gadget:GetInfo().name, LOG.INFO, "No custom weapons found.")
 		gadgetHandler:RemoveGadget(self)
@@ -316,9 +322,9 @@ function gadget:ProjectileDestroyed(projectileID)
 	projectileData[projectileID] = nil
 end
 
-function gadget:GameFrame(f)
+function gadget:GameFrame(frame)
 	for projectileID, params in pairs(projectiles) do
-		if specialEffects[params.speceffect](projectileID, params) then
+		if params.speceffect(projectileID, params) then
 			projectiles[projectileID] = nil
 			projectileData[projectileID] = nil
 		end
