@@ -65,7 +65,7 @@ local repack3
 do
 	local float3 = { 0, 0, 0 }
 
-	---Fills a reusable helper table rather than create/destroy intermediate tables.
+	---Similar to lua `pack`, but provides a reusable vector3 table.
 	---@param x number?
 	---@param y number?
 	---@param z number?
