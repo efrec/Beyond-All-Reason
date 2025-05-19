@@ -264,33 +264,26 @@ specialEffects.cannonwaterpen = function(projectileID, params)
 	end
 end
 
-checkingFunctions.torpwaterpen = {}
-checkingFunctions.torpwaterpen["ypos<0"] = function(proID)
-	local _, py, _ = Spring.GetProjectilePosition(proID)
-	if py <= 0 then
-		return true
+local function torpedoWaterPen(projectileID)
+	local velocity = repack3(spGetProjectileVelocity(projectileID))
+
+	multiply(velocity, 1 / 1.3)
+
+	local targetType, target = spGetProjectileTarget(projectileID)
+
+	if targetType == targetedUnit and isUnitUnderwater(target) then
+		velocity[2] = velocity[2] / 6
 	else
-		return false
+		velocity[2] = 0
 	end
+
+	spSetProjectileVelocity(projectileID, velocity[1], velocity[2], velocity[3])
 end
-applyingFunctions.torpwaterpen = function(proID)
-	local vx, vy, vz = Spring.GetProjectileVelocity(proID)
-	--if target is close under the shooter, however, this resetting makes the torp always miss, unless it has amazing tracking
-	--needs special case handling (and there's no point having it visually on top of water for an UW target anyway)
 
-	local bypass = false
-	local targetType, targetID = Spring.GetProjectileTarget(proID)
-
-	if (targetType ~= nil) and (targetID ~= nil) and (targetType ~= 103) then --ground attack borks it; skip
-		local unitPosX, unitPosY, unitPosZ = Spring.GetUnitPosition(targetID)
-		if (unitPosY ~= nil) and unitPosY < -10 then
-			bypass = true
-			Spring.SetProjectileVelocity(proID, vx / 1.3, vy / 6, vz / 1.3) --apply brake without fully halting, otherwise it will overshoot very close targets before tracking can reorient it
-		end
-	end
-
-	if not bypass then
-		Spring.SetProjectileVelocity(proID, vx, 0, vz)
+specialEffects.torpwaterpen = function(projectileID, params)
+	if isProjectileInWater(projectileID) then
+		torpedoWaterPen(projectileID)
+		return true
 	end
 end
 
