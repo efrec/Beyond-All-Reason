@@ -53,7 +53,7 @@
 -- > position = GetUnitPositionTable(unitID)
 
 -- Unless you need to maintain references to the original, in which case:
--- > copyInto(position, GetUnitPositionTable(unitID))
+-- > copyFrom(position, GetUnitPositionTable(unitID))
 -- > refill(position, GetUnitPositionTable(unitID))
 
 -- Finally, since Recoil uses X-Z as its ground plane and Y as its up direction,
@@ -109,6 +109,26 @@ local float3a              = { 0, 0, 0, 0 }
 
 -- Fixes for lexical scope
 local cross, magnitude, magnitudeXZ
+
+--------------------------------------------------------------------------------
+-- Debugging -------------------------------------------------------------------
+
+local function format(vector, places)
+	if vector[4] == nil then
+		local s = ("<%%.%df,%%.%df,%%.%df>"):format(places, places, places)
+		return s:format(vector[1], vector[2], vector[3])
+	else
+		local s = ("<%%.%df,%%.%df,%%.%df,%%.%df>"):format(places, places, places)
+		return s:format(vector[1], vector[2], vector[3], vector[4])
+	end
+end
+
+local function pretty(vector)
+	local n = vector[4] == nil and 5 or 4
+	local scale = math_max(math_abs(vector[1]), math_abs(vector[2]), math_abs(vector[3]))
+	scale = math_max(0, -(math.log10(scale) - n))
+	return format(vector, scale)
+end
 
 --------------------------------------------------------------------------------
 -- Table construction ----------------------------------------------------------
@@ -2249,6 +2269,8 @@ return {
 --------------------------------------------------------------------------------
 -- Footnotes -------------------------------------------------------------------
 
+-- A. Footguns, pitfalls, and spike traps --------------------------------------
+
 -- 1. Write code that doesn't suck and then comment it:
 --
 -- You need to keep track of normalization, denormalization, and augmentation
@@ -2289,3 +2311,53 @@ return {
 --
 -- - The `updateSemiballistics` function has an empty return on any failure
 --   and returns an acceleration plan for future frames on a success.
+
+-- B. Lua `vector` classes -----------------------------------------------------
+
+-- Probably the first complaint when using this module as a base to build a new
+-- vector class is that it does not use x, y, z, and magnitude as named fields.
+--
+-- This is for a simple and dumb reason: It takes about three times as long to
+-- access `myVector.x` as it does to access `myVector[1]`. If it were not so,
+-- the world would be a different place, and Lua would be a different language.
+--
+-- Next, the following calculation operators exist as metamethods as of Lua 5.1:
+--
+-- addition       := `__add(a, b)`
+-- subtraction    := `__sub(a, b)`
+-- multiplication := `__mul(a, b)`
+-- division       := `__div(a, b)`
+-- negation       := `__unm(a, b)`
+-- modulo         := `__mod(a, b)`
+-- exponentiation := `__pow(a, b)`
+--
+-- And when your code uses one of these operations, e.g. `a + b`, this happens:
+--
+-- Whenever _either_ value, `a` or `b`, is not a number, Lua attempts to call a
+-- metamethod. First, it checks the first operand (`a`) for a metamethod that
+-- matches the operation. Then, it checks the second (`b`). If a metamethod is
+-- found, it is called with the two operands as arguments. The result of the
+-- call is adjusted, always, to one value, and returned. Otherwise, Lua throws.
+--
+-- The functions in this module do not attempt, at all, to satisfy this system.
+--
+-- Their arguments are typed and positional, meaning that `vector.add` accepts
+-- only tables (so cannot add numbers) and `vector.addNumber` accepts numbers in
+-- only its second position, e.g. `vector.addNumber(myVector, 2)`.
+--
+-- In fairness to myself, most lua Vector classes that you will find online also
+-- do not satisfy the requirements of this system. A vector plus a number is not
+-- a concept they consider meaningful. Even Lua programmers don't use Lua.
+--
+-- Next, this module is excessively imperative, meaning it does not lend well to
+-- its own reorganization into a class structure. However, each of its methods
+-- that mutate a vector taken as an argument manipulate the first argument only,
+-- which means these methods can be used with lua's self-method syntax, e.g.:
+--
+-- > local myVector = { add = vector.addNumber }
+-- > myVector:add(2)
+--
+-- Works as it should (sans potential confusion from the name change).
+--
+-- tl;dr: You can make a vector class from this module but not a good one.
+--        If you do it anywa, you should use closures and ignore metamethods.
