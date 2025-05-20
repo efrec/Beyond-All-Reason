@@ -2339,25 +2339,22 @@ return {
 -- found, it is called with the two operands as arguments. The result of the
 -- call is adjusted, always, to one value, and returned. Otherwise, Lua throws.
 --
--- The functions in this module do not attempt, at all, to satisfy this system.
---
--- Their arguments are typed and positional, meaning that `vector.add` accepts
--- only tables (so cannot add numbers) and `vector.addNumber` accepts numbers in
--- only its second position, e.g. `vector.addNumber(myVector, 2)`.
---
--- In fairness to myself, most lua Vector classes that you will find online also
--- do not satisfy the requirements of this system. A vector plus a number is not
--- a concept they consider meaningful. Even Lua programmers don't use Lua.
+-- The functions in this module barely attempt to satisfy this system, though
+-- they do, for the most part. Multiplication of vectors with number values is
+-- the main, notable exception, since `vector.multiply(a, b)` will fail when the
+-- first value `a` is a number (it expects a table). Most other operations don't
+-- have a meaningful interpretation, so implementing them isn't necessary to do,
+-- though addition possibly could be understood as an increase to the magnitude.
 --
 -- Next, this module is excessively imperative, meaning it does not lend well to
 -- its own reorganization into a class structure. However, each of its methods
 -- that mutate a vector taken as an argument manipulate the first argument only,
 -- which means these methods can be used with lua's self-method syntax, e.g.:
 --
--- > local myVector = { add = vector.addNumber }
--- > myVector:add(2)
+-- > local myVector = { addNumber = vector.addNumber }
+-- > myVector:addNumber(2)
 --
--- Works as it should (sans potential confusion from the name change).
+-- Works as it should.
 --
 -- tl;dr: You can make a vector class from this module but not a good one.
---        If you do it anywa, you should use closures and ignore metamethods.
+--        If you do it anyway, you should use closures and ignore metamethods.
