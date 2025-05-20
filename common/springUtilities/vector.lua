@@ -2351,7 +2351,7 @@ return {
 -- that mutate a vector taken as an argument manipulate the first argument only,
 -- which means these methods can be used with lua's self-method syntax, e.g.:
 --
--- > local myVector = { addNumber = vector.addNumber }
+-- > local myVector = { 0, 0, 0, addNumber = vector.addNumber }
 -- > myVector:addNumber(2)
 --
 -- Works as it should.
