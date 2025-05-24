@@ -49,9 +49,9 @@ end
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
-local cruisePitchMax = 30
-local cruiseHeightMin = 50    -- barely above ground
-local cruiseHeightMax = 10000 -- soaring off-screen
+local cruisePitchMax = 30     -- in degrees
+local cruiseHeightMin = 50    -- note: barely above ground
+local cruiseHeightMax = 10000 -- note: soaring off-screen
 
 --------------------------------------------------------------------------------
 -- Localization ----------------------------------------------------------------
@@ -88,96 +88,6 @@ cruisePitchMax = cruisePitchMax * math_pi / 180
 
 local weapons = {}
 
-for weaponDefID = 0, #WeaponDefs do
-	local weaponDef = WeaponDefs[weaponDefID]
-
-	if weaponDef.customParams.cruise_and_verticalize and weaponDef.type == "StarburstLauncher" then
-		local cruiseHeight, uptimeMin, uptimeMax
-
-		if weaponDef.customParams.cruise_altitude then
-			if weaponDef.customParams.cruise_altitude == "auto" then
-				cruiseHeight = "auto" -- determined from uptime and other stats
-			else
-				cruiseHeight = tonumber(cruiseHeight)
-			end
-		end
-
-		if weaponDef.customParams.uptime_min then
-			uptimeMin = tonumber(weaponDef.customParams.uptime)
-			uptimeMax = weaponDef.uptime
-		else
-			uptimeMin = weaponDef.uptime
-		end
-
-		-- This uses the engine's motion controls so must derive the extents of that motion:
-
-		local speedMin = weaponDef.startvelocity
-		local speedMax = weaponDef.projectilespeed
-		local acceleration = weaponDef.weaponAcceleration
-		local turnRate = weaponDef.turnRate
-
-		local uptimeMinFrames = uptimeMin * Game.gameSpeed
-
-		local accelerationFrames = 0
-		if acceleration and acceleration ~= 0 then
-			accelerationFrames = math.min(
-				(speedMax - speedMin) / acceleration,
-				uptimeMinFrames
-			)
-		end
-
-		local turnSpeedMin = speedMin + accelerationFrames * acceleration
-
-		local turnHeightMin = turnSpeedMin * (uptimeMinFrames - accelerationFrames * 0.5)
-		local turnRadiusMax = speedMax / turnRate / math_pi
-
-		if cruiseHeight == "auto" then
-			cruiseHeight = turnHeightMin + turnRadiusMax
-		end
-
-		cruiseHeight = math.clamp(cruiseHeight, cruiseHeightMin, cruiseHeightMax)
-
-		if not uptimeMax then
-			local ttl = weaponDef.flightTime or weaponDef.range / speedMax
-			uptimeMax = math.max(uptimeMin, ttl / 3)
-		end
-
-		local uptimeMaxFrames = uptimeMax * Game.gameSpeed
-
-		local rangeMinimum = 2 * (turnSpeedMin / turnRate / math_pi)
-
-		local weapon = {
-			heightIntoTurn  = turnHeightMin,
-			cruiseHeight    = cruiseHeight,
-			turnRadius      = turnRadiusMax,
-
-			uptimeMinFrames = uptimeMinFrames,
-			uptimeMaxFrames = uptimeMaxFrames,
-			rangeMinimum    = rangeMinimum,
-
-			acceleration    = acceleration,
-			speedMin        = speedMin,
-			speedMax        = speedMax,
-			turnRate        = turnRate,
-		}
-
-		-- Additional properties for SpawnProjectiles:
-		if weaponDef.myGravity then
-			weapon.gravity = weaponDef.myGravity
-		end
-
-		if weaponDef.model then
-			weapon.model = weaponDef.model
-		end
-
-		if weaponDef.cegTag then
-			weapon.cegtag = weaponDef.cegTag
-		end
-
-		weapons[weaponDefID] = weapon
-	end
-end
-
 local ascending = {}
 local leveling = {}
 local cruising = {}
@@ -185,6 +95,113 @@ local verticalizing = {}
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
+
+local function parseCustomParams(weaponDef)
+	local success = true
+
+	local cruiseHeight, uptimeMin, uptimeMax
+
+	if weaponDef.customParams.cruise_altitude then
+		if weaponDef.customParams.cruise_altitude == "auto" then
+			cruiseHeight = "auto" -- determined from uptime and other stats
+		else
+			cruiseHeight = tonumber(cruiseHeight)
+		end
+	end
+
+	if weaponDef.customParams.uptime_min then
+		uptimeMin = tonumber(weaponDef.customParams.uptime)
+		uptimeMax = weaponDef.uptime
+	else
+		uptimeMin = weaponDef.uptime
+	end
+
+	if not cruiseHeight then
+		local message = weaponDef.name .. " is missing its cruise controls"
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+
+		success = false
+	end
+
+	if not uptimeMin then
+		local message = weaponDef.name .. " has a bad uptime_min value"
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+
+		success = false
+	end
+
+	-- This uses the engine's motion controls so must derive the extents of that motion:
+
+	local speedMin = weaponDef.startvelocity
+	local speedMax = weaponDef.projectilespeed
+	local acceleration = weaponDef.weaponAcceleration
+	local turnRate = weaponDef.turnRate
+
+	local uptimeMinFrames = uptimeMin * Game.gameSpeed -- assumed discretization error is small
+
+	local accelerationFrames = 0
+	if acceleration and acceleration ~= 0 then
+		accelerationFrames = math.min(
+			(speedMax - speedMin) / acceleration,
+			uptimeMinFrames
+		)
+	end
+
+	local turnSpeedMin = speedMin + accelerationFrames * acceleration
+	local turnHeightMin = turnSpeedMin * (uptimeMinFrames - accelerationFrames * 0.5)
+	local turnRadiusMax = speedMax / turnRate / math_pi
+
+	if cruiseHeight == "auto" then
+		cruiseHeight = turnHeightMin + turnRadiusMax
+	end
+
+	cruiseHeight = math.clamp(cruiseHeight, cruiseHeightMin, cruiseHeightMax)
+
+	local uptimeMaxFrames
+	if uptimeMax then
+		uptimeMaxFrames = uptimeMax * Game.gameSpeed
+	else
+		local ttl = weaponDef.flightTime or weaponDef.range / speedMax
+		uptimeMaxFrames = math.max(uptimeMin, ttl / 3) * Game.gameSpeed
+	end
+
+	local rangeMinimum = 2 * (turnSpeedMin / turnRate / math_pi)
+
+	local weapon = {
+		heightIntoTurn  = turnHeightMin,
+		cruiseHeight    = cruiseHeight,
+		turnRadius      = turnRadiusMax,
+
+		uptimeMinFrames = uptimeMinFrames,
+		uptimeMaxFrames = uptimeMaxFrames,
+		rangeMinimum    = rangeMinimum,
+
+		acceleration    = acceleration,
+		speedMin        = speedMin,
+		speedMax        = speedMax,
+		turnRate        = turnRate,
+	}
+
+	-- Additional properties for SpawnProjectiles:
+
+	if weaponDef.myGravity then
+		weapon.gravity = weaponDef.myGravity
+	end
+
+	if weaponDef.model then
+		weapon.model = weaponDef.model
+	end
+
+	if weaponDef.cegTag then
+		weapon.cegtag = weaponDef.cegTag
+	end
+
+	if success then
+		return weapon
+	end
+end
+
+-- Vector methods --------------------------------------------------------------
 
 local position = { 0, 0, 0, isInCylinder = vector.isInCylinder }
 local velocity = { 0, 0, 0, 0 }
@@ -199,6 +216,12 @@ end
 local repack3
 do
 	local float3 = { 0, 0, 0 }
+
+	---As `unpack` but for reusable tables in `float3` format.
+	---@param x any
+	---@param y any
+	---@param z any
+	---@return float3
 	repack3 = function(x, y, z)
 		local float3 = float3
 		float3[1], float3[2], float3[3] = x, y, z
@@ -206,6 +229,12 @@ do
 	end
 end
 
+-- Guidance controls -----------------------------------------------------------
+
+---Determine the `uptime` needed for a StarburstProjectile to rise to a given height.
+---@param params verticalizeParams
+---@param position float3
+---@return integer uptime in seconds (?)
 local function getUptime(params, position)
 	local speedMin = params.speedMin
 	local speedMax = params.speedMax
@@ -450,13 +479,21 @@ end
 -- Engine call-ins -------------------------------------------------------------
 
 function gadget:Initialize()
-	if not next(weapons) then
-		Spring.Log(gadget:GetInfo().name, LOG.ERROR, "No weapons found.")
-		gadgetHandler:RemoveGadget(self)
-	else
-		for weaponDefID in pairs(weapons) do
-			Script.SetWatchProjectile(weaponDefID, true)
+	for weaponDefID = 0, #WeaponDefs do
+		local weaponDef = WeaponDefs[weaponDefID]
+		if weaponDef.type == "StarburstLauncher" and weaponDef.customParams.cruise_and_verticalize then
+			local weapon = parseCustomParams(weaponDef)
+			if weapon then
+				weapons[weaponDefID] = weapon
+				Script.SetWatchProjectile(weaponDefID, true)
+			end
 		end
+	end
+
+	if not next(weapons) then
+		Spring.Log(gadget:GetInfo().name, LOG.INFO, "No weapons found.")
+		gadgetHandler:RemoveGadget(self)
+		return
 	end
 
 	-- todo: obviously do not delete everyone's projectiles in production
