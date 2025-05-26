@@ -134,7 +134,7 @@ return {
 				texture3 = "null",
 				turnrate = 15000,
 				weaponacceleration = 100,
-				weapontimer = 3,
+				weapontimer = 3, -- becomes max uptime?
 				weapontype = "StarburstLauncher",
 				weaponvelocity = 800,
 				damage = {
@@ -143,6 +143,7 @@ return {
 				customparams = {
 					cruise_and_verticalize = true,
 					cruise_altitude = "auto",
+					uptime_max = 4,
 					projectile_destruction_method = "descend",
 					overrange_distance = 1392,
 				},
