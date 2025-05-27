@@ -172,7 +172,8 @@ return {
 				weaponvelocity = 1600,
 				customparams = {
 					cruise_and_verticalize = true,
-					cruise_altitude = "auto",
+					cruise_altitude_min = "auto",
+					uptime_max = 7.5,
 					stockpilelimit = 10,
 				},
 				damage = {
