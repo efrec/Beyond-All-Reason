@@ -400,8 +400,14 @@ end
 local function turnToLevel(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
 	local speed = velocity[4]
-	local pitch = math_clamp(velocity[2] / speed, -1, 1) -- fix for float instability
-	local radius = getVerticalizeRadius(projectile.turnRadius, speed, pitch)
+
+	local pitch = math_clamp(velocity[2] / speed, -1, 1)
+	local level = pitch + 1
+	if level < 1 then level = level * level end
+
+	-- Fix jagged tangent-line approximation of turn for fast and high-turn rate projectiles
+	-- by increasing their turn radius and entering/exiting the curve as smoothly as we can.
+	local radius = (projectile.turnRadius + 4 * speed) * (2 * level)
 
 	if (math_abs(pitch - projectile.pitch) > 1e-6 and not position:isInCylinder(projectile.target, radius)) then
 		projectile.pitch = pitch
@@ -448,10 +454,8 @@ local function verticalize(projectileID, projectile)
 			projectile.chaseFactor
 		)
 	then
-		-- Projectile is within the minimum path distance from the target.
-		accelerate(velocity, projectile.acceleration, projectile.speedMax)
-		-- todo: if weapon is not tracking, do not correct course after a miss
-		projectile.chaseFactor = 0 -- in case it misses anyway, somehow.
+		Spring.SetProjectileMoveControl(projectileID, false)
+		return
 	end
 
 	spSetProjectilePosition(projectileID, position[1], position[2], position[3])
