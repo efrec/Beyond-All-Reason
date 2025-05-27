@@ -140,7 +140,7 @@ local function parseCustomParams(weaponDef)
 		if weaponDef.customParams.cruise_altitude == "auto" then
 			cruiseHeight = "auto" -- determined from uptime
 		else
-			cruiseHeight = tonumber(cruiseHeight)
+			cruiseHeight = tonumber(weaponDef.customParams.cruise_altitude)
 		end
 	end
 
