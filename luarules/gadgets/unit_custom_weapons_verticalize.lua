@@ -242,6 +242,41 @@ getPositionAndVelocity = function(projectileID)
 end
 
 getUptime = function(projectile, height)
+	local speedMin = projectile.speedMin
+	local speedMax = projectile.speedMax
+	local acceleration = projectile.acceleration
+	local height = projectile.ascendHeight - position[2]
+
+	if height < speedMax then
+		return 0 -- can't fix anything given less than one frame to do it
+	elseif acceleration == 0 or speedMin == speedMax then
+		return height / speedMax
+	end
+
+	local accelTime = (speedMax - speedMin) / acceleration
+	local accelDistance = speedMin * accelTime + 0.5 * acceleration * accelTime * accelTime
+
+	if accelDistance <= height then
+		local flatTime = (height - accelDistance) / speedMax
+		local speedAvg = (flatTime * speedMax + accelTime * (speedMax - speedMin) * 0.5) / (flatTime + accelTime)
+
+		return height / speedAvg
+	else
+		-- Solve d = 0.5 a t^2 + v_0 t for time t:
+		local a, b, c = 0.5 * acceleration, speedMin, -height
+		local discriminant = b * b - 4 * a * c
+
+		if discriminant < 0 then
+			return 0 -- borked and cannot be unborked but we will try anyway
+		else
+			discriminant = math_sqrt(discriminant)
+
+			local t1 = (-b + discriminant) / (2 * a)
+			local t2 = (-b - discriminant) / (2 * a)
+
+			return (t1 >= 0 and t2 >= 0) and math_min(t1, t2) or (t1 >= 0 and t1 or t2)
+		end
+	end
 end
 
 respawnWithUptime = function(projectileID, projectile, uptime)
