@@ -126,6 +126,8 @@ local leveling = {}
 local cruising = {}
 local verticalizing = {}
 
+local respawning = false
+
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
@@ -192,18 +194,18 @@ local function parseCustomParams(weaponDef)
 
 	---@class VerticalizeWeapon
 	local weapon = {
+		acceleration    = acceleration,
+		speedMax        = speedMax,
+		speedMin        = speedMin,
+		turnRate        = turnRate,
+
 		heightIntoTurn  = turnHeightMin,
+		rangeMinimum    = rangeMinimum,
+		uptimeMaxFrames = uptimeMaxFrames,
+		uptimeMinFrames = uptimeMinFrames,
+
 		cruiseHeight    = cruiseHeight,
 		turnRadius      = turnRadiusMax,
-
-		uptimeMinFrames = uptimeMinFrames,
-		uptimeMaxFrames = uptimeMaxFrames,
-		rangeMinimum    = rangeMinimum,
-
-		acceleration    = acceleration,
-		speedMin        = speedMin,
-		speedMax        = speedMax,
-		turnRate        = turnRate,
 	}
 
 	-- Additional properties for SpawnProjectiles:
@@ -225,7 +227,6 @@ local function parseCustomParams(weaponDef)
 	end
 end
 
-
 -- Guidance controls -----------------------------------------------------------
 -- We do a lot of work in this section to reuse Recoil's engine motion controls,
 -- rather than using Lua's, which incurs about 20x the total performance burden,
@@ -241,39 +242,73 @@ local function getPositionAndVelocity(projectileID)
 	return position, velocity
 end
 
-local function ping(message)
-	Spring.MarkerAddPoint(position[1], position[2], position[3], message)
-end
+local getUptime, respawnProjectile -- fix for lexical scope, see below
 
----@param turnRadius number
----@param speed number
----@param pitch number [-1, 1] (-1: vertical down, 0: level, 1: vertical up)
----@return number radius
-local function getVerticalizeRadius(turnRadius, speed, pitch)
-	-- Fast projectiles create long smoke trails (one per frame) that look too jagged.
-	local level = math_asin(pitch) + 1
-	if level < 1 then
-		level = level * level -- 
+local function newProjectile(projectileID, weaponDefID)
+	if respawning then
+		return
 	end
-	return (turnRadius + 5 * speed) * (2 * level * level)
+
+	local weapon = weapons[weaponDefID]
+	local position, velocity = getPositionAndVelocity(projectileID)
+	local targetType, target = Spring.GetProjectileTarget(projectileID)
+
+	if targetType == targetedUnit then
+		target = { Spring.GetUnitPosition(target) }
+		target[2] = Spring.GetGroundHeight(target[1], target[3])
+	end
+
+	if target[2] < 0 then
+		target[2] = 0
+	end
+
+	local turnRadius = weapon.turnRadius
+	local ascentAboveLauncher = position[2] + weapon.heightIntoTurn
+	local ascentAboveTarget = target[2] + weapon.cruiseHeight - turnRadius
+	local ascendHeight = math_max(ascentAboveLauncher, ascentAboveTarget)
+
+	---@class VerticalizeProjectile
+	local projectile = {
+		target          = target,
+		ascendHeight    = ascendHeight,
+		acceleration    = weapon.acceleration,
+		speedMax        = weapon.speedMax,
+		speedMin        = weapon.speedMin,
+		turnRate        = weapon.turnRate,
+		cruiseHeight    = weapon.cruiseHeight,
+		turnRadius      = turnRadius,
+
+		-- The guidance factors may be updated over time:
+		pitch           = 0, -- arbitrary
+		cruiseEndRadius = 1e9, -- arbitrary
+		chaseFactor     = 0.25, -- laziness for drop radius > turn radius
+	}
+
+	local cruiseDistance = distanceXZ(position, target) - weapon.rangeMinimum
+	local cruiseHeightTolerance = cruiseDistance * cruisePitchTolerance
+	local uptime = getUptime(projectile, ascendHeight - position[2])
+	local uptimeFrames = math_clamp(uptime, weapon.uptimeMinFrames, weapon.uptimeMaxFrames)
+
+	if uptimeFrames >= weapon.uptimeMinFrames + 0.5 then
+		respawnProjectile(projectileID, projectile, uptime)
+		return
+	elseif cruiseDistance <= 0 then
+		return
+	end
+
+	-- We can use StarburstProjectile controls until `turnToTarget` is disabled:
+	local targetHeight = ascendHeight + weapon.turnRadius
+	Spring.SetProjectileTarget(projectileID, target[1], targetHeight, target[3])
+	ascending[projectileID] = projectile
 end
 
----Determine the `uptime` needed for a StarburstProjectile to rise to a given height.
----@param projectile VerticalizeProjectile
----@param position float3
----@return integer uptime in seconds (?)
-local function getUptime(projectile, position)
+getUptime = function(projectile, height)
 	local speedMin = projectile.speedMin
 	local speedMax = projectile.speedMax
 	local acceleration = projectile.acceleration
+	local height = projectile.ascendHeight - position[2]
 
-	local heightDifference = projectile.target[2] - position[2]
-	local heightFromWeapon = projectile.cruiseHeight - projectile.turnRadius
-
-	-- todo: ascendHeight will change
-	local height = math_max(heightDifference + heightFromWeapon, heightFromWeapon)
-
-	if height <= speedMax then
+	if height < speedMax then
 		return 0 -- can't fix anything given less than one frame to do it
 	elseif acceleration == 0 or speedMin == speedMax then
 		return height / speedMax
@@ -305,128 +340,67 @@ local function getUptime(projectile, position)
 	end
 end
 
-local respawning = false
+---@class ProjectileParams
+local projectileParams = {
+	pos   = position,
+	speed = velocity,
+}
 
-local respawnProjectile
-do
-	---@class ProjectileParams
-	local projectileParams = {
-		pos   = position,
-		speed = velocity,
-	}
+respawnProjectile = function(projectileID, projectile, uptime)
+	if uptime > 0 then
+		local spawnParams = projectileParams
+		spawnParams.owner = Spring.GetProjectileOwnerID(projectileID)
+		spawnParams.ttl = Spring.GetProjectileTimeToLive(projectileID)
+		spawnParams['end'] = projectile.target
+		spawnParams.gravity = projectile.gravity
+		spawnParams.model = projectile.model
+		spawnParams.cegTag = projectile.cegTag
+		spawnParams.uptime = uptime
+		spawnParams.speed[4] = nil -- need `xyza` => `xyz`
 
-	---Reuse the `position` and `velocity` of a launched projectile to increase its uptime.
-	---For now, we're assuming vertical launch only, so e.g. 45 degree launchers are wrong.
-	---@param projectileID integer
-	---@param projectile VerticalizeProjectile
-	---@param uptime number
-	---@return boolean respawned
-	respawnProjectile = function(projectileID, projectile, uptime)
-		if uptime > 0 then
-			local spawnParams = projectileParams
-			spawnParams.owner = Spring.GetProjectileOwnerID(projectileID)
-			spawnParams.ttl = Spring.GetProjectileTimeToLive(projectileID)
-			spawnParams['end'] = projectile.target
-			spawnParams.gravity = projectile.gravity
-			spawnParams.model = projectile.model
-			spawnParams.cegTag = projectile.cegTag
-			spawnParams.uptime = uptime
-			spawnParams.speed[4] = nil -- need `xyza` => `xyz`
+		local weaponDefID = Spring.GetProjectileDefID(projectileID)
+		Spring.DeleteProjectile(projectileID)
 
-			local weaponDefID = Spring.GetProjectileDefID(projectileID)
-			Spring.DeleteProjectile(projectileID)
+		-- todo: errors after this point will leave `respawning` as true
+		-- todo: which idk how even to handle in lua, so that's nice
+		respawning = true
 
-			respawning = true
+		local respawnID = Spring.SpawnProjectile(weaponDefID, spawnParams)
 
-			local respawnID = Spring.SpawnProjectile(weaponDefID, spawnParams)
+		respawning = false
 
-			respawning = false
-
-			if respawnID then
-				ascending[respawnID] = projectile
-				return true
-			end
+		if respawnID then
+			ascending[respawnID] = projectile
+			return true
 		end
-
-		-- Restore default behavior on fallthrough:
-		local target = projectile.target
-		Spring.SetProjectileTarget(projectileID, target[1], target[2], target[3])
-		return false
 	end
+
+	-- Restore default behavior on fallthrough:
+	local target = projectile.target
+	Spring.SetProjectileTarget(projectileID, target[1], target[2], target[3])
+	return false
 end
 
-local function newProjectile(projectileID, weaponDefID)
-	if respawning then
-		return
-	end
-
-	local weapon = weapons[weaponDefID]
-	local position, velocity = getPositionAndVelocity(projectileID)
-	local targetType, target = Spring.GetProjectileTarget(projectileID)
-
-	if targetType == targetedUnit then
-		target = { Spring.GetUnitPosition(target) }
-		target[2] = Spring.GetGroundHeight(target[1], target[3])
-	end
-
-	if target[2] < 0 then
-		target[2] = 0
-	end
-
-	local turnRadius = weapon.turnRadius
-	local ascentAboveLauncher = position[2] + weapon.heightIntoTurn
-	local ascentAboveTarget = target[2] + weapon.cruiseHeight - turnRadius
-	local ascent = math_max(ascentAboveLauncher, ascentAboveTarget)
-
-	---@class VerticalizeProjectile
-	local projectile = {
-		target          = target,
-		ascendHeight    = ascent,
-		cruiseHeight    = weapon.cruiseHeight,
-		turnRadius      = turnRadius,
-		acceleration    = weapon.acceleration,
-		speedMax        = weapon.speedMax,
-		speedMin        = weapon.speedMin,
-		turnRate        = weapon.turnRate,
-		pitch           = 0,
-		cruiseEndRadius = 1e9,
-		chaseFactor     = 0.25, -- lazier to work with drop radius > turn radius
-	}
-
-	local cruiseDistance = distanceXZ(position, target) - weapon.rangeMinimum
-	local cruiseHeightTolerance = cruiseDistance * cruisePitchTolerance
-	local uptime = getUptime(projectile, position)
-	local uptimeFrames = math_clamp(uptime, weapon.uptimeMinFrames, weapon.uptimeMaxFrames)
-
-	if uptimeFrames >= weapon.uptimeMinFrames + 0.5 then
-		respawnProjectile(projectileID, projectile, uptime)
-		return
-	elseif cruiseDistance <= 0 then
-		return
-	end
-
-	local targetHeight = projectile.ascendHeight + weapon.turnRadius
-	Spring.SetProjectileTarget(projectileID, target[1], targetHeight, target[3])
-	ascending[projectileID] = projectile
-end
-
+---Wait for `uptime`.
+-- todo: Could be just that simple, an uptime-timer.
+---@param projectileID integer
+---@param projectile VerticalizeProjectile
 local function ascend(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
 
 	if projectile.ascendHeight - position[2] < velocity[2] then
-		local level = (1 + math_atan2(velocity[2], velocity[4])) ^ 2
-
 		ascending[projectileID] = nil
 		leveling[projectileID] = projectile
 	end
 end
 
+---Waits on the `turnToTarget` timeout or short-circuits it with a distance check.
+---@param projectileID integer
+---@param projectile VerticalizeProjectile
 local function turnToLevel(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
 	local speed = velocity[4]
-	local velocityY = velocity[2]
-
-	local pitch = math_clamp(velocityY / speed, -1, 1)
+	local pitch = math_clamp(velocity[2] / speed, -1, 1) -- fix for float instability
 	local radius = getVerticalizeRadius(projectile.turnRadius, speed, pitch)
 
 	if (math_abs(pitch - projectile.pitch) > 1e-6 and not position:isInCylinder(projectile.target, radius)) then
@@ -439,18 +413,28 @@ local function turnToLevel(projectileID, projectile)
 	end
 end
 
+---Continues the level flight plan up to the drop-turn.
+-- todo: Can be made into a simple timer, as well.
+---@param projectileID integer
+---@param projectile VerticalizeProjectile
 local function cruise(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
+	local target = projectile.target
 
-	if position:isInCylinder(projectile.target, projectile.cruiseEndRadius) then
+	if position:isInCylinder(target, projectile.cruiseEndRadius) then
+		Spring.SetProjectileTarget(projectileID, target[1], target[2], target[3])
 		Spring.SetProjectileMoveControl(projectileID, true)
-		Spring.SetProjectileTarget(projectileID, unpack(projectile.target))
 
 		cruising[projectileID] = nil
 		verticalizing[projectileID] = projectile
 	end
 end
 
+---Uses generalized, simple guidance to track onto the target position.
+---The flight plan up until now is high above the target, though, so this
+---turns toward the vertical directly above the target, then handles misses.
+---@param projectileID integer
+---@param projectile VerticalizeProjectile
 local function verticalize(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
 
@@ -466,6 +450,7 @@ local function verticalize(projectileID, projectile)
 	then
 		-- Projectile is within the minimum path distance from the target.
 		accelerate(velocity, projectile.acceleration, projectile.speedMax)
+		-- todo: if weapon is not tracking, do not correct course after a miss
 		projectile.chaseFactor = 0 -- in case it misses anyway, somehow.
 	end
 
