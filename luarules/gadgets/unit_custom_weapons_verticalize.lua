@@ -232,6 +232,54 @@ end
 local getPositionAndVelocity, getUptime, respawnWithUptime -- lexical scope fix, see below
 
 local function newProjectile(projectileID, weaponDefID)
+	if respawning then
+		return
+	end
+
+	local weapon = weapons[weaponDefID]
+	local position, velocity = getPositionAndVelocity(projectileID)
+	local targetType, target = Spring.GetProjectileTarget(projectileID)
+
+	if targetType == targetedUnit then
+		target = { spGetUnitPosition(target) }
+		target[2] = spGetGroundHeight(target[1], target[3])
+	end
+
+	if target[2] < 0 then
+		target[2] = 0
+	end
+
+	local turnRadius = weapon.turnRadius
+	local ascentAboveLauncher = position[2] + weapon.heightIntoTurn
+	local ascentAboveTarget = target[2] + weapon.cruiseHeight - turnRadius
+	local ascendHeight = math_max(ascentAboveLauncher, ascentAboveTarget)
+
+	---@class VerticalMissileProjectile
+	local projectile = {
+		acceleration = weapon.acceleration,
+		speedMax     = weapon.speedMax,
+		speedMin     = weapon.speedMin,
+		turnRate     = weapon.turnRate,
+		cruiseHeight = weapon.cruiseHeight,
+		extraHeight  = weapon.cruiseExtraHeight,
+		turnRadius   = turnRadius,
+
+		-- todo: entire flight plan could be set here
+		target       = target,
+		ascendHeight = ascendHeight,
+	}
+
+	local cruiseDistance = distanceXZ(position, target) - weapon.rangeMinimum
+	local uptime = getUptime(projectile, ascendHeight - position[2])
+	local uptimeFrames = math_clamp(uptime, weapon.uptimeMinFrames, weapon.uptimeMaxFrames)
+
+	if weaponDef.type == "StarburstLauncher" and uptimeFrames >= weapon.uptimeMinFrames + 0.5 then
+		respawnWithUptime(projectileID, projectile, uptime)
+	else
+		local targetHeight = ascendHeight + weapon.turnRadius
+		spSetProjectileTarget(projectileID, position[1], targetHeight, position[3]) -- todo: allow firing angles
+		ascending[projectileID] = projectile
+	end
 end
 
 getPositionAndVelocity = function(projectileID)
