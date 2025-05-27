@@ -303,6 +303,11 @@ getPositionAndVelocity = function(projectileID)
 	return p, v, speed
 end
 
+local function distanceXZ(position1, position2)
+	local dx, dz = position1[1] - position2[1], position1[3] - position2[3]
+	return math_sqrt(dx * dx + dz * dz)
+end
+
 getUptime = function(projectile, height)
 	local speedMin = projectile.speedMin
 	local speedMax = projectile.speedMax
@@ -375,7 +380,30 @@ respawnWithUptime = function(projectileID, projectile, uptime)
 	return false
 end
 
-local function ascend(projectileID, projectile)
+local function ascend(projectileID, projectile)\
+	local position, velocity = getPositionAndVelocity(projectileID)
+
+	if projectile.ascendHeight - position[2] < velocity[2] then
+		local target = projectile.target
+		local turnRadius = projectile.turnRadius
+		local extraHeight = projectile.extraHeight
+
+		local cruiseHeight = position[2] + turnRadius
+
+		local cruiseDistance = distanceXZ(position, target) - 2 * turnRadius
+		if cruiseDistance < 0 then cruiseDistance = 0 end
+		cruiseDistance = cruiseDistance + 2 * turnRadius -- a little roundabout
+
+		local targetHeight = position[2] + extraHeight * projectile.cruiseDistance * math_sin(math_pi * 0.5 - projectile.turnRate)
+		spSetProjectileTarget(projectileID, target[1], targetHeight, target[3])
+
+		projectile.cruiseDistance = cruiseDistance
+		projectile.cruiseHeight = cruiseHeight
+		projectile.extraHeight = projectile.extraHeight * cruiseDistance -- convert % to value
+
+		ascending[projectileID] = nil
+		cruising[projectileID] = projectile
+	end
 end
 
 local function cruise(projectileID, projectile)
