@@ -57,8 +57,11 @@ local cruiseHeightCeiling     = 10000 -- note: soaring off-screen
 --------------------------------------------------------------------------------
 -- Localization ----------------------------------------------------------------
 
+local spGetGroundHeight       = Spring.GetGroundHeight
 local spGetProjectilePosition = Spring.GetProjectilePosition
+local spGetProjectileTarget   = Spring.GetProjectileTarget
 local spGetProjectileVelocity = Spring.GetProjectileVelocity
+local spGetUnitPosition       = Spring.GetUnitPosition
 local spSetProjectilePosition = Spring.SetProjectilePosition
 local spSetProjectileTarget   = Spring.SetProjectileTarget
 local spSetProjectileVelocity = Spring.SetProjectileVelocity
@@ -79,6 +82,14 @@ local verticalizing           = {}
 
 local position                = { 0, 0, 0 } ---@type float3
 local velocity                = { 0, 0, 0 } ---@type float3
+
+local respawning              = false
+
+---@type ProjectileParams
+local projectileParams        = {
+	pos   = position,
+	speed = velocity,
+}
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
@@ -103,8 +114,9 @@ local function parseCustomParams(weaponDef)
 	if weaponDef.customParams.cruise_extra_height then
 		cruiseExtraHeight = tonumber(weaponDef.customParams.cruise_extra_height)
 	elseif weaponDef.trajectoryHeight > 0 then
-		cruiseExtraHeight = weaponDef.trajectoryHeight -- does not work correctly
-		local message = weaponDef.name .. " should not have a trajectoryHeight value"
+		cruiseExtraHeight = weaponDef.trajectoryHeight -- does not work quite correctly
+
+		local message = weaponDef.name .. " should not use trajectoryHeight"
 		Spring.Log(gadget:GetInfo().name, LOG.NOTICE, message)
 	else
 		cruiseExtraHeight = 1.0 -- so a fallback value is okay for now
@@ -237,8 +249,9 @@ local function newProjectile(projectileID, weaponDefID)
 	end
 
 	local weapon = weapons[weaponDefID]
+
 	local position, velocity = getPositionAndVelocity(projectileID)
-	local targetType, target = Spring.GetProjectileTarget(projectileID)
+	local targetType, target = spGetProjectileTarget(projectileID)
 
 	if targetType == targetedUnit then
 		target = { spGetUnitPosition(target) }
@@ -273,10 +286,11 @@ local function newProjectile(projectileID, weaponDefID)
 	local uptime = getUptime(projectile, ascendHeight - position[2])
 	local uptimeFrames = math_clamp(uptime, weapon.uptimeMinFrames, weapon.uptimeMaxFrames)
 
-	if weaponDef.type == "StarburstLauncher" and uptimeFrames >= weapon.uptimeMinFrames + 0.5 then
-		respawnWithUptime(projectileID, projectile, uptime)
-	else
-		local targetHeight = ascendHeight + weapon.turnRadius
+	if weaponDef.type ~= "StarburstLauncher" or
+		uptimeFrames < weapon.uptimeMinFrames + 0.5 or
+		not respawnWithUptime(projectileID, projectile, uptime) -- fallback to normal behavior
+	then
+		local targetHeight = ascendHeight + turnRadius
 		spSetProjectileTarget(projectileID, position[1], targetHeight, position[3]) -- todo: allow firing angles
 		ascending[projectileID] = projectile
 	end
@@ -328,6 +342,37 @@ getUptime = function(projectile, height)
 end
 
 respawnWithUptime = function(projectileID, projectile, uptime)
+	if uptime > 0 then
+		local weaponDefID = Spring.GetProjectileDefID(projectileID)
+
+		local spawnParams = projectileParams
+		spawnParams.owner = Spring.GetProjectileOwnerID(projectileID)
+		spawnParams.ttl = Spring.GetProjectileTimeToLive(projectileID)
+		spawnParams['end'] = projectile.target
+		spawnParams.gravity = projectile.gravity
+		spawnParams.model = projectile.model
+		spawnParams.cegTag = projectile.cegTag
+		spawnParams.uptime = uptime
+
+		-- todo: errors after this point will leave `respawning` as true
+		-- todo: which idk how even to handle in lua, so that's nice
+		respawning = true
+
+		local respawnID = Spring.SpawnProjectile(weaponDefID, spawnParams)
+
+		respawning = false
+
+		if respawnID then
+			ascending[respawnID] = projectile
+
+			-- Late delete means we can fallback to the default behavior
+			-- but also means we can fail due to projectile count limit.
+			Spring.DeleteProjectile(projectileID)
+
+			return true
+		end
+	end
+	return false
 end
 
 local function ascend(projectileID, projectile)
