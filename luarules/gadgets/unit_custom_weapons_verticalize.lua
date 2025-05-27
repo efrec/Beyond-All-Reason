@@ -81,6 +81,145 @@ local verticalizing           = {}
 -- Local functions -------------------------------------------------------------
 
 local function parseCustomParams(weaponDef)
+	local success = true
+
+	local cruiseHeightMin, cruiseExtraHeight, uptimeMin, uptimeMax
+
+	-- StarburstLauncher weapons have an early timeout that we have to handle
+	-- and a different set of weapondef properties from missiles (e.g. uptime).
+	local isStarburstWeapon = weaponDef.type == "StarburstLauncher"
+
+	if weaponDef.customParams.cruise_altitude_min then
+		if weaponDef.customParams.cruise_altitude_min == "auto" then
+			cruiseHeightMin = "auto" -- determined from uptime
+		else
+			cruiseHeightMin = tonumber(weaponDef.customParams.cruise_altitude_min)
+		end
+	end
+
+	if weaponDef.customParams.cruise_extra_height then
+		cruiseExtraHeight = tonumber(weaponDef.customParams.cruise_extra_height)
+	elseif weaponDef.trajectoryHeight > 0 then
+		cruiseExtraHeight = weaponDef.trajectoryHeight -- does not work correctly
+		local message = weaponDef.name .. " should not have a trajectoryHeight value"
+		Spring.Log(gadget:GetInfo().name, LOG.NOTICE, message)
+	else
+		cruiseExtraHeight = 1.0 -- so a fallback value is okay for now
+	end
+
+	if weaponDef.customParams.uptime_min then
+		uptimeMin = tonumber(weaponDef.customParams.uptime_min)
+	elseif weaponDef.customParams.uptime then
+		uptimeMin = tonumber(weaponDef.customParams.uptime)
+	end
+
+	if weaponDef.customParams.uptime_max then
+		uptimeMax = tonumber(weaponDef.customParams.uptime_max)
+	elseif weaponDef.customParams.uptime then
+		uptimeMax = tonumber(weaponDef.customParams.uptime)
+	end
+
+	-- We should yell more often about bad customparams when we can:
+
+	if not cruiseHeightMin then
+		local message = weaponDef.name .. " needs a cruise_altitude_min value"
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+
+		success = false
+	end
+
+	if not cruiseExtraHeight then
+		local message = weaponDef.name .. " has a bad cruise_extra_height value"
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+
+		success = false
+	end
+
+	if not uptimeMin then
+		local message = weaponDef.name .. " needs a uptime_min (or uptime) value"
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+
+		success = false
+	end
+
+	if not uptimeMax then
+		local message = weaponDef.name .. " needs a uptime_max (or uptime) value"
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+
+		success = false
+	end
+
+	-- This gadget uses the engine's motion controls. Derive the extents of that motion:
+
+	local acceleration = weaponDef.weaponAcceleration
+	local speedMin = weaponDef.startvelocity
+	local speedMax = weaponDef.projectilespeed
+	local turnRate = weaponDef.turnRate
+
+	if turnRate == 0 then
+		local message = weaponDef.name .. " cannot define a curve without a turnRate"
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, message)
+
+		success = false
+	end
+
+	local uptimeMinFrames = uptimeMin * Game.gameSpeed
+	local uptimeMaxFrames = uptimeMax * Game.gameSpeed
+
+	local accelerationFrames = 0
+	if acceleration and acceleration ~= 0 then
+		accelerationFrames = math_min((speedMax - speedMin) / acceleration, uptimeMinFrames)
+	end
+
+	local turnSpeedMin = speedMin + accelerationFrames * acceleration
+	local turnHeightMin = turnSpeedMin * (uptimeMinFrames - accelerationFrames * 0.5)
+	local turnRadiusMax = speedMax / turnRate / math_pi
+
+	if cruiseHeightMin == "auto" then
+		cruiseHeightMin = turnHeightMin + turnRadiusMax
+	end
+
+	cruiseHeightMin = math_clamp(cruiseHeightMin, cruiseHeightFloor, cruiseHeightCeiling)
+	cruiseExtraHeight = math_clamp(cruiseExtraHeight, (isStarburstWeapon and 1 or 0), 4)
+
+	local rangeMinimum = 2 * (turnSpeedMin / turnRate / math_pi) -- maybe overcompensates for slow accel?
+
+	---@class VerticalMissileWeapon
+	local weapon = {
+		acceleration      = acceleration,
+		speedMax          = speedMax,
+		speedMin          = speedMin,
+		turnRate          = turnRate,
+
+		heightIntoTurn    = turnHeightMin,
+		rangeMinimum      = rangeMinimum,
+		uptimeMaxFrames   = uptimeMaxFrames,
+		uptimeMinFrames   = uptimeMinFrames,
+		respawning        = isStarburstWeapon,
+
+		cruiseHeight      = cruiseHeightMin,
+		cruiseExtraHeight = cruiseExtraHeight,
+		turnRadius        = turnRadiusMax,
+	}
+
+	if isStarburstWeapon then
+		-- Get the ProjectileParams properties for SpawnProjectile.
+		if weaponDef.myGravity and weaponDef.myGravity ~= 0 then
+			weapon.gravity = weaponDef.myGravity
+		end
+
+		if weaponDef.model then
+			weapon.model = weaponDef.model
+		end
+
+		if weaponDef.cegTag then
+			weapon.cegtag = weaponDef.cegTag
+		end
+	end
+
+	if success then
+		return weapon
+	end
 end
 
 -- todo: achieve the target curve using only SetProjectileTarget and engine move controls
