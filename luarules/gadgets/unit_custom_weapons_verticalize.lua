@@ -77,6 +77,9 @@ local ascending               = {}
 local cruising                = {}
 local verticalizing           = {}
 
+local position                = { 0, 0, 0 } ---@type float3
+local velocity                = { 0, 0, 0 } ---@type float3
+
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
@@ -226,9 +229,16 @@ end
 -- todo: do this by extending the tangent line of the curve to the target axis
 -- todo: and, from the first point onward, changing only the height above target
 
-local getUptime, respawnWithUptime -- lexical scope fix, see below
+local getPositionAndVelocity, getUptime, respawnWithUptime -- lexical scope fix, see below
 
 local function newProjectile(projectileID, weaponDefID)
+end
+
+getPositionAndVelocity = function(projectileID)
+	local p, v, speed = position, velocity
+	p[1], p[2], p[3] = spGetProjectilePosition(projectileID)
+	v[1], v[2], v[3], speed = spGetProjectileVelocity(projectileID)
+	return p, v, speed
 end
 
 getUptime = function(projectile, height)
