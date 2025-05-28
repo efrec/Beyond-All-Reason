@@ -123,7 +123,7 @@ local function parseCustomParams(weaponDef)
 	end
 
 	if isStarburstWeapon then
-		uptimeMin = weaponDef.uptime,
+		uptimeMin = weaponDef.uptime
 	elseif weaponDef.customParams.uptime_min then
 		uptimeMin = tonumber(weaponDef.customParams.uptime_min)
 	elseif weaponDef.customParams.uptime then
