@@ -380,33 +380,75 @@ respawnWithUptime = function(projectileID, projectile, uptime)
 	return false
 end
 
-local function ascend(projectileID, projectile)\
+local function cruiseStart(projectileID, projectile, position, velocity)
+	local extraHeight = projectile.extraHeight -- as percentage
+	local target = projectile.target
+	local turnRadius = projectile.turnRadius
+	local turnRate = projectile.turnRate
+
+	local cruiseHeight = position[2] + turnRadius
+
+	local cruiseDistance = distanceXZ(position, target) - 2 * turnRadius
+	if cruiseDistance < 0 then cruiseDistance = 0 end
+	cruiseDistance = cruiseDistance + 2 * turnRadius
+
+	extraHeight = extraHeight * cruiseDistance -- as distance
+
+	-- ? method 1
+	-- -- The approximate radius of our circular trajectory (exact for extraHeight == 1):
+	-- local radius = extraHeight * 0.5 + cruiseDistance * cruiseDistance / (8 * extraHeight)
+	-- -- And its approximate chord half-angle that we can use to construct a target height:
+	-- local angle = math_asin(cruiseDistance / (2 * radius))
+	-- -- StarburstProjectiles need to prevent aligning perfectly to the target:
+	-- angle = math_min(angle, math_pi * 0.5 - 1.25 * turnRate)
+	-- local targetHeight = position[2] + cruiseDistance * math_sin(angle)
+	-- spSetProjectileTarget(projectileID, target[1], targetHeight, target[3])
+	-- projectile.cruiseAngle = angle -- updates in increments of turnRate
+
+	-- ? method 2
+	-- Start with shallow-ish turn toward level (extra-extra height):
+	local targetHeight = cruiseHeight + (2 * math_pi) * (2 * math_pi) * extraHeight
+	spSetProjectileTarget(projectileID, target[1], targetHeight, target[3])
+	projectile.cruiseDistance = cruiseDistance
+	projectile.cruiseHeight = cruiseHeight
+	projectile.extraHeight = extraHeight
+
+	ascending[projectileID] = nil
+	cruising[projectileID] = projectile
+end
+
+local function ascend(projectileID, projectile)
 	local position, velocity = getPositionAndVelocity(projectileID)
 
 	if projectile.ascendHeight - position[2] < velocity[2] then
-		local target = projectile.target
-		local turnRadius = projectile.turnRadius
-		local extraHeight = projectile.extraHeight
-
-		local cruiseHeight = position[2] + turnRadius
-
-		local cruiseDistance = distanceXZ(position, target) - 2 * turnRadius
-		if cruiseDistance < 0 then cruiseDistance = 0 end
-		cruiseDistance = cruiseDistance + 2 * turnRadius -- a little roundabout
-
-		local targetHeight = position[2] + extraHeight * projectile.cruiseDistance * math_sin(math_pi * 0.5 - projectile.turnRate)
-		spSetProjectileTarget(projectileID, target[1], targetHeight, target[3])
-
-		projectile.cruiseDistance = cruiseDistance
-		projectile.cruiseHeight = cruiseHeight
-		projectile.extraHeight = projectile.extraHeight * cruiseDistance -- convert % to value
-
-		ascending[projectileID] = nil
-		cruising[projectileID] = projectile
+		cruiseStart(projectileID, projectile, position, velocity)
 	end
 end
 
 local function cruise(projectileID, projectile)
+	local position, velocity, speed = getPositionAndVelocity(projectileID)
+	local target = projectile.target
+
+	-- ? method 1
+	-- local angle = projectile.cruiseAngle - projectile.turnRate
+	-- projectile.cruiseAngle = angle
+	-- local distance = distanceXZ(position, target)
+	-- local targetHeight = position[2] + math_sin(angle) * projectile.extraHeight
+
+	-- ? method 2
+	local level = (velocity[2] / speed) + 1
+	local radius = (projectile.turnRadius + 4 * speed) * (2 * level)
+	local distance = distanceXZ(position, target)
+	local targetHeight
+	if distance - radius > 0 then
+		local extra = 2 * math_pi * distance / projectile.cruiseDistance
+		targetHeight = projectile.cruiseHeight + projectile.extraHeight * extra
+	else
+		targetHeight = target[2]
+		cruising[projectileID] = nil
+	end
+
+	spSetProjectileTarget(projectileID, target[1], targetHeight, target[3])
 end
 
 --------------------------------------------------------------------------------
@@ -458,11 +500,11 @@ function gadget:ProjectileDestroyed(projectileID, ownerID, weaponDefID)
 end
 
 function gadget:GameFrame(frame)
-	for projectileID, projectile in pairs(ascending) do
-		ascend(projectileID, projectile)
-	end
-
 	for projectileID, projectile in pairs(cruising) do
 		cruise(projectileID, projectile)
+	end
+
+	for projectileID, projectile in pairs(ascending) do
+		ascend(projectileID, projectile)
 	end
 end
