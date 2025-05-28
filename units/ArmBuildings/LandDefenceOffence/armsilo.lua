@@ -173,8 +173,8 @@ return {
 				customparams = {
 					cruise_and_verticalize = true,
 					cruise_altitude_min = "auto",
-					cruise_extra_height = 1,
-					uptime_max = 7.5,
+					cruise_extra_height = 0.25,
+					uptime_max = 7,
 					stockpilelimit = 10,
 				},
 				damage = {
