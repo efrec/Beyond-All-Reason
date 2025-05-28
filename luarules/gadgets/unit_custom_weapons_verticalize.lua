@@ -57,6 +57,14 @@ local cruiseHeightCeiling     = 10000 -- note: soaring off-screen
 --------------------------------------------------------------------------------
 -- Localization ----------------------------------------------------------------
 
+local math_max                = math.max
+local math_min                = math.min
+local math_clamp              = math.clamp
+local math_sqrt               = math.sqrt
+local math_sin                = math.sin
+local math_asin               = math.asin
+local math_pi                 = math.pi
+
 local spGetGroundHeight       = Spring.GetGroundHeight
 local spGetProjectilePosition = Spring.GetProjectilePosition
 local spGetProjectileTarget   = Spring.GetProjectileTarget
@@ -91,8 +99,22 @@ local projectileParams        = {
 	speed = velocity,
 }
 
+local function ping(message)
+	local position = position
+	Spring.MarkerAddPoint(position[1], position[2], position[3], message)
+end
+
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
+
+-- To convert a StarburstLauncher -> MissileLauncher with this gadget:
+-- + avoidground = false
+-- + avoidfeature = false
+-- + avoidfriendly = false (maybe)
+-- + cylinderTargeting = 1 (or calculate from max uptime)
+-- + fixedLauncher = true
+-- + trajectoryHeight = 0
+-- - weapontimer
 
 local function parseCustomParams(weaponDef)
 	local success = true
@@ -241,11 +263,24 @@ local function parseCustomParams(weaponDef)
 	end
 end
 
+local function getPositionAndVelocity(projectileID)
+	local p, v, speed = position, velocity
+	p[1], p[2], p[3] = spGetProjectilePosition(projectileID)
+	v[1], v[2], v[3], speed = spGetProjectileVelocity(projectileID)
+	return p, v, speed
+end
+
+local function distanceXZ(position1, position2)
+	local dx = position1[1] - position2[1]
+	local dz = position1[3] - position2[3]
+	return math_sqrt(dx * dx + dz * dz)
+end
+
 -- todo: achieve the target curve using only SetProjectileTarget and engine move controls
 -- todo: do this by extending the tangent line of the curve to the target axis
 -- todo: and, from the first point onward, changing only the height above target
 
-local getPositionAndVelocity, getUptime, respawnWithUptime -- lexical scope fix, see below
+local getUptime, respawnWithUptime
 
 local function newProjectile(projectileID, weaponDefID)
 	if respawning then
@@ -253,6 +288,7 @@ local function newProjectile(projectileID, weaponDefID)
 	end
 
 	local weapon = weapons[weaponDefID]
+	local weaponDef = WeaponDefs[weaponDefID]
 
 	local position, velocity = getPositionAndVelocity(projectileID)
 	local targetType, target = spGetProjectileTarget(projectileID)
@@ -288,7 +324,10 @@ local function newProjectile(projectileID, weaponDefID)
 
 	local cruiseDistance = distanceXZ(position, target) - weapon.rangeMinimum
 	local uptime = getUptime(projectile, ascendHeight - position[2])
-	local uptimeFrames = math_clamp(uptime, weapon.uptimeMinFrames, weapon.uptimeMaxFrames)
+	local uptimeFrames = math_clamp(uptime * Game.gameSpeed, weapon.uptimeMinFrames, weapon.uptimeMaxFrames)
+
+	-- todo: echoes
+	Spring.Echo('[verticalize] uptime = ' .. uptime)
 
 	if weaponDef.type ~= "StarburstLauncher" or
 		uptimeFrames < weapon.uptimeMinFrames + 0.5 or
@@ -300,32 +339,29 @@ local function newProjectile(projectileID, weaponDefID)
 	end
 end
 
-getPositionAndVelocity = function(projectileID)
-	local p, v, speed = position, velocity
-	p[1], p[2], p[3] = spGetProjectilePosition(projectileID)
-	v[1], v[2], v[3], speed = spGetProjectileVelocity(projectileID)
-	return p, v, speed
-end
-
-local function distanceXZ(position1, position2)
-	local dx, dz = position1[1] - position2[1], position1[3] - position2[3]
-	return math_sqrt(dx * dx + dz * dz)
-end
-
 getUptime = function(projectile, height)
 	local speedMin = projectile.speedMin
 	local speedMax = projectile.speedMax
 	local acceleration = projectile.acceleration
 	local height = projectile.ascendHeight - position[2]
 
+	Spring.Echo('[verticalize]', speedMin, speedMax, acceleration, height)
+
 	if height < speedMax then
 		return 0 -- can't fix anything given less than one frame to do it
 	elseif acceleration == 0 or speedMin == speedMax then
-		return height / speedMax
+		return height / (speedMax * Game.gameSpeed)
 	end
 
-	local accelTime = (speedMax - speedMin) / acceleration
+	-- Need result in terms of seconds.
+	speedMin = speedMin * Game.gameSpeed
+	speedMax = speedMax * Game.gameSpeed
+	acceleration = acceleration * Game.gameSpeed
+
+	local accelTime = (speedMax - speedMin) / acceleration / Game.gameSpeed -- I have no clue
 	local accelDistance = speedMin * accelTime + 0.5 * acceleration * accelTime * accelTime
+
+	Spring.Echo('[verticalize]', accelTime, accelDistance, height)
 
 	if accelDistance <= height then
 		local flatTime = (height - accelDistance) / speedMax
@@ -378,6 +414,8 @@ respawnWithUptime = function(projectileID, projectile, uptime)
 			-- but also means we can fail due to projectile count limit.
 			Spring.DeleteProjectile(projectileID)
 
+			ping('respawned')
+
 			return true
 		end
 	end
@@ -394,11 +432,11 @@ local function cruiseStart(projectileID, projectile, position, velocity)
 
 	local cruiseDistance = distanceXZ(position, target) - 2 * turnRadius
 	if cruiseDistance < 0 then cruiseDistance = 0 end
-	cruiseDistance = cruiseDistance + 2 * turnRadius
-
+	
 	extraHeight = extraHeight * cruiseDistance -- as distance
-
+	
 	-- ? method 1
+	-- cruiseDistance = cruiseDistance + 2 * turnRadius
 	-- -- The approximate radius of our circular trajectory (exact for extraHeight == 1):
 	-- local radius = extraHeight * 0.5 + cruiseDistance * cruiseDistance / (8 * extraHeight)
 	-- -- And its approximate chord half-angle that we can use to construct a target height:
@@ -410,8 +448,8 @@ local function cruiseStart(projectileID, projectile, position, velocity)
 	-- projectile.cruiseAngle = angle -- updates in increments of turnRate
 
 	-- ? method 2
-	-- Start with shallow-ish turn toward level (extra-extra height):
-	local targetHeight = cruiseHeight + (2 * math_pi) * (2 * math_pi) * extraHeight
+	-- Start with hard turn toward level (less-extra height):
+	local targetHeight = cruiseHeight + extraHeight
 	spSetProjectileTarget(projectileID, target[1], targetHeight, target[3])
 	projectile.cruiseDistance = cruiseDistance
 	projectile.cruiseHeight = cruiseHeight
@@ -419,6 +457,8 @@ local function cruiseStart(projectileID, projectile, position, velocity)
 
 	ascending[projectileID] = nil
 	cruising[projectileID] = projectile
+
+	ping('start cruise')
 end
 
 local function ascend(projectileID, projectile)
@@ -445,7 +485,7 @@ local function cruise(projectileID, projectile)
 	local distance = distanceXZ(position, target)
 	local targetHeight
 	if distance - radius > 0 then
-		local extra = 2 * math_pi * distance / projectile.cruiseDistance
+		local extra = distance / projectile.cruiseDistance - 0.5
 		targetHeight = projectile.cruiseHeight + projectile.extraHeight * extra
 	else
 		targetHeight = target[2]
