@@ -122,7 +122,9 @@ local function parseCustomParams(weaponDef)
 		cruiseExtraHeight = 1.0 -- so a fallback value is okay for now
 	end
 
-	if weaponDef.customParams.uptime_min then
+	if isStarburstWeapon then
+		uptimeMin = weaponDef.uptime,
+	elseif weaponDef.customParams.uptime_min then
 		uptimeMin = tonumber(weaponDef.customParams.uptime_min)
 	elseif weaponDef.customParams.uptime then
 		uptimeMin = tonumber(weaponDef.customParams.uptime)
@@ -132,6 +134,8 @@ local function parseCustomParams(weaponDef)
 		uptimeMax = tonumber(weaponDef.customParams.uptime_max)
 	elseif weaponDef.customParams.uptime then
 		uptimeMax = tonumber(weaponDef.customParams.uptime)
+	else
+		uptimeMax = uptimeMin
 	end
 
 	-- We should yell more often about bad customparams when we can:
