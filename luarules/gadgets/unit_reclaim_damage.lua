@@ -17,19 +17,25 @@ if not gadgetHandler:IsSyncedCode() then
     return false
 end
 
-function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, featureDefID, part)
-    local health, healthMax = Spring.GetFeatureHealth(featureID)
-    local healthPart = health / healthMax
+local math_clamp = math.clamp
 
-    if part < 0 then
-        if -part < healthPart then
-            Spring.SetFeatureHealth(featureID, healthMax * (healthPart + part))
-        else
-            Spring.DestroyFeature(featureID)
-        end
-    elseif part > 0 and healthPart < 1 then
-        Spring.SetFeatureHealth(featureID, healthMax * math.min(1, healthPart + part))
-        return false
+local spDestroyFeature = Spring.DestroyFeature
+local spGetFeatureHealth = Spring.GetFeatureHealth
+local spSetFeatureHealth = Spring.SetFeatureHealth
+
+-- NB: Features have very different health when compared to units.
+-- They can have strange health:build costs or even fractional HP.
+local healthMaxFractionalLimit = 10
+
+function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, featureDefID, part)
+    local health, healthMax = spGetFeatureHealth(featureID)
+    local healthAfter = math_clamp(health / healthMax + part, 0, 1)
+
+    if part < 0 and (healthAfter == 0 or healthMax > healthMaxFractionalLimit and healthMax * healthAfter < 1) then
+        spDestroyFeature(featureID)
+    elseif healthAfter < 1 then
+        spSetFeatureHealth(featureID, healthMax * healthAfter)
+        return part < 0
     end
 
     return true
