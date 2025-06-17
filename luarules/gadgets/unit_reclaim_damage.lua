@@ -31,7 +31,7 @@ function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, feature
     local health, healthMax = spGetFeatureHealth(featureID)
     local healthAfter = math_clamp(health / healthMax + part, 0, 1)
 
-    if part < 0 and (healthAfter == 0 or healthMax > healthMaxFractionalLimit and healthMax * healthAfter < 1) then
+    if part < 0 and (healthAfter == 0 or (healthMax > healthMaxFractionalLimit and healthMax * healthAfter < 1)) then
         spDestroyFeature(featureID)
     elseif healthAfter < 1 then
         spSetFeatureHealth(featureID, healthMax * healthAfter)
