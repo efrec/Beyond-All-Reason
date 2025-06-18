@@ -17,8 +17,6 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local math_clamp = math.clamp
-
 local spDestroyFeature = Spring.DestroyFeature
 local spGetFeatureHealth = Spring.GetFeatureHealth
 local spSetFeatureHealth = Spring.SetFeatureHealth
@@ -29,14 +27,19 @@ local healthMaxFractionalLimit = 10
 
 function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, featureDefID, part)
 	local health, healthMax = spGetFeatureHealth(featureID)
-	local healthAfter = math_clamp(health / healthMax + part, 0, 1)
 
-	if part < 0 and (healthAfter == 0 or (healthMax > healthMaxFractionalLimit and healthMax * healthAfter < 1)) then
-		spDestroyFeature(featureID)
-	elseif healthAfter < 1 then
+	local healthAfter = health / healthMax + part
+
+	if healthAfter > 0 and (healthMax < healthMaxFractionalLimit or healthMax * healthAfter >= 1) then
+		if healthAfter > 1 then
+			healthAfter = 1
+		end
 		spSetFeatureHealth(featureID, healthMax * healthAfter)
-		return part < 0
+	else
+		spDestroyFeature(featureID)
 	end
 
-	return true
+	-- Reclaim is always allowed.
+	-- Resurrect is allowed at full health.
+	return part < 0 or health == healthMax
 end
