@@ -70,4 +70,6 @@ function gadget:AllowUnitBuildStep(builderID, builderTeam, unitID, unitDefID, pa
 		-- remove it on reclaim
 		info[builderTeam] = (info[builderTeam] or 0) + part
 	end
+
+	return true
 end
