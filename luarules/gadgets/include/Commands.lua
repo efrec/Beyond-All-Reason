@@ -367,10 +367,13 @@ Commands.RegisterParamsType = function(name, counts, targetIndex, positionIndex)
 
 	if targetIndex ~= nil and next(targetIndex) ~= nil then
 		local ti = {}
+
 		for paramCount, index in pairs(targetIndex) do
 			if index > paramCount then
+				paramsType[name] = nil
 				return false
 			end
+
 			ti[paramCount] = index
 		end
 
@@ -380,10 +383,13 @@ Commands.RegisterParamsType = function(name, counts, targetIndex, positionIndex)
 
 	if positionIndex ~= nil and next(positionIndex) ~= nil then
 		local pi = {}
+
 		for paramCount, index in pairs(positionIndex) do
 			if index > paramCount then
+				paramsType[name] = nil
 				return false
 			end
+
 			pi[paramCount] = index
 		end
 
