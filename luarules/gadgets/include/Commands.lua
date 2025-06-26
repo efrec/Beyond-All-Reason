@@ -288,7 +288,7 @@ end
 -- Command management ----------------------------------------------------------
 
 local CMD = CMD
-local GameCMD = GameCMD
+local GameCMD = GameCMD ---@diagnostic disable-line
 
 ---Add a game command to the GameCMD global table and configure its usage.
 ---
@@ -301,6 +301,7 @@ local GameCMD = GameCMD
 ---@param waits boolean?
 ---@return boolean registered
 Commands.RegisterCommand = function(command, name, paramsTypeName, queues, waits)
+	---@diagnostic disable-next-line: cast-local-type
 	name, command = tostring(name), tonumber(command)
 
 	if name == nil or command == nil or command < 30000 then
