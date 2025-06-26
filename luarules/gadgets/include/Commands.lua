@@ -1,9 +1,28 @@
 -- COMMANDS --------------------------------------------------------------------
 -- Common configuration data and functions for processing RecoilEngine commands.
-
-local Commands = {}
+--------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
+-- Exported functions:
+-- - RegisterCommand
+-- - RegisterParamsType
+-- - IsQueueCommand
+-- - IsWaitCommand
+-- - HasObjectCommand
+-- - HasPositionCommand
+-- - IsObjectCommand
+-- - IsPositionCommand
+-- - GetObjectIndex
+-- - GetObjectID
+-- - GetGuardeeID
+-- - GetPositionIndex
+-- - GetPosition
+-- - GetInsertedCommand
+-- - RemoveEnqueueOptions
+-- - RemoveInsertOptions
+--------------------------------------------------------------------------------
+
+local Commands = {}
 
 local COMMAND_PARAM_COUNT = 5
 local COMMAND_PARAM_COUNT_MAX = 8
@@ -266,7 +285,7 @@ do
 end
 
 --------------------------------------------------------------------------------
--- Command functions -----------------------------------------------------------
+-- Command management ----------------------------------------------------------
 
 local CMD = CMD
 local GameCMD = GameCMD
@@ -375,7 +394,7 @@ Commands.RegisterParamsType = function(name, counts, targetIndex, positionIndex)
 end
 
 --------------------------------------------------------------------------------
--- Command functions -----------------------------------------------------------
+-- Command processing ----------------------------------------------------------
 
 ---@param command CMD?
 Commands.IsQueueCommand = function(command)
