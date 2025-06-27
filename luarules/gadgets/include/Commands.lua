@@ -2,30 +2,44 @@
 -- Common configuration data and functions for processing RecoilEngine commands.
 --------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
--- Exported functions:
--- - RegisterCommand
--- - RegisterParamsType
--- - IsQueueCommand
--- - IsWaitCommand
--- - HasObjectCommand
--- - HasPositionCommand
--- - IsObjectCommand
--- - IsPositionCommand
--- - GetObjectIndex
--- - GetObjectID
--- - GetGuardeeID
--- - GetPositionIndex
--- - GetPosition
--- - GetInsertedCommand
--- - RemoveEnqueueOptions
--- - RemoveInsertOptions
---------------------------------------------------------------------------------
-
 local Commands = {}
+
+--------------------------------------------------------------------------------
+-- Exported functions ----------------------------------------------------------
+-- # RegisterCommand       ::  Add a (non-engine) game command to the module  --
+-- # RegisterParamsType    ::  Add a parameter set and its configuration      --
+-- # IsQueueCommand        ::  Does the command occupy the command queue      --
+-- # IsWaitCommand         ::  Does the command suspend the command queue     --
+-- # HasObjectCommand      ::  Can the command target units or features       --
+-- # HasPositionCommand    ::  Can the command target a map position          --
+-- # IsObjectCommand       ::  Does the command target a unit or feature      --
+-- # IsPositionCommand     ::  Does the command target a map position         --
+-- # GetObjectIndex        ::  Get the parameter index of the object target   --
+-- # GetObjectID           ::  Get the object id of the command target        --
+-- # GetGuardeeID          ::  Get the guardee target id of the guarding unit --
+-- # GetPositionIndex      ::  Get the parameter index of the position target --
+-- # GetPosition           ::  Get the xyz coordinates of the command target  --
+-- # GetInsertedCommand    ::  Get the command inside of a CMD_INSERT         --
+-- # RemoveEnqueueOptions  ::  Replace command options that would enqueue it  --
+-- # RemoveInsertOptions   ::  Replace command optoins that would insert it   --
+--------------------------------------------------------------------------------
 
 local COMMAND_PARAM_COUNT = 5
 local COMMAND_PARAM_COUNT_MAX = 8
+
+--------------------------------------------------------------------------------
+-- CMD and CMDTYPE -------------------------------------------------------------
+
+-- mmk rewrite this in a comprehensible order
+-- 1. game cmd and cmdtype stuff
+-- 2. add more into to the cmdtype, get our paramsType
+-- 3. the rest
+
+---Map CMD onto CMDTYPE.
+---@type table<CMD, CMDTYPE>
+local commandToCmdType = {
+
+}
 
 --------------------------------------------------------------------------------
 -- Parameter types and counts --------------------------------------------------
@@ -39,15 +53,27 @@ end
 local any = rangeSet(0, COMMAND_PARAM_COUNT_MAX)
 local none = {}
 
---------------------------------------------------------------------------------
--- Parameter types and counts --------------------------------------------------
-
----Contains the allowed parameter counts per set of command parameter types.
----
----For example, commands can accept a unit ID or map position (TargetOrPoint).
----
----Used only for processing engine commands and registering game commands.
----@type table<string, table<integer, true>>
+---Allowed parameter counts per command parameter type.
+--
+-- For example, a command that accepts unit id's or map positions accepts counts
+-- of either 1 or 3, like so:
+--
+-- `ExampleType = { [1] = true, [3] = true }`
+--
+-- #### Note:
+--
+-- These parameter counts don't match the engine's `CMDTYPE` parameter counts,
+-- since the engine is actually more permissive than it advertises. For example,
+-- CMD_FIGHT says it accepts only 3 or 6 params, but can also accept 1 param.
+--
+-- Since we are not stuck using those counts, though, we can add more informtion
+-- to our parameter sets by specifying more than just the data type.
+--
+-- For example, the paramsType entry `WorkerTask` helps to specify what kind of
+-- units can accept that order (builders in general) and what kind of radius
+-- test we should use to validate the target (buildRadius + modelRadius) without
+-- also checking the command id.
+---@type table<string, table<0|1|2|3|4|5|6|7|8, true>>
 local paramsType = {
 	Insert            = rangeSet(3, 3 + COMMAND_PARAM_COUNT),
 	Remove            = rangeSet(0, COMMAND_PARAM_COUNT_MAX),
@@ -68,12 +94,12 @@ local paramsType = {
 	TargetAllyUnit    = { [1] = true },
 	TargetEnemyUnit   = { [1] = true },
 
-	TargetOrPoint     = { [1] = true, [3] = true },          -- [1] := ID, [3] := point
-	TargetOrArea      = { [1] = true, [4] = true },          -- [1] := ID, [4] := area
-	TargetOrFront     = { [1] = true, [3] = true, [6] = true }, -- [1] := ID, [3] := point, [6] := middle point, right point
-	TargetOrRectangle = { [1] = true, [3] = true, [6] = true }, -- [1] := ID, [6] := rectangle
+	TargetOrPoint     = { [1] = true, [3] = true },          -- [1] := id, [3] := point
+	TargetOrArea      = { [1] = true, [4] = true },          -- [1] := id, [4] := area
+	TargetOrFront     = { [1] = true, [3] = true, [6] = true }, -- [1] := id, [3] := point, [6] := middle point, right point
+	TargetOrRectangle = { [1] = true, [3] = true, [6] = true }, -- [1] := id, [6] := rectangle
 
-	WorkerTask        = { [1] = true, [4] = true, [5] = true }, -- [1] := ID, [4] := area, [5] := ID, point, leash radius
+	WorkerTask        = { [1] = true, [4] = true, [5] = true }, -- [1] := id, [4] := area, [5] := id, point, leash radius
 }
 
 paramsType = setmetatable(paramsType, {
@@ -85,7 +111,7 @@ paramsType = setmetatable(paramsType, {
 })
 
 ---Maps every command to its accepted parameter counts.
----@type table<CMD, table<integer, true>>
+---@type table<CMD, table<0|1|2|3|4|5|6|7|8, true>>
 local commandParamsType = {
 	[CMD.INSERT]          = paramsType.Insert,
 	[CMD.REMOVE]          = paramsType.Remove,
@@ -134,6 +160,8 @@ local commandParamsType = {
 	[CMD.REPAIR]          = paramsType.WorkerTask,
 	[CMD.RESURRECT]       = paramsType.WorkerTask,
 
+	-- While we won't *receive* CMD_FIGHT with a target, we
+	-- can issue it with no problems (gets cast to ATTACK):
 	[CMD.FIGHT]           = paramsType.TargetOrFront,
 
 	[CMD.DEATHWAIT]       = paramsType.TargetOrRectangle,
@@ -149,10 +177,10 @@ commandParamsType = setmetatable(commandParamsType, {
 --------------------------------------------------------------------------------
 -- Target parameter index ------------------------------------------------------
 
----Contains the parameter index position of the command's target ID.
+---Contains the parameter index position of the command's target id.
 ---
 ---Used only for processing engine commands and registering game commands.
----@type table<string, table<integer, integer>>
+---@type table<string, table<1|2|3|4|5|6|7|8, 1|2|3|4|5|6|7|8>>
 local paramsTargetIndex = {
 	TargetObject      = { [1] = 1 },
 	TargetAllyUnit    = { [1] = 1 },
@@ -198,7 +226,7 @@ end
 ---Contains the parameter index position of the command's x coordinate.
 ---
 ---Used only for processing engine commands and registering game commands.
----@type table<string, table<integer, integer>>
+---@type table<string, table<1|2|3|4|5|6|7|8, 1|2|3|4|5|6|7|8>>
 local paramsPositionIndex = {
 	MapPoint          = { [3] = 1 },
 	MapArea           = { [4] = 1 },
@@ -285,6 +313,39 @@ do
 end
 
 --------------------------------------------------------------------------------
+-- Engine type mapping ---------------------------------------------------------
+
+-- This is partly a check on the above, partly because it's often preferable to
+-- use the same terminology as the engine when working on the game-side code.
+
+---Map paramsType onto CMDTYPE.
+---@type table<string, CMDTYPE>
+local paramsTypeToCmdType = {
+	NoParameters      = CMDTYPE.ICON,
+
+	Mode              = CMDTYPE.ICON_MODE,
+	Number            = CMDTYPE.NUMBER,
+
+	MapPoint          = CMDTYPE.ICON_MAP,
+	MapArea           = CMDTYPE.ICON_AREA,
+	MapPointOrArea    = CMDTYPE.ICON_AREA, -- idk
+	MapPointLeash     = CMDTYPE.ICON_AREA, -- idk
+	MapPointFront     = CMDTYPE.ICON_FRONT,
+	MapPointFacing    = CMDTYPE.ICON_BUILDING, -- idk
+
+	TargetObject      = CMDTYPE.ICON_UNIT,
+	TargetAllyUnit    = CMDTYPE.ICON_UNIT,
+	TargetEnemyUnit   = CMDTYPE.ICON_UNIT,
+
+	TargetOrPoint     = CMDTYPE.ICON_UNIT_OR_MAP,
+	TargetOrArea      = CMDTYPE.ICON_UNIT_FEATURE_OR_AREA, -- or ICON_OR_AREA
+	-- TargetOrFront     = CMDTYPE.ICON_UNIT_OR_RECTANGLE, -- no map
+	TargetOrRectangle = CMDTYPE.ICON_UNIT_OR_RECTANGLE,
+
+	WorkerTask        = CMDTYPE.ICON_UNIT_FEATURE_OR_AREA,
+}
+
+--------------------------------------------------------------------------------
 -- Command management ----------------------------------------------------------
 
 local CMD = CMD
@@ -300,6 +361,7 @@ local GameCMD = GameCMD ---@diagnostic disable-line
 ---@param queues boolean?
 ---@param waits boolean?
 ---@return boolean registered
+---@return integer? commandID
 Commands.RegisterCommand = function(command, name, paramsTypeName, queues, waits)
 	---@diagnostic disable-next-line: cast-local-type
 	name, command = tostring(name), tonumber(command)
@@ -317,6 +379,8 @@ Commands.RegisterCommand = function(command, name, paramsTypeName, queues, waits
 	GameCMD[name] = command
 	GameCMD[command] = name
 
+	-- todo: This is supposed to help integrate existing gadgets,
+	-- todo: but it really does defeat the purpose of *this* code:
 	if paramsTypeName ~= nil and paramsType[paramsTypeName] then
 		commandParamsType[command] = paramsType[paramsTypeName]
 	else
@@ -332,17 +396,17 @@ Commands.RegisterCommand = function(command, name, paramsTypeName, queues, waits
 		waitingCommand[command] = true
 	end
 
-	return true
+	return true, command
 end
 
 ---Add a parameter set to the Commands module and configure its usage.
 ---
 ---Example:
----`RegisterParamsType('RoundedRectangle', {[6]=true, [7]=true}, nil, {[6]=1, [7]=1})`
----@param name string
----@param counts table<integer,true>
----@param targetIndex table<integer,integer>
----@param positionIndex table<integer,integer>
+---`RegisterParamsType('RoundedRectangle', {[6]=true, [7]=true}, nil, {[6]=1, [7]=5})`
+---@param name string requires a unique name
+---@param counts table<integer,true> hash set of valid parameter counts (at least one)
+---@param targetIndex table<integer,integer> map of valid parameter counts to targetID param index
+---@param positionIndex table<integer,integer> map of valid parameter counts to x-coord param index
 ---@return boolean
 Commands.RegisterParamsType = function(name, counts, targetIndex, positionIndex)
 	if paramsType[name] or type(counts) ~= "table" or next(counts) == nil then
