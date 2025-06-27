@@ -72,6 +72,22 @@ for code, cmdID in pairs(gameCommands) do
 	gameCommands[cmdID] = code
 end
 
+local globalCmdDeprecatedShown = false
+
+local importCommandsToObject = function(object)
+	if not globalCmdDeprecatedShown and not object.gadgetHandler then
+		local msg =
+		'Should not use customcmds.h.lua or importCommandsToObject. Use the CMD table directly, or read modules/customcommands.lua for more information.'
+		Spring.Log('CMD', LOG.DEPRECATED, msg)
+		globalCmdDeprecatedShown = true
+	end
+	for code, cmdID in pairs(gameCommands) do
+		if type(code) == 'string' then
+			object['CMD_' .. code] = cmdID
+		end
+	end
+end
+
 ---@param cmdID CMD
 ---@return string? code
 local getCommandCode = function(cmdID)
