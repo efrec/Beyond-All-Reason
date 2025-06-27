@@ -19,7 +19,8 @@ local commandSection = {
 
 -- If you add a command, please order it by ID!
 
----@type table<string, CMD>
+
+---@type table<string, integer>
 local gameCommands = {
 	FACTORY_GUARD = 13921,
 	AREA_GUARD = 13922, -- unused
@@ -52,6 +53,17 @@ local gameCommands = {
 	-- terraform
 	RAW_MOVE = 39812,
 }
+
+--------------------------------------------------------------------------------
+
+---@diagnostic disable: assign-type-mismatch -- todo: CMD ⊂ integer.
+
+---@type table<string, CMD>
+gameCommands = gameCommands
+
+---@diagnostic enable: assign-type-mismatch
+
+--------------------------------------------------------------------------------
 
 table.sort(commandSection, function(a, b) return a[2] < b[2] end)
 for i, range in ipairs(commandSection) do
