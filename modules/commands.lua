@@ -106,12 +106,14 @@ end
 ---Retrieve the command info from the command params of a CMD_INSERT.
 ---@param params number[]
 ---@return CMD command
----@return number|number[] commandParams
+---@return number[]|number? commandParams
 ---@return integer insertIndex
 Commands.GetInsertedCommand = function(params)
     if #params < 5 then
+        ---@diagnostic disable-next-line: return-type-mismatch
         return params[2], params[4], params[1]
     else
+        ---@diagnostic disable-next-line: return-type-mismatch
         return params[2], { params[4], params[5], params[6], params[7], params[8] }, params[1]
     end
 end
