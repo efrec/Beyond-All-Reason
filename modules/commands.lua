@@ -110,9 +110,9 @@ end
 ---@return integer insertIndex
 Commands.GetInsertedCommand = function(params)
     if #params < 5 then
-        return p[2], p[4], p[1]
+        return params[2], params[4], params[1]
     else
-        return p[2], { p[4], p[5], p[6], p[7], p[8] }, p[1]
+        return params[2], { params[4], params[5], params[6], params[7], params[8] }, params[1]
     end
 end
 
