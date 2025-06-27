@@ -12,6 +12,7 @@
 
 -- if you add a command, please order it by ID!
 
+---@type table<string, CMD>
 local gameCommands = {
 	FACTORY_GUARD = 13921,
 	AREA_GUARD = 13922, -- unused
@@ -71,7 +72,10 @@ for code, cmdID in pairs(gameCommands) do
 	gameCommands[cmdID] = code
 end
 
+---@param cmdID CMD
+---@return string? code
 local getCommandCode = function(cmdID)
+	return CMD[cmdID] or gameCommands[cmdID] or nil
 	return CMD[cmdID] or gameCommands[cmdID]
 end
 
