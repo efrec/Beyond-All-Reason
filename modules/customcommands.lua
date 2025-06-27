@@ -88,13 +88,13 @@ local importCommandsToObject = function(object)
 	end
 end
 
----@param cmdID CMD
+---@param cmdID CMD|number
 ---@return string? code
 local getCommandCode = function(cmdID)
 	return CMD[cmdID] or gameCommands[cmdID] or nil
 end
 
----@param cmdID CMD
+---@param cmdID CMD|number
 ---@return string? name
 local function getCommandSection(cmdID)
 	for _, range in ipairs(commandSection) do
