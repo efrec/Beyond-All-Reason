@@ -18,7 +18,7 @@ local commandSection = {
 }
 
 -- If you add a command, please order it by ID!
-
+-- Also, add its info to modules/commands.lua!
 
 ---@type table<string, integer>
 local gameCommands = {
