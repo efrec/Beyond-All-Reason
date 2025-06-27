@@ -1,16 +1,23 @@
 --------------------------------------------------------------------------------
+-- Command ID Ranges:
 --
---  Proposed Command ID Ranges:
---
---    all negative:  Engine (build commands)
---       0 -   999:  Engine
---    1000 -  9999:  Group AI
---   10000 - 19999:  LuaUI
---   20000 - 29999:  LuaCob
---   30000 - 39999:  LuaRules
---
+-- 	 all negative:  Engine (build commands)
+-- 	    0 -   999:  Engine
+-- 	 1000 -  9999:  Group AI
+-- 	10000 - 19999:  LuaUI
+-- 	20000 - 29999:  LuaCob
+-- 	30000 - 39999:  LuaRules
+local commandSection = {
+	{ "Build",    -math.huge },
+	{ "Engine",   0 },
+	{ "HelperAI", 1e3 },
+	{ "LuaUI",    1e4 },
+	{ "LuaCob",   2e4 },
+	{ "LuaRules", 3e4 },
+	{ "Reserved", 4e4 },
+}
 
--- if you add a command, please order it by ID!
+-- If you add a command, please order it by ID!
 
 ---@type table<string, CMD>
 local gameCommands = {
@@ -46,20 +53,13 @@ local gameCommands = {
 	RAW_MOVE = 39812,
 }
 
-local globalCmdDeprecatedShown = false
-
-local importCommandsToObject = function(object)
-	if not globalCmdDeprecatedShown and not object.gadgetHandler then
-		local msg = 'Should not use customcmds.h.lua or importCommandsToObject. Use the CMD table directly, or read modules/customcommands.lua for more information.'
-		Spring.Log('CMD', LOG.DEPRECATED, msg)
-		globalCmdDeprecatedShown = true
+table.sort(commandSection, function(a, b) return a[2] < b[2] end)
+for i, range in ipairs(commandSection) do
+	if i < #commandSection then
+		range[3] = commandSection[i + 1][2] - 1
+	else
+		range[3] = math.huge
 	end
-	for code, cmdID in pairs(gameCommands) do
-		if type(code) == 'string' then
-			object['CMD_' .. code] = cmdID
-		end
-	end
-
 end
 
 for code, cmdID in pairs(gameCommands) do
@@ -76,11 +76,29 @@ end
 ---@return string? code
 local getCommandCode = function(cmdID)
 	return CMD[cmdID] or gameCommands[cmdID] or nil
-	return CMD[cmdID] or gameCommands[cmdID]
+end
+
+---@param cmdID CMD
+---@return string? name
+local function getCommandSection(cmdID)
+	for _, range in ipairs(commandSection) do
+		if cmdID >= range[2] and cmdID <= range[3] then
+			return range[1]
+		end
+	end
+end
+
+---@return table<string, CMD>
+local getAllCommands = function()
+	local commands = table.copy(gameCommands)
+	table.mergeInPlace(commands, CMD)
+	return commands
 end
 
 return {
 	GameCMD = gameCommands,
 	ImportCommandsToObject = importCommandsToObject,
 	GetCommandCode = getCommandCode,
- }
+	GetCommandSection = getCommandSection,
+	GetAllCommands = getAllCommands,
+}
