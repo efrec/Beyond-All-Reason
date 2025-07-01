@@ -52,6 +52,9 @@ local spTestMoveOrder = Spring.TestMoveOrder
 local spGetUnitHealth = Spring.GetUnitHealth
 local spDestroyUnit = Spring.DestroyUnit
 
+local addSuspendReason = GG.AddSuspendReason
+local clearSuspendReason = GG.ClearSuspendReason
+
 --tables
 local unitDefData = {}
 local transportDrops = {}
@@ -79,6 +82,8 @@ for unitDefID, unitDef in ipairs(UnitDefs) do
 	end
 	unitDefData[unitDefID] = defData
 end
+
+GG.AddUnitSuspendAndResumeReason("UnitEnteredDeepWater", "UnitLeftDeepWater")
 
 function gadget:UnitLoaded(unitID, unitDefID, unitTeam, transportID, transportTeam)
 	livingTransports[transportID] = true
@@ -137,14 +142,6 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
     drowningUnits[unitID] = nil
 end
 
-local function checkShouldDisable(_, unitID)
-	return drowningUnits[unitID] == nil
-end
-
-gadget.AllowUnitBuildStep = checkShouldDisable
-gadget.AllowUnitCaptureStep = checkShouldDisable
-gadget.AllowUnitTransport = checkShouldDisable
-
 local function getUnitPositionHeight(unitID) -- returns nil for invalid units
 	if (spGetUnitIsDead(unitID) ~= false) or (spValidUnitID(unitID) ~= true) then return nil, nil, nil end
 	local posX, posY, posZ = spGetUnitPosition(unitID)
@@ -171,7 +168,10 @@ function gadget:GameFrame(frame)
 			if posX then
 				local movableSpot = spTestMoveOrder(data.unitDefID, posX, posY, posZ, nil, nil, nil, true, true, true) --somehow, this works. Copied from elsewhere in the code, spring wiki and recoil and game repo didn't have any info on this format.
 				if not movableSpot then
-                    drowningUnits[unitID] = true
+					if drowningUnits[unitID] == nil then
+						drowningUnits[unitID] = addSuspendReason(unitID, "UnitEnteredDeepWater")
+					end
+
 					spSpawnCEG('blacksmoke', posX, posY, posZ) --actually looks like tiny bubbles underwater
 					spPlaySoundFile('lavarumbleshort1', 0.40, posX, posY, posZ, 'sfx')
 					if math.random(1, 6) == 1 then
@@ -179,6 +179,7 @@ function gadget:GameFrame(frame)
 					end
 					spAddUnitDamage(unitID, data.drowningDamage, 0, gaiaTeamID, waterDamageDefID)
                 else
+					clearSuspendReason(unitID, "UnitLeftDeepWater")
                     drowningUnits[unitID] = nil
 				end
 			else
