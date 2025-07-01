@@ -2,8 +2,8 @@ local gadget = gadget ---@type Gadget
 
 function gadget:GetInfo()
 	return {
-		name = "Water Depth Damage and Disabling",
-		desc = "Creates and handles water collision events, and kills units stuck underwater",
+		name = "Water Damage and Disable",
+		desc = "Kills units with water damage and disables them when immobilized by water",
 		author = "SethDGamre",
 		date = "2024.9.22",
 		license = "GNU GPL, v2 or later",
@@ -138,7 +138,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 end
 
 local function checkShouldDisable(_, unitID)
-	return drowningUnits[unitID] == nil and transportDrops[unitID] == nil
+	return drowningUnits[unitID] == nil
 end
 
 gadget.AllowUnitBuildStep = checkShouldDisable
