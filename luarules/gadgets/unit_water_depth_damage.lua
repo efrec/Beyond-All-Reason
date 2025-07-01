@@ -2,7 +2,7 @@ local gadget = gadget ---@type Gadget
 
 function gadget:GetInfo()
 	return {
-		name = "Water Crush and Collision Damage",
+		name = "Water Depth Damage and Disabling",
 		desc = "Creates and handles water collision events, and kills units stuck underwater",
 		author = "SethDGamre",
 		date = "2024.9.22",
@@ -56,6 +56,7 @@ local spDestroyUnit = Spring.DestroyUnit
 local unitDefData = {}
 local transportDrops = {}
 local drowningUnitsWatch = {}
+local drowningUnits = {}
 local expiringTransportDrops = {}
 local livingTransports = {}
 
@@ -125,6 +126,7 @@ end
 
 function gadget:UnitLeftWater(unitID, unitDefID, unitTeam)
 	drowningUnitsWatch[unitID] = nil
+    drowningUnits[unitID] = nil
 end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
@@ -132,7 +134,16 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 	expiringTransportDrops[unitID] = nil
 	livingTransports[unitID] = nil
 	drowningUnitsWatch[unitID] = nil
+    drowningUnits[unitID] = nil
 end
+
+local function checkShouldDisable(_, unitID)
+	return drowningUnits[unitID] == nil and transportDrops[unitID] == nil
+end
+
+gadget.AllowUnitBuildStep = checkShouldDisable
+gadget.AllowUnitCaptureStep = checkShouldDisable
+gadget.AllowUnitTransport = checkShouldDisable
 
 local function getUnitPositionHeight(unitID) -- returns nil for invalid units
 	if (spGetUnitIsDead(unitID) ~= false) or (spValidUnitID(unitID) ~= true) then return nil, nil, nil end
@@ -160,15 +171,19 @@ function gadget:GameFrame(frame)
 			if posX then
 				local movableSpot = spTestMoveOrder(data.unitDefID, posX, posY, posZ, nil, nil, nil, true, true, true) --somehow, this works. Copied from elsewhere in the code, spring wiki and recoil and game repo didn't have any info on this format.
 				if not movableSpot then
+                    drowningUnits[unitID] = true
 					spSpawnCEG('blacksmoke', posX, posY, posZ) --actually looks like tiny bubbles underwater
 					spPlaySoundFile('lavarumbleshort1', 0.40, posX, posY, posZ, 'sfx')
 					if math.random(1, 6) == 1 then
 						spPlaySoundFile('alien_electric', 0.50, posX, posY, posZ, 'sfx')
 					end
 					spAddUnitDamage(unitID, data.drowningDamage, 0, gaiaTeamID, waterDamageDefID)
+                else
+                    drowningUnits[unitID] = nil
 				end
 			else
 				drowningUnitsWatch[unitID] = nil --dead unit
+                drowningUnits[unitID] = nil
 			end
 		end
 	end
