@@ -17,6 +17,8 @@ if not gadgetHandler:IsSyncedCode() then return end
 
 --------------------------------------------------------------------------------
 
+local spSetUnitRulesParam = Spring.SetUnitRulesParam
+
 local suspendReasons = {
     -- Engine (stunned units):
     UnitStunned           = "UnitStunned",
@@ -76,7 +78,12 @@ function gadget:Initialize()
     ---@param reason string?
     ---@return string? enableReason
     GG.AddSuspendReason = function(unitID, reason)
-        local suspendedUnit = suspendedUnits[unitID] or {}
+        local suspendedUnit = suspendedUnits[unitID]
+
+        if suspendedUnit == nil then
+            spSetUnitRulesParam(unitID, "suspended", 1)
+            suspendedUnit = {}
+        end
 
         if reason ~= nil then
             local enableReason = suspendReasons[reason] or reason
@@ -90,19 +97,20 @@ function gadget:Initialize()
     ---@param reason string?
     ---@return boolean enabled
     GG.ClearSuspendReason = function(unitID, reason)
-        if reason ~= nil then
-            local suspendedUnit = suspendedUnits[unitID]
-            local enableReason = suspendReasons[reason]
+        local suspendedUnit = suspendedUnits[unitID]
 
-            if enableReason ~= nil then
-                suspendedUnit[enableReason] = nil
+        if suspendedUnit == nil then
+            return true
+        end
 
-                if next(suspendedUnit) == nil then
-                    suspendedUnits[unitID] = nil
-                    return true
-                end
-            end
-        else
+        local enableReason = reason ~= nil and suspendReasons[reason]
+
+        if enableReason then
+            suspendedUnit[enableReason] = nil
+        end
+
+        if not enableReason or next(suspendedUnit) == nil then
+            spSetUnitRulesParam(unitID, "suspended", 0)
             suspendedUnits[unitID] = nil
             return true
         end
@@ -146,7 +154,12 @@ end
 --------------------------------------------------------------------------------
 
 local function addSuspendReason(unitID, reason)
-    local suspendedUnit = suspendedUnits[unitID] or {}
+    local suspendedUnit = suspendedUnits[unitID]
+
+    if suspendedUnit == nil then
+        spSetUnitRulesParam(unitID, "suspended", 1)
+        suspendedUnit = {}
+    end
 
     if reason ~= nil then
         local enableReason = suspendReasons[reason] or reason
@@ -155,20 +168,13 @@ local function addSuspendReason(unitID, reason)
 end
 
 local function clearSuspendReason(unitID, reason)
-    if reason ~= nil then
-        local suspendedUnit = suspendedUnits[unitID]
-        local enableReason = suspendReasons[reason]
+	local suspendedUnit = suspendedUnits[unitID]
+	suspendedUnit[suspendReasons[reason]] = nil
 
-        if enableReason ~= nil then
-            suspendedUnit[enableReason] = nil
-
-            if next(suspendedUnit) == nil then
-                suspendedUnits[unitID] = nil
-            end
-        end
-    else
-        suspendedUnits[unitID] = nil
-    end
+	if next(suspendedUnit) == nil then
+		spSetUnitRulesParam(unitID, "suspended", 0)
+		suspendedUnits[unitID] = nil
+	end
 end
 
 -- Removing stuns
