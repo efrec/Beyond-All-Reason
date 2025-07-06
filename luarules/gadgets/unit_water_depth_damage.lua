@@ -170,7 +170,7 @@ function gadget:GameFrame(frame)
 				local movableSpot = spTestMoveOrder(data.unitDefID, posX, posY, posZ, nil, nil, nil, true, true, true) --somehow, this works. Copied from elsewhere in the code, spring wiki and recoil and game repo didn't have any info on this format.
 				if not movableSpot then
 					if drowningUnits[unitID] == nil then
-						drowningUnits[unitID] = addSuspendReason(unitID, "UnitEnteredDeepWater")
+						drowningUnits[unitID] = addSuspendReason(unitID, "UnitEnteredDeepWater") ~= nil
 					end
 
 					spSpawnCEG('blacksmoke', posX, posY, posZ) --actually looks like tiny bubbles underwater
