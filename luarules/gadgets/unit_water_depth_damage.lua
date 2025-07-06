@@ -83,6 +83,7 @@ for unitDefID, unitDef in ipairs(UnitDefs) do
 	unitDefData[unitDefID] = defData
 end
 
+-- Map the suspension reason and resume reason for the suspension handler.
 GG.AddUnitSuspendAndResumeReason("UnitEnteredDeepWater", "UnitLeftDeepWater")
 
 function gadget:UnitLoaded(unitID, unitDefID, unitTeam, transportID, transportTeam)
