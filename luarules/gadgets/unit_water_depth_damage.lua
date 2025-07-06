@@ -84,7 +84,7 @@ for unitDefID, unitDef in ipairs(UnitDefs) do
 end
 
 -- Map the suspension reason and resume reason for the suspension handler.
-GG.AddUnitSuspendAndResumeReason("UnitEnteredDeepWater", "UnitLeftDeepWater")
+GG.AddUnitSuspendAndResumeReason("UnitEnteredWaterDepth", "UnitLeftWaterDepth")
 
 function gadget:UnitLoaded(unitID, unitDefID, unitTeam, transportID, transportTeam)
 	livingTransports[transportID] = true
@@ -170,7 +170,7 @@ function gadget:GameFrame(frame)
 				local movableSpot = spTestMoveOrder(data.unitDefID, posX, posY, posZ, nil, nil, nil, true, true, true) --somehow, this works. Copied from elsewhere in the code, spring wiki and recoil and game repo didn't have any info on this format.
 				if not movableSpot then
 					if drowningUnits[unitID] == nil then
-						drowningUnits[unitID] = addSuspendReason(unitID, "UnitEnteredDeepWater") ~= nil
+						drowningUnits[unitID] = addSuspendReason(unitID, "UnitEnteredWaterDepth") ~= nil
 					end
 
 					spSpawnCEG('blacksmoke', posX, posY, posZ) --actually looks like tiny bubbles underwater
@@ -180,7 +180,7 @@ function gadget:GameFrame(frame)
 					end
 					spAddUnitDamage(unitID, data.drowningDamage, 0, gaiaTeamID, waterDamageDefID)
                 else
-					clearSuspendReason(unitID, "UnitLeftDeepWater")
+					clearSuspendReason(unitID, "UnitLeftWaterDepth")
                     drowningUnits[unitID] = nil
 				end
 			else
