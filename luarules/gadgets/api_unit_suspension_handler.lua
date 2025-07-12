@@ -6,7 +6,7 @@ function gadget:GetInfo()
         desc    = "Prevent actions by units that are stunned, trapped, or disabled.",
         author  = "efrec",
         date    = "2025",
-        version = 0,
+        version = "1.0",
         license = "GNU GPL, v2 or later",
         layer   = -999999,
         enabled = true,
