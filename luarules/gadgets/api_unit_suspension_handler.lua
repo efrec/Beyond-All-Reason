@@ -17,15 +17,37 @@ if not gadgetHandler:IsSyncedCode() then return end
 
 --------------------------------------------------------------------------------
 
-local commandSuspendDisallows = {
+---Immediately remove commands from the unit's queue when it is suspended.
+---@type table<CMD, true>
+local commandSuspendRemoves = {
 	[CMD.MOVE]         = true,
+	[CMD.GUARD]        = true,
 	[CMD.FIGHT]        = true,
 	[CMD.PATROL]       = true,
-	[CMD.LOAD_ONTO]    = true,
 
+	[CMD.LOAD_ONTO]    = true,
 	[CMD.LOAD_UNITS]   = true,
 	[CMD.UNLOAD_UNIT]  = true,
 	[CMD.UNLOAD_UNITS] = true,
+
+	[CMD.GATHERWAIT]   = true,
+	[CMD.SQUADWAIT]    = true,
+
+	[CMD.CAPTURE]      = true,
+	[CMD.RECLAIM]      = true,
+	[CMD.REPAIR]       = true,
+	[CMD.RESURRECT]    = true,
+	[CMD.RESTORE]      = true,
+}
+
+---Prevent the unit from accepting commands when it is suspended.
+---@type table<CMD, true>
+local commandSuspendDisallows = {
+	[CMD.LOAD_ONTO]    = true,
+	[CMD.LOAD_UNITS]   = true,
+	[CMD.UNLOAD_UNIT]  = true,
+	[CMD.UNLOAD_UNITS] = true,
+
 	[CMD.GATHERWAIT]   = true,
 	[CMD.SQUADWAIT]    = true,
 
@@ -38,13 +60,22 @@ local commandSuspendDisallows = {
 
 --------------------------------------------------------------------------------
 
+local spGiveOrderToUnit = Spring.GiveOrderToUnit
 local spSetUnitRulesParam = Spring.SetUnitRulesParam
+
+local removeIDs = {}
+
+for command, check in pairs(commandSuspendRemoves) do
+	if command >= 0 and check then
+		removeIDs[#removeIDs + 1] = command
+	end
+end
 
 local suspendReasons = {
 	-- Engine (stunned units):
 	UnitStunned      = "UnitStunned",
 	UnitBeingBuilt   = "UnitFinished",
-	UnitCloaked      = "UnitDecloaked",      -- see `Spring.SetUnitCloak`
+	UnitCloaked      = "UnitDecloaked", -- see `Spring.SetUnitCloak`
 	UnitLoaded       = "UnitUnloaded",
 
 	-- Game:
@@ -76,13 +107,18 @@ function gadget:Initialize()
 	---Disable the unit and set the reason why it cannot take actions.
 	---@param unitID integer
 	---@param reason string?
+	---@param remove boolean? whether to clear disallowed commands from the command queue
 	---@return string? enableReason
-	GG.AddSuspendReason = function(unitID, reason)
+	GG.AddSuspendReason = function(unitID, reason, remove)
 		local suspendedUnit = suspendedUnits[unitID]
 
 		if suspendedUnit == nil then
 			spSetUnitRulesParam(unitID, "suspended", 1)
 			suspendedUnit = {}
+
+			if remove ~= false then
+				spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, CMD.OPT_ALT)
+			end
 		end
 
 		if reason ~= nil then
@@ -153,12 +189,16 @@ end
 
 --------------------------------------------------------------------------------
 
-local function addSuspendReason(unitID, reason)
+local function addSuspendReason(unitID, reason, remove)
 	local suspendedUnit = suspendedUnits[unitID]
 
 	if suspendedUnit == nil then
 		spSetUnitRulesParam(unitID, "suspended", 1)
 		suspendedUnit = {}
+
+		if remove ~= false then
+			spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, CMD.OPT_ALT)
+		end
 	end
 
 	if reason ~= nil then
@@ -181,7 +221,7 @@ end
 
 function gadget:UnitStunned(unitID, unitDefID, unitTeam, stunned)
 	if stunned then
-		addSuspendReason(unitID, "UnitStunned")
+		addSuspendReason(unitID, "UnitStunned", false)
 	elseif suspendedUnits[unitID] then
 		clearSuspendReason(unitID, "UnitStunned")
 	end
