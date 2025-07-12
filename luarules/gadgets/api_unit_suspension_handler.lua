@@ -17,22 +17,6 @@ if not gadgetHandler:IsSyncedCode() then return end
 
 --------------------------------------------------------------------------------
 
-local spSetUnitRulesParam = Spring.SetUnitRulesParam
-
-local suspendReasons = {
-    -- Engine (stunned units):
-    UnitStunned           = "UnitStunned",
-    UnitBeingBuilt        = "UnitFinished",
-    UnitCloaked           = "UnitDecloaked", -- see `Spring.SetUnitCloak`
-    UnitLoaded            = "UnitUnloaded",
-
-    -- Game:
-    UnitEnteredAir        = "UnitLeftAir",
-    UnitEnteredWater      = "UnitLeftWater",
-    UnitLeftAir           = "UnitEnteredAir",
-    UnitLeftWater         = "UnitEnteredWater",
-}
-
 local commandSuspendDisallows = {
     [CMD.MOVE]         = true,
     [CMD.FIGHT]        = true,
@@ -53,6 +37,22 @@ local commandSuspendDisallows = {
 }
 
 --------------------------------------------------------------------------------
+
+local spSetUnitRulesParam = Spring.SetUnitRulesParam
+
+local suspendReasons = {
+    -- Engine (stunned units):
+    UnitStunned           = "UnitStunned",
+    UnitBeingBuilt        = "UnitFinished",
+    UnitCloaked           = "UnitDecloaked", -- see `Spring.SetUnitCloak`
+    UnitLoaded            = "UnitUnloaded",
+
+    -- Game:
+    UnitEnteredAir        = "UnitLeftAir",
+    UnitEnteredWater      = "UnitLeftWater",
+    UnitLeftAir           = "UnitEnteredAir",
+    UnitLeftWater         = "UnitEnteredWater",
+}
 
 local suspendedUnits = {}
 
