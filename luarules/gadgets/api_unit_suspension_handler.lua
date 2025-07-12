@@ -58,6 +58,12 @@ local commandSuspendDisallows = {
 	[CMD.RESTORE]      = true,
 }
 
+commandSuspendDisallows = setmetatable(commandSuspendDisallows, {
+	__index = function (self, value)
+		return value < 0 -- disallow build orders
+	end
+})
+
 --------------------------------------------------------------------------------
 
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
@@ -275,7 +281,7 @@ end
 
 function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag, synced, fromLua)
 	if suspendedUnits[unitID] then
-		return cmdID >= 0 and commandSuspendDisallows[cmdID] == nil
+		return commandSuspendDisallows[cmdID] == nil
 	else
 		return true
 	end
