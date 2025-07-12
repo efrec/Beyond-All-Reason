@@ -273,18 +273,43 @@ end
 
 --------------------------------------------------------------------------------
 
-local function checkShouldAllow(_, unitID)
-	return suspendedUnits[unitID] == nil
-end
-
-gadget.AllowUnitBuildStep = checkShouldAllow
-gadget.AllowUnitCaptureStep = checkShouldAllow
-gadget.AllowUnitTransport = checkShouldAllow
-
 function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag, synced, fromLua)
 	if suspendedUnits[unitID] then
 		return cmdID >= 0 and commandSuspendDisallows[cmdID] == nil
 	else
 		return true
 	end
+end
+
+-- Use the Allow* callins to fail attempts at tasks as early as possible,
+-- so that other gadgets can handle the failure cases as early as possible.
+
+local function shouldAllow(_, unitID)
+	return suspendedUnits[unitID] == nil
+end
+
+if commandSuspendDisallows[CMD.ATTACK] then
+	gadget.AllowWeaponTarget = shouldAllow
+	gadget.AllowUnitKamikaze = shouldAllow
+end
+
+if commandSuspendDisallows[CMD.REPAIR] then
+	gadget.AllowUnitBuildStep = shouldAllow
+end
+
+if commandSuspendDisallows[CMD.CAPTURE] then
+	gadget.AllowUnitCaptureStep = shouldAllow
+end
+
+if commandSuspendDisallows[CMD.LOAD_UNITS] and commandSuspendDisallows[CMD.UNLOAD_UNIT] then
+	gadget.AllowUnitTransport = shouldAllow
+elseif commandSuspendDisallows[CMD.LOAD_UNITS] then
+	gadget.AllowUnitTransportLoad = shouldAllow
+elseif commandSuspendDisallows[CMD.UNLOAD_UNIT] then
+	gadget.AllowUnitTransportUnload = shouldAllow
+end
+
+if commandSuspendDisallows[CMD.CLOAK] then
+	-- Note: We don't actually remove the cloaked state (or clear any state).
+	gadget.AllowUnitCloak = shouldAllow
 end
