@@ -595,8 +595,8 @@ local commandParamsType = setmetatable({}, {
 
 -- Populate the params index tables using the initial config.
 
-for command, paramsCounts in pairs(commandToParamsTypeConfig) do
-	commandParamsType[command] = paramsCounts
+for command, paramsTypeName in pairs(commandToParamsTypeConfig) do
+	commandParamsType[command] = paramsType[paramsTypeName]
 end
 
 commandToParamsTypeConfig = nil ---@diagnostic disable-line -- consume table
