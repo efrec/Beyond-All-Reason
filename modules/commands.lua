@@ -177,6 +177,7 @@ local COMMAND_PARAM_COUNT_MAX = 8
 ---@alias ParamCountSet table<ParamCount, true>
 ---@alias ParamIndexMap table<ParamIndex, ParamIndex>
 ---@alias ParamIndexSet table<ParamIndex, true>
+---@alias ParamGroupName "None"|"Mode"|"Number"|"Object"|"Point"|"Line"|"Rectangle"|"Radius"|"Leash"|"Facing"
 
 ---Cannot produce empty sets.
 ---@param min integer
@@ -239,6 +240,8 @@ end
 
 -- Various widgets will need to issue pseudo-orders during pregame placement:
 local pregame = Spring.GetGameFrame and Spring.GetGameFrame() <= 0
+
+local tempTbl = {}
 
 --------------------------------------------------------------------------------
 -- Command introspection -------------------------------------------------------
@@ -601,6 +604,111 @@ end
 
 commandToParamsTypeConfig = nil ---@diagnostic disable-line -- consume table
 
+---Essentially a reverse lookup table to find all paramsTypes that contain a
+-- given type or sub-type, e.g. all parameter sets that contain Line params.
+---@type table<ParamGroupName, table<ParamIndexMap, true>>
+local paramsTypeGroup = {
+	None = {
+		[paramsType.None]       = true,
+		[paramsType.NoneOrMode] = true,
+	},
+	Mode = {
+		[paramsType.Mode]       = true,
+		[paramsType.NoneOrMode] = true,
+	},
+	Number = {
+		[paramsType.Number] = true,
+	},
+	Facing = {
+		[paramsType.PointFacing] = true,
+		[paramsType.UnloadTask]  = true,
+		[paramsType.WorkerTask]  = true,
+	},
+}
+
+for kind, paramsIndexMap in pairs({
+	Object    = paramsObjectIndex,
+	Point     = paramsPointIndex,
+	Line      = paramsLineIndex,
+	Rectangle = paramsRectangleIndex,
+	Radius    = paramsRadiusIndex,
+	Leash     = paramsLeashIndex,
+}) do
+	local group = {}
+
+	for name, indexMap in pairs(paramsIndexMap) do
+		group[indexMap] = true
+	end
+
+	paramsTypeGroup[kind] = group
+end
+
+---Get the allowed parameter counts of a given type and that contain the given
+-- sub-type, e.g. return only the Point count of the type PointOrRectangle.
+---@param paramsTypeName string
+---@param include ParamGroupName[]|ParamGroupName
+---@param exclude ParamGroupName[]|ParamGroupName
+---@return ParamCountSet? [nil] := no valid parameter counts (even zero)
+local function filterParamIndexMap(paramsTypeName, include, exclude)
+	local pt = paramsType[paramsTypeName]
+
+	if pt == anyParamCount then
+		return table.copy(anyParamCount)
+	elseif pt == emptyCountSet then
+		return
+	end
+
+	local paramsCounts = table.copy(pt)
+
+	if include ~= nil then
+		if type(include) ~= "table" then
+			tempTbl[1] = include
+			include = tempTbl
+		end
+
+		local included = {}
+
+		for _, kind in ipairs(include) do
+			for indexMap in pairs(paramsTypeGroup[kind]) do
+				for index in pairs(indexMap) do
+					included[index] = true
+				end
+			end
+		end
+
+		for index in pairs(paramsCounts) do
+			if not included[index] then
+				paramsCounts[index] = nil
+			end
+		end
+	end
+
+	if exclude ~= nil then
+		if type(exclude) ~= "table" then
+			tempTbl[1] = exclude
+			exclude = tempTbl
+		end
+
+		local excluded = {}
+
+		for _, kind in ipairs(exclude) do
+			for indexMap in pairs(paramsTypeGroup[kind]) do
+				for index in pairs(indexMap) do
+					excluded[index] = true
+				end
+			end
+		end
+
+		for index in pairs(paramsCounts) do
+			if excluded[index] then
+				paramsCounts[index] = nil
+			end
+		end
+	end
+
+	return next(paramsCounts) and paramsCounts or nil
+end
+
 --------------------------------------------------------------------------------
 -- Module interfacing ----------------------------------------------------------
 
@@ -690,6 +798,27 @@ Commands.NewCommandDescription = function(code, type, params, prmTypeName,
 		texture     = texture,
 		onlyTexture = onlyTexture,
 	}
+end
+
+---Get the allowed parameter counts of a given type and that contain the given
+-- parameter types (and/or that exclude them).
+--
+-- For example, get the Object and Point count(s), without the area radius:
+--
+-- `Commands.GetCommandParamsSet(CMD.REPAIR, { "Object", "Point" }, "Area")`
+---@param command CMD
+---@param include ParamGroupName[]|ParamGroupName
+---@param exclude ParamGroupName[]|ParamGroupName
+---@return ParamCountSet?
+Commands.GetCommandParamsSet = function(command, include, exclude)
+	local prmType = commandParamsType[command]
+
+	if prmType == emptyCountSet then
+		return {}
+	end
+
+	local paramsTypeName = table.getKeyOf(paramsType, prmType)
+	return filterParamIndexMap(paramsTypeName, include, exclude)
 end
 
 --------------------------------------------------------------------------------
