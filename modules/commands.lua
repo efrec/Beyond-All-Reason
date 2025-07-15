@@ -17,7 +17,7 @@ local GameCMD = GameCMD
 ---Maps every command to its accepted parameter counts.
 --
 -- @see `paramsType` for the names of parameter count sets used here.
----@type table<CMD, table<(0|1|2|3|4|5|6|7|8), true>>
+---@type table<CMD, string>
 local commandToParamsTypeConfig = {
 	-- Meta-commands and other special cases
 
