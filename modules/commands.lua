@@ -331,7 +331,9 @@ if GameCMD then
 	end
 end
 
-for command, params in pairs(commandToParamsTypeConfig) do
+for command, paramsTypeName in pairs(commandToParamsTypeConfig) do
+	local params = paramsType[paramsTypeName]
+
 	if not CMD[command] and (not GameCMD or not GameCMD[command]) then
 		Spring.Log('CMD', LOG.WARNING, "Unrecognized command: " .. tostring(command))
 		-- commandToParamsTypeConfig[command] = nil -- todo: maybe enforce later
