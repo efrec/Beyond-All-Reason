@@ -566,7 +566,7 @@ local moveCommands = setmetatable({}, {
 --
 -- Adding new commands via this table will populate its entries in the parameter
 -- introspection tables, e.g. the param index lookup for target coords or objects.
----@type table<CMD, table<(0|1|2|3|4|5|6|7|8), true>>
+---@type table<CMD, ParamCountSet>
 local commandParamsType = setmetatable({}, {
 	__newindex = function(self, command, paramsCounts)
 		local paramsTypeName = table.getKeyOf(paramsType, paramsCounts)
