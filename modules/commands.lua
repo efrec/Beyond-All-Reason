@@ -283,9 +283,9 @@ local function equalOption(options1, options2, ignoreInternal)
 				(not options1.shift) == (not options2.shift)
 			)
 	elseif type(options1) == "table" then
-		return equalOption(getOptionCode(options1), options2)
+		return getOptionCode(options1) == options2
 	elseif type(options2) == "table" then
-		return equalOption(getOptionCode(options2), options1)
+		return getOptionCode(options2) == options1
 	else
 		return false
 	end
