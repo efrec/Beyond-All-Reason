@@ -229,6 +229,42 @@ do
 	end
 end
 
+---@param options CommandOptions
+---@return integer
+local function getOptionCode(options)
+	if options.coded then
+		return options.coded
+	end
+
+	local code = 0
+
+	if options.alt then
+		code = code + CMD.OPT_ALT
+	end
+
+	if options.ctrl then
+		code = code + CMD.OPT_CTRL
+	end
+
+	if options.internal then
+		code = code + CMD.OPT_INTERNAL
+	end
+
+	if options.meta then
+		code = code + CMD.OPT_META
+	end
+
+	if options.right then
+		code = code + CMD.OPT_RIGHT
+	end
+
+	if options.shift then
+		code = code + CMD.OPT_SHIFT
+	end
+
+	return code
+end
+
 ---Command options are even worse off for our blind type-check issues.
 ---@param options1 integer|CommandOptions?
 ---@param options2 integer|CommandOptions?
@@ -246,6 +282,12 @@ local function equalOption(options1, options2, ignoreInternal)
 				(not options1.right) == (not options2.right) and
 				(not options1.shift) == (not options2.shift)
 			)
+	elseif type(options1) == "table" then
+		return equalOption(getOptionCode(options1), options2)
+	elseif type(options2) == "table" then
+		return equalOption(getOptionCode(options2), options1)
+	else
+		return false
 	end
 end
 
