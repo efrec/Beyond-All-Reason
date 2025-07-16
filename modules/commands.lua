@@ -159,7 +159,10 @@ local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
 local CMD_INSERT = CMD.INSERT
 local CMD_REMOVE = CMD.REMOVE
+local CMD_ATTACK = CMD.ATTACK
+local CMD_FIGHT = CMD.FIGHT
 local CMD_GUARD = CMD.GUARD
+local CMD_PATROL = CMD.PATROL
 local CMD_LOAD_UNITS = CMD.LOAD_UNITS
 local CMD_UNLOAD_UNIT = CMD.UNLOAD_UNIT
 local CMD_UNLOAD_UNITS = CMD.UNLOAD_UNITS
@@ -226,8 +229,33 @@ do
 	end
 end
 
+---Command options are even worse off for our blind type-check issues.
+---@param options1 integer|CommandOptions?
+---@param options2 integer|CommandOptions?
+local function equalOption(options1, options2, ignoreInternal)
+	if options1 == options2 then
+		return true
+	elseif type(options1) == "table" and type(options2) == "table" then
+		return
+			options1.coded == options2.coded or
+			ignoreInternal or options1.internal == options2.internal and (
+				-- Handle nil == false:
+				(not options1.alt) == (not options2.alt) and
+				(not options1.ctrl) == (not options2.ctrl) and
+				(not options1.meta) == (not options2.meta) and
+				(not options1.right) == (not options2.right) and
+				(not options1.shift) == (not options2.shift)
+			)
+	end
+end
+
+---@param options table|integer
 local function isInternal(options)
-	return bit_and(options, OPT_INTERNAL) ~= 0
+	if type(options) == "table" then
+		return options.internal
+	else
+		return bit_and(options, OPT_INTERNAL) ~= 0
+	end
 end
 
 local function getObjectPosition(objectID)
@@ -874,40 +902,60 @@ local flushOrders = Commands.FlushOrders
 -- Commands are orders that have been accepted by the unit, actively or not.
 -- Note: This is some niche terminology and applies only to the Commands module.
 
+---Check if the unit is executing an internal or temporary order.
+--
+-- Some commands, like CMD_FIGHT, don't issue their orders with OPT_INTERNAL, but
+-- they will copy the internal flag if passed already, such as from CMD_PATROL.
+--
+-- This doesn't quite manage to check if a CMD_ATTACK is actually a temp order,
+-- truthfully, but it should work for almost all purposes.
+---@param command CMD the current command
+---@param options integer|CommandOptions
+---@param cmdID CMD? a presumed non-temp command, like guard or fight
+---@param cmdOpts integer|CommandOptions
+Commands.IsInTempCommand = function(command, options, cmdID, cmdOpts)
+	if isInternal(options) then
+		return true -- Disregards additional command info.
+	elseif cmdID == CMD_FIGHT then
+		return command == CMD_ATTACK and equalOption(options, cmdOpts, false)
+	elseif cmdID == CMD_PATROL then
+		return false -- Should have been marked internal.
+	end
+end
+
+local isInTempCommand = Commands.IsInTempCommand
+
 ---Check if the unit is executing a given command, including no command.
 ---@param unitID integer
 ---@param cmdID CMD?
----@param params number[]|number?
----@param index integer? default = 0 (start of command queue)
+---@param cmdParams CreateCommandParams?
+---@param cmdOpts integer|CommandOptions?
 ---@return boolean
-Commands.isInCommand = function(unitID, cmdID, params, index)
-	if index == nil then
-		index = 1
-	end
-
-	-- The engine and other gadgets can reject or modify the orders we issue.
-	-- The only way to know is through checking and verifying the new result.
-	local command, options, _, p1, p2, p3, p4, p5 = spGetUnitCurrentCommand(unitID, index)
+Commands.IsInCommand = function(unitID, cmdID, cmdParams, cmdOpts)
+	local index = 1
 
 	while true do
-		if cmdID == command and equalParams(params, repackParams(p1, p2, p3, p4, p5)) then
+		-- The engine and other gadgets can reject or modify the orders we issue.
+		-- The only way to know is through checking and verifying the new result.
+		local command, options, _, p1, p2, p3, p4, p5 = spGetUnitCurrentCommand(unitID, index)
+
+		if command == cmdID and equalParams(repackParams(p1, p2, p3, p4, p5), cmdParams) then
 			return true
-		elseif command == nil or isInternal(options) then
+		elseif command == nil or not isInTempCommand(command, options, cmdID, cmdOpts) then
 			return false
 		else
 			-- Orders can be inserted internally in front of a valid command;
 			-- e.g., reclaiming a feature that is blocking a new build order.
 			index = index + 1 -- so keep looking
-			command, options, _, p1, p2, p3, p4, p5 = spGetUnitCurrentCommand(unitID, index)
 		end
 	end
 end
 
-local isInCommand = Commands.isInCommand
+local isInCommand = Commands.IsInCommand
 
 ---Whether the unit is in a wait command (generally CMD_WAIT).
 ---@param unitID integer
-Commands.isInWaitCommand = function(unitID)
+Commands.IsInWaitCommand = function(unitID)
 	local command = spGetUnitCurrentCommand(unitID)
 	return command ~= nil and commandParamsType[command] == PRMTYPE_WAIT
 end
