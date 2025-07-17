@@ -1781,7 +1781,7 @@ end
 ---@param unitID integer
 ---@param command CMD
 ---@param unitDefID integer? optional
-local function getUnitCanExecute(unitID, command, unitDefID)
+Commands.GetUnitCanExecute = function(unitID, command, unitDefID)
 	local cmdDesc = spFindUnitCmdDesc(unitID, command)
 
 	if cmdDesc ~= nil and not cmdDesc.disabled then
@@ -1816,8 +1816,6 @@ local function getUnitCanExecute(unitID, command, unitDefID)
 
 	return false
 end
-
-Commands.GetUnitCanExecute = getUnitCanExecute
 
 --------------------------------------------------------------------------------
 -- Export module ---------------------------------------------------------------
