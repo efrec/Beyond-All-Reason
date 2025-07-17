@@ -782,14 +782,12 @@ end
 --------------------------------------------------------------------------------
 -- Module interfacing ----------------------------------------------------------
 
-local type_ = type -- fix clobber so we can have nice arg names
-
 ---Configures a new command description with very basic error detection.
 --
 -- Call this once at initialization per each game command that you implement.
 ---@todo: move to customcommands?
 ---@param code string
----@param type CMDTYPE
+---@param cmdType CMDTYPE
 ---@param params string[]?
 ---@param prmTypeName string? name of paramsType set, see commands.lua
 ---@param name string?
@@ -803,14 +801,14 @@ local type_ = type -- fix clobber so we can have nice arg names
 ---@param showUnique boolean?
 ---@param queueing boolean? set `false` for non-queued commands
 ---@return CommandDescription?
-Commands.NewCommandDescription = function(code, type, params, prmTypeName,
+Commands.NewCommandDescription = function(code, cmdType, params, prmTypeName,
 										  name, action, cursor, texture, tooltip,
 										  disabled, hidden, onlyTexture, showUnique, queueing)
 	-- Game commands should be configured already in modules/customcommands.lua.
 	code = code:gsub("^CMD_", "")
-	local command = GameCMD[code]
-	local cmdType = type_(type) == "string" and CMDTYPE[type] or type
+	cmdType = type(cmdType) == "string" and CMDTYPE[cmdType] or cmdType
 
+	local command = GameCMD[code]
 	local error = false
 
 	if not GameCMD[code] then
@@ -819,8 +817,8 @@ Commands.NewCommandDescription = function(code, type, params, prmTypeName,
 	elseif CMD[code] then
 		Spring.Log('CMD', LOG.ERROR, "Game command code conflicts with an engine CMD code: " .. tostring(code))
 		error = true
-	elseif not CMDTYPE[type] then
-		Spring.Log('CMD', LOG.ERROR, "Game command's cmdType not recognized: " .. tostring(type))
+	elseif not CMDTYPE[cmdType] then
+		Spring.Log('CMD', LOG.ERROR, "Game command's cmdType not recognized: " .. tostring(cmdType))
 		error = true
 	elseif commandParamsType[command] then
 		Spring.Log('CMD', LOG.WARNING, "Game command was already added: " .. tostring(code))
