@@ -107,6 +107,7 @@ local queueingCommands = {
 	[CMD.UNLOAD_UNITS] = true,
 }
 
+-- todo: I got bored and walked away in the middle of writing it
 ---Maps commands to a test for whether a unitDef can, per the engine, execute the command.
 --
 -- Commands that are completely blocked off by the game, rather than blocked selectively,
