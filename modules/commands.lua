@@ -232,7 +232,9 @@ end
 ---@param options CommandOptions
 ---@return integer
 local function getOptionCode(options)
-	if options.coded then
+	if options == nil then
+		return 0 -- or should be nil?
+	elseif options.coded then
 		return options.coded
 	end
 
@@ -291,12 +293,14 @@ local function equalOption(options1, options2, ignoreInternal)
 	end
 end
 
----@param options table|integer
+---@param options table|integer?
 local function isInternal(options)
 	if type(options) == "table" then
 		return options.internal
-	else
+	elseif options ~= nil then
 		return bit_and(options, OPT_INTERNAL) ~= 0
+	else
+		return false
 	end
 end
 
@@ -988,9 +992,9 @@ local flushOrders = Commands.FlushOrders
 -- This doesn't quite manage to check if a CMD_ATTACK is actually a temp order,
 -- truthfully, but it should work for almost all purposes.
 ---@param command CMD the current command
----@param options integer|CommandOptions
+---@param options integer|CommandOptions?
 ---@param cmdID CMD? a presumed non-temp command, like guard or fight
----@param cmdOpts integer|CommandOptions
+---@param cmdOpts integer|CommandOptions?
 Commands.IsInTempCommand = function(command, options, cmdID, cmdOpts)
 	if isInternal(options) then
 		return true -- Disregards additional command info.
