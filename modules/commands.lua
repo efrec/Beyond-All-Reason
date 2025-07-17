@@ -315,7 +315,7 @@ end
 -- Various widgets will need to issue pseudo-orders during pregame placement:
 local pregame = Spring.GetGameFrame and Spring.GetGameFrame() <= 0
 
-local tempTbl = {}
+local tempTbl = {} -- easier to make a temp iter tbl than to encapsulate this
 
 --------------------------------------------------------------------------------
 -- Command introspection -------------------------------------------------------
