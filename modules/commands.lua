@@ -720,15 +720,15 @@ end
 ---@param exclude ParamGroupName[]|ParamGroupName
 ---@return ParamCountSet? [nil] := no valid parameter counts (even zero)
 local function filterParamIndexMap(paramsTypeName, include, exclude)
-	local pt = paramsType[paramsTypeName]
+	local prmType = paramsType[paramsTypeName]
 
-	if pt == anyParamCount then
+	if prmType == anyParamCount then
 		return table.copy(anyParamCount)
-	elseif pt == emptyCountSet then
+	elseif prmType == emptyCountSet then
 		return
 	end
 
-	local paramsCounts = table.copy(pt)
+	local paramsCounts = table.copy(prmType)
 
 	if include ~= nil then
 		if type(include) ~= "table" then
