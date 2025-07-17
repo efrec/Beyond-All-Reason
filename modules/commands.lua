@@ -811,7 +811,7 @@ Commands.NewCommandDescription = function(code, cmdType, params, prmTypeName,
 	local command = GameCMD[code]
 	local error = false
 
-	if not GameCMD[code] then
+	if command == nil then
 		Spring.Log('CMD', LOG.ERROR, "Game commands must be configured in modules/customcommands.lua: " .. tostring(code))
 		error = true
 	elseif CMD[code] then
@@ -822,7 +822,6 @@ Commands.NewCommandDescription = function(code, cmdType, params, prmTypeName,
 		error = true
 	elseif commandParamsType[command] then
 		Spring.Log('CMD', LOG.WARNING, "Game command was already added: " .. tostring(code))
-		error = true
 	end
 
 	if error then
