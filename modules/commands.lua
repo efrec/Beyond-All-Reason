@@ -873,40 +873,40 @@ end
 ---@param newGameCMD CreateGameCMD
 ---@return CommandDescription?
 Commands.NewCommandDescription = function(newGameCMD)
-	newGameCMD = parseNewCommand(newGameCMD)
+	local command = parseNewCommand(newGameCMD)
 
-	if newGameCMD.cmdID == nil then
+	if command == nil or command.cmdID == nil then
 		return -- error when parsing
 	end
 
-	local paramsCounts = paramsType[newGameCMD.prmTypeName]
+	local paramsCounts = paramsType[command.prmTypeName]
 
 	-- We need to add to the command categories, first.
-	if newGameCMD.queueing then
-		queueingCommands[newGameCMD.cmdID] = true
+	if command.queueing then
+		queueingCommands[command.cmdID] = true
 	end
 
 	-- The introspection tables are populated via metamethod
 	-- whenever we add a new command to `commandParamsType`.
-	commandParamsType[newGameCMD.cmdID] = paramsCounts
+	commandParamsType[command.cmdID] = paramsCounts
 
 	return {
-		id          = newGameCMD.cmdID,
-		type        = newGameCMD.cmdType,
-		params      = newGameCMD.cmdParams,
+		id          = command.cmdID,
+		type        = command.cmdType,
+		params      = command.cmdParams,
 
-		name        = newGameCMD.cmdName,
-		action      = newGameCMD.action,
-		cursor      = newGameCMD.cursor,
-		tooltip     = newGameCMD.tooltip,
+		name        = command.cmdName,
+		action      = command.action,
+		cursor      = command.cursor,
+		tooltip     = command.tooltip,
 
-		disabled    = newGameCMD.disabled,
-		hidden      = newGameCMD.hidden,
-		showUnique  = newGameCMD.showUnique,
-		queueing    = newGameCMD.queueing,
+		disabled    = command.disabled,
+		hidden      = command.hidden,
+		showUnique  = command.showUnique,
+		queueing    = command.queueing,
 
-		texture     = newGameCMD.texture,
-		onlyTexture = newGameCMD.onlyTexture,
+		texture     = command.texture,
+		onlyTexture = command.onlyTexture,
 	}
 end
 
