@@ -803,7 +803,7 @@ end
 ---@field showUnique boolean?
 
 ---@param newGameCMD CreateGameCMD
----@return table
+---@return table?
 local function parseNewCommand(newGameCMD)
 	-- Game commands must be configured already in modules/customcommands.lua.
 	local code = newGameCMD.code:gsub("^CMD_", "")
