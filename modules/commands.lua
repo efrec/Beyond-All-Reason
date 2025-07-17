@@ -321,7 +321,7 @@ local tempTbl = {}
 -- Parameter types and counts --------------------------------------------------
 
 local anyParamCount = newParamCountSet(0, COMMAND_PARAM_COUNT_MAX)
-local emptyCountSet = {}
+local nullParamsSet = {}
 
 ---Combinations of parameter counts, types, and additional context.
 --
@@ -444,7 +444,7 @@ local paramsObjectIndex = {
 
 paramsObjectIndex = setmetatable(paramsObjectIndex, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -452,7 +452,7 @@ paramsObjectIndex = setmetatable(paramsObjectIndex, {
 ---@type table<CMD, ParamIndexMap>
 local commandParamsObjectIndex = setmetatable({}, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -480,7 +480,7 @@ local paramsPointIndex = {
 
 paramsPointIndex = setmetatable(paramsPointIndex, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -488,7 +488,7 @@ paramsPointIndex = setmetatable(paramsPointIndex, {
 ---@type table<CMD, ParamIndexMap>
 local commandParamsPointIndex = setmetatable({}, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -504,7 +504,7 @@ local paramsLineIndex = {
 
 paramsLineIndex = setmetatable(paramsLineIndex, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -512,7 +512,7 @@ paramsLineIndex = setmetatable(paramsLineIndex, {
 ---@type table<CMD, table<ParamIndex, ParamIndex[]>>
 local commandParamsLineIndex = setmetatable({}, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -527,7 +527,7 @@ local paramsRectangleIndex = {
 
 paramsRectangleIndex = setmetatable(paramsRectangleIndex, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -535,7 +535,7 @@ paramsRectangleIndex = setmetatable(paramsRectangleIndex, {
 ---@type table<CMD, table<ParamIndex, ParamIndex[]>>
 local commandParamsRectangleIndex = setmetatable({}, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -555,7 +555,7 @@ local paramsRadiusIndex = {
 
 paramsRadiusIndex = setmetatable(paramsRadiusIndex, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -563,7 +563,7 @@ paramsRadiusIndex = setmetatable(paramsRadiusIndex, {
 ---@type table<CMD, ParamIndexMap>
 local commandParamsRadiusIndex = setmetatable({}, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -582,7 +582,7 @@ local paramsLeashIndex = {
 
 paramsLeashIndex = setmetatable(paramsLeashIndex, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -590,7 +590,7 @@ paramsLeashIndex = setmetatable(paramsLeashIndex, {
 ---@type table<CMD, ParamIndexMap>
 local commandParamsLeashIndex = setmetatable({}, {
 	__index = function(self, key)
-		return emptyCountSet
+		return nullParamsSet
 	end
 })
 
@@ -662,7 +662,7 @@ local commandParamsType = setmetatable({}, {
 	end,
 
 	__index = function(self, command)
-		return command < 0 and PRMTYPE_POINTFACING or emptyCountSet
+		return command < 0 and PRMTYPE_POINTFACING or nullParamsSet
 	end
 })
 
@@ -724,7 +724,7 @@ local function filterParamIndexMap(paramsTypeName, include, exclude)
 
 	if prmType == anyParamCount then
 		return table.copy(anyParamCount)
-	elseif prmType == emptyCountSet then
+	elseif prmType == nullParamsSet then
 		return
 	end
 
@@ -782,88 +782,127 @@ end
 --------------------------------------------------------------------------------
 -- Module interfacing ----------------------------------------------------------
 
----Configures a new command description with very basic error detection.
---
--- Call this once at initialization per each game command that you implement.
----@todo: move to customcommands?
----@param code string
----@param cmdType CMDTYPE
----@param params string[]?
----@param prmTypeName string? name of paramsType set, see commands.lua
----@param name string?
----@param action string?
----@param cursor string?
----@param texture string?
----@param tooltip string?
----@param disabled boolean?
----@param hidden boolean? set `true` for non-player-facing orders
----@param onlyTexture boolean?
----@param showUnique boolean?
----@param queueing boolean? set `false` for non-queued commands
----@return CommandDescription?
-Commands.NewCommandDescription = function(code, cmdType, params, prmTypeName,
-										  name, action, cursor, texture, tooltip,
-										  disabled, hidden, onlyTexture, showUnique, queueing)
-	-- Game commands should be configured already in modules/customcommands.lua.
-	code = code:gsub("^CMD_", "")
-	cmdType = type(cmdType) == "string" and CMDTYPE[cmdType] or cmdType
+---@class CreateGameCMD
+---@field code string e.g. the `ATTACK` in `CMD.ATTACK`
+---@field cmdType CMDTYPE either the name (string) or id (integer)
+---@field params string[]? needed for `CMD_ICON_MODE`
+---@field prmTypeName string? name of paramsType set, see commands.lua
+---@field name string?
+---@field action string?
+---@field cursor string?
+---@field texture string?
+---@field tooltip string?
+---@field disabled boolean? set `true` for default-unusable commands
+---@field hidden boolean? set `true` for non-player-facing orders
+---@field onlyTexture boolean?
+---@field queueing boolean? set `false` for non-queued commands
+---@field showUnique boolean?
 
-	local command = GameCMD[code]
+---@param newGameCMD CreateGameCMD
+---@return table
+local function parseNewCommand(newGameCMD)
+	-- Game commands must be configured already in modules/customcommands.lua.
+	local code = newGameCMD.code:gsub("^CMD_", "")
+	local cmdType = type(newGameCMD.cmdType) == "string" and CMDTYPE[newGameCMD.cmdType] or newGameCMD.cmdType
+
+	local command = GameCMD[code] ---@type CMD
 	local error = false
 
 	if command == nil then
 		Spring.Log('CMD', LOG.ERROR, "Game commands must be configured in modules/customcommands.lua: " .. tostring(code))
 		error = true
-	elseif CMD[code] then
+	end
+
+	if CMD[code] then
 		Spring.Log('CMD', LOG.ERROR, "Game command code conflicts with an engine CMD code: " .. tostring(code))
 		error = true
-	elseif not CMDTYPE[cmdType] then
+	end
+
+	if not CMDTYPE[cmdType] then
 		Spring.Log('CMD', LOG.ERROR, "Game command's cmdType not recognized: " .. tostring(cmdType))
 		error = true
-	elseif commandParamsType[command] then
-		Spring.Log('CMD', LOG.WARNING, "Game command was already added: " .. tostring(code))
 	end
 
 	if error then
 		return
 	end
 
-	if prmTypeName ~= nil then
-		local paramsCounts = paramsType[prmTypeName]
-
-		if paramsCounts ~= emptyCountSet then
-			-- We need to add to the command categories, first.
-			if queueing then
-				queueingCommands[command] = true
-			end
-
-			-- The introspection tables are populated via metamethod
-			-- whenever we add a new command to `commandParamsType`.
-			commandParamsType[command] = paramsCounts
-		end
+	if commandParamsType[command] then
+		Spring.Log('CMD', LOG.WARNING, "Game command was already added: " .. tostring(code))
 	end
 
-	if commandParamsType[command] == emptyCountSet then
-		Spring.Log('CMD', LOG.ERROR, "Game command's prmType not recognized: " .. tostring(prmTypeName))
+	local prmTypeName = newGameCMD.prmTypeName
+
+	if prmTypeName == nil or paramsType[prmTypeName] == nullParamsSet then
+		Spring.Log('CMD', LOG.WARNING, "Game command's prmTypeName not recognized: " .. tostring(prmTypeName))
+		newGameCMD.prmTypeName = "Any"
+	elseif paramsType[prmTypeName] == anyParamCount and prmTypeName ~= "Any" then
+		Spring.Log('CMD', LOG.WARNING, "Game command's prmTypeName default to 'Any': " .. tostring(prmTypeName))
+		newGameCMD.prmTypeName = "Any"
 	end
 
 	return {
-		id          = command,
-		type        = cmdType,
-		params      = params,
+		command     = command,
+		cmdType     = cmdType,
+		params      = newGameCMD.params,
+		prmTypeName = newGameCMD.prmTypeName,
 
-		disabled    = disabled,
-		hidden      = hidden,
-		showUnique  = showUnique,
-		queueing    = queueing,
+		name        = newGameCMD.name or code,
+		action      = newGameCMD.action,
+		cursor      = newGameCMD.cursor,
+		tooltip     = newGameCMD.tooltip,
 
-		name        = name,
-		action      = action,
-		cursor      = cursor,
-		tooltip     = tooltip,
+		disabled    = newGameCMD.disabled or false,
+		hidden      = newGameCMD.hidden or false,
+		queueing    = newGameCMD.queueing or false,
+		showUnique  = newGameCMD.showUnique or false,
 
-		texture     = texture,
-		onlyTexture = onlyTexture,
+		texture     = newGameCMD.texture,
+		onlyTexture = newGameCMD.onlyTexture or false,
+	}
+end
+
+---Configures a new command description with very basic error detection.
+--
+-- Call this once at initialization per each game command that you implement.
+---@todo: move to customcommands?
+---@param newGameCMD CreateGameCMD
+---@return CommandDescription?
+Commands.NewCommandDescription = function(newGameCMD)
+	newGameCMD = parseNewCommand(newGameCMD)
+
+	if newGameCMD.cmdID == nil then
+		return -- error when parsing
+	end
+
+	local paramsCounts = paramsType[newGameCMD.prmTypeName]
+
+	-- We need to add to the command categories, first.
+	if newGameCMD.queueing then
+		queueingCommands[newGameCMD.cmdID] = true
+	end
+
+	-- The introspection tables are populated via metamethod
+	-- whenever we add a new command to `commandParamsType`.
+	commandParamsType[newGameCMD.cmdID] = paramsCounts
+
+	return {
+		id          = newGameCMD.cmdID,
+		type        = newGameCMD.cmdType,
+		params      = newGameCMD.cmdParams,
+
+		name        = newGameCMD.cmdName,
+		action      = newGameCMD.action,
+		cursor      = newGameCMD.cursor,
+		tooltip     = newGameCMD.tooltip,
+
+		disabled    = newGameCMD.disabled,
+		hidden      = newGameCMD.hidden,
+		showUnique  = newGameCMD.showUnique,
+		queueing    = newGameCMD.queueing,
+
+		texture     = newGameCMD.texture,
+		onlyTexture = newGameCMD.onlyTexture,
 	}
 end
 
@@ -880,7 +919,7 @@ end
 Commands.GetCommandParamsSet = function(command, include, exclude)
 	local prmType = commandParamsType[command]
 
-	if prmType == emptyCountSet then
+	if prmType == nullParamsSet then
 		return {}
 	end
 
