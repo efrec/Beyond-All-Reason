@@ -138,8 +138,10 @@ local OPT_INTERNAL = CMD.OPT_INTERNAL
 local FEATURE_BASE_INDEX = Game.maxUnits or 32000
 local MOVE_GOAL_RESOLUTION = Game.squareSize or 10
 
-local COMMAND_PARAM_COUNT = 5
-local COMMAND_PARAM_COUNT_MAX = 8
+local CMD_INSERT_SIZE = 3 -- The extra #params added when packing a command inside CMD_INSERT.
+local PARAM_POOL_SIZE = 8 -- #params above this use a memory pool that is much more expensive.
+local PARAM_COUNT_MAX = 6 -- Line and Rectangle need 6. Ideally, this would be POOL - INSERT.
+local PARAM_POOL_COUNT_MAX = 64 -- Commands can support a ridiculous number of params though.
 
 ---@alias ParamCount 0|1|2|3|4|5|6|7|8 The number of parameters passed in a command
 ---@alias ParamIndex 1|2|3|4|5|6|7|8 The position of a specific parameter in a command's parameters
@@ -152,9 +154,9 @@ local COMMAND_PARAM_COUNT_MAX = 8
 ---@param min integer
 ---@param max integer
 ---@return ParamCountSet
-local function newParamCountSet(min, max)
+local function newParamCountSet(min, max, pooled)
 	min = math.max(min, 0)
-	max = math.min(max, COMMAND_PARAM_COUNT_MAX)
+	max = math.min(max, pooled and PARAM_POOL_COUNT_MAX or CMD_INSERT_SIZE + PARAM_POOL_SIZE)
 
 	local tbl = table.new(max - min + 1, 0)
 
@@ -178,7 +180,8 @@ local function equalParams(params1, params2)
 			params1[2] == params2[2] and
 			params1[3] == params2[3] and
 			params1[4] == params2[4] and
-			params1[5] == params2[5]
+			params1[5] == params2[5] and
+			params1[6] == params2[6]
 	else
 		return false
 	end
@@ -186,12 +189,24 @@ end
 
 local repackParams
 do
-	local params = table.new(5, 0) -- NB: Do not leak outside module.
+	-- NB: PARAM_COUNT_MAX and the sequence length below must match.
+	local params = table.new(PARAM_COUNT_MAX, 0)
 
-	repackParams = function(p1, p2, p3, p4, p5)
+	-- Pack or repack up to `PARAM_COUNT_MAX` parameters:
+	repackParams = function(p1, p2, p3, p4, p5, p6)
 		local p = params
-		p[1], p[2], p[3], p[4], p[5] = p1, p2, p3, p4, p5
+		p[1], p[2], p[3], p[4], p[5], p[6] = p1, p2, p3, p4, p5, p6
 		return p
+	end
+
+	assert(#repackParams(unpack(newParamCountSet(1, PARAM_COUNT_MAX)) == PARAM_COUNT_MAX))
+end
+
+local function fromInsert(params)
+	if #params > CMD_INSERT_SIZE + 1 then
+		return { params[4], params[5], params[6], params[7], params[8], params[9] }
+	else
+		return params[4]
 	end
 end
 
@@ -296,7 +311,7 @@ local tempTbl = {} -- easier to make a temp iter tbl than to encapsulate this
 
 -- Parameter types and counts --------------------------------------------------
 
-local anyParamCount = newParamCountSet(0, COMMAND_PARAM_COUNT_MAX)
+local anyParamCount = newParamCountSet(0, PARAM_POOL_COUNT_MAX, true)
 local nullParamsSet = {}
 
 ---Combinations of parameter counts, types, and additional context.
@@ -346,9 +361,9 @@ local paramsType = {
 	WorkerTask        = { [1] = true, [4] = true, [5] = true }, -- [1] := id, [4] := area, [5] := id, point, leash radius
 
 	-- Specific commands
-	Insert            = newParamCountSet(3, 3 + COMMAND_PARAM_COUNT),
-	Remove            = newParamCountSet(1, COMMAND_PARAM_COUNT_MAX),
-	Wait              = newParamCountSet(1, COMMAND_PARAM_COUNT_MAX),
+	Insert            = newParamCountSet(CMD_INSERT_SIZE, CMD_INSERT_SIZE + PARAM_COUNT_MAX, true),
+	Remove            = newParamCountSet(1, PARAM_POOL_COUNT_MAX, true),
+	Wait              = newParamCountSet(1, PARAM_POOL_SIZE),
 }
 
 paramsType = setmetatable(paramsType, {
@@ -918,7 +933,7 @@ end
 Commands.GetInsertedCommand = function(params)
 	return
 		params[2], ---@diagnostic disable-line: return-type-mismatch -- CMD/integer
-		params[5] ~= nil and { params[4], params[5], params[6], params[7], params[8] } or params[4],
+		fromInsert(params),
 		params[3],
 		params[1]
 end
@@ -991,9 +1006,9 @@ Commands.IsInCommand = function(unitID, cmdID, cmdParams, cmdOpts)
 	while true do
 		-- The engine and other gadgets can reject or modify the orders we issue.
 		-- The only way to know is through checking and verifying the new result.
-		local command, options, _, p1, p2, p3, p4, p5 = spGetUnitCurrentCommand(unitID, index)
+		local command, options, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
 
-		if command == cmdID and equalParams(repackParams(p1, p2, p3, p4, p5), cmdParams) then
+		if command == cmdID and equalParams(repackParams(p1, p2, p3, p4, p5, p6), cmdParams) then
 			return true
 		elseif command == nil or not isInTempCommand(command, options, cmdID, cmdOpts) then
 			return false
@@ -1418,13 +1433,13 @@ end
 ---@return number z
 Commands.GetUnitEndPosition = function(unitID, all)
 	local index = -1
-	local command, _, _, p1, p2, p3, p4, p5 = spGetUnitCurrentCommand(unitID, index)
+	local command, _, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
 
 	repeat
 		if command == nil then
 			break
 		elseif all or moveCommands[command] then
-			local x, y, z = getCommandPosition(command, repackParams(p1, p2, p3, p4, p5))
+			local x, y, z = getCommandPosition(command, repackParams(p1, p2, p3, p4, p5, p6))
 
 			if x ~= nil then
 				return x, y, z
@@ -1432,7 +1447,7 @@ Commands.GetUnitEndPosition = function(unitID, all)
 		end
 
 		index = index - 1
-		command, _, _, p1, p2, p3, p4, p5 = spGetUnitCurrentCommand(unitID, index)
+		command, _, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
 	until false
 
 	return Spring.GetUnitPosition(unitID)
