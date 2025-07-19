@@ -131,6 +131,7 @@ local CMD_PATROL = CMD.PATROL
 local CMD_LOAD_UNITS = CMD.LOAD_UNITS
 local CMD_UNLOAD_UNIT = CMD.UNLOAD_UNIT
 local CMD_UNLOAD_UNITS = CMD.UNLOAD_UNITS
+local CMD_MANUALFIRE = CMD.MANUALFIRE
 local CMD_WAIT = CMD.WAIT
 local OPT_INTERNAL = CMD.OPT_INTERNAL
 
@@ -1714,16 +1715,21 @@ Commands.GetUnitStateEnabled = function(unitID, command)
 	return false
 end
 
----Determine whether a unit with a given ability can execute it currently.
+---Determine whether a unit normally able to execute a command can do so currently.
+--
+-- Ignores the stunned state but not insufficient resources, etc.
 ---@param unitID integer
 ---@param command CMD
 ---@param unitDefID integer? optional
 Commands.GetUnitCanExecute = function(unitID, command, unitDefID)
 	local cmdDesc = spFindUnitCmdDesc(unitID, command)
 
-	if cmdDesc ~= nil and not cmdDesc.disabled then
+	if cmdDesc ~= nil then
+		if cmdDesc.disabled then
+			return false
+		end
+
 		if command == CMD_LOAD_UNITS then
-			-- todo: How can we tell attached units apart from occupants?
 			local transportees = Spring.GetUnitIsTransporting(unitID)
 
 			if transportees == nil then
@@ -1739,11 +1745,19 @@ Commands.GetUnitCanExecute = function(unitID, command, unitDefID)
 				mass = mass - Spring.GetUnitMass(occupantID)
 			end
 
-			return capacity > 0 and mass > 0
+			-- Assuming minimum requirements:
+			return capacity >= 1 and mass >= 1
 		elseif command == CMD_UNLOAD_UNIT or command == CMD_UNLOAD_UNITS then
-			-- todo: How can we tell attached units apart from occupants?
 			local transportees = Spring.GetUnitIsTransporting(unitID)
 			return transportees ~= nil and transportees[1] ~= nil
+		elseif command == CMD_MANUALFIRE then
+			-- `nil` when non-stockpiling; only `0` fails:
+			if (Spring.GetUnitStockpile(unitID)) == 0 then
+				return false
+			else
+				-- todo: check energy needed to fire
+				return true
+			end
 		else
 			return true
 		end
