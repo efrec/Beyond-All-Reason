@@ -990,8 +990,8 @@ Commands.IsInTempCommand = function(command, options, cmdID, cmdOpts)
 		return true -- Disregards additional command info.
 	elseif cmdID == CMD_FIGHT then
 		return command == CMD_ATTACK and equalOption(options, cmdOpts, false)
-	elseif cmdID == CMD_PATROL then
-		return false -- Should have been marked internal.
+	else
+		return false
 	end
 end
 
