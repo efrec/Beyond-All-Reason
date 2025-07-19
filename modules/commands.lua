@@ -167,23 +167,26 @@ local function newParamCountSet(min, max, pooled)
 	return tbl
 end
 
----This kind of blind equality testing should be avoided in regular usage.
--- It makes sense in a lib where we cannot be sure what we are processing.
----@param params1 number|number[]?
----@param params2 number|number[]?
-local function equalParams(params1, params2)
-	if params1 == params2 then
-		return true
-	elseif type(params1) == "table" and type(params2) == "table" then
-		return
-			params1[1] == params2[1] and
-			params1[2] == params2[2] and
-			params1[3] == params2[3] and
-			params1[4] == params2[4] and
-			params1[5] == params2[5] and
-			params1[6] == params2[6]
+---@param params number|number[]?
+---@param p1 number?
+---@param p2 number?
+---@param p3 number?
+---@param p4 number?
+---@param p5 number?
+---@param p6 number?
+local function equalParams(params, p1, p2, p3, p4, p5, p6)
+	if params == nil then
+		return p1 == nil
+	elseif type(params) == "number" then
+		return p1 == params
 	else
-		return false
+		return
+			params[1] == p1 and
+			params[2] == p2 and
+			params[3] == p3 and
+			params[4] == p4 and
+			params[5] == p5 and
+			params[6] == p6
 	end
 end
 
@@ -997,7 +1000,7 @@ local isInTempCommand = Commands.IsInTempCommand
 ---Check if the unit is executing a given command, including no command.
 ---@param unitID integer
 ---@param cmdID CMD?
----@param cmdParams CreateCommandParams?
+---@param cmdParams number[]|number?
 ---@param cmdOpts integer|CommandOptions?
 ---@return boolean
 Commands.IsInCommand = function(unitID, cmdID, cmdParams, cmdOpts)
@@ -1008,7 +1011,7 @@ Commands.IsInCommand = function(unitID, cmdID, cmdParams, cmdOpts)
 		-- The only way to know is through checking and verifying the new result.
 		local command, options, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
 
-		if command == cmdID and equalParams(repackParams(p1, p2, p3, p4, p5, p6), cmdParams) then
+		if command == cmdID and equalParams(cmdParams, p1, p2, p3, p4, p5, p6) then
 			return true
 		elseif command == nil or not isInTempCommand(command, options, cmdID, cmdOpts) then
 			return false
