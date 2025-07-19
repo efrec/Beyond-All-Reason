@@ -118,8 +118,10 @@ local math_sqrt = math.sqrt
 local bit_and = math.bit_and
 
 local spFindUnitCmdDesc = Spring.FindUnitCmdDesc
+local spGetFeaturePosition = Spring.GetFeaturePosition
 local spGetUnitCmdDescs = Spring.GetUnitCmdDescs
 local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
+local spGetUnitPosition = Spring.GetUnitPosition
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
 local CMD_INSERT = CMD.INSERT
@@ -288,9 +290,9 @@ end
 
 local function getObjectPosition(objectID)
 	if objectID < FEATURE_BASE_INDEX then
-		return Spring.GetUnitPosition(objectID)
+		return spGetUnitPosition(objectID)
 	else
-		return Spring.GetFeaturePosition(objectID - FEATURE_BASE_INDEX)
+		return spGetFeaturePosition(objectID - FEATURE_BASE_INDEX)
 	end
 end
 
@@ -1457,7 +1459,7 @@ Commands.GetUnitEndPosition = function(unitID, all)
 		command, _, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
 	until false
 
-	return Spring.GetUnitPosition(unitID)
+	return spGetUnitPosition(unitID)
 end
 
 ---Get the position of the unit's queued move commands (or all commands) and the
@@ -1508,7 +1510,7 @@ end
 ---@return number y
 ---@return number z
 Commands.GetUnitEndMoveGoal = function(unitID, range, all)
-	local x, y, z = Spring.GetUnitPosition(unitID)
+	local x, y, z = spGetUnitPosition(unitID)
 
 	for _, command in ipairs(Spring.GetUnitCommands(unitID, -1)) do
 		x, y, z = getCommandMoveGoal(command.id, command.params, x, y, z, range, all)
@@ -1531,7 +1533,7 @@ end
 ---@return number y
 ---@return number z
 Commands.GetUnitEndMoveGoal2D = function(unitID, range, all)
-	local x, y, z = Spring.GetUnitPosition(unitID)
+	local x, y, z = spGetUnitPosition(unitID)
 
 	for _, command in ipairs(Spring.GetUnitCommands(unitID, -1)) do
 		x, y, z = getCommandMoveGoal2D(command.id, command.params, x, z, range, all)
