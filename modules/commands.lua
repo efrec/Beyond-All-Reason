@@ -270,6 +270,11 @@ local function isInternal(options)
 	end
 end
 
+---@param optionsBitSet integer
+local function isInternalBit(optionsBitSet)
+	return bit_and(optionsBitSet, OPT_INTERNAL) ~= 0
+end
+
 local function getObjectPosition(objectID)
 	if objectID < FEATURE_BASE_INDEX then
 		return Spring.GetUnitPosition(objectID)
@@ -1034,7 +1039,7 @@ Commands.GetGuardeeID = function(unitID, commandIndex)
 
 		if command == CMD_GUARD then
 			return maybeUnitID
-		elseif command == nil or not isInternal(options) then
+		elseif command == nil or not isInternalBit(options) then
 			return
 		else
 			commandIndex = commandIndex + 1
