@@ -205,14 +205,6 @@ do
 	assert(#repackParams(unpack(newParamCountSet(1, PARAM_COUNT_MAX)) == PARAM_COUNT_MAX))
 end
 
-local function fromInsert(params)
-	if #params > CMD_INSERT_SIZE + 1 then
-		return { params[4], params[5], params[6], params[7], params[8], params[9] }
-	else
-		return params[4]
-	end
-end
-
 ---@param options CommandOptions
 ---@return integer
 local function getOptionCode(options)
@@ -934,9 +926,17 @@ end
 ---@return integer commandOptions
 ---@return integer insertIndex
 Commands.GetInsertedCommand = function(params)
+	local innerParams
+
+	if #params > 4 then
+		innerParams = { params[4], params[5], params[6], params[7], params[8], params[9] }
+	else
+		innerParams = params[4]
+	end
+
 	return
 		params[2], ---@diagnostic disable-line: return-type-mismatch -- CMD/integer
-		fromInsert(params),
+		innerParams,
 		params[3],
 		params[1]
 end
