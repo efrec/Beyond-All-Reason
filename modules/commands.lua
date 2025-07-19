@@ -242,6 +242,7 @@ local function equalOption(options1, options2, ignoreInternal)
 	elseif type(options1) == "table" and type(options2) == "table" then
 		return
 			options1.coded == options2.coded or
+			-- Assume the `coded` values might be stale:
 			ignoreInternal or options1.internal == options2.internal and (
 				-- Handle nil == false:
 				(not options1.alt) == (not options2.alt) and
