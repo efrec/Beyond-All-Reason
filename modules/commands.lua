@@ -1025,6 +1025,10 @@ end
 ---@param commandIndex integer? default = 1
 ---@return integer? guardeeID
 Commands.GetGuardeeID = function(unitID, commandIndex)
+	if commandIndex == nil then
+		commandIndex = 1
+	end
+
 	while true do
 		local command, options, _, maybeUnitID = spGetUnitCurrentCommand(unitID, commandIndex)
 
