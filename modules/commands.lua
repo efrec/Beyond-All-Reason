@@ -1029,7 +1029,7 @@ Commands.GetGuardeeID = function(unitID, commandIndex)
 		commandIndex = 1
 	end
 
-	while true do
+	repeat
 		local command, options, _, maybeUnitID = spGetUnitCurrentCommand(unitID, commandIndex)
 
 		if command == CMD_GUARD then
@@ -1039,7 +1039,7 @@ Commands.GetGuardeeID = function(unitID, commandIndex)
 		else
 			return
 		end
-	end
+	until false
 end
 
 ---Gets the xyz coordinates of a command's target, whether a position or object.
