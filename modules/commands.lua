@@ -107,42 +107,6 @@ local queueingCommands = {
 	[CMD.UNLOAD_UNITS] = true,
 }
 
--- todo: I got bored and walked away in the middle of writing it
----Maps commands to a test for whether a unitDef can, per the engine, execute the command.
---
--- Commands that are completely blocked off by the game, rather than blocked selectively,
--- should be described as though that were default behavior, as well.
----@type table<CMD, function>
-local commandAbilityTest = {
-	[CMD.ATTACK]       = function(unitDef) return unitDef.canAttack or unitDef.canAttackGround or unitDef.canAttackWater end,
-	[CMD.AREA_ATTACK]  = function(unitDef) return unitDef.canAttackGround or unitDef.canAttackWater end,
-	[CMD.CAPTURE]      = function(unitDef) return unitDef.canCapture end,
-	[CMD.CLOAK]        = function(unitDef) return unitDef.canCloak end,
-	[CMD.FIGHT]        = function(unitDef)
-		return unitDef.canAttack or unitDef.canReclaim or (not unitDef.canMove and unitDef.canRepair)
-	end,
-	[CMD.GUARD]        = function(unitDef) return unitDef.canGuard end,
-	[CMD.LOAD_ONTO]    = function(unitDef) return not unitDef.cantBeTransported end,
-	[CMD.LOAD_UNIT]    = function(unitDef) return unitDef.transportCapacity > 0 and unitDef.transportMass > 0 end,
-	[CMD.LOAD_UNITS]   = function(unitDef) return unitDef.transportCapacity > 0 and unitDef.transportMass > 0 end,
-	[CMD.MANUALFIRE]   = function(unitDef) return unitDef.canManualFire end,
-	[CMD.MOVE]         = function(unitDef) return unitDef.canMove end,
-	[CMD.ONOFF]        = function(unitDef) return unitDef.onOffable end,
-	[CMD.PATROL]       = function(unitDef) return unitDef.canPatrol end,
-	[CMD.RECLAIM]      = function(unitDef) return unitDef.canReclaim end,
-	[CMD.REPAIR]       = function(unitDef) return unitDef.canRepair end,
-	[CMD.REPEAT]       = function(unitDef) return unitDef.canRepeat end,
-	[CMD.RESTORE]      = function(unitDef) return unitDef.canRestore end,
-	[CMD.RESURRECT]    = function(unitDef) return unitDef.canResurrect end,
-	[CMD.SELFD]        = function(unitDef) return unitDef.canSelfDestruct end,
-	[CMD.STOCKPILE]    = function(unitDef) return unitDef.stockpile end,
-	[CMD.STOP]         = function(unitDef) return unitDef.canStop end,
-	[CMD.TRAJECTORY]   = function(unitDef) return unitDef.highTrajectory end,     -- lol no
-	[CMD.UNLOAD_UNIT]  = function(unitDef) return unitDef.transportCapacity > 0 end, -- some loaders are just passive bunkers, maybe no unload?
-	[CMD.UNLOAD_UNITS] = function(unitDef) return unitDef.transportCapacity > 0 end,
-	[CMD.WAIT]         = function(unitDef) return unitDef.canWait end,
-}
-
 --------------------------------------------------------------------------------
 -- Module internals ------------------------------------------------------------
 
@@ -1748,34 +1712,6 @@ Commands.GetUnitStateEnabled = function(unitID, command)
 	end
 
 	return false
-end
-
----Determine whether the unit has the right def properties for a command.
---
--- You may need further checks for some commands + command options.
---
--- @see Commands.GetUnitCanExecute
----@param unitDefID integer
----@param command CMD
----@param unitID integer?
-Commands.GetUnitDefHasAbility = function(unitDefID, command, unitID)
-	if unitID ~= nil then
-		-- Command descriptors are assumed to be always correct.
-		local cmdDesc = spFindUnitCmdDesc(unitID, command)
-
-		if cmdDesc ~= nil and not cmdDesc.disabled then
-			return true
-		end
-	end
-
-	local hasAbility = commandAbilityTest[command]
-	local unitDef = UnitDefs[unitDefID or Spring.GetUnitDefID(unitID)]
-
-	if hasAbility ~= nil and unitDef ~= nil then
-		return hasAbility(unitDef)
-	else
-		return false
-	end
 end
 
 ---Determine whether a unit with a given ability can execute it currently.
