@@ -1034,10 +1034,10 @@ Commands.GetGuardeeID = function(unitID, commandIndex)
 
 		if command == CMD_GUARD then
 			return maybeUnitID
-		elseif command ~= nil and isInternal(options) then
-			commandIndex = commandIndex + 1
-		else
+		elseif command == nil or not isInternal(options) then
 			return
+		else
+			commandIndex = commandIndex + 1
 		end
 	until false
 end
