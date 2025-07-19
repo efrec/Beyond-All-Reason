@@ -486,11 +486,11 @@ local commandParamsPointIndex = setmetatable({}, {
 -- Line parameter index --------------------------------------------------------
 
 ---Contains the parameter index positions of the command's two x coordinates.
----@type table<string, table<ParamIndex, ParamIndex[]>>
+---@type table<string, table<ParamIndex, ParamIndex>>
 local paramsLineIndex = {
-	Front             = { [6] = { 1, 4 } },
-	ObjectOrFront     = { [6] = { 1, 4 } },
-	PointOrFront      = { [6] = { 1, 4 } },
+	Front             = { [6] = 1 },
+	ObjectOrFront     = { [6] = 1 },
+	PointOrFront      = { [6] = 1 },
 }
 
 paramsLineIndex = setmetatable(paramsLineIndex, {
@@ -500,7 +500,7 @@ paramsLineIndex = setmetatable(paramsLineIndex, {
 })
 
 ---Maps commands and their param counts to the index positions of two x coordinates.
----@type table<CMD, table<ParamIndex, ParamIndex[]>>
+---@type table<CMD, table<ParamIndex, ParamIndex>>
 local commandParamsLineIndex = setmetatable({}, {
 	__index = function(self, key)
 		return nullParamsSet
@@ -510,10 +510,10 @@ local commandParamsLineIndex = setmetatable({}, {
 -- Rectangle parameter index ---------------------------------------------------
 
 ---Contains the parameter index positions of the command's two x coordinates.
----@type table<string, table<ParamIndex, ParamIndex[]>>
+---@type table<string, table<ParamIndex, ParamIndex>>
 local paramsRectangleIndex = {
-	Rectangle         = { [6] = { 1, 4 } },
-	ObjectOrRectangle = { [6] = { 1, 4 } },
+	Rectangle         = { [6] = 1 },
+	ObjectOrRectangle = { [6] = 1 },
 }
 
 paramsRectangleIndex = setmetatable(paramsRectangleIndex, {
@@ -523,7 +523,7 @@ paramsRectangleIndex = setmetatable(paramsRectangleIndex, {
 })
 
 ---Maps commands and their param counts to the index positions of two x coordinates.
----@type table<CMD, table<ParamIndex, ParamIndex[]>>
+---@type table<CMD, table<ParamIndex, ParamIndex>>
 local commandParamsRectangleIndex = setmetatable({}, {
 	__index = function(self, key)
 		return nullParamsSet
@@ -1101,11 +1101,13 @@ Commands.GetCommandLine = function(command, params)
 	local lineIndex = commandParamsLineIndex[command][#params]
 
 	if lineIndex ~= nil then
-		local startIndex = lineIndex[1]
-		local endIndex = lineIndex[2]
 		return
-			params[startIndex], params[startIndex + 1], params[startIndex + 2],
-			params[endIndex], params[endIndex + 1], params[endIndex + 2]
+			params[lineIndex],
+			params[lineIndex + 1],
+			params[lineIndex + 2],
+			params[lineIndex + 3],
+			params[lineIndex + 4],
+			params[lineIndex + 5]
 	end
 end
 
@@ -1122,11 +1124,13 @@ Commands.GetCommandRectangle = function(command, params)
 	local rectangleIndex = commandParamsRectangleIndex[command][#params]
 
 	if rectangleIndex ~= nil then
-		local startIndex = rectangleIndex[1]
-		local endIndex = rectangleIndex[2]
 		return
-			params[startIndex], params[startIndex + 1], params[startIndex + 2],
-			params[endIndex], params[endIndex + 1], params[endIndex + 2]
+			params[rectangleIndex],
+			params[rectangleIndex + 1],
+			params[rectangleIndex + 2],
+			params[rectangleIndex + 3],
+			params[rectangleIndex + 4],
+			params[rectangleIndex + 5]
 	end
 end
 
