@@ -243,7 +243,7 @@ local function equalOption(options1, options2, ignoreInternal)
 		return
 			options1.coded == options2.coded or
 			-- Assume the `coded` values might be stale:
-			ignoreInternal or options1.internal == options2.internal and (
+			(ignoreInternal or options1.internal == options2.internal) and (
 				-- Handle nil == false:
 				(not options1.alt) == (not options2.alt) and
 				(not options1.ctrl) == (not options2.ctrl) and
