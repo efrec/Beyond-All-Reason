@@ -259,7 +259,7 @@ local function equalOption(options1, options2, ignoreInternal)
 	end
 end
 
----@param options table|integer?
+---@param options table|integer|CommandOptionBit?
 local function isInternal(options)
 	if type(options) == "table" then
 		return options.internal
@@ -270,7 +270,7 @@ local function isInternal(options)
 	end
 end
 
----@param optionsBitSet integer
+---@param optionsBitSet integer|CommandOptionBit
 local function isInternalBit(optionsBitSet)
 	return bit_and(optionsBitSet, OPT_INTERNAL) ~= 0
 end
