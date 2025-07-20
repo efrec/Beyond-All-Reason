@@ -136,6 +136,10 @@ local CMD_UNLOAD_UNITS = CMD.UNLOAD_UNITS
 local CMD_MANUALFIRE = CMD.MANUALFIRE
 local CMD_WAIT = CMD.WAIT
 local OPT_INTERNAL = CMD.OPT_INTERNAL
+local OPT_ALT = CMD.OPT_ALT
+local OPT_CTRL = CMD.OPT_CTRL
+local OPT_SHIFT = CMD.OPT_SHIFT
+local OPT_META = CMD.OPT_META
 
 local FEATURE_BASE_INDEX = Game.maxUnits or 32000
 local MOVE_GOAL_RESOLUTION = Game.squareSize or 10
@@ -207,6 +211,18 @@ do
 	assert(#repackParams(unpack(newParamCountSet(1, PARAM_COUNT_MAX)) == PARAM_COUNT_MAX))
 end
 
+---@param code integer
+local function getOptions(code)
+	return {
+		coded    = code,
+		internal = 0 ~= bit_and(code, OPT_INTERNAL),
+		alt      = 0 ~= bit_and(code, OPT_ALT),
+		ctrl     = 0 ~= bit_and(code, OPT_CTRL),
+		shift    = 0 ~= bit_and(code, OPT_SHIFT),
+		meta     = 0 ~= bit_and(code, OPT_META),
+	}
+end
+
 ---@param options CommandOptions
 ---@return integer
 local function getOptionCode(options)
@@ -219,27 +235,27 @@ local function getOptionCode(options)
 	local code = 0
 
 	if options.alt then
-		code = code + CMD.OPT_ALT
+		code = code + OPT_ALT
 	end
 
 	if options.ctrl then
-		code = code + CMD.OPT_CTRL
+		code = code + OPT_CTRL
 	end
 
 	if options.internal then
-		code = code + CMD.OPT_INTERNAL
+		code = code + OPT_INTERNAL
 	end
 
 	if options.meta then
-		code = code + CMD.OPT_META
+		code = code + OPT_META
 	end
 
 	if options.right then
-		code = code + CMD.OPT_RIGHT
+		code = code + OPT_RIGHT
 	end
 
 	if options.shift then
-		code = code + CMD.OPT_SHIFT
+		code = code + OPT_SHIFT
 	end
 
 	return code
@@ -944,6 +960,36 @@ Commands.GetInsertedCommand = function(params)
 end
 
 local getInsertedCommand = Commands.GetInsertedCommand
+
+---Retrieve the command info from the params of a CMD_INSERT.
+---@param params number[]|number
+---@return CMD command
+---@return number[]|number? commandParams
+---@return CommandOptions commandOptions
+---@return integer commandTag
+Commands.GetFullInsertedCommand = function(params)
+	local innerParams
+
+	if params[5] == nil then
+		innerParams = params[4]
+	else
+		innerParams = {}
+
+		for i = 4, #params do
+			innerParams[i - 3] = params[i]
+		end
+	end
+
+	local innerOptions = getOptions(params[3])
+
+	return
+		params[2], ---@diagnostic disable-line: return-type-mismatch -- CMD/integer
+		innerParams,
+		innerOptions,
+		params[1]
+end
+
+local getFullInsertedCommand = Commands.GetFullInsertedCommand
 
 ---Retrieve the actual command from an order, resolving any meta-commands passed.
 ---@param command CMD
