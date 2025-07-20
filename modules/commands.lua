@@ -130,6 +130,7 @@ local CMD_ATTACK = CMD.ATTACK
 local CMD_FIGHT = CMD.FIGHT
 local CMD_GUARD = CMD.GUARD
 local CMD_PATROL = CMD.PATROL
+local CMD_STOP = CMD.STOP
 local CMD_LOAD_UNITS = CMD.LOAD_UNITS
 local CMD_UNLOAD_UNIT = CMD.UNLOAD_UNIT
 local CMD_UNLOAD_UNITS = CMD.UNLOAD_UNITS
@@ -1445,6 +1446,58 @@ if pregame and WG then
 		else
 			return false -- and you should unregister this fn
 		end
+	end
+end
+
+---Remove commands from the unit's command queue that are invalid, cannot be executed,
+-- or that occur after a non-terminating command like Guard or Patrol. The resulting
+-- command queue should be as intelligible as possible with only basic inspection.
+---@param unitID integer
+---@return boolean changed Whether any commands were modified or removed
+Commands.NormalizeQueue = function(unitID)
+	local hasTerminal = false
+	local isInPatrol = false
+
+	-- todo: remove unload commands not preceded by load commands
+	-- todo: other commands with prerequisites? are any on/offs blocking?
+	local transportMass
+	local transportCapcity
+	local canTransport
+	local hasOccupants
+
+	local index = 1
+	local tags = {}
+	local count = 0
+
+	repeat
+		local command, _, tag = spGetUnitCurrentCommand(unitID, index)
+
+		if command == nil then
+			break
+		elseif hasTerminal then
+			if not isInPatrol or command ~= CMD_PATROL then
+				isInPatrol = false
+				count = count + 1
+				tags[count] = tag
+			end
+		elseif command == CMD_PATROL or command == CMD_GUARD or command == CMD_STOP or commandParamsType[command] == PRMTYPE_WAIT then
+			hasTerminal = true
+
+			if command == CMD_PATROL then
+				isInPatrol = true
+			end
+		elseif command == CMD_LOAD_UNITS then
+		elseif command == CMD_UNLOAD_UNIT then
+		elseif command == CMD_UNLOAD_UNITS then
+		end
+
+		index = index + 1
+	until false
+
+	if count > 0 then
+		return spGiveOrderToUnit(unitID, CMD_REMOVE, tags)
+	else
+		return false
 	end
 end
 
