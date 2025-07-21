@@ -1439,21 +1439,13 @@ if pregame and WG then
 	end
 end
 
----Remove commands from the unit's command queue that are invalid, cannot be executed,
--- or that occur after a non-terminating command like Guard or Patrol. The resulting
--- command queue should be as intelligible as possible with only basic inspection.
+---Remove commands from the queue that follow a non-terminating command. The resulting
+-- command queue is more easily inspected and validated against other tests.
 ---@param unitID integer
 ---@return boolean changed Whether any commands were modified or removed
 Commands.NormalizeQueue = function(unitID)
 	local hasTerminal = false
 	local isInPatrol = false
-
-	-- todo: remove unload commands not preceded by load commands
-	-- todo: other commands with prerequisites? are any on/offs blocking?
-	local transportMass
-	local transportCapcity
-	local canTransport
-	local hasOccupants
 
 	local index = 1
 	local tags = {}
@@ -1476,9 +1468,6 @@ Commands.NormalizeQueue = function(unitID)
 			if command == CMD_PATROL then
 				isInPatrol = true
 			end
-		elseif command == CMD_LOAD_UNITS then
-		elseif command == CMD_UNLOAD_UNIT then
-		elseif command == CMD_UNLOAD_UNITS then
 		end
 
 		index = index + 1
