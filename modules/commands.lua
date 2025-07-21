@@ -706,72 +706,6 @@ for kind, paramsIndexMap in pairs({
 	paramsTypeGroup[kind] = group
 end
 
----Get the allowed parameter counts of a given type and that contain the given
--- sub-type, e.g. return only the Point count of the type PointOrRectangle.
----@param paramsTypeName string
----@param include ParamGroupName[]|ParamGroupName
----@param exclude ParamGroupName[]|ParamGroupName
----@return ParamCountSet? [nil] := no valid parameter counts (even zero)
-local function filterParamIndexMap(paramsTypeName, include, exclude)
-	local prmType = paramsType[paramsTypeName]
-
-	if prmType == anyParamCount then
-		return table.copy(anyParamCount)
-	elseif prmType == nullParamsSet then
-		return
-	end
-
-	local paramsCounts = table.copy(prmType)
-
-	if include ~= nil then
-		if type(include) ~= "table" then
-			tempTbl[1] = include
-			include = tempTbl
-		end
-
-		local included = {}
-
-		for _, kind in ipairs(include) do
-			for indexMap in pairs(paramsTypeGroup[kind]) do
-				for index in pairs(indexMap) do
-					included[index] = true
-				end
-			end
-		end
-
-		for index in pairs(paramsCounts) do
-			if not included[index] then
-				paramsCounts[index] = nil
-			end
-		end
-	end
-
-	if exclude ~= nil then
-		if type(exclude) ~= "table" then
-			tempTbl[1] = exclude
-			exclude = tempTbl
-		end
-
-		local excluded = {}
-
-		for _, kind in ipairs(exclude) do
-			for indexMap in pairs(paramsTypeGroup[kind]) do
-				for index in pairs(indexMap) do
-					excluded[index] = true
-				end
-			end
-		end
-
-		for index in pairs(paramsCounts) do
-			if excluded[index] then
-				paramsCounts[index] = nil
-			end
-		end
-	end
-
-	return next(paramsCounts) and paramsCounts or nil
-end
-
 --------------------------------------------------------------------------------
 -- Module interfacing ----------------------------------------------------------
 
@@ -897,6 +831,72 @@ Commands.NewCommandDescription = function(newGameCMD)
 		texture     = command.texture,
 		onlyTexture = command.onlyTexture,
 	}
+end
+
+---Get the allowed parameter counts of a given type and that contain the given
+-- sub-type, e.g. return only the Point count of the type PointOrRectangle.
+---@param paramsTypeName string
+---@param include ParamGroupName[]|ParamGroupName
+---@param exclude ParamGroupName[]|ParamGroupName
+---@return ParamCountSet? [nil] := no valid parameter counts (even zero)
+local function filterParamIndexMap(paramsTypeName, include, exclude)
+	local prmType = paramsType[paramsTypeName]
+
+	if prmType == anyParamCount then
+		return table.copy(anyParamCount)
+	elseif prmType == nullParamsSet then
+		return
+	end
+
+	local paramsCounts = table.copy(prmType)
+
+	if include ~= nil then
+		if type(include) ~= "table" then
+			tempTbl[1] = include
+			include = tempTbl
+		end
+
+		local included = {}
+
+		for _, kind in ipairs(include) do
+			for indexMap in pairs(paramsTypeGroup[kind]) do
+				for index in pairs(indexMap) do
+					included[index] = true
+				end
+			end
+		end
+
+		for index in pairs(paramsCounts) do
+			if not included[index] then
+				paramsCounts[index] = nil
+			end
+		end
+	end
+
+	if exclude ~= nil then
+		if type(exclude) ~= "table" then
+			tempTbl[1] = exclude
+			exclude = tempTbl
+		end
+
+		local excluded = {}
+
+		for _, kind in ipairs(exclude) do
+			for indexMap in pairs(paramsTypeGroup[kind]) do
+				for index in pairs(indexMap) do
+					excluded[index] = true
+				end
+			end
+		end
+
+		for index in pairs(paramsCounts) do
+			if excluded[index] then
+				paramsCounts[index] = nil
+			end
+		end
+	end
+
+	return next(paramsCounts) and paramsCounts or nil
 end
 
 ---Get the allowed parameter counts of a given type and that contain the given
