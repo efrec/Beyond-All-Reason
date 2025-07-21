@@ -345,7 +345,7 @@ local nullParamsSet = {}
 -- Context example:
 -- - `WorkerTask` uses the *build radius* to check range.
 ---@type table<string, ParamCountSet>
-local paramsType = {
+local paramsType = setmetatable({
 	-- Basic params types
 	Any               = anyParamCount,
 	None              = { [0] = true },
@@ -380,9 +380,7 @@ local paramsType = {
 	Insert            = newParamCountSet(CMD_INSERT_SIZE, CMD_INSERT_SIZE + PARAM_COUNT_MAX, true),
 	Remove            = newParamCountSet(1, PARAM_POOL_COUNT_MAX, true),
 	Wait              = newParamCountSet(1, PARAM_POOL_SIZE),
-}
-
-paramsType = setmetatable(paramsType, {
+}, {
 	-- Unregistered commands have no restrictions
 	-- except that they obey the max param count.
 	__index = function(self, key)
@@ -438,7 +436,7 @@ local PRMTYPE_POINTFACING = paramsType.PointFacing
 
 ---Contains the parameter index position of the command's target object id.
 ---@type table<string, ParamIndexMap>
-local paramsObjectIndex = {
+local paramsObjectIndex = setmetatable({
 	Object            = { [1] = 1 },
 	ObjectAlly        = { [1] = 1 },
 	ObjectEnemy       = { [1] = 1 },
@@ -447,9 +445,7 @@ local paramsObjectIndex = {
 	ObjectOrFront     = { [1] = 1 },
 	ObjectOrRectangle = { [1] = 1 },
 	WorkerTask        = { [1] = 1, [5] = 1 },
-}
-
-paramsObjectIndex = setmetatable(paramsObjectIndex, {
+}, {
 	__index = function(self, key)
 		return nullParamsSet
 	end
@@ -467,7 +463,7 @@ local commandParamsObjectIndex = setmetatable({}, {
 
 ---Contains the parameter index position of the command's x coordinate.
 ---@type table<string, ParamIndexMap>
-local paramsPointIndex = {
+local paramsPointIndex = setmetatable({
 	Point         = { [3] = 1 },
 	Area          = { [4] = 1 },
 	Front         = { [6] = 1 },
@@ -483,9 +479,7 @@ local paramsPointIndex = {
 
 	UnloadTask    = { [4] = 1, [5] = 1 },
 	WorkerTask    = { [4] = 1, [5] = 2 },
-}
-
-paramsPointIndex = setmetatable(paramsPointIndex, {
+}, {
 	__index = function(self, key)
 		return nullParamsSet
 	end
@@ -503,13 +497,11 @@ local commandParamsPointIndex = setmetatable({}, {
 
 ---Contains the parameter index positions of the command's two x coordinates.
 ---@type table<string, table<ParamIndex, ParamIndex>>
-local paramsLineIndex = {
-	Front             = { [6] = 1 },
-	ObjectOrFront     = { [6] = 1 },
-	PointOrFront      = { [6] = 1 },
-}
-
-paramsLineIndex = setmetatable(paramsLineIndex, {
+local paramsLineIndex = setmetatable({
+	Front         = { [6] = 1 },
+	ObjectOrFront = { [6] = 1 },
+	PointOrFront  = { [6] = 1 },
+}, {
 	__index = function(self, key)
 		return nullParamsSet
 	end
@@ -527,12 +519,10 @@ local commandParamsLineIndex = setmetatable({}, {
 
 ---Contains the parameter index positions of the command's two x coordinates.
 ---@type table<string, table<ParamIndex, ParamIndex>>
-local paramsRectangleIndex = {
+local paramsRectangleIndex = setmetatable({
 	Rectangle         = { [6] = 1 },
 	ObjectOrRectangle = { [6] = 1 },
-}
-
-paramsRectangleIndex = setmetatable(paramsRectangleIndex, {
+}, {
 	__index = function(self, key)
 		return nullParamsSet
 	end
@@ -552,15 +542,13 @@ local commandParamsRectangleIndex = setmetatable({}, {
 
 ---Contains the parameter index position of the command's target radius.
 ---@type table<string, ParamIndexMap>
-local paramsRadiusIndex = {
+local paramsRadiusIndex = setmetatable({
 	Area         = { [4] = 4 },
 	ObjectOrArea = { [4] = 4 },
 	PointOrArea  = { [4] = 4 },
 	UnloadTask   = { [4] = 4, [5] = 4 }, -- [4] := area, [5] := area, facing; atypical radius
 	WorkerTask   = { [4] = 4 },
-}
-
-paramsRadiusIndex = setmetatable(paramsRadiusIndex, {
+}, {
 	__index = function(self, key)
 		return nullParamsSet
 	end
@@ -582,12 +570,10 @@ local commandParamsRadiusIndex = setmetatable({}, {
 
 ---Contains the index position of the leash radius around the command's target.
 ---@type table<string, ParamIndexMap>
-local paramsLeashIndex = {
+local paramsLeashIndex = setmetatable({
 	PointLeash = { [4] = 4 },
 	WorkerTask = { [5] = 5 },
-}
-
-paramsLeashIndex = setmetatable(paramsLeashIndex, {
+}, {
 	__index = function(self, key)
 		return nullParamsSet
 	end
