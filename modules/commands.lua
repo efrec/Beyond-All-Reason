@@ -835,13 +835,11 @@ end
 
 ---Get the allowed parameter counts of a given type and that contain the given
 -- sub-type, e.g. return only the Point count of the type PointOrRectangle.
----@param paramsTypeName string
+---@param prmType ParamCountSet
 ---@param include ParamGroupName[]|ParamGroupName
 ---@param exclude ParamGroupName[]|ParamGroupName
 ---@return ParamCountSet? [nil] := no valid parameter counts (even zero)
-local function filterParamIndexMap(paramsTypeName, include, exclude)
-	local prmType = paramsType[paramsTypeName]
-
+local function filterParamIndexMap(prmType, include, exclude)
 	if prmType == anyParamCount then
 		return table.copy(anyParamCount)
 	elseif prmType == nullParamsSet then
@@ -909,15 +907,40 @@ end
 ---@param include ParamGroupName[]|ParamGroupName
 ---@param exclude ParamGroupName[]|ParamGroupName
 ---@return ParamCountSet?
-Commands.GetCommandParamsSet = function(command, include, exclude)
+Commands.FilterCommandParams = function(command, include, exclude)
 	local prmType = commandParamsType[command]
 
 	if prmType == nullParamsSet then
-		return {}
+		return
 	end
 
-	local paramsTypeName = table.getKeyOf(paramsType, prmType)
-	return filterParamIndexMap(paramsTypeName, include, exclude)
+	return filterParamIndexMap(prmType, include, exclude)
+end
+
+---Get the allowed parameter counts of a list of commands, given two lists
+-- of required parameter types, e.g. "Point" or "Area".
+--
+-- For example, to get Points (xyz) and not Areas (xyzr) from given commands:
+--
+-- `Commands.FilterCommandParamsList({ CMD.REPAIR, CMD.RECLAIM }, "Point", "Area")`
+---@param commands CMD[]|CMD
+---@param include ParamGroupName[]|ParamGroupName
+---@param exclude ParamGroupName[]|ParamGroupName
+---@return table<CMD, ParamCountSet>? commandParams
+Commands.FilterCommandParamsList = function(commands, include, exclude)
+	if type(commands) == "number" then
+		tempTbl[1] = commands
+		commands = tempTbl
+	end
+
+	local commandParams = {}
+	local filter = Commands.FilterCommandParams
+
+	for _, command in ipairs(commands) do
+		commandParams[command] = filter(command, include, exclude)
+	end
+
+	return commandParams
 end
 
 --------------------------------------------------------------------------------
