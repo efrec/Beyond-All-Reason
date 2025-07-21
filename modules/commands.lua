@@ -920,9 +920,9 @@ end
 ---Get the allowed parameter counts of a list of commands, given two lists
 -- of required parameter types, e.g. "Point" or "Area".
 --
--- For example, to get Points (xyz) and not Areas (xyzr) from given commands:
+-- For example, to get Objects (id) and not Areas (xyzr) from given commands:
 --
--- `Commands.FilterCommandParamsList({ CMD.REPAIR, CMD.RECLAIM }, "Point", "Area")`
+-- `Commands.FilterCommandParamsList({ CMD.REPAIR, CMD.RECLAIM }, "Object", "Area")`
 ---@param commands CMD[]|CMD
 ---@param include ParamGroupName[]|ParamGroupName
 ---@param exclude ParamGroupName[]|ParamGroupName
