@@ -139,8 +139,9 @@ local CMD_WAIT = CMD.WAIT
 local OPT_INTERNAL = CMD.OPT_INTERNAL
 local OPT_ALT = CMD.OPT_ALT
 local OPT_CTRL = CMD.OPT_CTRL
-local OPT_SHIFT = CMD.OPT_SHIFT
 local OPT_META = CMD.OPT_META
+local OPT_SHIFT = CMD.OPT_SHIFT
+local OPT_RIGHT = CMD.OPT_RIGHT
 
 local FEATURE_BASE_INDEX = Game.maxUnits or 32000
 local MOVE_GOAL_RESOLUTION = Game.squareSize or 10
@@ -219,8 +220,9 @@ local function getOptions(code)
 		internal = 0 ~= bit_and(code, OPT_INTERNAL),
 		alt      = 0 ~= bit_and(code, OPT_ALT),
 		ctrl     = 0 ~= bit_and(code, OPT_CTRL),
-		shift    = 0 ~= bit_and(code, OPT_SHIFT),
 		meta     = 0 ~= bit_and(code, OPT_META),
+		right    = 0 ~= bit_and(code, OPT_RIGHT),
+		shift    = 0 ~= bit_and(code, OPT_SHIFT),
 	}
 end
 
@@ -1009,6 +1011,8 @@ Commands.ResolveCommand = function(command, params)
 end
 
 ---Push the orders sent to a unit to its command queue through blockers like CMD_WAIT.
+--
+-- Removing orders via `CMD_REMOVE` uses a command, which will be gated behind a wait.
 ---@param unitID integer
 Commands.FlushOrders = function(unitID)
 	spGiveOrderToUnit(unitID, CMD_WAIT) -- toggle once
