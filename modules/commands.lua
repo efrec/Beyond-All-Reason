@@ -1456,13 +1456,18 @@ Commands.NormalizeQueue = function(unitID)
 
 		if command == nil then
 			break
-		elseif hasTerminal then
+		end
+
+		if hasTerminal then
 			if not isInPatrol or command ~= CMD_PATROL then
 				isInPatrol = false
 				count = count + 1
 				tags[count] = tag
 			end
-		elseif command == CMD_PATROL or command == CMD_GUARD or command == CMD_STOP or commandParamsType[command] == PRMTYPE_WAIT then
+		elseif
+			command == CMD_PATROL or command == CMD_GUARD or
+			command == CMD_STOP or command == CMD_WAIT
+		then
 			hasTerminal = true
 
 			if command == CMD_PATROL then
