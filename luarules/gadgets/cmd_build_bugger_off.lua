@@ -142,7 +142,7 @@ function gadget:GameFrame(frame)
 			local interferingUnits	= Spring.GetUnitsInCylinder(targetX, targetZ, searchRadius)
 
 			-- Make sure at least one builder per player is never told to move
-			if (builderTeams[builderTeam] ~= nil) then
+			if (builderTeams[builderTeam] == nil) then -- I think?
 				visited[builderID] = true
 			end
 			builderTeams[builderTeam] = true
@@ -159,7 +159,8 @@ function gadget:GameFrame(frame)
 						local sendX, sendZ = math.closestPointOnCircle(targetX, targetZ, buggerOffRadius, unitX, unitZ)
 
 						if Spring.TestMoveOrder(Spring.GetUnitDefID(interferingUnitID), sendX, targetY, sendZ) then
-							Spring.GiveOrderToUnit(interferingUnitID, CMD.INSERT, {0, CMD.MOVE, CMD.OPT_INTERNAL, sendX, targetY, sendZ}, CMD.OPT_ALT )
+							Spring.SetUnitMoveGoal(interferingUnitID, sendX, targetY, sendZ, 2 * Game.squareSize)
+							-- Spring.GiveOrderToUnit(interferingUnitID, CMD.INSERT, {0, CMD.MOVE, CMD.OPT_INTERNAL, sendX, targetY, sendZ}, CMD.OPT_ALT )
 						end
 					end
 				end
