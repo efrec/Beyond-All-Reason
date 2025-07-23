@@ -281,7 +281,7 @@ end
 
 --------------------------------------------------------------------------------
 
-function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag, synced, fromLua)
+function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag)
 	if suspendedUnits[unitID] then
 		return not commandSuspendDisallows[cmdID]
 	else
