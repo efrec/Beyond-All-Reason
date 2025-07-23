@@ -282,11 +282,7 @@ end
 --------------------------------------------------------------------------------
 
 function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag)
-	if suspendedUnits[unitID] then
-		return not commandSuspendDisallows[cmdID]
-	else
-		return true
-	end
+	return not suspendedUnits[unitID] or not commandSuspendDisallows[cmdID]
 end
 
 -- Use the Allow* callins to fail attempts at tasks as early as possible,
