@@ -69,6 +69,8 @@ commandSuspendDisallows = setmetatable(commandSuspendDisallows, {
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 local spSetUnitRulesParam = Spring.SetUnitRulesParam
 
+local CMD_REMOVE = CMD.REMOVE
+local byCommand = CMD.OPT_ALT
 local removeIDs = {}
 
 for command, check in pairs(commandSuspendRemoves) do
@@ -123,7 +125,7 @@ function gadget:Initialize()
 			suspendedUnit = {}
 
 			if remove ~= false then
-				spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, CMD.OPT_ALT)
+				spGiveOrderToUnit(unitID, CMD_REMOVE, removeIDs, byCommand)
 			end
 		end
 
