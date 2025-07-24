@@ -5,9 +5,6 @@ if not Spring or not CMD or not Game or not GameCMD then
 	return
 end
 
-local CMD = CMD
-local GameCMD = GameCMD
-
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
