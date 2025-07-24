@@ -1100,7 +1100,7 @@ local isInCommand = Commands.IsInCommand
 
 ---Issue an order and test if the command was accepted.
 --
--- __Note:__ This does not handle enqueued commands. It checks only the front of the command queue.
+-- __Note:__ This checks only the front of the command queue.
 ---@param unitID integer
 ---@param command CMD
 ---@param params number[]|number?
