@@ -426,7 +426,6 @@ end
 -- - target leash radius in params (and its index)
 
 -- Some speedups:
-local PRMTYPE_WAIT = paramsType.Wait
 local PRMTYPE_POINTFACING = paramsType.PointFacing
 
 -- Object parameter index ------------------------------------------------------
@@ -837,6 +836,7 @@ end
 ---@param exclude ParamGroupName[]|ParamGroupName
 ---@return ParamCountSet? [nil] := no valid parameter counts (even zero)
 local function filterParamIndexMap(prmType, include, exclude)
+	-- We have to check these exceptional cases explicitly:
 	if prmType == anyParamCount then
 		return table.copy(anyParamCount)
 	elseif prmType == nullParamsSet then
@@ -907,6 +907,7 @@ end
 Commands.FilterCommandParams = function(command, include, exclude)
 	local prmType = commandParamsType[command]
 
+	-- We have to check this exceptional case explicitly:
 	if prmType == nullParamsSet then
 		return
 	end
@@ -1083,13 +1084,6 @@ Commands.IsInCommand = function(unitID, cmdID, cmdParams, cmdOpts)
 end
 
 local isInCommand = Commands.IsInCommand
-
----Whether the unit is in a wait command (generally CMD_WAIT).
----@param unitID integer
-Commands.IsInWaitCommand = function(unitID)
-	local command = spGetUnitCurrentCommand(unitID)
-	return command ~= nil and commandParamsType[command] == PRMTYPE_WAIT
-end
 
 ---Issue an order and test if the command was accepted.
 --
