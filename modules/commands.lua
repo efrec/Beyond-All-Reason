@@ -143,9 +143,9 @@ local OPT_RIGHT = CMD.OPT_RIGHT
 local FEATURE_BASE_INDEX = Game.maxUnits or 32000
 local MOVE_GOAL_RESOLUTION = Game.squareSize or 10
 
-local CMD_INSERT_SIZE = 3 -- The extra #params added when packing a command inside CMD_INSERT.
-local PARAM_POOL_SIZE = 8 -- #params above this use a memory pool that is much more expensive.
-local PARAM_COUNT_MAX = 6 -- Line and Rectangle need 6. Ideally, this would be POOL - INSERT.
+local CMD_INSERT_SIZE = 3       -- The extra #params added when packing a command inside CMD_INSERT.
+local PARAM_POOL_SIZE = 8       -- #params above this use a memory pool that is much more expensive.
+local PARAM_COUNT_MAX = 6       -- Line and Rectangle need 6. Ideally, this would be POOL - INSERT.
 local PARAM_POOL_COUNT_MAX = 64 -- Commands can support a ridiculous number of params though.
 
 ---@alias ParamCount 0|1|2|3|4|5|6|7|8 The number of parameters passed in a command
