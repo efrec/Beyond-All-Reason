@@ -1106,8 +1106,9 @@ local isInCommand = Commands.IsInCommand
 ---@param params number[]|number?
 ---@param options CommandOptions|integer?
 Commands.TryGiveOrder = function(unitID, command, params, options)
-	return spGiveOrderToUnit(unitID, command, params, options) and
-		isInCommand(unitID, command, params)
+	return
+		spGiveOrderToUnit(unitID, command, params, options)
+		and isInCommand(unitID, command, params, options)
 end
 
 ---Get the unitID of the target of CMD_GUARD, if any.
