@@ -262,23 +262,28 @@ local function getOptionCode(options)
 end
 
 ---Command options are even worse off for our blind type-check issues.
----@param options1 integer|CommandOptions?
----@param options2 integer|CommandOptions?
-local function equalOption(options1, options2, ignoreInternal)
-	if options1 == options2 then
+---@param options1 integer|CommandOptions? original options
+---@param options2 integer|CommandOptions? copied options
+---@param isTemp boolean? order only matters for internal/temp commands
+---@param ignoreMeta boolean? since BAR hooks meta key -> CMD_INSERT.
+local function equalOption(options1, options2, isTemp, ignoreMeta)
+	if options1 == options2 or options1 == nil or options2 == nil then
 		return true
 	elseif type(options1) == "table" and type(options2) == "table" then
-		return
-			options1.coded == options2.coded or
-			-- Assume the `coded` values might be stale:
-			(ignoreInternal or options1.internal == options2.internal) and (
-				-- Handle nil == false:
-				(not options1.alt) == (not options2.alt) and
-				(not options1.ctrl) == (not options2.ctrl) and
-				(not options1.meta) == (not options2.meta) and
-				(not options1.right) == (not options2.right) and
-				(not options1.shift) == (not options2.shift)
-			)
+		-- Assume `coded` might be stale, and handle nil as false:
+		if options1.coded == options2.coded then
+			return true
+		else
+			return -- Temp commands copy the options and *might* add OPT_INTERNAL:
+				(isTemp and options2.internal or (not options1.internal) == (not options2.internal)) and
+				-- The meta option is overloaded to prepend commands to the queue:
+				(ignoreMeta or (not options1.meta) == (not options2.meta)) and (
+					(not options1.alt) == (not options2.alt) and
+					(not options1.ctrl) == (not options2.ctrl) and
+					(not options1.right) == (not options2.right) and
+					(not options1.shift) == (not options2.shift)
+				)
+		end
 	elseif type(options1) == "table" then
 		return getOptionCode(options1) == options2
 	elseif type(options2) == "table" then
@@ -1062,7 +1067,7 @@ Commands.IsInTempCommand = function(command, options, cmdID, cmdOpts)
 	if isInternal(options) then
 		return true -- Disregards additional command info.
 	elseif cmdID == CMD_FIGHT then
-		return command == CMD_ATTACK and equalOption(options, cmdOpts, false)
+		return command == CMD_ATTACK and equalOption(options, cmdOpts, true)
 	else
 		return false
 	end
