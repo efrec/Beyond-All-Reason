@@ -837,6 +837,7 @@ end
 ---@param exclude ParamGroupName[]|ParamGroupName
 ---@return ParamCountSet? [nil] := no valid parameter counts (even zero)
 local function filterParamIndexMap(prmType, include, exclude)
+	-- We have to check these exceptional cases explicitly:
 	if prmType == anyParamCount then
 		return table.copy(anyParamCount)
 	elseif prmType == nullParamsSet then
@@ -907,6 +908,7 @@ end
 Commands.FilterCommandParams = function(command, include, exclude)
 	local prmType = commandParamsType[command]
 
+	-- We have to check this exceptional case explicitly:
 	if prmType == nullParamsSet then
 		return
 	end
