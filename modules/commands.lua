@@ -1019,6 +1019,8 @@ Commands.ResolveCommand = function(command, params)
 	end
 end
 
+local resolveCommand = Commands.ResolveCommand
+
 ---Retrieve the actual command from an order, resolving any meta-commands passed.
 ---@param command CMD
 ---@param params number[]
@@ -1114,6 +1116,18 @@ Commands.TryGiveOrder = function(unitID, command, params, options)
 	return
 		spGiveOrderToUnit(unitID, command, params, options)
 		and isInCommand(unitID, command, params, options)
+end
+
+---Insert an order and test if the command was accepted.
+--
+-- __Note:__ This checks only the front of the command queue.
+---@param unitID integer
+---@param command CMD
+---@param params number[]|number?
+---@param options CommandOptions|integer?
+Commands.TryInsertOrder = function(unitID, command, params, options)
+	return spGiveOrderToUnit(unitID, command, params, options)
+		and isInCommand(unitID, resolveCommand(command, params))
 end
 
 ---Get the unitID of the target of CMD_GUARD, if any.
