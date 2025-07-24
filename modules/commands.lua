@@ -951,7 +951,7 @@ end
 ---@param params number[]|number
 ---@return CMD command
 ---@return number[]|number? commandParams
----@return integer commandOptions
+---@return integer commandOptionsBits
 ---@return integer insertIndex
 Commands.GetInsertedCommand = function(params)
 	local innerParams
@@ -972,7 +972,7 @@ end
 local getInsertedCommand = Commands.GetInsertedCommand
 
 ---Retrieve the command info from the params of a CMD_INSERT.
----@param params number[]|number
+---@param params number[]
 ---@return CMD command
 ---@return number[]|number? commandParams
 ---@return CommandOptions commandOptions
@@ -984,18 +984,15 @@ Commands.GetFullInsertedCommand = function(params)
 		innerParams = params[4]
 	else
 		innerParams = {}
-
 		for i = 4, #params do
 			innerParams[i - 3] = params[i]
 		end
 	end
 
-	local innerOptions = getOptions(params[3])
-
 	return
 		params[2], ---@diagnostic disable-line: return-type-mismatch -- CMD/integer
 		innerParams,
-		innerOptions,
+		getOptions(params[3]),
 		params[1]
 end
 
@@ -1012,6 +1009,22 @@ Commands.ResolveCommand = function(command, params)
 	if command == CMD_INSERT then
 		---@diagnostic disable-next-line: param-type-mismatch -- Should throw on nil.
 		return getInsertedCommand(params)
+	else
+		return command, params
+	end
+end
+
+---Retrieve the actual command from an order, resolving any meta-commands passed.
+---@param command CMD
+---@param params number[]
+---@return CMD? command
+---@return number[]|number? commandParams
+---@return CommandOptions? commandOptions
+---@return integer? insertIndex
+Commands.ResolveFullCommand = function(command, params)
+	if command == CMD_INSERT then
+		---@diagnostic disable-next-line: param-type-mismatch -- Should throw on nil.
+		return getFullInsertedCommand(params)
 	else
 		return command, params
 	end
