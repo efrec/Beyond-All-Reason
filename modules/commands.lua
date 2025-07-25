@@ -1401,15 +1401,15 @@ local getCommandPositionAndRadius = Commands.GetCommandPositionAndRadius
 ---@param x number unit position x
 ---@param y number unit position y
 ---@param z number unit position z
----@param range number? weapon or build range
+---@param range number? generally, weapon range or build distance; does not add target model radius
 ---@param all boolean? whether to include non-move commands (default = false)
 ---@return number? goalX
 ---@return number? goalY
 ---@return number? goalZ
 Commands.GetCommandMoveGoal = function(command, params, x, y, z, range, all)
 	if command ~= nil and (all or moveCommands[command]) then
-		-- Move goals with an area radius have to cover the entire area (potentially)
-		-- vs a leash radius which only requires reaching the nearest point (usually)
+		-- Move goals with an area-radius have to cover the entire area (potentially)
+		-- vs a leash-radius which only requires reaching the nearest point (usually)
 		local x2, y2, z2, radius, leashed = getCommandPositionAndRadius(command, params)
 
 		if x2 ~= nil then
@@ -1464,14 +1464,14 @@ local getCommandMoveGoal = Commands.GetCommandMoveGoal
 ---@param x number unit position x
 ---@param y number unit position y
 ---@param z number unit position z
----@param range number? weapon or build range
+---@param range number? generally, weapon range or build distance; does not add target model radius
 ---@param all boolean? whether to include non-move commands (default = false)
 ---@return number? goalX
 ---@return number? goalZ
 Commands.GetCommandMoveGoal2D = function(command, params, x, z, range, all)
 	if command ~= nil and (all or moveCommands[command]) then
-		-- Move goals with an area radius have to cover the entire area (potentially)
-		-- vs a leash radius which only requires reaching the nearest point (usually)
+		-- Move goals with an area-radius have to cover the entire area (potentially)
+		-- vs a leash-radius which only requires reaching the nearest point (usually)
 		local x2, _, z2, radius, leashed = getCommandPositionAndRadius(command, params)
 
 		if x2 ~= nil then
