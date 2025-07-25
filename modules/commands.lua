@@ -961,10 +961,10 @@ end
 Commands.GetInsertedCommand = function(params)
 	local innerParams
 
-	if #params > 4 then
-		innerParams = { params[4], params[5], params[6], params[7], params[8], params[9] }
-	else
+	if params[5] == nil then
 		innerParams = params[4]
+	else
+		innerParams = { params[4], params[5], params[6], params[7], params[8], params[9] }
 	end
 
 	return
