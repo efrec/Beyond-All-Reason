@@ -1091,7 +1091,7 @@ local getInsertedCommand = Commands.GetInsertedCommand
 ---@return number[]|number? commandParams
 ---@return CommandOptions commandOptions
 ---@return integer commandTag
-Commands.GetFullInsertedCommand = function(params)
+Commands.GetInsertedFullCommand = function(params)
 	local innerParams
 
 	if params[5] == nil then
@@ -1110,7 +1110,7 @@ Commands.GetFullInsertedCommand = function(params)
 		params[1]
 end
 
-local getFullInsertedCommand = Commands.GetFullInsertedCommand
+local getInsertedFullCommand = Commands.GetInsertedFullCommand
 
 ---Retrieve the actual command from an order, resolving any meta-commands passed.
 ---@param command CMD
@@ -1140,7 +1140,7 @@ local resolveCommand = Commands.ResolveCommand
 Commands.ResolveFullCommand = function(command, params)
 	if command == CMD_INSERT then
 		---@diagnostic disable-next-line: param-type-mismatch -- Should throw on nil.
-		return getFullInsertedCommand(params)
+		return getInsertedFullCommand(params)
 	else
 		return command, params
 	end
