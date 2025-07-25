@@ -1596,7 +1596,7 @@ if pregame and WG then
 end
 
 ---Remove commands from the queue that follow a non-terminating command. The resulting
--- command queue is more easily inspected and validated against other tests.
+-- command queue is more easily inspected and validated against other tests. Probably.
 ---@param unitID integer
 ---@return boolean changed Whether any commands were modified or removed
 Commands.NormalizeQueue = function(unitID)
@@ -1608,31 +1608,27 @@ Commands.NormalizeQueue = function(unitID)
 	local count = 0
 
 	repeat
-		local command, _, tag = spGetUnitCurrentCommand(unitID, index)
-
+		local command = spGetUnitCurrentCommand(unitID, index)
 		if command == nil then
 			break
-		end
-
-		if hasTerminal then
-			if not isInPatrol or command ~= CMD_PATROL then
-				isInPatrol = false
-				count = count + 1
-				tags[count] = tag
-			end
-		elseif
-			command == CMD_PATROL or command == CMD_GUARD or
-			command == CMD_STOP or command == CMD_WAIT
-		then
+		elseif command == CMD_PATROL or command == CMD_GUARD or command == CMD_WAIT then
 			hasTerminal = true
-
-			if command == CMD_PATROL then
-				isInPatrol = true
-			end
+			isInPatrol = command == CMD_PATROL
 		end
-
 		index = index + 1
-	until false
+	until hasTerminal
+
+	while hasTerminal do
+		index = index + 1
+		local command, _, tag = spGetUnitCurrentCommand(unitID, index)
+		if command == nil then
+			break
+		elseif not isInPatrol or command ~= CMD_PATROL then
+			isInPatrol = false
+			count = count + 1
+			tags[count] = tag
+		end
+	end
 
 	if count > 0 then
 		return spGiveOrderToUnit(unitID, CMD_REMOVE, tags)
