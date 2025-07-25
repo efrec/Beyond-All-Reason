@@ -1600,8 +1600,8 @@ end
 ---@param unitID integer
 ---@return boolean changed Whether any commands were modified or removed
 Commands.NormalizeQueue = function(unitID)
-	local hasTerminal = false
-	local isInPatrol = false
+	local hasTerminal = false -- Commands that never terminate therefore terminate their queues.
+	local isInPatrol = false -- Except patrol routes, which must be consecutive; no fancy TIMEWAITs.
 
 	local index = 1
 	local tags = {}
