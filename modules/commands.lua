@@ -327,6 +327,27 @@ local tempTbl = {} -- easier to make a temp iter tbl than to encapsulate this
 
 -- Not reconfigurable. Do not edit any of this except to reflect engine changes.
 
+-- CMDTYPE maps to PRMTYPE -----------------------------------------------------
+
+-- These two concepts are very closely related and, typically, even equivalent.
+-- There are exceptions to these rules, so we only use them as fallback/default:
+
+local cmdTypeToParamTypeName = {
+	[CMDTYPE.ICON]                      = "None",
+	[CMDTYPE.ICON_AREA]                 = "Area", -- Maybe should be "PointOrArea".
+	[CMDTYPE.ICON_BUILDING]             = "PointFacing", -- Not only "Point", as docs imply.
+	[CMDTYPE.ICON_FRONT]                = "PointOrFront", -- "Point" needed for CMD_FIGHT.
+	[CMDTYPE.ICON_MAP]                  = "Point",
+	[CMDTYPE.ICON_MODE]                 = "Mode",
+	[CMDTYPE.ICON_UNIT]                 = "Object", -- No specific "unit" object.
+	[CMDTYPE.ICON_UNIT_FEATURE_OR_AREA] = "ObjectOrArea",
+	[CMDTYPE.ICON_UNIT_OR_AREA]         = "ObjectOrArea",
+	[CMDTYPE.ICON_UNIT_OR_MAP]          = "ObjectOrPoint",
+	[CMDTYPE.ICON_UNIT_OR_RECTANGLE]    = "ObjectOrRectangle",
+	[CMDTYPE.CUSTOM]                    = "Any",
+	[CMDTYPE.NUMBER]                    = "Number",
+}
+
 -- Parameter types and counts --------------------------------------------------
 
 local anyParamCount = newParamCountSet(0, PARAM_POOL_COUNT_MAX, true)
@@ -730,24 +751,24 @@ end
 ---@return table?
 local function parseNewCommand(newGameCMD)
 	-- Game commands must be configured already in modules/customcommands.lua.
-	local code = newGameCMD.code:gsub("^CMD_", "")
-	local cmdType = type(newGameCMD.cmdType) == "string" and CMDTYPE[newGameCMD.cmdType] or newGameCMD.cmdType
+	local cmdName = newGameCMD.code:gsub("^CMD_", "")
+	local cmdTypeID = type(newGameCMD.cmdType) == "string" and CMDTYPE[newGameCMD.cmdType] or newGameCMD.cmdType
 
-	local command = GameCMD[code] ---@type CMD
+	local cmdID = GameCMD[cmdName] ---@type CMD
 	local error = false
 
-	if command == nil then
-		Spring.Log('CMD', LOG.ERROR, "Game commands must be configured in modules/customcommands.lua: " .. tostring(code))
+	if cmdID == nil then
+		Spring.Log('CMD', LOG.ERROR, "Game commands must be configured in modules/customcommands.lua: " .. tostring(cmdName))
 		error = true
 	end
 
-	if CMD[code] then
-		Spring.Log('CMD', LOG.ERROR, "Game command code conflicts with an engine CMD code: " .. tostring(code))
+	if CMD[cmdName] then
+		Spring.Log('CMD', LOG.ERROR, "Game command code conflicts with an engine CMD code: " .. tostring(cmdName))
 		error = true
 	end
 
-	if not CMDTYPE[cmdType] then
-		Spring.Log('CMD', LOG.ERROR, "Game command's cmdType not recognized: " .. tostring(cmdType))
+	if not CMDTYPE[cmdTypeID] then
+		Spring.Log('CMD', LOG.ERROR, "Game command's cmdType not recognized: " .. tostring(cmdTypeID))
 		error = true
 	end
 
@@ -755,11 +776,16 @@ local function parseNewCommand(newGameCMD)
 		return
 	end
 
-	if commandParamsType[command] then
-		Spring.Log('CMD', LOG.WARNING, "Game command was already added: " .. tostring(code))
+	if commandParamsType[cmdID] then
+		Spring.Log('CMD', LOG.WARNING, "Game command was already added: " .. tostring(cmdName))
 	end
 
 	local prmTypeName = newGameCMD.prmTypeName
+
+	if prmTypeName == nil then
+		local cmdTypeName = CMDTYPE[cmdTypeID]
+		prmTypeName = cmdTypeToParamTypeName[cmdTypeName]
+	end
 
 	if prmTypeName == nil or paramsType[prmTypeName] == nullParamsSet then
 		Spring.Log('CMD', LOG.WARNING, "Game command's prmTypeName not recognized: " .. tostring(prmTypeName))
@@ -770,12 +796,12 @@ local function parseNewCommand(newGameCMD)
 	end
 
 	return {
-		command     = command,
-		cmdType     = cmdType,
+		command     = cmdID,
+		cmdType     = cmdTypeID,
 		params      = newGameCMD.params,
 		prmTypeName = newGameCMD.prmTypeName,
 
-		name        = newGameCMD.name or code,
+		name        = newGameCMD.name or cmdName,
 		action      = newGameCMD.action,
 		cursor      = newGameCMD.cursor,
 		tooltip     = newGameCMD.tooltip,
