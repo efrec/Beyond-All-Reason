@@ -334,7 +334,8 @@ local tempTbl = {} -- easier to make a temp iter tbl than to encapsulate this
 -- These two concepts are very closely related and, typically, even equivalent.
 -- There are exceptions to these rules, so we only use them as fallback/default:
 
-local cmdTypeToParamTypeName = {
+---@type table<CMDTYPE, string>
+local cmdTypeToPrmTypeName = {
 	[CMDTYPE.ICON]                      = "None",
 	[CMDTYPE.ICON_AREA]                 = "Area", -- Maybe should be "PointOrArea".
 	[CMDTYPE.ICON_BUILDING]             = "PointFacing", -- Not only "Point", as docs imply.
@@ -349,6 +350,56 @@ local cmdTypeToParamTypeName = {
 	[CMDTYPE.CUSTOM]                    = "Any",
 	[CMDTYPE.NUMBER]                    = "Number",
 }
+
+for id, name in pairs(CMDTYPE) do
+	if type(id) == "number" then
+		cmdTypeToPrmTypeName[name] = cmdTypeToPrmTypeName[id]
+	end
+end
+
+---@type table<string, CMDTYPE>
+local prmTypeToCmdTypeName = {
+	-- Basic params types
+	Any               = CMDTYPE.CUSTOM, -- not even close
+	None              = CMDTYPE.ICON,
+	Mode              = CMDTYPE.ICON_MODE,
+	Number            = CMDTYPE.NUMBER,
+	Object            = CMDTYPE.ICON_UNIT_FEATURE_OR_AREA, -- close
+	Point             = CMDTYPE.ICON_MAP,
+	Area              = CMDTYPE.ICON_AREA,
+	Front             = CMDTYPE.ICON_FRONT,
+	Rectangle         = CMDTYPE.ICON_UNIT_OR_RECTANGLE, -- close
+
+	-- Flexible params types
+	NoneOrMode        = CMDTYPE.ICON_MODE,
+
+	ObjectOrPoint     = CMDTYPE.ICON_UNIT_OR_MAP, -- close
+	ObjectOrArea      = CMDTYPE.ICON_UNIT_FEATURE_OR_AREA,
+	ObjectOrFront     = CMDTYPE.ICON_FRONT, -- close
+	ObjectOrRectangle = CMDTYPE.ICON_UNIT_OR_RECTANGLE, -- close
+
+	PointFacing       = CMDTYPE.ICON_BUILDING,
+	PointLeash        = CMDTYPE.ICON_AREA,
+	PointOrArea       = CMDTYPE.ICON_AREA, -- close
+	PointOrFront      = CMDTYPE.ICON_FRONT, -- close
+
+	-- Contextual params types
+	ObjectAlly        = CMDTYPE.ICON_UNIT,
+	ObjectEnemy       = CMDTYPE.ICON_UNIT,
+	UnloadTask        = CMDTYPE.ICON_AREA,
+	WorkerTask        = CMDTYPE.ICON_UNIT_FEATURE_OR_AREA, -- close
+
+	-- Specific commands
+	Insert            = CMDTYPE.CUSTOM, -- not even close
+	Remove            = CMDTYPE.CUSTOM, -- not even close
+	Wait              = CMDTYPE.NUMBER, -- not even close
+}
+
+for name, cmdType in pairs(prmTypeToCmdTypeName) do
+	if type(cmdType) == "number" and CMDTYPE[cmdType] then
+		prmTypeToCmdTypeName[name] = CMDTYPE[cmdType]
+	end
+end
 
 -- Parameter types and counts --------------------------------------------------
 
@@ -754,9 +805,23 @@ end
 local function parseNewCommand(newGameCMD)
 	-- Game commands must be configured already in modules/customcommands.lua.
 	local cmdName = newGameCMD.code:gsub("^CMD_", "")
-	local cmdTypeID = type(newGameCMD.cmdType) == "string" and CMDTYPE[newGameCMD.cmdType] or newGameCMD.cmdType
+	local cmdID = GameCMD[cmdName] or CMD[cmdName] ---@type CMD
 
-	local cmdID = GameCMD[cmdName] ---@type CMD
+	-- Commands need either a CMDTYPE or PRMTYPE (or both).
+	local cmdTypeName = newGameCMD.cmdType
+	if type(cmdTypeName) == "number" then
+		cmdTypeName = CMDTYPE[cmdTypeName]
+	end
+	if cmdTypeName == nil and newGameCMD.prmTypeName then
+		cmdTypeName = prmTypeToCmdTypeName[newGameCMD.prmTypeName]
+	end
+
+	local prmTypeName = newGameCMD.prmTypeName
+	if prmTypeName == nil and cmdTypeName then
+		prmTypeName = cmdTypeToPrmTypeName[cmdTypeName]
+	end
+
+	-- Throwing in the code above is fine. They did not even try to get it right.
 	local error = false
 
 	if cmdID == nil then
@@ -769,8 +834,8 @@ local function parseNewCommand(newGameCMD)
 		error = true
 	end
 
-	if not CMDTYPE[cmdTypeID] then
-		Spring.Log('CMD', LOG.ERROR, "Game command's cmdType not recognized: " .. tostring(cmdTypeID))
+	if cmdTypeName == nil or not CMDTYPE[cmdTypeName] then
+		Spring.Log('CMD', LOG.ERROR, "Game command's cmdType not recognized: " .. tostring(cmdTypeName))
 		error = true
 	end
 
@@ -778,17 +843,10 @@ local function parseNewCommand(newGameCMD)
 		return
 	end
 
-	if commandParamsType[cmdID] then
-		Spring.Log('CMD', LOG.WARNING, "Game command was already added: " .. tostring(cmdName))
-	end
+	local cmdTypeID = CMDTYPE[cmdTypeName]
 
-	local prmTypeName = newGameCMD.prmTypeName
-
-	if prmTypeName == nil then
-		local cmdTypeName = CMDTYPE[cmdTypeID]
-		prmTypeName = cmdTypeToParamTypeName[cmdTypeName]
-	end
-
+	-- The module never crashes from non-configured commands, so anything else is a warning.
+	-- However: Expect bugs from warnings. Introspection will be confused or broken by this.
 	if prmTypeName == nil or paramsType[prmTypeName] == nullParamsSet then
 		Spring.Log('CMD', LOG.WARNING, "Game command's prmTypeName not recognized: " .. tostring(prmTypeName))
 		newGameCMD.prmTypeName = "Any"
@@ -797,24 +855,28 @@ local function parseNewCommand(newGameCMD)
 		newGameCMD.prmTypeName = "Any"
 	end
 
+	-- Elevate this slightly above informational since it represents a misconfiguration.
+	if commandParamsType[cmdID] then
+		Spring.Log('CMD', LOG.NOTICE, "Game command was already added: " .. tostring(cmdName))
+	end
+
 	return {
 		command     = cmdID,
-		cmdType     = cmdTypeID,
+		cmdTypeID   = cmdTypeID,
 		params      = newGameCMD.params,
 		prmTypeName = newGameCMD.prmTypeName,
 
-		name        = newGameCMD.name or cmdName,
+		name        = newGameCMD.name,
 		action      = newGameCMD.action,
 		cursor      = newGameCMD.cursor,
+		texture     = newGameCMD.texture,
 		tooltip     = newGameCMD.tooltip,
 
-		disabled    = newGameCMD.disabled or false,
-		hidden      = newGameCMD.hidden or false,
-		queueing    = newGameCMD.queueing or false,
-		showUnique  = newGameCMD.showUnique or false,
-
-		texture     = newGameCMD.texture,
-		onlyTexture = newGameCMD.onlyTexture or false,
+		disabled    = newGameCMD.disabled,
+		hidden      = newGameCMD.hidden,
+		onlyTexture = newGameCMD.onlyTexture,
+		queueing    = newGameCMD.queueing,
+		showUnique  = newGameCMD.showUnique,
 	}
 end
 
@@ -844,7 +906,7 @@ Commands.NewCommandDescription = function(newGameCMD)
 
 	return {
 		id          = command.cmdID,
-		type        = command.cmdType,
+		type        = command.cmdTypeID,
 		params      = command.cmdParams,
 
 		name        = command.cmdName,
