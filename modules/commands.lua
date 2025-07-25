@@ -786,9 +786,9 @@ end
 
 ---@class CreateGameCMD
 ---@field code string e.g. the `ATTACK` in `CMD.ATTACK`
----@field cmdType CMDTYPE either the name (string) or id (integer)
----@field params string[]? needed for `CMD_ICON_MODE`
+---@field cmdType CMDTYPE? either the name (string) or id (integer)
 ---@field prmTypeName string? name of paramsType set, see commands.lua
+---@field params string[]? needed for `CMD_ICON_MODE`
 ---@field name string?
 ---@field action string?
 ---@field cursor string?
@@ -800,7 +800,7 @@ end
 ---@field queueing boolean? set `false` for non-queued commands
 ---@field showUnique boolean?
 
----@param newGameCMD CreateGameCMD
+---@param newGameCMD CreateGameCMD requires `cmdType` or `prmTypeName` (or both).
 ---@return table?
 local function parseNewCommand(newGameCMD)
 	-- Game commands must be configured already in modules/customcommands.lua.
