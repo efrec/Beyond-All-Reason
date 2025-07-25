@@ -880,6 +880,8 @@ local function parseNewCommand(newGameCMD)
 	}
 end
 
+local cmdDescsConfigured = {}
+
 ---Configures a new command description with very basic error detection.
 --
 -- Call this once at initialization per each game command that you implement.
@@ -904,7 +906,7 @@ Commands.NewCommandDescription = function(newGameCMD)
 	-- whenever we add a new command to `commandParamsType`.
 	commandParamsType[command.cmdID] = paramsCounts
 
-	return {
+	local cmdDesc = {
 		id          = command.cmdID,
 		type        = command.cmdTypeID,
 		params      = command.cmdParams,
@@ -922,6 +924,23 @@ Commands.NewCommandDescription = function(newGameCMD)
 		texture     = command.texture,
 		onlyTexture = command.onlyTexture,
 	}
+
+	cmdDescsConfigured[command] = cmdDesc
+
+	return table.copy(cmdDesc)
+end
+
+---Get a configured command's command description.
+---@param command CMD|integer
+---@return CommandDescription?
+Commands.GetCommandDescription = function(command)
+	local cmdDesc = cmdDescsConfigured[command]
+
+	if cmdDesc == nil then
+		Spring.Log("CMD", LOG.WARNING, "Could not find cached cmdDesc: " .. tostring(command))
+	else
+		return table.copy(cmdDesc)
+	end
 end
 
 ---Get the allowed parameter counts of a given type and that contain the given
