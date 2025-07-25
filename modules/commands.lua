@@ -1,6 +1,8 @@
 --------------------------------------------------------------------------------
 -- Common configuration data and functions for processing RecoilEngine commands.
 
+local GameCMD = Game.CustomCommands and Game.CustomCommands.GameCMD
+
 if not Spring or not CMD or not Game or not GameCMD then
 	return
 end
