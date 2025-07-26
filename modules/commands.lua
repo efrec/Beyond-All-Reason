@@ -44,12 +44,15 @@ local CMD_UNLOAD_UNIT = CMD.UNLOAD_UNIT
 local CMD_UNLOAD_UNITS = CMD.UNLOAD_UNITS
 local CMD_MANUALFIRE = CMD.MANUALFIRE
 local CMD_WAIT = CMD.WAIT
+
 local OPT_INTERNAL = CMD.OPT_INTERNAL
 local OPT_ALT = CMD.OPT_ALT
 local OPT_CTRL = CMD.OPT_CTRL
 local OPT_META = CMD.OPT_META
 local OPT_SHIFT = CMD.OPT_SHIFT
 local OPT_RIGHT = CMD.OPT_RIGHT
+
+local WAITCODE_NONE = 0 -- See CMD.WAITCODE_{*}.
 
 local FEATURE_BASE_INDEX = Game.maxUnits or 32000
 local MOVE_GOAL_RESOLUTION = Game.squareSize or 10
@@ -1527,10 +1530,10 @@ Commands.NormalizeQueue = function(unitID)
 	local count = 0
 
 	repeat
-		local command = spGetUnitCurrentCommand(unitID, index)
+		local command, _, _, p1 = spGetUnitCurrentCommand(unitID, index)
 		if command == nil then
 			break
-		elseif command == CMD_PATROL or command == CMD_GUARD or command == CMD_WAIT then
+		elseif command == CMD_PATROL or command == CMD_GUARD or (command == CMD_WAIT and p1 == WAITCODE_NONE) then
 			hasTerminal = true
 			isInPatrol = command == CMD_PATROL
 		end
