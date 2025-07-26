@@ -1985,11 +1985,10 @@ end
 
 ---Determine whether a unit _normally_ able to execute a command can do so _currently_.
 --
--- Ignores the stunned state but not insufficient resources, etc.
+-- Ignores the stunned state but not insufficient resources, etc. -- todo
 ---@param unitID integer
 ---@param command CMD
----@param unitDefID integer? optional
-Commands.GetUnitCanExecute = function(unitID, command, unitDefID)
+Commands.GetUnitCanExecute = function(unitID, command)
 	local cmdDesc = spFindUnitCmdDesc(unitID, command)
 
 	if cmdDesc ~= nil then
@@ -2005,9 +2004,11 @@ Commands.GetUnitCanExecute = function(unitID, command, unitDefID)
 			return false
 		end
 
-		local unitDef = UnitDefs[unitDefID or Spring.GetUnitDefID(unitID)]
-		local capacity = unitDef.transportCapacity or 0
-		local mass = unitDef.transportMass or 0
+		-- Slow to access UnitDefs, but we do not have a better way:
+		-- BAR does not have a `GG.CanUnitLoad(unitID, count, mass)`
+		local unitDef = UnitDefs[Spring.GetUnitDefID(unitID)]
+		local capacity = unitDef.transportCapacity
+		local mass = unitDef.transportMass
 
 		for _, occupantID in ipairs(transportees) do
 			capacity = capacity - 1
