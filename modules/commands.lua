@@ -361,6 +361,8 @@ local PRMTYPE = setmetatable({
 	PointOrArea       = { [3] = true, [4] = true },             -- [3] := point, [4] := area
 	PointOrFront      = { [3] = true, [6] = true },             -- [3] := point, [6] := middle point, right point
 
+	Wait              = { [0] = true, [1] = true, [2] = true, [6] = true }, -- [0] := toggle, [1] := number, [2] := code, key, [6] := rectangle
+
 	-- Contextual params types
 	ObjectAlly        = { [1] = true },
 	ObjectEnemy       = { [1] = true },
@@ -370,7 +372,6 @@ local PRMTYPE = setmetatable({
 	-- Specific commands
 	Insert            = newParamCountSet(CMD_INSERT_SIZE, CMD_INSERT_SIZE + PARAM_COUNT_MAX, true),
 	Remove            = newParamCountSet(1, PARAM_POOL_COUNT_MAX, true),
-	Wait              = newParamCountSet(1, PARAM_POOL_SIZE),
 }, metaAnyParamCount)
 
 -- With commands mapped to parameter counts and types (context slightly useless),
@@ -450,6 +451,7 @@ local commandParamsLineIndex = setmetatable({}, metaNullParamsSet)
 local paramsRectangleIndex = setmetatable({
 	Rectangle         = { [6] = 1 },
 	ObjectOrRectangle = { [6] = 1 },
+	Wait              = { [6] = 1 },
 }, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index positions of two x coordinates.
