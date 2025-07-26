@@ -25,6 +25,7 @@ local Commands = {}
 
 local math_sqrt = math.sqrt
 local bit_and = math.bit_and
+local bit_or = math.bit_or
 
 local spFindUnitCmdDesc = Spring.FindUnitCmdDesc
 local spGetFeaturePosition = Spring.GetFeaturePosition
@@ -120,7 +121,21 @@ do
 	assert(#repackParams(unpack(newParamCountSet(1, PARAM_COUNT_MAX)) == PARAM_COUNT_MAX))
 end
 
+local getTempTbl
+do
+	local tempTbl = {} -- sometimes easier to use a temp iter tbl
+
+	getTempTbl = function(value)
+		tempTbl[1] = value
+		return tempTbl
+	end
+end
+
+-- Command options have extremely flexible equivalence, without type equality.
+-- So, there are a bunch of ways that we might need to convert between them:
+
 ---@param code integer
+---@return CommandOptions
 local function getOptions(code)
 	return {
 		coded    = code,
@@ -133,74 +148,68 @@ local function getOptions(code)
 	}
 end
 
----@param options CommandOptions
----@return integer
-local function getOptionCode(options)
+---@type table<CommandOptionName, CommandOptionBit>
+local optionNameCodes = {
+	alt      = OPT_ALT,
+	shift    = OPT_SHIFT,
+	meta     = OPT_META,
+	ctrl     = OPT_CTRL,
+	right    = OPT_RIGHT,
+
+	-- Ignored option names:
+	coded    = 0,
+	internal = OPT_INTERNAL,
+}
+
+---The module should try to resolve type mismatches, however annoying to do:
+---@param options CommandOptions|CreateCommandOptions|integer?
+---@return integer?
+local function resolveOptionCode(options)
 	if options == nil then
-		return 0 -- or should be nil?
-	elseif options.coded then
-		return options.coded
+		return 0
+	elseif type(options) == "number" then
+		return options
 	end
 
 	local code = 0
 
-	if options.alt then
-		code = code + OPT_ALT
-	end
-
-	if options.ctrl then
-		code = code + OPT_CTRL
-	end
-
-	if options.internal then
-		code = code + OPT_INTERNAL
-	end
-
-	if options.meta then
-		code = code + OPT_META
-	end
-
-	if options.right then
-		code = code + OPT_RIGHT
-	end
-
-	if options.shift then
-		code = code + OPT_SHIFT
+	-- `options := table<CommandOptionName, boolean>|CommandOptionName[]|CommandOptionName`:
+	for key, value in pairs(type(options) == "table" and options or getTempTbl(options)) do
+		code = code + (optionNameCodes[key] or optionNameCodes[value] or 0)
 	end
 
 	return code
 end
 
----Command options are even worse off for our blind type-check issues.
----@param options1 integer|CommandOptions? original options
----@param options2 integer|CommandOptions? copied options
----@param isTemp boolean? order only matters for internal/temp commands
----@param ignoreMeta boolean? since BAR hooks meta key -> CMD_INSERT.
+---Command options have an expensive equality check due to blind type-check issues.
+---@param options1 CommandOptions|CreateCommandOptions|integer? original (if temp)
+---@param options2 CommandOptions|CreateCommandOptions|integer? copied (if temp)
+---@param isTemp boolean?
+---@param ignoreMeta boolean?
 local function equalOption(options1, options2, isTemp, ignoreMeta)
-	if options1 == options2 or options1 == nil or options2 == nil then
+	if options1 == options2 then
 		return true
-	elseif type(options1) == "table" and type(options2) == "table" then
-		-- Assume `coded` might be stale, and handle nil as false:
-		if options1.coded == options2.coded then
-			return true
-		else
-			return -- Temp commands copy the options and *might* add OPT_INTERNAL:
-				(isTemp and options2.internal or (not options1.internal) == (not options2.internal)) and
-				-- The meta option is overloaded to prepend commands to the queue:
-				(ignoreMeta or (not options1.meta) == (not options2.meta)) and (
-					(not options1.alt) == (not options2.alt) and
-					(not options1.ctrl) == (not options2.ctrl) and
-					(not options1.right) == (not options2.right) and
-					(not options1.shift) == (not options2.shift)
-				)
-		end
-	elseif type(options1) == "table" then
-		return getOptionCode(options1) == options2
-	elseif type(options2) == "table" then
-		return getOptionCode(options2) == options1
-	else
-		return false
 	end
+
+	local code1 = resolveOptionCode(options1)
+	local code2 = resolveOptionCode(options2)
+
+	if code1 == code2 then
+		return true
+	end
+
+	-- Most temp commands add OPT_INTERNAL:
+	if isTemp then
+		code1 = bit_or(code1, OPT_INTERNAL)
+	end
+
+	-- Most Recoil games hook OPT_META:
+	if ignoreMeta then
+		code1 = bit_or(code1, OPT_META)
+		code2 = bit_or(code2, OPT_META)
+	end
+
+	return code1 == code2
 end
 
 ---@param options table|integer|CommandOptionBit?
@@ -229,8 +238,6 @@ end
 
 -- Various widgets will need to issue pseudo-orders during pregame placement:
 local pregame = Spring.GetGameFrame and Spring.GetGameFrame() <= 0
-
-local tempTbl = {} -- easier to make a temp iter tbl than to encapsulate this
 
 --------------------------------------------------------------------------------
 -- Command introspection -------------------------------------------------------
@@ -888,8 +895,7 @@ local function filterParamIndexMap(prmType, include, exclude)
 
 	if include ~= nil then
 		if type(include) ~= "table" then
-			tempTbl[1] = include
-			include = tempTbl
+			include = getTempTbl(include)
 		end
 
 		local included = {}
@@ -911,8 +917,7 @@ local function filterParamIndexMap(prmType, include, exclude)
 
 	if exclude ~= nil then
 		if type(exclude) ~= "table" then
-			tempTbl[1] = exclude
-			exclude = tempTbl
+			exclude = getTempTbl(exclude)
 		end
 
 		local excluded = {}
@@ -968,8 +973,7 @@ end
 ---@return table<CMD, ParamCountSet>? commandParams
 Commands.FilterCommandParamsList = function(commands, include, exclude)
 	if type(commands) == "number" then
-		tempTbl[1] = commands
-		commands = tempTbl
+		commands = getTempTbl(commands)
 	end
 
 	local commandParams = {}
