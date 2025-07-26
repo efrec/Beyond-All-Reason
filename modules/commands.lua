@@ -1765,16 +1765,15 @@ end
 ---@param range number the unit's engage distance, build range, etc.
 ---@param all boolean? whether to include non-move commands (default = false)
 ---@return number x
----@return number y
 ---@return number z
 Commands.GetUnitEndMoveGoal2D = function(unitID, range, all)
-	local x, y, z = spGetUnitPosition(unitID)
+	local x, z = spGetUnitPosition(unitID)
 
 	for _, command in ipairs(Spring.GetUnitCommands(unitID, -1)) do
-		x, y, z = getCommandMoveGoal2D(command.id, command.params, x, z, range, all)
+		x, z = getCommandMoveGoal2D(command.id, command.params, x, z, range, all)
 	end
 
-	return x, y, z
+	return x, z
 end
 
 --------------------------------------------------------------------------------
