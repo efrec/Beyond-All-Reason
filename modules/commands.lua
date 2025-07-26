@@ -1,5 +1,14 @@
 --------------------------------------------------------------------------------
 -- Common configuration data and functions for processing RecoilEngine commands.
+--
+-- The actual configurable "configuration" data is in modules/data/commands.lua.
+--
+-- This file contains around 700 lines, give or take, of additional data that is
+-- not expected to be changed any time soon. It is boring and better left alone.
+--
+-- To understand why that much setup and setup-checking was even done, review
+-- `GetCommandPositionAndRadius` (and its two subfunctions), and then see how it
+-- is used in `GetCommandMoveGoal` to get the most out of basic introspection.
 
 local GameCMD = Game.CustomCommands and Game.CustomCommands.GameCMD
 
