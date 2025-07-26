@@ -773,9 +773,13 @@ local function parseNewCommand(newGameCMD)
 		newGameCMD.prmTypeName = "Any"
 	end
 
-	-- Elevate this slightly above informational since it represents a misconfiguration.
+	-- Elevate these slightly above informational since it represents a misconfiguration.
 	if commandParamsType[cmdID] then
 		Spring.Log('CMD', LOG.NOTICE, "Game command was already added: " .. tostring(cmdName))
+	end
+
+	if not newGameCMD.hidden and hiddenCmdType[cmdTypeID] then
+		Spring.Log('CMD', LOG.NOTICE, "Game command's type is hidden: " .. tostring(cmdTypeName))
 	end
 
 	return {
@@ -809,19 +813,24 @@ local cmdDescsConfigured = {}
 Commands.NewCommandDescription = function(newGameCMD)
 	local command = parseNewCommand(newGameCMD)
 
-	if command == nil or command.cmdID == nil then
+	if command == nil then
 		return -- error when parsing
 	end
 
 	local paramsCounts = PRMTYPE[command.prmTypeName]
 
 	-- We need to add to the command categories, first.
+
+	if command.hidden or hiddenCmdType[command.cmdTypeID] then
+		hiddenCommands[command.cmdID] = true
+	end
+
 	if command.queueing then
 		queueingCommands[command.cmdID] = true
 	end
 
-	-- The introspection tables are populated via metamethod
-	-- whenever we add a new command to `commandParamsType`.
+	-- Then, populate the command-params introspection tables.
+
 	commandParamsType[command.cmdID] = paramsCounts
 
 	local cmdDesc = {
@@ -1866,6 +1875,21 @@ Commands.GetUnitCommandDescription = function(unitID, command)
 end
 
 local getUnitCommandDescription = Commands.GetUnitCommandDescription
+
+---Determine whether an order is visible to the player (e.g. in ordermenu).
+---@param unitID integer
+---@param command CMD
+---@return boolean? [nil] := both non-hidden and no matching command description
+Commands.GetUnitCommandIsHidden = function(unitID, command)
+	local description = getUnitCommandDescription(unitID, command)
+
+	if description ~= nil then
+		-- Maybe the unit can multitask, so overrides its `hidden` to be `false`:
+		return description.hidden == true
+	else
+		return hiddenCommands[command]
+	end
+end
 
 ---Determine whether an order given to a unit will occupy its command queue.
 ---@param unitID integer
