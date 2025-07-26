@@ -1175,7 +1175,7 @@ Commands.GetGuardeeID = function(unitID, index)
 
 		if command == CMD_GUARD then
 			return maybeUnitID
-		elseif command == nil or not isInternalBit(options) then
+		elseif command == nil or not isInternalBit(options) then ---@diagnostic disable-line: param-type-mismatch; -- OK
 			return
 		else
 			index = index + 1
@@ -1340,7 +1340,9 @@ Commands.GetCommandMoveGoal = function(command, params, x, y, z, range, any)
 			end
 
 			if radius == nil or radius <= MOVE_GOAL_RESOLUTION then
-				x, y, z = x2, y2, z2
+				if x2 ~= nil then
+					x, y, z = x2, y2, z2 ---@diagnostic disable-line: cast-local-type -- OK
+				end
 			else
 				local dx = x2 - x
 				local dy = y2 - y
@@ -1358,7 +1360,7 @@ Commands.GetCommandMoveGoal = function(command, params, x, y, z, range, any)
 				else
 					-- Get the furthest point on the sphere.
 					if dw <= MOVE_GOAL_RESOLUTION then
-						x, y, z = x2, y2, z2
+						x, y, z = x2, y2, z2 ---@diagnostic disable-line: cast-local-type -- OK
 					else
 						-- This can over-estimate by very large margins,
 						-- e.g. when large areas contain no valid targets.
@@ -1384,7 +1386,6 @@ local getCommandMoveGoal = Commands.GetCommandMoveGoal
 ---@param command CMD
 ---@param params number[]
 ---@param x number unit position x
----@param y number unit position y
 ---@param z number unit position z
 ---@param range number? generally, weapon range or build distance; does not add target model radius
 ---@param any boolean? whether to include non-move commands (default = false)
@@ -1402,7 +1403,9 @@ Commands.GetCommandMoveGoal2D = function(command, params, x, z, range, any)
 			end
 
 			if radius == nil or radius <= MOVE_GOAL_RESOLUTION then
-				x, z = x2, z2
+				if x ~= nil then
+					x, z = x2, z2 ---@diagnostic disable-line: cast-local-type -- OK
+				end
 			else
 				local dx = x2 - x
 				local dz = z2 - z
@@ -1418,7 +1421,7 @@ Commands.GetCommandMoveGoal2D = function(command, params, x, z, range, any)
 				else
 					-- Get the furthest point on the cylinder.
 					if dw <= MOVE_GOAL_RESOLUTION then
-						x, z = x2, z2
+						x, z = x2, z2 ---@diagnostic disable-line: cast-local-type -- OK
 					else
 						-- This can over-estimate by very large margins,
 						-- e.g. when large areas contain no valid targets.
@@ -1579,7 +1582,7 @@ Commands.GetUnitPositionQueue = function(unitID, all, count)
 
 	for _, cmdInfo in ipairs(queue) do
 		if all or moveCommands[cmdInfo.id] then
-			local x, y, z = getCommandPosition(cmdInfo.id, cmdInfo.params)
+			local x, y, z = getCommandPosition(cmdInfo.id, cmdInfo.params) ---@diagnostic disable-line: param-type-mismatch -- OK: CMD/integer
 
 			if x ~= nil then
 				num = num + 1
@@ -1608,7 +1611,7 @@ Commands.GetUnitEndPosition = function(unitID, all)
 			local x, y, z = getCommandPosition(command, repackParams(p1, p2, p3, p4, p5, p6))
 
 			if x ~= nil then
-				return x, y, z
+				return x, y, z ---@diagnostic disable-line: return-type-mismatch -- OK
 			end
 		end
 
@@ -1616,7 +1619,7 @@ Commands.GetUnitEndPosition = function(unitID, all)
 		command, _, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
 	until false
 
-	return spGetUnitPosition(unitID)
+	return spGetUnitPosition(unitID) ---@diagnostic disable-line: return-type-mismatch, redundant-return-value -- OK
 end
 
 ---Get the position of the unit's queued move commands (or all commands) and the
@@ -1641,7 +1644,7 @@ Commands.GetUnitMoveGoalQueue = function(unitID, all, count)
 
 	for _, cmdInfo in ipairs(queue) do
 		if all or moveCommands[cmdInfo.id] then
-			local x, y, z, w, leashed = getCommandPositionAndRadius(cmdInfo.id, cmdInfo.params)
+			local x, y, z, w, leashed = getCommandPositionAndRadius(cmdInfo.id, cmdInfo.params) ---@diagnostic disable-line: param-type-mismatch -- OK: CMD/integer
 
 			if x ~= nil then
 				num = num + 1
@@ -1670,10 +1673,11 @@ Commands.GetUnitEndMoveGoal = function(unitID, range, all)
 	local x, y, z = spGetUnitPosition(unitID)
 
 	for _, command in ipairs(Spring.GetUnitCommands(unitID, -1)) do
+		 ---@diagnostic disable-next-line: cast-local-type, param-type-mismatch -- OK
 		x, y, z = getCommandMoveGoal(command.id, command.params, x, y, z, range, all)
 	end
 
-	return x, y, z
+	return x, y, z ---@diagnostic disable-line: return-type-mismatch -- OK
 end
 
 ---Get the destination position of a unit's move goals from its queued commands.
@@ -1692,10 +1696,10 @@ Commands.GetUnitEndMoveGoal2D = function(unitID, range, all)
 	local x, z = spGetUnitPosition(unitID)
 
 	for _, command in ipairs(Spring.GetUnitCommands(unitID, -1)) do
-		x, z = getCommandMoveGoal2D(command.id, command.params, x, z, range, all)
+		x, z = getCommandMoveGoal2D(command.id, command.params, x, z, range, all)  ---@diagnostic disable-line: cast-local-type, param-type-mismatch -- OK
 	end
 
-	return x, z
+	return x, z ---@diagnostic disable-line: return-type-mismatch -- OK
 end
 
 --------------------------------------------------------------------------------
@@ -1754,6 +1758,9 @@ local removeBuildQueue = Commands.RemoveBuildQueue
 Commands.ClearBuildQueue = function(factoryID, current)
 	local queue = Spring.GetRealBuildQueue(factoryID)
 
+	-- Caused by wrong return type annotation from GetRealBuildQueue:
+	---@diagnostic disable: param-type-mismatch -- OK
+
 	if current ~= false then
 		for _, build in ipairs(queue) do
 			removeBuildQueue(factoryID, next(build))
@@ -1775,6 +1782,8 @@ Commands.ClearBuildQueue = function(factoryID, current)
 			end
 		end
 	end
+
+	---@diagnostic enable: param-type-mismatch
 
 	flushOrders(factoryID)
 end
@@ -1853,10 +1862,10 @@ local STATE_DISABLED = "0"
 ---@param command CMD
 ---@return CommandDescription?
 Commands.GetUnitCommandDescription = function(unitID, command)
-	local index = spFindUnitCmdDesc(unitID, command)
+	local index = spFindUnitCmdDesc(unitID, command) ---@diagnostic disable-line: redundant-parameter -- OK
 
 	if index ~= nil then
-		return spGetUnitCmdDescs(unitID, index, index)[1]
+		return spGetUnitCmdDescs(unitID, index, index)[1] ---@diagnostic disable-line: redundant-parameter -- OK
 	end
 end
 
@@ -1911,7 +1920,7 @@ end
 ---@param unitID integer
 ---@param command CMD
 Commands.GetUnitCanExecute = function(unitID, command)
-	local cmdDesc = spFindUnitCmdDesc(unitID, command)
+	local cmdDesc = spFindUnitCmdDesc(unitID, command)---@diagnostic disable-line: redundant-parameter -- OK
 
 	if cmdDesc ~= nil then
 		if cmdDesc.disabled then
