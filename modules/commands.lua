@@ -7,111 +7,12 @@ if not Spring or not CMD or not Game or not GameCMD then
 	return
 end
 
---------------------------------------------------------------------------------
--- Configuration ---------------------------------------------------------------
-
--- Edit this and nothing else. The configuration table is consumed during init.
--- Ideally, really, this would exist in its own, untouchable configuration file.
-
----Maps every command to its accepted parameter counts.
---
--- @see `paramsType` for the names of parameter count sets used here.
----@type table<CMD, string>
-local commandToParamsTypeConfig = {
-	-- Meta-commands and other special cases
-
-	[CMD.INSERT]          = "Insert",
-	[CMD.REMOVE]          = "Remove",
-	[CMD.WAIT]            = "Wait",
-
-	-- Commands with a single parameter count
-
-	[CMD.STOP]            = "None",
-	[CMD.GATHERWAIT]      = "None",
-	[CMD.GROUPADD]        = "None",
-	[CMD.GROUPCLEAR]      = "None",
-	[CMD.GROUPSELECT]     = "None",
-	[CMD.SELFD]           = "None",
-	[CMD.STOCKPILE]       = "None",
-
-	[CMD.FIRE_STATE]      = "Mode",
-	[CMD.MOVE_STATE]      = "Mode",
-	[CMD.AUTOREPAIRLEVEL] = "Mode",
-	[CMD.CLOAK]           = "Mode",
-	[CMD.IDLEMODE]        = "Mode",
-	[CMD.ONOFF]           = "Mode",
-	[CMD.REPEAT]          = "Mode",
-	[CMD.TRAJECTORY]      = "Mode",
-
-	[CMD.SQUADWAIT]       = "Number",
-	[CMD.TIMEWAIT]        = "Number",
-
-	[CMD.GUARD]           = "ObjectAlly",
-	[CMD.LOAD_ONTO]       = "ObjectAlly",
-
-	[CMD.PATROL]          = "Point",
-	[CMD.RESTORE]         = "Point",
-	[CMD.SETBASE]         = "Point",
-	[CMD.UNLOAD_UNIT]     = "Point",
-
-	[CMD.AREA_ATTACK]     = "Area",
-
-	-- Commands with multiple parameter counts
-
-	[CMD.ATTACK]          = "ObjectOrPoint",
-	[CMD.MANUALFIRE]      = "ObjectOrPoint",
-	[CMD.LOAD_UNITS]      = "ObjectOrArea",
-	[CMD.FIGHT]           = "ObjectOrFront",
-	[CMD.DEATHWAIT]       = "ObjectOrRectangle",
-
-	[CMD.MOVE]            = "PointOrFront",
-
-	[CMD.UNLOAD_UNITS]    = "UnloadTask",
-
-	[CMD.CAPTURE]         = "WorkerTask",
-	[CMD.RECLAIM]         = "WorkerTask",
-	[CMD.REPAIR]          = "WorkerTask",
-	[CMD.RESURRECT]       = "WorkerTask",
-}
-
----Whether a command takes up a slot on the command queue.
---
--- Determines whether a command with a target object or position is a move command.
----@type table<CMD, true>
-local queueingCommands = {
-	[CMD.WAIT]         = true,
-	[CMD.GATHERWAIT]   = true,
-	[CMD.SQUADWAIT]    = true,
-	[CMD.TIMEWAIT]     = true,
-	[CMD.DEATHWAIT]    = true,
-
-	[CMD.MOVE]         = true,
-	[CMD.FIGHT]        = true,
-	[CMD.PATROL]       = true,
-	[CMD.GUARD]        = true,
-
-	[CMD.ATTACK]       = true,
-	[CMD.MANUALFIRE]   = true,
-	[CMD.AREA_ATTACK]  = true,
-
-	[CMD.CAPTURE]      = true,
-	[CMD.RECLAIM]      = true,
-	[CMD.REPAIR]       = true,
-	[CMD.RESURRECT]    = true,
-	[CMD.RESTORE]      = true,
-
-	[CMD.LOAD_ONTO]    = true,
-	[CMD.LOAD_UNITS]   = true,
-	[CMD.UNLOAD_UNIT]  = true,
-	[CMD.UNLOAD_UNITS] = true,
-}
-
---------------------------------------------------------------------------------
--- Module internals ------------------------------------------------------------
-
 ---Functions and utilities for common tasks using RecoilEngine commands.
 ---@module Commands
 local Commands = {}
+
+--------------------------------------------------------------------------------
+-- Module internals ------------------------------------------------------------
 
 local math_sqrt = math.sqrt
 local bit_and = math.bit_and
@@ -463,38 +364,6 @@ local paramsType = setmetatable({
 	end
 })
 
--- Check for potential configuration errors.
-
-local function validateCommandConfiguration(name, command)
-	if type(name) == "string" and
-		not commandToParamsTypeConfig[command] and
-		not name:find("[^_]STATE_") and not name:find("^OPT_")
-	then
-		Spring.Log('CMD', LOG.WARNING, "Unconfigured command: " .. name)
-	end
-end
-
-for commandName, commandID in pairs(CMD) do
-	validateCommandConfiguration(commandName, commandID)
-end
-
-if GameCMD then
-	for commandName, commandID in pairs(GameCMD) do
-		validateCommandConfiguration(commandName, commandID)
-	end
-end
-
-for command, paramsTypeName in pairs(commandToParamsTypeConfig) do
-	local params = paramsType[paramsTypeName]
-
-	if not CMD[command] and (not GameCMD or not GameCMD[command]) then
-		Spring.Log('CMD', LOG.WARNING, "Unrecognized command: " .. tostring(command))
-		-- commandToParamsTypeConfig[command] = nil -- todo: maybe enforce later
-	elseif not table.getKeyOf(paramsType, params) then
-		Spring.Log('CMD', LOG.ERROR, "Unrecognized paramsType: " .. tostring(params) .. ", in: " .. tostring(command))
-	end
-end
-
 -- With commands mapped to parameter counts and types (context slightly useless),
 -- we can set up automatic tables to use as lookups for the values we might want:
 -- - target object id in params (and its index)
@@ -664,10 +533,15 @@ local commandParamsLeashIndex = setmetatable({}, {
 --------------------------------------------------------------------------------
 -- Command categories ----------------------------------------------------------
 
----Map of paramsTypes to commands that imply movement and possible move goals.
+---Set of command IDs that imply placement onto the command queue.
 --
--- Only command descriptions that are queueing (`queueing == true`) are actually
--- added to the final `moveCommands` reference.
+-- NB: Non-queueing commands can be given queueing descriptors, and vice versa.
+local queueingCommands = {}
+
+---Set of paramsTypes that imply movement and possible move goals.
+--
+-- Only command descriptions that are queueing (`queueingCommands[id] == true`)
+-- are actually added to the final `moveCommands` reference.
 ---@type table<string, true>
 local moveParamsType = {
 	Point         = true,
@@ -691,6 +565,12 @@ local moveParamsType = {
 
 ---@type table<CMD, true>
 local moveCommands = setmetatable({}, {
+	__newindex = function (self, command)
+		if queueingCommands[command] then
+			rawset(self, command, true)
+		end
+	end,
+
 	__index = function(self, command)
 		if command < 0 then return true end
 	end
@@ -714,6 +594,8 @@ local commandParamsType = setmetatable({}, {
 		if paramsTypeName == nil then
 			Spring.Log('CMD', LOG.ERROR, "Command paramsType is invalid: " .. tostring(command))
 			return
+		else
+			rawset(self, command, paramsCounts)
 		end
 
 		commandParamsObjectIndex[command] = paramsObjectIndex[paramsTypeName]
@@ -723,8 +605,8 @@ local commandParamsType = setmetatable({}, {
 		commandParamsRadiusIndex[command] = paramsRadiusIndex[paramsTypeName]
 		commandParamsLeashIndex[command] = paramsLeashIndex[paramsTypeName]
 
-		if queueingCommands[command] then
-			moveCommands[command] = moveParamsType[paramsTypeName] or nil
+		if moveParamsType[paramsTypeName] and queueingCommands[command] then
+			moveCommands[command] = true
 		end
 	end,
 
@@ -732,14 +614,6 @@ local commandParamsType = setmetatable({}, {
 		return command < 0 and PRMTYPE_POINTFACING or nullParamsSet
 	end
 })
-
--- Populate the params index tables using the initial config.
-
-for command, paramsTypeName in pairs(commandToParamsTypeConfig) do
-	commandParamsType[command] = paramsType[paramsTypeName]
-end
-
-commandToParamsTypeConfig = nil ---@diagnostic disable-line -- consume table
 
 ---Essentially a reverse lookup table to find all paramsTypes that contain a
 -- given type or sub-type, e.g. all parameter sets that contain Line params.
@@ -782,6 +656,71 @@ end
 
 --------------------------------------------------------------------------------
 -- Module interfacing ----------------------------------------------------------
+
+local loaded = false
+
+---Loads the preconfigured engine command data into the
+---@return boolean loaded
+Commands.LoadConfigurationData = function()
+	if loaded then
+		return true
+	end
+
+	-- Load the module data.
+
+	local fenv = { CMD = CMD, CMDTYPE = CMDTYPE }
+	local data = VFS.Include("modules/data/commands.lua", fenv)
+
+	if data == nil then
+		Spring.LOG("CMD", LOG.ERROR, "No configuration loaded for Commands module.")
+		return false
+	else
+		loaded = true
+	end
+
+	local CommandParamType = data.CommandParamType or {}
+	local IsQueuingCommand = data.IsQueuingCommand or {}
+
+	-- Check for potential configuration errors.
+
+	for name, command in pairs(CMD) do
+		if type(name) == "string" and
+			not CommandParamType[command] and
+			not name:find("[^_]STATE_") and not name:find("^OPT_")
+		then
+			Spring.Log("CMD", LOG.WARNING, "Unconfigured command: " .. name)
+		end
+	end
+
+	for command, paramsTypeName in pairs(CommandParamType) do
+		local params = paramsType[paramsTypeName]
+
+		if not CMD[command] and (not GameCMD or not GameCMD[command]) then
+			Spring.Log("CMD", LOG.WARNING, "Unrecognized command: " .. tostring(command))
+		elseif params == anyParamCount and paramsType ~= "Any" then
+			local message = "Unrecognized paramsType: " .. tostring(params) .. ", in: " .. tostring(command)
+			Spring.Log("CMD", LOG.WARNING, message)
+		end
+	end
+
+	-- Consume the module data.
+
+	-- Commands are checked for whether they are queueing when they are
+	-- added to the params type tables. So we consume that table first.
+	for command, check in pairs(IsQueuingCommand) do
+		if check then
+			queueingCommands[command] = true
+		end
+	end
+
+	-- Populate the params index tables using the initial config.
+	-- This does a lot of other magical updates using metatables.
+	for command, paramsTypeName in pairs(CommandParamType) do
+		commandParamsType[command] = paramsType[paramsTypeName]
+	end
+
+	return true
+end
 
 ---@class CreateGameCMD
 ---@field code string e.g. the `ATTACK` in `CMD.ATTACK`

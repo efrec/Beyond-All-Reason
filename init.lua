@@ -58,6 +58,7 @@ end
 if commonFunctions.cmd[environment] then
 	Game.CustomCommands = VFS.Include("modules/customcommands.lua")
 	Game.Commands = VFS.Include("modules/commands.lua")
+	Game.Commands.LoadConfigurationData()
 end
 
 if commonFunctions.map[environment] then
