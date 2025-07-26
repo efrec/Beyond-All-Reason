@@ -94,7 +94,29 @@ local IsQueuingCommand = {
 	[CMD.UNLOAD_UNITS] = true,
 }
 
+---Whether a command is shown to the player, e.g. on the order menu.
+--
+-- By extension, this includes internal-only and obsoleted commands.
+---@type table<CMD, true>
+local IsHiddenCommand = {
+	[CMD.DEATHWAIT]      = true,
+	[CMD.GATHERWAIT]     = true,
+	[CMD.GROUPADD]       = true,
+	[CMD.GROUPCLEAR]     = true,
+	[CMD.GROUPSELECT]    = true,
+	[CMD.INSERT]         = true,
+	[CMD.INTERNAL]       = true,
+	[CMD.LOAD_ONTO]      = true,
+	[CMD.LOOPBACKATTACK] = true,
+	[CMD.REMOVE]         = true,
+	[CMD.SELFD]          = true,
+	[CMD.SETBASE]        = true,
+	[CMD.SQUADWAIT]      = true,
+	[CMD.TIMEWAIT]       = true,
+}
+
 return {
 	CommandParamType = CommandParamType,
 	IsQueuingCommand = IsQueuingCommand,
+	IsHiddenCommand  = IsHiddenCommand,
 }
