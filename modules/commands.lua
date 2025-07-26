@@ -334,7 +334,7 @@ local metaNullParamsSet = { __index = function() return nullParamsSet end }
 --    However, it also can accept #params = 1.
 --
 -- Context example:
--- - `WorkerTask` uses the *build radius* to check range.
+-- - `WorkerTask` uses the `buildDistance` to check range.
 ---@type table<string, ParamCountSet>
 local PRMTYPE = setmetatable({
 	-- Basic params types
