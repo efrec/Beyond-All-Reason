@@ -1160,22 +1160,22 @@ end
 
 ---Get the unitID of the target of CMD_GUARD, if any.
 ---@param unitID integer
----@param commandIndex integer? default = 1
+---@param index integer? default = 1
 ---@return integer? guardeeID
-Commands.GetGuardeeID = function(unitID, commandIndex)
-	if commandIndex == nil then
-		commandIndex = 1
+Commands.GetGuardeeID = function(unitID, index)
+	if index == nil then
+		index = 1
 	end
 
 	repeat
-		local command, options, _, maybeUnitID = spGetUnitCurrentCommand(unitID, commandIndex)
+		local command, options, _, maybeUnitID = spGetUnitCurrentCommand(unitID, index)
 
 		if command == CMD_GUARD then
 			return maybeUnitID
 		elseif command == nil or not isInternalBit(options) then
 			return
 		else
-			commandIndex = commandIndex + 1
+			index = index + 1
 		end
 	until false
 end
