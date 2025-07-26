@@ -537,6 +537,16 @@ local moveCommands = setmetatable({}, {
 	end
 })
 
+---@type table<CMDTYPE, true>
+local hiddenCmdType = {
+	[CMDTYPE.CUSTOM] = true,
+	[CMDTYPE.NEXT]   = true,
+	[CMDTYPE.PREV]   = true,
+}
+
+---@type table<CMD, true>
+local hiddenCommands = {}
+
 --------------------------------------------------------------------------------
 -- Command auto configuration --------------------------------------------------
 
@@ -641,6 +651,7 @@ Commands.LoadConfigurationData = function()
 
 	local CommandParamType = data.CommandParamType or {}
 	local IsQueuingCommand = data.IsQueuingCommand or {}
+	local IsHiddenCommand  = data.IsHiddenCommand  or {}
 
 	-- Check for potential configuration errors.
 
@@ -678,6 +689,13 @@ Commands.LoadConfigurationData = function()
 	-- This does a lot of other magical updates using metatables.
 	for command, paramsTypeName in pairs(CommandParamType) do
 		commandParamsType[command] = PRMTYPE[paramsTypeName]
+	end
+
+	-- Then, fill out the remaining command categories (just `hidden`).
+	for command, check in pairs(IsHiddenCommand) do
+		if check then
+			hiddenCommands[command] = true
+		end
 	end
 
 	return true
