@@ -1983,7 +1983,7 @@ Commands.GetUnitStateEnabled = function(unitID, command)
 	return false
 end
 
----Determine whether a unit normally able to execute a command can do so currently.
+---Determine whether a unit _normally_ able to execute a command can do so _currently_.
 --
 -- Ignores the stunned state but not insufficient resources, etc.
 ---@param unitID integer
@@ -1996,39 +1996,39 @@ Commands.GetUnitCanExecute = function(unitID, command, unitDefID)
 		if cmdDesc.disabled then
 			return false
 		end
+	end
 
-		if command == CMD_LOAD_UNITS then
-			local transportees = Spring.GetUnitIsTransporting(unitID)
+	if command == CMD_LOAD_UNITS then
+		local transportees = Spring.GetUnitIsTransporting(unitID)
 
-			if transportees == nil then
-				return false
-			end
+		if transportees == nil then
+			return false
+		end
 
-			local unitDef = UnitDefs[unitDefID or Spring.GetUnitDefID(unitID)]
-			local capacity = unitDef.transportCapacity or 0
-			local mass = unitDef.transportMass or 0
+		local unitDef = UnitDefs[unitDefID or Spring.GetUnitDefID(unitID)]
+		local capacity = unitDef.transportCapacity or 0
+		local mass = unitDef.transportMass or 0
 
-			for _, occupantID in ipairs(transportees) do
-				capacity = capacity - 1
-				mass = mass - Spring.GetUnitMass(occupantID)
-			end
+		for _, occupantID in ipairs(transportees) do
+			capacity = capacity - 1
+			mass = mass - Spring.GetUnitMass(occupantID)
+		end
 
-			-- Assuming minimum requirements:
-			return capacity >= 1 and mass >= 1
-		elseif command == CMD_UNLOAD_UNIT or command == CMD_UNLOAD_UNITS then
-			local transportees = Spring.GetUnitIsTransporting(unitID)
-			return transportees ~= nil and transportees[1] ~= nil
-		elseif command == CMD_MANUALFIRE then
-			-- `nil` when non-stockpiling; only `0` fails:
-			if (Spring.GetUnitStockpile(unitID)) == 0 then
-				return false
-			else
-				-- todo: check energy needed to fire
-				return true
-			end
+		-- Assuming minimum requirements:
+		return capacity >= 1 and mass >= 1
+	elseif command == CMD_UNLOAD_UNIT or command == CMD_UNLOAD_UNITS then
+		local transportees = Spring.GetUnitIsTransporting(unitID)
+		return transportees ~= nil and transportees[1] ~= nil
+	elseif command == CMD_MANUALFIRE then
+		-- `nil` when non-stockpiling; only `0` fails:
+		if (Spring.GetUnitStockpile(unitID)) == 0 then
+			return false
 		else
+			-- todo: check energy needed to fire
 			return true
 		end
+	else
+		return true
 	end
 
 	-- idk. what else. aren't there commands with no descs?
