@@ -1595,7 +1595,7 @@ Commands.GetUnitPositionQueue = function(unitID, all, count)
 	local num = 0
 
 	if count == nil then
-		count = all and 64 or 32
+		count = all and 64 or 32 -- fetch a reasonable number of commands
 	elseif count == 0 then
 		return moves, num
 	end
@@ -1657,7 +1657,7 @@ Commands.GetUnitMoveGoalQueue = function(unitID, all, count)
 	local num = 0
 
 	if count == nil then
-		count = all and 64 or 32
+		count = all and 64 or 32 -- fetch a reasonable number of commands
 	elseif count == 0 then
 		return moves, num
 	end
