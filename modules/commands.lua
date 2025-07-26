@@ -315,6 +315,12 @@ end
 local anyParamCount = newParamCountSet(0, PARAM_POOL_COUNT_MAX, true)
 local nullParamsSet = {}
 
+-- Values not found in the table return the "Any" parameter count set.
+local metaAnyParamCount = { __index = function() return anyParamCount end }
+
+-- Values not found in the table return the "Null" parameter count set.
+local metaNullParamsSet = { __index = function() return nullParamsSet end }
+
 ---Combinations of parameter counts, types, and additional context.
 --
 -- These `PRMTYPE` values extend the engine's `CMDTYPE`s to include any extra
@@ -365,13 +371,7 @@ local PRMTYPE = setmetatable({
 	Insert            = newParamCountSet(CMD_INSERT_SIZE, CMD_INSERT_SIZE + PARAM_COUNT_MAX, true),
 	Remove            = newParamCountSet(1, PARAM_POOL_COUNT_MAX, true),
 	Wait              = newParamCountSet(1, PARAM_POOL_SIZE),
-}, {
-	-- Unregistered commands have no restrictions
-	-- except that they obey the max param count.
-	__index = function(self, key)
-		return anyParamCount
-	end
-})
+}, metaAnyParamCount)
 
 -- With commands mapped to parameter counts and types (context slightly useless),
 -- we can set up automatic tables to use as lookups for the values we might want:
@@ -397,19 +397,11 @@ local paramsObjectIndex = setmetatable({
 	ObjectOrFront     = { [1] = 1 },
 	ObjectOrRectangle = { [1] = 1 },
 	WorkerTask        = { [1] = 1, [5] = 1 },
-}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+}, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index position of a target object id.
 ---@type table<CMD, ParamIndexMap>
-local commandParamsObjectIndex = setmetatable({}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+local commandParamsObjectIndex = setmetatable({}, metaNullParamsSet)
 
 -- Point parameter index -------------------------------------------------------
 
@@ -431,19 +423,11 @@ local paramsPointIndex = setmetatable({
 
 	UnloadTask    = { [4] = 1, [5] = 1 },
 	WorkerTask    = { [4] = 1, [5] = 2 },
-}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+}, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index position of an x coordinate.
 ---@type table<CMD, ParamIndexMap>
-local commandParamsPointIndex = setmetatable({}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+local commandParamsPointIndex = setmetatable({}, metaNullParamsSet)
 
 -- Line parameter index --------------------------------------------------------
 
@@ -453,19 +437,11 @@ local paramsLineIndex = setmetatable({
 	Front         = { [6] = 1 },
 	ObjectOrFront = { [6] = 1 },
 	PointOrFront  = { [6] = 1 },
-}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+}, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index positions of two x coordinates.
 ---@type table<CMD, table<ParamIndex, ParamIndex>>
-local commandParamsLineIndex = setmetatable({}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+local commandParamsLineIndex = setmetatable({}, metaNullParamsSet)
 
 -- Rectangle parameter index ---------------------------------------------------
 
@@ -474,19 +450,11 @@ local commandParamsLineIndex = setmetatable({}, {
 local paramsRectangleIndex = setmetatable({
 	Rectangle         = { [6] = 1 },
 	ObjectOrRectangle = { [6] = 1 },
-}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+}, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index positions of two x coordinates.
 ---@type table<CMD, table<ParamIndex, ParamIndex>>
-local commandParamsRectangleIndex = setmetatable({}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+local commandParamsRectangleIndex = setmetatable({}, metaNullParamsSet)
 
 -- Radius parameter index ------------------------------------------------------
 
@@ -500,19 +468,11 @@ local paramsRadiusIndex = setmetatable({
 	PointOrArea  = { [4] = 4 },
 	UnloadTask   = { [4] = 4, [5] = 4 }, -- [4] := area, [5] := area, facing; atypical radius
 	WorkerTask   = { [4] = 4 },
-}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+}, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index position of a target radius.
 ---@type table<CMD, ParamIndexMap>
-local commandParamsRadiusIndex = setmetatable({}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+local commandParamsRadiusIndex = setmetatable({}, metaNullParamsSet)
 
 -- Leash radius parameter index ------------------------------------------------
 
@@ -525,19 +485,11 @@ local commandParamsRadiusIndex = setmetatable({}, {
 local paramsLeashIndex = setmetatable({
 	PointLeash = { [4] = 4 },
 	WorkerTask = { [5] = 5 },
-}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+}, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index position of a target radius.
 ---@type table<CMD, ParamIndexMap>
-local commandParamsLeashIndex = setmetatable({}, {
-	__index = function(self, key)
-		return nullParamsSet
-	end
-})
+local commandParamsLeashIndex = setmetatable({}, metaNullParamsSet)
 
 --------------------------------------------------------------------------------
 -- Command categories ----------------------------------------------------------
