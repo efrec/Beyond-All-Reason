@@ -317,7 +317,7 @@ local nullParamsSet = {}
 
 ---Combinations of parameter counts, types, and additional context.
 --
--- These `paramsType` values extend the engine's `CMDTYPE`s to include any extra
+-- These `PRMTYPE` values extend the engine's `CMDTYPE`s to include any extra
 -- parameter counts that certain commands can accept and to add extra context.
 --
 -- Some commands can receive more param counts (via lua) than they ordinarily
@@ -330,7 +330,7 @@ local nullParamsSet = {}
 -- Context example:
 -- - `WorkerTask` uses the *build radius* to check range.
 ---@type table<string, ParamCountSet>
-local paramsType = setmetatable({
+local PRMTYPE = setmetatable({
 	-- Basic params types
 	Any               = anyParamCount,
 	None              = { [0] = true },
@@ -382,7 +382,7 @@ local paramsType = setmetatable({
 -- - target leash radius in params (and its index)
 
 -- Some speedups:
-local PRMTYPE_POINTFACING = paramsType.PointFacing
+local PRMTYPE_POINTFACING = PRMTYPE.PointFacing
 
 -- Object parameter index ------------------------------------------------------
 
@@ -598,10 +598,10 @@ local moveCommands = setmetatable({}, {
 ---@type table<CMD, ParamCountSet>
 local commandParamsType = setmetatable({}, {
 	__newindex = function(self, command, paramsCounts)
-		local paramsTypeName = table.getKeyOf(paramsType, paramsCounts)
+		local paramsTypeName = table.getKeyOf(PRMTYPE, paramsCounts)
 
 		if paramsTypeName == nil then
-			Spring.Log('CMD', LOG.ERROR, "Command paramsType is invalid: " .. tostring(command))
+			Spring.Log('CMD', LOG.ERROR, "Command PRMTYPE is invalid: " .. tostring(command))
 			return
 		else
 			rawset(self, command, paramsCounts)
@@ -629,20 +629,20 @@ local commandParamsType = setmetatable({}, {
 ---@type table<ParamGroupName, table<ParamIndexMap, true>>
 local paramsTypeGroup = {
 	None = {
-		[paramsType.None]       = true,
-		[paramsType.NoneOrMode] = true,
+		[PRMTYPE.None]       = true,
+		[PRMTYPE.NoneOrMode] = true,
 	},
 	Mode = {
-		[paramsType.Mode]       = true,
-		[paramsType.NoneOrMode] = true,
+		[PRMTYPE.Mode]       = true,
+		[PRMTYPE.NoneOrMode] = true,
 	},
 	Number = {
-		[paramsType.Number] = true,
+		[PRMTYPE.Number] = true,
 	},
 	Facing = {
-		[paramsType.PointFacing] = true,
-		[paramsType.UnloadTask]  = true,
-		[paramsType.WorkerTask]  = true,
+		[PRMTYPE.PointFacing] = true,
+		[PRMTYPE.UnloadTask]  = true,
+		[PRMTYPE.WorkerTask]  = true,
 	},
 }
 
@@ -702,12 +702,12 @@ Commands.LoadConfigurationData = function()
 	end
 
 	for command, paramsTypeName in pairs(CommandParamType) do
-		local params = paramsType[paramsTypeName]
+		local params = PRMTYPE[paramsTypeName]
 
 		if not CMD[command] and (not GameCMD or not GameCMD[command]) then
 			Spring.Log("CMD", LOG.WARNING, "Unrecognized command: " .. tostring(command))
-		elseif params == anyParamCount and paramsType ~= "Any" then
-			local message = "Unrecognized paramsType: " .. tostring(params) .. ", in: " .. tostring(command)
+		elseif params == anyParamCount and PRMTYPE ~= "Any" then
+			local message = "Unrecognized PRMTYPE: " .. tostring(params) .. ", in: " .. tostring(command)
 			Spring.Log("CMD", LOG.WARNING, message)
 		end
 	end
@@ -725,7 +725,7 @@ Commands.LoadConfigurationData = function()
 	-- Populate the params index tables using the initial config.
 	-- This does a lot of other magical updates using metatables.
 	for command, paramsTypeName in pairs(CommandParamType) do
-		commandParamsType[command] = paramsType[paramsTypeName]
+		commandParamsType[command] = PRMTYPE[paramsTypeName]
 	end
 
 	return true
@@ -734,7 +734,7 @@ end
 ---@class CreateGameCMD
 ---@field code string e.g. the `ATTACK` in `CMD.ATTACK`
 ---@field cmdType CMDTYPE? either the name (string) or id (integer)
----@field prmTypeName string? name of paramsType set, see commands.lua
+---@field prmTypeName string? name of PRMTYPE set, see commands.lua
 ---@field params string[]? needed for `CMD_ICON_MODE`
 ---@field name string?
 ---@field action string?
@@ -794,10 +794,10 @@ local function parseNewCommand(newGameCMD)
 
 	-- The module never crashes from non-configured commands, so anything else is a warning.
 	-- However: Expect bugs from warnings. Introspection will be confused or broken by this.
-	if prmTypeName == nil or paramsType[prmTypeName] == nullParamsSet then
+	if prmTypeName == nil or PRMTYPE[prmTypeName] == nullParamsSet then
 		Spring.Log('CMD', LOG.WARNING, "Game command's prmTypeName not recognized: " .. tostring(prmTypeName))
 		newGameCMD.prmTypeName = "Any"
-	elseif paramsType[prmTypeName] == anyParamCount and prmTypeName ~= "Any" then
+	elseif PRMTYPE[prmTypeName] == anyParamCount and prmTypeName ~= "Any" then
 		Spring.Log('CMD', LOG.WARNING, "Game command's prmTypeName default to 'Any': " .. tostring(prmTypeName))
 		newGameCMD.prmTypeName = "Any"
 	end
@@ -842,7 +842,7 @@ Commands.NewCommandDescription = function(newGameCMD)
 		return -- error when parsing
 	end
 
-	local paramsCounts = paramsType[command.prmTypeName]
+	local paramsCounts = PRMTYPE[command.prmTypeName]
 
 	-- We need to add to the command categories, first.
 	if command.queueing then
