@@ -59,7 +59,7 @@ local commandSuspendDisallows = {
 }
 
 commandSuspendDisallows = setmetatable(commandSuspendDisallows, {
-	__index = function (self, value)
+	__index = function(self, value)
 		return value < 0 -- disallow build orders
 	end
 })
