@@ -95,6 +95,54 @@ local suspendReasons = {
 
 local suspendedUnits = {}
 
+local suspendNotifyList = {}
+local suspendNotifyDepth = 0
+
+local function suspendNotify(unitID, suspended)
+	suspendNotifyDepth = suspendNotifyDepth + 1
+
+	if suspendNotifyDepth > 16 then
+		Spring.Log("SuspendNotify", LOG.ERROR, "Max recursion depth exceeded.")
+	end
+
+	for i = 1, #suspendNotifyList do
+		suspendNotifyList[i](unitID, suspended)
+	end
+
+	suspendNotifyDepth = suspendNotifyDepth - 1
+end
+
+local function addSuspendReason(unitID, reason, remove)
+	local suspendedUnit = suspendedUnits[unitID]
+
+	if suspendedUnit == nil then
+		spSetUnitRulesParam(unitID, "suspended", 1)
+		suspendedUnit = {}
+
+		if remove ~= false then
+			spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, CMD.OPT_ALT)
+		end
+
+		suspendNotify(unitID, true)
+	end
+
+	if reason ~= nil then
+		local enableReason = suspendReasons[reason] or reason
+		suspendedUnit[enableReason] = true
+	end
+end
+
+local function clearSuspendReason(unitID, reason)
+	local suspendedUnit = suspendedUnits[unitID]
+	suspendedUnit[suspendReasons[reason]] = nil
+
+	if next(suspendedUnit) == nil then
+		spSetUnitRulesParam(unitID, "suspended", 0)
+		suspendedUnits[unitID] = nil
+		suspendNotify(unitID, false)
+	end
+end
+
 --------------------------------------------------------------------------------
 
 function gadget:Initialize()
@@ -112,6 +160,16 @@ function gadget:Initialize()
 		end
 	end
 
+	---Add a callback function to be invoked when a unit is suspended or unsuspended.
+	---@param callback function
+	--
+	-- `callback` annotation:
+	-- - @param callback.unitID integer
+	-- - @param callback.suspended boolean
+	GG.RegisterSuspendNotify = function(callback)
+		suspendNotifyList[#suspendNotifyList + 1] = callback
+	end
+
 	---Disable the unit and set the reason why it cannot take actions.
 	---@param unitID integer
 	---@param reason string?
@@ -127,6 +185,8 @@ function gadget:Initialize()
 			if remove ~= false then
 				spGiveOrderToUnit(unitID, CMD_REMOVE, removeIDs, byCommand)
 			end
+
+			suspendNotify(unitID, true)
 		end
 
 		if reason ~= nil then
@@ -156,6 +216,7 @@ function gadget:Initialize()
 		if not enableReason or next(suspendedUnit) == nil then
 			spSetUnitRulesParam(unitID, "suspended", 0)
 			suspendedUnits[unitID] = nil
+			suspendNotify(unitID, false)
 			return true
 		end
 
@@ -196,34 +257,6 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 end
 
 --------------------------------------------------------------------------------
-
-local function addSuspendReason(unitID, reason, remove)
-	local suspendedUnit = suspendedUnits[unitID]
-
-	if suspendedUnit == nil then
-		spSetUnitRulesParam(unitID, "suspended", 1)
-		suspendedUnit = {}
-
-		if remove ~= false then
-			spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, CMD.OPT_ALT)
-		end
-	end
-
-	if reason ~= nil then
-		local enableReason = suspendReasons[reason] or reason
-		suspendedUnit[enableReason] = true
-	end
-end
-
-local function clearSuspendReason(unitID, reason)
-	local suspendedUnit = suspendedUnits[unitID]
-	suspendedUnit[suspendReasons[reason]] = nil
-
-	if next(suspendedUnit) == nil then
-		spSetUnitRulesParam(unitID, "suspended", 0)
-		suspendedUnits[unitID] = nil
-	end
-end
 
 -- Removing stuns
 
@@ -280,6 +313,8 @@ function gadget:UnitLeftWater(unitID, unitDefID, unitTeam)
 end
 
 --------------------------------------------------------------------------------
+
+-- Suspension behaviors
 
 function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag)
 	return not suspendedUnits[unitID] or not commandSuspendDisallows[cmdID]
