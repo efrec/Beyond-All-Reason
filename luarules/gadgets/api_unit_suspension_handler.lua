@@ -163,11 +163,13 @@ function gadget:Initialize()
 	---Add a callback function to be invoked when a unit is suspended or unsuspended.
 	---@param callback function
 	--
-	-- `callback` annotation:
-	-- - @param callback.unitID integer
-	-- - @param callback.suspended boolean
+	-- `callback` annotation:  
+	-- @param unitID integer  
+	-- @param suspended boolean
 	GG.RegisterSuspendNotify = function(callback)
-		suspendNotifyList[#suspendNotifyList + 1] = callback
+		if type(callback) == "function" then
+			suspendNotifyList[#suspendNotifyList + 1] = callback
+		end
 	end
 
 	---Disable the unit and set the reason why it cannot take actions.
