@@ -98,7 +98,7 @@ if commandSuspendRemoves[CMD.ANY] then
 	removeCommands = function(unitID)
 		spGiveOrderToUnit(unitID, CMD.STOP)
 	end
-elseif table.getKeyOf(commandSuspendRemoves, CMD.BUILD) then
+elseif commandSuspendRemoves[CMD.BUILD] then
 	local function temp(unitID)
 		removeCommands(unitID)
 
