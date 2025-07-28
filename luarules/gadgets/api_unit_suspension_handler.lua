@@ -99,8 +99,9 @@ if commandSuspendRemoves[CMD.ANY] then
 		spGiveOrderToUnit(unitID, CMD.STOP)
 	end
 elseif commandSuspendRemoves[CMD.BUILD] then
-	local function temp(unitID)
-		removeCommands(unitID)
+	local tempFunc = removeCommands
+	removeCommands = function(unitID)
+		tempFunc(unitID)
 
 		local buildDefID = {}
 		local index = 1
@@ -122,8 +123,6 @@ elseif commandSuspendRemoves[CMD.BUILD] then
 			spGiveOrderToUnit(unitID, CMD_REMOVE, removeIDs, byCommand)
 		end
 	end
-
-	removeCommands = temp
 elseif not next(commandSuspendRemoves) then
 	removeCommands = function() end
 end
