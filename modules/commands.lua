@@ -1998,7 +1998,7 @@ Commands.GetUnitCommandIsHidden = function(unitID, command)
 	local description = getUnitCommandDescription(unitID, command)
 
 	if description ~= nil then
-		-- Maybe the unit can multitask, so overrides its `hidden` to be `false`:
+		-- Maybe the unit overrides its `hidden` setting:
 		return description.hidden == true
 	else
 		return hiddenCommands[command]
