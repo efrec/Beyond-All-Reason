@@ -1173,8 +1173,8 @@ end
 ---Get the unitID of the target of CMD_GUARD, if any.
 ---@param unitID integer
 ---@param index integer? default = 1
----@return integer? guardeeID
-Commands.GetGuardeeID = function(unitID, index)
+---@return integer? guardedID
+Commands.GetGuardedID = function(unitID, index)
 	if index == nil then
 		index = 1
 	end
