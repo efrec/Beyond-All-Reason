@@ -124,6 +124,8 @@ elseif commandSuspendRemoves[CMD.BUILD] then
 	end
 
 	removeCommands = temp
+elseif not next(commandSuspendRemoves) then
+	removeCommands = function() end
 end
 
 local suspendReasons = {
