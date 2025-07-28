@@ -91,7 +91,7 @@ for command, check in pairs(commandSuspendRemoves) do
 end
 
 local function removeCommands(unitID)
-	spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, byCommand)
+	spGiveOrderToUnit(unitID, CMD_REMOVE, removeIDs, byCommand)
 end
 
 if commandSuspendRemoves[CMD.ANY] then
@@ -119,7 +119,7 @@ elseif commandSuspendRemoves[CMD.BUILD] then
 		if next(buildDefID) then
 			local remove = {}
 			for k, v in pairs(buildDefID) do remove[#remove + 1] = v end
-			spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, byCommand)
+			spGiveOrderToUnit(unitID, CMD_REMOVE, removeIDs, byCommand)
 		end
 	end
 
