@@ -219,10 +219,14 @@ end
 
 ---@param options CommandOptions|CreateCommandOptions|integer?
 local function isInternal(options)
-	if type(options) == "table" then
+	if options == nil then
+		return false
+	elseif type(options) == "table" then
 		return options.internal or (table.getKeyOf(options, "internal") ~= nil)
-	elseif options ~= nil then
+	elseif type(options) == "number" then
 		return isInternalBit(options)
+	elseif type(options) == "string" then
+		return options == "internal"
 	else
 		return false
 	end
