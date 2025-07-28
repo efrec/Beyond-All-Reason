@@ -17,7 +17,16 @@ if not gadgetHandler:IsSyncedCode() then return end
 
 --------------------------------------------------------------------------------
 
+-- Configuration
+
+-- The suspended state is a counterpart to paralysis for incapacitated units,
+-- such as when units enter water deeper than their maximum water depth limit.
+
+
 ---Immediately remove commands from the unit's queue when it is suspended.
+--
+-- Units that are completely unrecoverable should have the commands given in
+-- this table (or all commands) removed from their command queues.
 ---@type table<CMD, true>
 local commandSuspendRemoves = {
 	[CMD.MOVE]         = true,
@@ -41,6 +50,8 @@ local commandSuspendRemoves = {
 }
 
 ---Prevent the unit from accepting commands when it is suspended.
+--
+-- Regardless how they were suspended, all units will reject these commands.
 ---@type table<CMD, true>
 local commandSuspendDisallows = {
 	[CMD.LOAD_ONTO]    = true,
@@ -77,6 +88,42 @@ for command, check in pairs(commandSuspendRemoves) do
 	if command >= 0 and check then
 		removeIDs[#removeIDs + 1] = command
 	end
+end
+
+local function removeCommands(unitID)
+	spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, byCommand)
+end
+
+if commandSuspendRemoves[CMD.ANY] then
+	removeCommands = function(unitID)
+		spGiveOrderToUnit(unitID, CMD.STOP)
+	end
+elseif table.getKeyOf(commandSuspendRemoves, CMD.BUILD) then
+	local function temp(unitID)
+		removeCommands(unitID)
+
+		local buildDefID = {}
+		local index = 1
+
+		repeat
+			local command = Spring.GetUnitCurrentCommand(unitID, index)
+			index = index + 1
+
+			if command == nil then
+				break
+			elseif command < 0 then
+				buildDefID[command] = true
+			end
+		until false
+
+		if next(buildDefID) then
+			local remove = {}
+			for k, v in pairs(buildDefID) do remove[#remove + 1] = v end
+			spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, byCommand)
+		end
+	end
+
+	removeCommands = temp
 end
 
 local suspendReasons = {
@@ -120,7 +167,7 @@ local function addSuspendReason(unitID, reason, remove)
 		suspendedUnit = {}
 
 		if remove ~= false then
-			spGiveOrderToUnit(unitID, CMD.REMOVE, removeIDs, CMD.OPT_ALT)
+			removeCommands(unitID)
 		end
 
 		suspendNotify(unitID, true)
@@ -163,8 +210,8 @@ function gadget:Initialize()
 	---Add a callback function to be invoked when a unit is suspended or unsuspended.
 	---@param callback function
 	--
-	-- `callback` annotation:  
-	-- @param unitID integer  
+	-- `callback` annotation:
+	-- @param unitID integer
 	-- @param suspended boolean
 	GG.RegisterSuspendNotify = function(callback)
 		if type(callback) == "function" then
@@ -185,7 +232,7 @@ function gadget:Initialize()
 			suspendedUnit = {}
 
 			if remove ~= false then
-				spGiveOrderToUnit(unitID, CMD_REMOVE, removeIDs, byCommand)
+				removeCommands(unitID)
 			end
 
 			suspendNotify(unitID, true)
