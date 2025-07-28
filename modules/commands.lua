@@ -881,7 +881,7 @@ Commands.NewCommandDescription = function(newGameCMD)
 end
 
 ---Get a configured command's command description.
----@param command CMD|integer
+---@param command CMD
 ---@return CommandDescription?
 Commands.GetCommandDescription = function(command)
 	local cmdDesc = cmdDescsConfigured[command]
