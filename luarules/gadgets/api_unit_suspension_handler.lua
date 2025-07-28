@@ -29,6 +29,8 @@ if not gadgetHandler:IsSyncedCode() then return end
 -- this table (or all commands) removed from their command queues.
 ---@type table<CMD, true>
 local commandSuspendRemoves = {
+	[CMD.BUILD]        = true,
+
 	[CMD.MOVE]         = true,
 	[CMD.GUARD]        = true,
 	[CMD.FIGHT]        = true,
