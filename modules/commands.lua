@@ -212,20 +212,20 @@ local function equalOption(options1, options2, isTemp, ignoreMeta)
 	return code1 == code2
 end
 
----@param options table|integer|CommandOptionBit?
-local function isInternal(options)
-	if type(options) == "table" then
-		return options.internal
-	elseif options ~= nil then
-		return bit_and(options, OPT_INTERNAL) ~= 0
-	else
-		return false
-	end
-end
-
 ---@param optionsBitSet integer|CommandOptionBit
 local function isInternalBit(optionsBitSet)
 	return bit_and(optionsBitSet, OPT_INTERNAL) ~= 0
+end
+
+---@param options CommandOptions|CreateCommandOptions|integer?
+local function isInternal(options)
+	if type(options) == "table" then
+		return options.internal or (table.getKeyOf(options, "internal") ~= nil)
+	elseif options ~= nil then
+		return isInternalBit(options)
+	else
+		return false
+	end
 end
 
 local function getObjectPosition(objectID)
