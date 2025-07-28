@@ -1974,6 +1974,7 @@ end
 --------------------------------------------------------------------------------
 -- Unit abilities and states ---------------------------------------------------
 
+local STATE_NOT_ABLE = "-1" -- Used rarely, e.g. `MOVESTATE_NONE` when immobile.
 local STATE_DISABLED = "0"
 
 ---Get the description for the given command id, if any.
@@ -2042,7 +2043,8 @@ Commands.GetUnitStateEnabled = function(unitID, command)
 	local description = getUnitCommandDescription(unitID, command)
 
 	if description ~= nil then
-		return description.params[1] ~= STATE_DISABLED
+		local param = description.params[1]
+		return param ~= STATE_DISABLED and param ~= STATE_NOT_ABLE
 	end
 
 	return false
