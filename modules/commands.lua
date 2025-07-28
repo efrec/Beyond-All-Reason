@@ -1451,6 +1451,71 @@ local getCommandMoveGoal2D = Commands.GetCommandMoveGoal2D
 --------------------------------------------------------------------------------
 -- Command queue functions -----------------------------------------------------
 
+---Clear a unit's command queue, without triggering the sfx for its `CMD_STOP`.
+---@param unitID integer
+Commands.RemoveAllCommands = function(unitID)
+	local queue = Spring.GetUnitCommands(unitID, -1)
+	local count = 0
+	local cmdID = {}
+
+	for _, command in ipairs(queue) do
+		count = count + 1
+		cmdID[count] = command.id
+	end
+
+	spGiveOrderToUnit(unitID, CMD_REMOVE, cmdID, OPT_ALT)
+end
+
+local removeAllCommands = Commands.RemoveAllCommands
+
+local function removeBuildCommands(unitID, commands)
+	local buildDefID = {}
+	local index = 1
+
+	repeat
+		local command = Spring.GetUnitCurrentCommand(unitID, index)
+		index = index + 1
+		if command == nil then
+			break
+		elseif command < 0 then
+			buildDefID[command] = true
+		end
+	until false
+
+	-- As a util for `RemoveCommandList`, include previous commands:
+	for _, c in pairs(buildDefID) do commands[#commands + 1] = c end
+
+	if commands[1] ~= nil then
+		spGiveOrderToUnit(unitID, CMD_REMOVE, commands, OPT_ALT)
+	end
+end
+
+---Efficiently remove the specified commands from the command queue.
+--
+-- Supports `CMD.ANY`, `CMD.BUILD`, and (trivially) `CMD.NIL`.
+---@param unitID integer
+---@param commands CMD[]|integer[]
+Commands.RemoveCommandList = function(unitID, commands)
+	for i = #commands, -1, 1 do
+		local command = commands[i]
+
+		if command == CMD.ANY then
+			removeAllCommands(unitID)
+			return
+		elseif command == CMD.BUILD then
+			table.remove(commands, i)
+			removeBuildCommands(unitID, commands)
+			return
+		elseif type(command) ~= "number" then
+			table.remove(commands, i)
+		end
+	end
+
+	if commands[1] ~= nil then
+		spGiveOrderToUnit(unitID, CMD_REMOVE, commands, OPT_ALT)
+	end
+end
+
 ---Skip the next `count` commands in the queue. Skips the current order by default.
 --
 -- __Can not__ be used to clear the build queue during pregame placement.
