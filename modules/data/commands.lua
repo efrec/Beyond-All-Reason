@@ -4,7 +4,7 @@
 ---Maps every command to its accepted parameter counts.
 --
 -- @see `paramsType` for the names of parameter count sets used here.
----@type table<CMD, string>
+---@type table<CMD, PRMTYPE>
 local CommandParamType = {
 	-- Meta-commands and other special cases
 

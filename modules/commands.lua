@@ -59,6 +59,32 @@ local PARAM_POOL_SIZE = 8       -- #params above this use a memory pool that is 
 local PARAM_COUNT_MAX = 6       -- Line and Rectangle need 6. Ideally, this would be POOL - INSERT.
 local PARAM_POOL_COUNT_MAX = 64 -- Commands can support a ridiculous number of params though.
 
+---@alias PRMTYPE string|ParamCountSet
+---| "Any"
+---| "None"
+---| "Mode"
+---| "Number"
+---| "Object"
+---| "Point"
+---| "Area"
+---| "Front"
+---| "Rectangle"
+---| "NoneOrMode"
+---| "ObjectOrPoint" 
+---| "ObjectOrArea"
+---| "ObjectOrFront"
+---| "ObjectOrRectangle"
+---| "PointFacing"
+---| "PointLeash"
+---| "PointOrArea"
+---| "PointOrFront"
+---| "Wait"
+---| "ObjectAlly"
+---| "ObjectEnemy"
+---| "UnloadTask"
+---| "WorkerTask"
+---| "Insert"
+---| "Remove"
 ---@alias ParamCount 0|1|2|3|4|5|6|7|8 The number of parameters passed in a command
 ---@alias ParamIndex 1|2|3|4|5|6|7|8 The position of a specific parameter in a command's parameters
 ---@alias ParamCountSet table<ParamCount, true>
@@ -253,7 +279,7 @@ local pregame = Spring.GetGameFrame and Spring.GetGameFrame() <= 0
 -- These two concepts are very closely related and, typically, even equivalent.
 -- There are exceptions to these rules, so we only use them as fallback/default:
 
----@type table<CMDTYPE, string>
+---@type table<CMDTYPE, PRMTYPE>
 local cmdTypeToPrmTypeName = {
 	[CMDTYPE.ICON]                      = "None",
 	[CMDTYPE.ICON_AREA]                 = "Area", -- Maybe should be "PointOrArea".
@@ -276,7 +302,7 @@ for id, name in pairs(CMDTYPE) do
 	end
 end
 
----@type table<string, CMDTYPE>
+---@type table<PRMTYPE, CMDTYPE>
 local prmTypeToCmdTypeName = {
 	-- Basic params types
 	Any               = CMDTYPE.CUSTOM, -- not even close
@@ -345,7 +371,7 @@ local metaNullParamsSet = { __index = function() return PRM_NUL end }
 --
 -- Context example:
 -- - `WorkerTask` uses the `buildDistance` to check range.
----@type table<string, ParamCountSet>
+---@type table<PRMTYPE, ParamCountSet>
 local PRMTYPE = setmetatable({
 	-- Basic params types
 	Any               = PRM_ANY,
@@ -398,7 +424,7 @@ local PRMTYPE_POINTFACING = PRMTYPE.PointFacing
 -- Object parameter index ------------------------------------------------------
 
 ---Contains the parameter index position of the command's target object id.
----@type table<string, ParamIndexMap>
+---@type table<PRMTYPE, ParamIndexMap>
 local paramsObjectIndex = setmetatable({
 	Object            = { [1] = 1 },
 	ObjectAlly        = { [1] = 1 },
@@ -417,7 +443,7 @@ local commandParamsObjectIndex = setmetatable({}, metaNullParamsSet)
 -- Point parameter index -------------------------------------------------------
 
 ---Contains the parameter index position of the command's x coordinate.
----@type table<string, ParamIndexMap>
+---@type table<PRMTYPE, ParamIndexMap>
 local paramsPointIndex = setmetatable({
 	Point         = { [3] = 1 },
 	Area          = { [4] = 1 },
@@ -443,7 +469,7 @@ local commandParamsPointIndex = setmetatable({}, metaNullParamsSet)
 -- Line parameter index --------------------------------------------------------
 
 ---Contains the parameter index positions of the command's two x coordinates.
----@type table<string, table<ParamIndex, ParamIndex>>
+---@type table<PRMTYPE, table<ParamIndex, ParamIndex>>
 local paramsLineIndex = setmetatable({
 	Front         = { [6] = 1 },
 	ObjectOrFront = { [6] = 1 },
@@ -457,7 +483,7 @@ local commandParamsLineIndex = setmetatable({}, metaNullParamsSet)
 -- Rectangle parameter index ---------------------------------------------------
 
 ---Contains the parameter index positions of the command's two x coordinates.
----@type table<string, table<ParamIndex, ParamIndex>>
+---@type table<PRMTYPE, table<ParamIndex, ParamIndex>>
 local paramsRectangleIndex = setmetatable({
 	Rectangle         = { [6] = 1 },
 	ObjectOrRectangle = { [6] = 1 },
@@ -473,7 +499,7 @@ local commandParamsRectangleIndex = setmetatable({}, metaNullParamsSet)
 -- This definition of a "radius" excludes the "leash radius". See next section.
 
 ---Contains the parameter index position of the command's target radius.
----@type table<string, ParamIndexMap>
+---@type table<PRMTYPE, ParamIndexMap>
 local paramsRadiusIndex = setmetatable({
 	Area         = { [4] = 4 },
 	ObjectOrArea = { [4] = 4 },
@@ -493,7 +519,7 @@ local commandParamsRadiusIndex = setmetatable({}, metaNullParamsSet)
 -- a radius does, a leash allows a command to cover any amount of that volume.
 
 ---Contains the index position of the leash radius around the command's target.
----@type table<string, ParamIndexMap>
+---@type table<PRMTYPE, ParamIndexMap>
 local paramsLeashIndex = setmetatable({
 	PointLeash = { [4] = 4 },
 	WorkerTask = { [5] = 5 },
@@ -515,7 +541,7 @@ local queueingCommands = {}
 --
 -- Only command descriptions that are queueing (`queueingCommands[id] == true`)
 -- are actually added to the final `moveCommands` reference.
----@type table<string, true>
+---@type table<PRMTYPE, true>
 local moveParamsType = {
 	Point         = true,
 	Area          = true,
@@ -732,7 +758,7 @@ end
 ---@class CreateGameCMD
 ---@field code string e.g. the `ATTACK` in `CMD.ATTACK`
 ---@field cmdType CMDTYPE? either the name (string) or id (integer)
----@field prmTypeName string? name of PRMTYPE set, see commands.lua
+---@field prmTypeName PRMTYPE? name of PRMTYPE set, see commands.lua
 ---@field params string[]? needed for `CMD_ICON_MODE`
 ---@field name string?
 ---@field action string?
