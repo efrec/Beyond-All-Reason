@@ -638,6 +638,18 @@ for kind, paramsIndexMap in pairs({
 end
 
 --------------------------------------------------------------------------------
+-- Module diagnostics ----------------------------------------------------------
+
+-- There is a lot of annoying friction between CMD and integer for commands,
+-- number and number[] and nil for parameters, and command options are a mess.
+-- It's better to do without diagnostics than to have 100 erroneous warnings:
+
+---@diagnostic disable: cast-local-type
+---@diagnostic disable: redundant-return-value
+---@diagnostic disable: redundant-parameter
+---@diagnostic disable: return-type-mismatch
+
+--------------------------------------------------------------------------------
 -- Module interfacing ----------------------------------------------------------
 
 local loaded = false
@@ -1012,7 +1024,7 @@ Commands.GetInsertedCommand = function(params)
 	end
 
 	return
-		params[2], ---@diagnostic disable-line: return-type-mismatch -- CMD/integer
+		params[2],
 		innerParams,
 		params[3],
 		params[1]
@@ -1039,7 +1051,7 @@ Commands.GetInsertedFullCommand = function(params)
 	end
 
 	return
-		params[2], ---@diagnostic disable-line: return-type-mismatch -- CMD/integer
+		params[2],
 		innerParams,
 		getOptions(params[3]),
 		params[1]
@@ -1188,7 +1200,7 @@ Commands.GetGuardedID = function(unitID, index)
 
 		if command == CMD_GUARD then
 			return maybeUnitID
-		elseif command == nil or not isInternalBit(options) then ---@diagnostic disable-line: param-type-mismatch; -- OK
+		elseif command == nil or not isInternalBit(options) then
 			return
 		else
 			index = index + 1
@@ -1354,7 +1366,7 @@ Commands.GetCommandMoveGoal = function(command, params, x, y, z, range, any)
 
 			if radius == nil or radius <= MOVE_GOAL_RESOLUTION then
 				if x2 ~= nil then
-					x, y, z = x2, y2, z2 ---@diagnostic disable-line: cast-local-type -- OK
+					x, y, z = x2, y2, z2
 				end
 			else
 				local dx = x2 - x
@@ -1373,7 +1385,7 @@ Commands.GetCommandMoveGoal = function(command, params, x, y, z, range, any)
 				else
 					-- Get the furthest point on the sphere.
 					if dw <= MOVE_GOAL_RESOLUTION then
-						x, y, z = x2, y2, z2 ---@diagnostic disable-line: cast-local-type -- OK
+						x, y, z = x2, y2, z2
 					else
 						-- This can over-estimate by very large margins,
 						-- e.g. when large areas contain no valid targets.
@@ -1417,7 +1429,7 @@ Commands.GetCommandMoveGoal2D = function(command, params, x, z, range, any)
 
 			if radius == nil or radius <= MOVE_GOAL_RESOLUTION then
 				if x ~= nil then
-					x, z = x2, z2 ---@diagnostic disable-line: cast-local-type -- OK
+					x, z = x2, z2
 				end
 			else
 				local dx = x2 - x
@@ -1434,7 +1446,7 @@ Commands.GetCommandMoveGoal2D = function(command, params, x, z, range, any)
 				else
 					-- Get the furthest point on the cylinder.
 					if dw <= MOVE_GOAL_RESOLUTION then
-						x, z = x2, z2 ---@diagnostic disable-line: cast-local-type -- OK
+						x, z = x2, z2
 					else
 						-- This can over-estimate by very large margins,
 						-- e.g. when large areas contain no valid targets.
@@ -1660,7 +1672,7 @@ Commands.GetUnitPositionQueue = function(unitID, all, count)
 
 	for _, cmdInfo in ipairs(queue) do
 		if all or moveCommands[cmdInfo.id] then
-			local x, y, z = getCommandPosition(cmdInfo.id, cmdInfo.params) ---@diagnostic disable-line: param-type-mismatch -- OK: CMD/integer
+			local x, y, z = getCommandPosition(cmdInfo.id, cmdInfo.params)
 
 			if x ~= nil then
 				num = num + 1
@@ -1689,7 +1701,7 @@ Commands.GetUnitEndPosition = function(unitID, all)
 			local x, y, z = getCommandPosition(command, repackParams(p1, p2, p3, p4, p5, p6))
 
 			if x ~= nil then
-				return x, y, z ---@diagnostic disable-line: return-type-mismatch -- OK
+				return x, y, z
 			end
 		end
 
@@ -1697,7 +1709,7 @@ Commands.GetUnitEndPosition = function(unitID, all)
 		command, _, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
 	until false
 
-	return spGetUnitPosition(unitID) ---@diagnostic disable-line: return-type-mismatch, redundant-return-value -- OK
+	return spGetUnitPosition(unitID)
 end
 
 ---Get the position of the unit's queued move commands (or all commands) and the
@@ -1722,7 +1734,7 @@ Commands.GetUnitMoveGoalQueue = function(unitID, all, count)
 
 	for _, cmdInfo in ipairs(queue) do
 		if all or moveCommands[cmdInfo.id] then
-			local x, y, z, w, leashed = getCommandPositionAndRadius(cmdInfo.id, cmdInfo.params) ---@diagnostic disable-line: param-type-mismatch -- OK: CMD/integer
+			local x, y, z, w, leashed = getCommandPositionAndRadius(cmdInfo.id, cmdInfo.params)
 
 			if x ~= nil then
 				num = num + 1
@@ -1751,11 +1763,11 @@ Commands.GetUnitEndMoveGoal = function(unitID, range, all)
 	local x, y, z = spGetUnitPosition(unitID)
 
 	for _, command in ipairs(Spring.GetUnitCommands(unitID, -1)) do
-		 ---@diagnostic disable-next-line: cast-local-type, param-type-mismatch -- OK
+		
 		x, y, z = getCommandMoveGoal(command.id, command.params, x, y, z, range, all)
 	end
 
-	return x, y, z ---@diagnostic disable-line: return-type-mismatch -- OK
+	return x, y, z
 end
 
 ---Get the destination position of a unit's move goals from its queued commands.
@@ -1774,10 +1786,10 @@ Commands.GetUnitEndMoveGoal2D = function(unitID, range, all)
 	local x, z = spGetUnitPosition(unitID)
 
 	for _, command in ipairs(Spring.GetUnitCommands(unitID, -1)) do
-		x, z = getCommandMoveGoal2D(command.id, command.params, x, z, range, all)  ---@diagnostic disable-line: cast-local-type, param-type-mismatch -- OK
+		x, z = getCommandMoveGoal2D(command.id, command.params, x, z, range, all) 
 	end
 
-	return x, z ---@diagnostic disable-line: return-type-mismatch -- OK
+	return x, z
 end
 
 --------------------------------------------------------------------------------
@@ -1940,10 +1952,10 @@ local STATE_DISABLED = "0"
 ---@param command CMD
 ---@return CommandDescription?
 Commands.GetUnitCommandDescription = function(unitID, command)
-	local index = spFindUnitCmdDesc(unitID, command) ---@diagnostic disable-line: redundant-parameter -- OK
+	local index = spFindUnitCmdDesc(unitID, command)
 
 	if index ~= nil then
-		return spGetUnitCmdDescs(unitID, index, index)[1] ---@diagnostic disable-line: redundant-parameter -- OK
+		return spGetUnitCmdDescs(unitID, index, index)[1]
 	end
 end
 
