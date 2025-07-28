@@ -85,7 +85,7 @@ local byCommand = CMD.OPT_ALT
 local removeIDs = {}
 
 for command, check in pairs(commandSuspendRemoves) do
-	if command >= 0 and check then
+	if command ~= CMD.NIL and check then
 		removeIDs[#removeIDs + 1] = command
 	end
 end
