@@ -60,31 +60,31 @@ local PARAM_COUNT_MAX = 6       -- Line and Rectangle need 6. Ideally, this woul
 local PARAM_POOL_COUNT_MAX = 64 -- Commands can support a ridiculous number of params though.
 
 ---@alias PRMTYPE string|ParamCountSet
----| "Any"
----| "None"
----| "Mode"
----| "Number"
----| "Object"
----| "Point"
----| "Area"
----| "Front"
----| "Rectangle"
----| "NoneOrMode"
----| "ObjectOrPoint" 
----| "ObjectOrArea"
----| "ObjectOrFront"
----| "ObjectOrRectangle"
----| "PointFacing"
----| "PointLeash"
----| "PointOrArea"
----| "PointOrFront"
----| "Wait"
----| "ObjectAlly"
----| "ObjectEnemy"
----| "UnloadTask"
----| "WorkerTask"
----| "Insert"
----| "Remove"
+---| `"Any"`
+---| `"None"`
+---| `"Mode"`
+---| `"Number"`
+---| `"Object"`
+---| `"Point"`
+---| `"Area"`
+---| `"Front"`
+---| `"Rectangle"`
+---| `"NoneOrMode"`
+---| `"ObjectOrPoint" `
+---| `"ObjectOrArea"`
+---| `"ObjectOrFront"`
+---| `"ObjectOrRectangle"`
+---| `"PointFacing"`
+---| `"PointLeash"`
+---| `"PointOrArea"`
+---| `"PointOrFront"`
+---| `"Wait"`
+---| `"ObjectAlly"`
+---| `"ObjectEnemy"`
+---| `"UnloadTask"`
+---| `"WorkerTask"`
+---| `"Insert"`
+---| `"Remove"`
 ---@alias ParamCount 0|1|2|3|4|5|6|7|8 The number of parameters passed in a command
 ---@alias ParamIndex 1|2|3|4|5|6|7|8 The position of a specific parameter in a command's parameters
 ---@alias ParamCountSet table<ParamCount, true>
