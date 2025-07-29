@@ -328,6 +328,8 @@ local prmTypeToCmdTypeName = {
 	PointOrArea       = CMDTYPE.ICON_AREA, -- close
 	PointOrFront      = CMDTYPE.ICON_FRONT, -- close
 
+	Wait              = CMDTYPE.CUSTOM, -- not even close
+
 	-- Contextual params types
 	ObjectAlly        = CMDTYPE.ICON_UNIT,
 	ObjectEnemy       = CMDTYPE.ICON_UNIT,
@@ -337,7 +339,6 @@ local prmTypeToCmdTypeName = {
 	-- Specific commands
 	Insert            = CMDTYPE.CUSTOM, -- not even close
 	Remove            = CMDTYPE.CUSTOM, -- not even close
-	Wait              = CMDTYPE.NUMBER, -- not even close
 }
 
 for name, cmdType in pairs(prmTypeToCmdTypeName) do
