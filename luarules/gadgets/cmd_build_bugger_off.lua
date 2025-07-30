@@ -17,6 +17,17 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
+local CMD_BUGGER_OFF = Game.CustomCommands.GameCMD.BUGGER_OFF
+
+---@type CommandDescription
+local CMD_BUGGER_OFF_DESC = {
+	id       = CMD_BUGGER_OFF,
+	name     = "Avoid Build Site",
+	type     = CMDTYPE.ICON_AREA, -- 1..3: map position, 4: sourceID
+	hidden   = true,
+	queueing = true,
+}
+
 local shouldNotBuggeroff = {}
 local cachedUnitDefs = {}
 local cachedBuilderTeams = {}
@@ -65,6 +76,7 @@ end
 local slowUpdateBuilders 	= {}
 local watchedBuilders 		= {}
 local builderRadiusOffsets 	= {}
+local commandDependencies   = {}
 local needsUpdate 			= false
 
 local FAST_UPDATE_RADIUS	= 400
@@ -75,7 +87,10 @@ local SEARCH_RADIUS_OFFSET  = 200
 local FAST_UPDATE_FREQUENCY = 30
 local SLOW_UPDATE_FREQUENCY = 60
 local MAX_BUGGEROFF_RADIUS  = 400
-local BUGGEROFF_RADIUS_INCREMENT = FAST_UPDATE_FREQUENCY * 0.5
+local BUGGEROFF_RADIUS_INCREMENT = 4 * Game.squareSize
+
+local goalRadius = Game.squareSize -- strict for now
+local goalIdleRadius = {}
 
 local function watchBuilder(builderID)
 	slowUpdateBuilders[builderID]   = nil
@@ -122,15 +137,16 @@ function gadget:GameFrame(frame)
 		return
 	end
 
-	local builderTeams = {}
-	for builderID, _ in pairs(watchedBuilders) do
-		local cmdID, options, tag, targetX, targetY, targetZ =  Spring.GetUnitCurrentCommand(builderID, 1)
+	local visitedTeams = {}
+	local visitedUnits = {}
+
+	for builderID in pairs(watchedBuilders) do
+		local cmdID, options, tag, targetX, targetY, targetZ =  Spring.GetUnitCurrentCommand(builderID)
 		local isBuilding  	= false
 		local x, y, z		= Spring.GetUnitPosition(builderID)
 		local targetID		= Spring.GetUnitIsBuilding(builderID)
 		local builderTeam   = Spring.GetUnitTeam(builderID);
 		if targetID then isBuilding = true end
-		local visited = {}
 
 		if cmdID == nil or cmdID > -1 or math.distance2d(targetX, targetZ, x, z) > FAST_UPDATE_RADIUS  then
 			slowWatchBuilder(builderID)
@@ -142,25 +158,26 @@ function gadget:GameFrame(frame)
 			local interferingUnits	= Spring.GetUnitsInCylinder(targetX, targetZ, searchRadius)
 
 			-- Make sure at least one builder per player is never told to move
-			if (builderTeams[builderTeam] == nil) then -- I think?
-				visited[builderID] = true
+			if (visitedTeams[builderTeam] == nil) then
+				visitedUnits[builderID] = true
 			end
-			builderTeams[builderTeam] = true
+			visitedTeams[builderTeam] = true
 			-- Escalate the radius every update. We want to send units away the minimum distance, but
 			-- if there are many units in the way, they may cause a traffic jam and need to clear more room.
 			builderRadiusOffsets[builderID] = builderRadiusOffsets[builderID] + BUGGEROFF_RADIUS_INCREMENT
 
 			for _, interferingUnitID in ipairs(interferingUnits) do
-				if builderID ~= interferingUnitID and visited[interferingUnitID] == nil and Spring.GetUnitIsBeingBuilt(interferingUnitID) == false  then
+				if builderID ~= interferingUnitID and visitedUnits[interferingUnitID] == nil and Spring.GetUnitIsBeingBuilt(interferingUnitID) == false  then
 					-- Only buggeroff from one build site at a time
-					visited[interferingUnitID] = true
+					visitedUnits[interferingUnitID] = true
 					local unitX, _, unitZ = Spring.GetUnitPosition(interferingUnitID)
 					if shouldIssueBuggeroff(cachedBuilderTeams[builderID], interferingUnitID, targetX, targetY, targetZ, buggerOffRadius) then
 						local sendX, sendZ = math.closestPointOnCircle(targetX, targetZ, buggerOffRadius, unitX, unitZ)
 
 						if Spring.TestMoveOrder(Spring.GetUnitDefID(interferingUnitID), sendX, targetY, sendZ) then
-							Spring.SetUnitMoveGoal(interferingUnitID, sendX, targetY, sendZ, 2 * Game.squareSize)
-							-- Spring.GiveOrderToUnit(interferingUnitID, CMD.INSERT, {0, CMD.MOVE, CMD.OPT_INTERNAL, sendX, targetY, sendZ}, CMD.OPT_ALT )
+							goalIdleRadius[interferingUnitID] = 0
+							Spring.GiveOrderToUnit(interferingUnitID, CMD.INSERT, {0, CMD_BUGGER_OFF, 0, sendX, targetY, sendZ, builderID}, CMD.OPT_ALT)
+							Spring.SetUnitMoveGoal(interferingUnitID, sendX, targetY, sendZ, goalRadius) -- even if command is mysteriously disallowed
 						end
 					end
 				end
@@ -216,6 +233,25 @@ function gadget:MetaUnitAdded(unitID, unitDefID, unitTeam)
 	end
 end
 
+---@type CreateCommand
+local removeBuggerOffs = { CMD.REMOVE, CMD_BUGGER_OFF, CMD.OPT_ALT }
+
+function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
+	if builderID and commandDependencies[builderID] then
+		if Spring.GiveOrderArrayToUnitMap(commandDependencies[builderID], removeBuggerOffs) then
+			commandDependencies[builderID] = nil
+		else
+			Spring.Echo("Something went wrong")
+		end
+	end
+end
+
+function gadget:UnitFinished(unitID, unitDefID, unitTeam)
+	if not shouldNotBuggeroff[unitDefID] then
+		Spring.InsertUnitCmdDesc(unitID, CMD_BUGGER_OFF_DESC)
+	end
+end
+
 function gadget:Initialize()
 	for _, teamID in ipairs(Spring.GetTeamList()) do
 		local unitList = Spring.GetTeamUnits(teamID)
@@ -235,5 +271,33 @@ end
 function gadget:UnitCommand(unitID, unitDefID, unitTeamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
 	if cachedUnitDefs[unitDefID].isBuilder then
 		slowWatchBuilder(unitID)
+	end
+	if cmdID == CMD_BUGGER_OFF then
+		Spring.SetUnitMoveGoal(unitID, cmdParams[1], cmdParams[2], cmdParams[3], goalRadius)
+	end
+end
+
+function gadget:CommandFallback(unitID, unitDefID, unitTeamID, cmdID, cmdParams, cmdOptions, cmdTag)
+	if cmdID == CMD_BUGGER_OFF then
+		local ux, uy, uz = Spring.GetUnitPosition(unitID)
+		local tx, ty, tz = cmdParams[1], cmdParams[2], cmdParams[3]
+		Spring.SetUnitMoveGoal(unitID, tx, ty, tz, goalRadius)
+		local unitGoalRadius = goalRadius + goalIdleRadius[unitID]
+
+		if not Spring.GetUnitWorkerTask(cmdParams[4]) and math.distance2d(ux, uz, tx, tz) >= goalRadius then
+			-- Add impatience:
+			goalIdleRadius[unitID] = goalIdleRadius[unitID] + 1
+			return true, false -- used / remove
+		else
+			return true, true
+		end
+	end
+
+	return false
+end
+
+function gadget:UnitCmdDone(unitID, unitDefID, unitTeamID, cmdID, cmdParams, cmdOptions, cmdTag)
+	if cmdID == CMD_BUGGER_OFF then
+		Spring.MarkerAddPoint(Spring.GetUnitPosition(unitID))
 	end
 end
