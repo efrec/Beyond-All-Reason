@@ -214,6 +214,56 @@ local function attachToUnit(baseID, baseDefID, baseTeam)
 	end
 end
 
+-- Command helpers -------------------------------------------------------------
+
+local commandParams = table.new(6, 0) -- helper table
+
+---@param unitID integer
+---@param index integer?
+---@return CMD? command
+---@return number[] params
+---@return table<CommandParamsCount, true> PRMTYPE
+---@return CommandOptionBit? options
+local function getCommandInfo(unitID, index)
+	local command, options, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
+	local paramsType = command ~= nil and commandParamForward[command] or PRM_NUL
+	local p = commandParams
+	p[1], p[2], p[3], p[4], p[5], p[6] = p1, p2, p3, p4, p5, p6
+	return command, p, paramsType, options
+end
+
+local getReadHandle
+do
+	local callAsTeamOptions = { read = 0 }
+	---@param teamID number|integer
+	---@return CallAsTeamOptions
+	getReadHandle = function(teamID)
+		callAsTeamOptions.read = teamID
+		return callAsTeamOptions
+	end
+end
+
+local function isUnitInBuildRadius(turretID, unitID)
+	local separation = spGetUnitSeparation(turretID, unitID, true, true)
+	if separation ~= nil then
+		local radius = spGetUnitEffectiveBuildRange(turretID, spGetUnitDefID(unitID))
+		return radius >= separation
+	else
+		return false
+	end
+end
+
+local function isFeatureInBuildRadius(turretID, featureID, radius)
+	local separation = spGetUnitFeatureSeparation(turretID, featureID, true)
+	if separation ~= nil then
+		return radius >= separation - spGetFeatureRadius(featureID)
+	else
+		return false
+	end
+end
+
+-- Process commands ------------------------------------------------------------
+
 local function auto_repair_routine(baseUnitID, nanoID)
 	local transporterID = SpGetUnitTransporter(baseUnitID)
 	if transporterID then
@@ -350,6 +400,8 @@ local function auto_repair_routine(baseUnitID, nanoID)
 
 end
 
+--------------------------------------------------------------------------------
+-- Engine call-ins -------------------------------------------------------------
 
 function gadget:GameFrame(gameFrame)
 
