@@ -89,6 +89,7 @@ local SpGetUnitHealth = Spring.GetUnitHealth
 local SpGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
 local SpGetUnitDefDimensions = Spring.GetUnitDefDimensions
 local SpGetFeatureRadius = Spring.GetFeatureRadius
+local spGetUnitPosition = Spring.GetUnitPosition
 local SpGetUnitRadius = Spring.GetUnitRadius
 local SpGetUnitFeatureSeparation = Spring.GetUnitFeatureSeparation
 local SpGetUnitSeparation = Spring.GetUnitSeparation
