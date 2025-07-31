@@ -17,6 +17,60 @@ if not gadgetHandler:IsSyncedCode() then
     return false
 end
 
+--------------------------------------------------------------------------------
+-- Configuration ---------------------------------------------------------------
+
+local updateInterval = 0.33 -- in seconds
+
+--------------------------------------------------------------------------------
+-- Command introspection -------------------------------------------------------
+
+local PRM_NUL = {} ---@type CommandParamsType Null params set
+
+---Parameter counts => allowed
+---@type table<string, CommandParamsType>
+local countAllowed = {
+	changeState = { [0] = true, [1] = true }, -- [0] option [1] mode
+	buildOrder  = { [3] = true, [4] = true }, -- [3] xyz [4] xyz, facing
+	buildTarget = { [1] = true, [5] = true }, -- [1] object [4] xyz, area radius [5] object, xyz, leash radius
+	mapPosition = { [3] = true, [4] = true }, -- [3] xyz [4] xyz, area radius
+	waitCommand = { [0] = true, [1] = true, [2] = true, [6] = true }, -- see WaitCommandsAI.cpp
+}
+
+-- Speedups and reverse lookups:
+
+local PRM_BUILD = countAllowed.buildOrder
+local PRM_WAIT = countAllowed.waitCommand
+local PRMTYPE_COORDS = { [countAllowed.buildOrder] = true, [countAllowed.mapPosition] = true, }
+local PRMTYPE_OBJECT = { [countAllowed.buildTarget] = true, }
+
+---The attached turret has the statistics of its base unit
+-- but can process only a subset of the base unit's orders:
+---@type table<CMD, table<CommandParamsCount, true>>
+local commandParamForward = setmetatable({
+	-- Engine commands:
+	[CMD.WAIT]         = countAllowed.waitCommand,
+	[CMD.DEATHWAIT]    = countAllowed.waitCommand,
+	[CMD.GATHERWAIT]   = countAllowed.waitCommand,
+	[CMD.TIMEWAIT]     = countAllowed.waitCommand,
+
+	[CMD.CAPTURE]      = countAllowed.buildTarget,
+	[CMD.RECLAIM]      = countAllowed.buildTarget,
+	[CMD.REPAIR]       = countAllowed.buildTarget,
+	[CMD.RESURRECT]    = countAllowed.buildTarget,
+
+	[CMD.RESTORE]      = countAllowed.mapPosition,
+
+	-- Game commands:
+	[GameCMD.PRIORITY] = countAllowed.noneOrMode,
+}, {
+	__index = function(self, key)
+		return key < 0 and PRM_BUILD or PRM_NUL
+	end
+})
+
+--------------------------------------------------------------------------------
+-- Global values ---------------------------------------------------------------
 
 local CMD_REPAIR = CMD.REPAIR
 local CMD_RECLAIM = CMD.RECLAIM
@@ -44,10 +98,14 @@ local SpGetHeadingFromVector = Spring.GetHeadingFromVector
 local SpGetUnitHeading = Spring.GetUnitHeading
 local SpCallCOBScript = Spring.CallCOBScript
 
+--------------------------------------------------------------------------------
+-- Initialize ------------------------------------------------------------------
+
 --repairs and reclaims start at the edge of the unit radius
 --so we need to increase our search radius by the maximum unit radius
 local max_unit_radius = 0
 function gadget:Initialize()
+	updateInterval = math.clamp(updateInterval * Game.gameSpeed, 1, Game.gameSpeed)
 
 	local radius = 0
 	for ix, udef in pairs(UnitDefs) do
@@ -238,7 +296,7 @@ end
 
 function gadget:GameFrame(gameFrame)
 
-	if gameFrame % 15 == 0 then
+	if gameFrame % updateInterval == 0 then
 	    -- go on a slowupdate cycle
 		for nanoID, baseUnitID in pairs(attached_builders) do	
 			CallAsTeam(Spring.GetUnitTeam(baseUnitID), auto_repair_routine, nanoID, attached_builder_def[nanoID], baseUnitID)
