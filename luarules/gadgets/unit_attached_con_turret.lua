@@ -72,9 +72,13 @@ local commandParamForward = setmetatable({
 --------------------------------------------------------------------------------
 -- Global values ---------------------------------------------------------------
 
-local CMD_REPAIR = CMD.REPAIR
+local CMD_GUARD = CMD.GUARD
 local CMD_RECLAIM = CMD.RECLAIM
+local CMD_REMOVE = CMD.REMOVE
+local CMD_REPAIR = CMD.REPAIR
 local CMD_STOP = CMD.STOP
+local OPT_ALT = CMD.OPT_ALT
+local OPT_INTERNAL = CMD.OPT_INTERNAL
 local SpGetUnitCommands = Spring.GetUnitCommands
 local SpGiveOrderToUnit = Spring.GiveOrderToUnit
 local SpGetUnitPosition = Spring.GetUnitPosition
@@ -94,6 +98,8 @@ local SpGetUnitRadius = Spring.GetUnitRadius
 local SpGetUnitFeatureSeparation = Spring.GetUnitFeatureSeparation
 local SpGetUnitSeparation = Spring.GetUnitSeparation
 local SpGetUnitTransporter = Spring.GetUnitTransporter
+local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
+local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
 local SpGetHeadingFromVector = Spring.GetHeadingFromVector
 local SpGetUnitHeading = Spring.GetUnitHeading
@@ -264,140 +270,54 @@ end
 
 -- Process commands ------------------------------------------------------------
 
-local function auto_repair_routine(baseUnitID, nanoID)
-	local transporterID = SpGetUnitTransporter(baseUnitID)
-	if transporterID then
-		Spring.GiveOrderToUnit(nanoID, CMD_STOP, {}, 0)
-	return
-	end
-	-- first, check command the body is performing
-	local commandQueue = SpGetUnitCommands(baseToTurretID[nanoID], 1)
-	if (commandQueue[1] ~= nil and commandQueue[1]["id"] < 0) then
-        -- build command
-		-- The attached turret must have the same buildlist as the body for this to work correctly
-		--for XX, YY, baseUnitID in pairs(commandQueue[1]["params"]) do
-		--	Spring.Echo(XX, YY)
-		--end
-        SpGiveOrderToUnit(nanoID, commandQueue[1]["id"], commandQueue[1]["params"])
-    end
-    if (commandQueue[1] ~= nil and commandQueue[1]["id"] == CMD_REPAIR) then
-        -- repair command
-		--for XX, YY, baseUnitID in pairs(commandQueue[1]["params"]) do
-		--	Spring.Echo(XX, YY)
-		--end
-		if #commandQueue[1]["params"] ~= 4 then
-			SpGiveOrderToUnit(nanoID, CMD_REPAIR, commandQueue[1]["params"])
-		end
-    end
-	if (commandQueue[1] ~= nil and commandQueue[1]["id"] == CMD_RECLAIM) then
-        -- reclaim command
-		if #commandQueue[1]["params"] ~= 4 then
-			SpGiveOrderToUnit(nanoID, CMD_RECLAIM, commandQueue[1]["params"])
-		end
-    end
+-- FIXME: Added in next commit:
+local tryOrderDirection
+local applyTurretOrder
+local tryExecuteFight
 
-	-- next, check to see if current command (including command from chassis) is in range
-	commandQueue = SpGetUnitCommands(nanoID, 1)
-	local ux, uy, uz = SpGetUnitPosition(nanoID)
-	local tx, ty, tz
-	local radius = turretBuildRadius[nanoID]
-	local distance = radius^2 + 1
-	local object_radius = 0
-	if (commandQueue[1] ~= nil and commandQueue[1]["id"] < 0) then
-        -- out of range build command
-		object_radius = SpGetUnitDefDimensions(-commandQueue[1]["id"]).radius
-		distance = math.sqrt((ux-commandQueue[1]["params"][1])^2 + (uz-commandQueue[1]["params"][3])^2) - object_radius
-    end
-    if (commandQueue[1] ~= nil and commandQueue[1]["id"] == CMD_REPAIR) then
-        -- out of range repair command
-		if (commandQueue[1]["params"][1] >= Game.maxUnits) then
-			tx, ty, tz = SpGetFeaturePosition(commandQueue[1]["params"][1] - Game.maxUnits)
-			object_radius = SpGetFeatureRadius(commandQueue[1]["params"][1] - Game.maxUnits)
-		else
-			tx, ty, tz = SpGetUnitPosition(commandQueue[1]["params"][1])
-			object_radius = SpGetUnitRadius(commandQueue[1]["params"][1])
-		end
-		if tx ~= nil then
-			distance = math.sqrt((ux-tx)^2 + (uz-tz)^2) - object_radius
-		end
-    end
-	if (commandQueue[1] ~= nil and commandQueue[1]["id"] == CMD_RECLAIM) then
-		-- out of range reclaim command
-		if (commandQueue[1]["params"][1] >= Game.maxUnits) then
-			tx, ty, tz = SpGetFeaturePosition(commandQueue[1]["params"][1] - Game.maxUnits)
-			object_radius = SpGetFeatureRadius(commandQueue[1]["params"][1] - Game.maxUnits)
-		else
-			tx, ty, tz = SpGetUnitPosition(commandQueue[1]["params"][1])
-			object_radius = SpGetUnitRadius(commandQueue[1]["params"][1])
-		end
-		if tx ~= nil then
-			distance = math.sqrt((ux-tx)^2 + (uz-tz)^2) - object_radius
-		end
-    end
-	if tx and distance <= radius then
-		--let auto con turret continue its thing
-		--update heading, by calling into unit script
-		heading1 = SpGetHeadingFromVector(ux-tx, uz-tz)
-		heading2 = SpGetUnitHeading(nanoID)
-		SpCallCOBScript(nanoID, 'UpdateHeading', 0, heading1-heading2+32768)
+---Synchronize the turret unit to the base unit's current activity,
+---then attempt to continue an ongoing command already in progress,
+---then attempt to find an action to perform independently,
+---then forward any command to the base, if it is not busy.
+---@param baseID integer
+---@param turretID integer
+local function updateTurretOrders(baseID, turretID)
+	local abilities = turretAbilities[turretID]
+	local buildRadius = turretBuildRadius[turretID]
+
+	local command, params, paramsType, options = getCommandInfo(baseID)
+	if paramsType == PRM_WAIT then
 		return
-	end
-
-	-- next, check to see if valid repair/reclaim targets in range
-	local near_units = SpGetUnitsInCylinder(ux, uz, radius + unitDefRadiusMax, -3)
-
-	for XX, near_unit in pairs(near_units) do
-		-- check for free repairs
-		local near_defid = SpGetUnitDefID(near_unit)
-		if ( (SpGetUnitSeparation(near_unit, nanoID, true) - SpGetUnitRadius(near_unit)) < radius) then
-			local health, maxHealth, paralyzeDamage, captureProgress, buildProgress = SpGetUnitHealth(near_unit)
-			if buildProgress == 1 and health < maxHealth and UnitDefs[near_defid].repairable and near_unit ~= baseToTurretID[nanoID] then
-				SpGiveOrderToUnit(nanoID, CMD_REPAIR, {near_unit})
-				return
-			end
+	elseif command ~= nil then
+		if command ~= CMD_GUARD and
+			math.bit_and(options, OPT_INTERNAL) == OPT_INTERNAL and
+			spGetUnitCurrentCommand(baseID, 2) == CMD_GUARD
+		then
+			return
+		elseif paramsType ~= nil and paramsType[#params] ~= nil then
+			spGiveOrderToUnit(turretID, command, params)
 		end
 	end
 
-	local near_enemies = SpGetUnitsInCylinder(ux, uz, radius + unitDefRadiusMax, -4)
-
-	for XX, near_unit in pairs(near_enemies) do
-		-- check for enemy to reclaim
-		local near_defid = SpGetUnitDefID(near_unit)
-		if ( (SpGetUnitSeparation(near_unit, nanoID, true) - SpGetUnitRadius(near_unit)) < radius) then
-			if UnitDefs[near_defid].reclaimable then
-				SpGiveOrderToUnit(nanoID, CMD_RECLAIM, {near_unit})
-				return
-			end
+	command, params, paramsType, options = getCommandInfo(turretID)
+	local dx, dz
+	if paramsType == PRM_WAIT then
+		return
+	elseif command ~= nil then
+		dx, dz = tryOrderDirection(paramsType, params, turretID, buildRadius)
+		if dx ~= nil then
+			applyTurretOrder(turretID, dx, dz)
+			return
 		end
 	end
+	local turretCommand = command
 
-	local near_features = SpGetFeaturesInCylinder(ux, uz, radius + unitDefRadiusMax)
-	for XX, near_feature in pairs(near_features) do
-		-- check for non resurrectable feature to reclaim
-		local near_defid = SpGetFeatureDefID(near_feature)
-		if ( (SpGetUnitFeatureSeparation(nanoID, near_feature, true) - SpGetFeatureRadius(near_feature)) < radius) then
-			if FeatureDefs[near_defid].reclaimable and SpGetFeatureResurrect(near_feature) == "" then
-				SpGiveOrderToUnit(nanoID, CMD_RECLAIM, {near_feature+Game.maxUnits})
-				return
-			end
-		end
+	dx, dz, command, params = tryExecuteFight(baseID, turretID, abilities, buildRadius)
+	if dx ~= nil then
+		applyTurretOrder(turretID, dx, dz, baseID)
+	elseif turretCommand ~= nil then
+		spGiveOrderToUnit(turretID, CMD_REMOVE, turretCommand, OPT_ALT)
 	end
-
-	for XX, near_unit in pairs(near_units) do
-		-- check for nanoframe to build
-		if SpGetUnitAllyTeam(near_unit) == SpGetUnitAllyTeam(nanoID) then
-			if ( (SpGetUnitSeparation(near_unit, nanoID, true) - SpGetUnitRadius(near_unit)) < radius) then
-				if SpGetUnitIsBeingBuilt(near_unit) then
-					SpGiveOrderToUnit(nanoID, CMD_REPAIR, {near_unit})
-					return
-				end
-			end
-		end
-	end
-
-	-- give stop command to attached con turret if nothing to do
-	SpGiveOrderToUnit(nanoID, CMD.STOP)
-
 end
 
 --------------------------------------------------------------------------------
