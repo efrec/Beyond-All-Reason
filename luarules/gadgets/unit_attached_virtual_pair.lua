@@ -17,47 +17,6 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
--- Notes -----------------------------------------------------------------------
---
--- This adds two concepts at once, so it's good to distinguish them somewhat:
--- the idea of "paired" units and of a "virtual" unit. For now, there is no real
--- separation of the two concepts. There are no "independent virtual units".
---
--- Pairing is conceptually simple. The two units do not exist apart from one
--- another once completed. The ideal paired units would *never* exist apart from
--- one another -- since they have attached models which appear to be a single
--- model, there should be a unified model used from UnitCreated to UnitFinished.
--- Then, this joined model would be replaced by the attached and attachee pair.
---
--- Virtual-ness depends on viewpoint. The engine may be presented with a unit
--- with statistics that it cannot meaningfully use, like a movement speed -- its
--- ability to move being restricted by its attachment to its non-virtual base.
--- The game code is presented with a unit that can be found through unit search,
--- can receive orders, and can be queried for meaningful information, but is not
--- "real" like other units are "real". The player is presented with whatever
--- result the virtual unit is intended to achieve but cannot distinguish these
--- effects meaningfully from those of the non-virtual base.
---
--- The restrictions placed on a virtual unit, then, are differently meaningful
--- in different contexts, too. To boil down that comlexity into a more simple
--- solution, I think a couple of real restrictions and one somewhat arbitrary
--- one (#3 below) are necessary:
---
--- 1. Virtual units cannot interact via the UI nor via physics interactions.
--- 2. Virtual units cannot be detected nor targeted by other units.
--- 3. Virtual units cannot have a stateful command queue (length > 1).
---
--- Other requirements seem to arise from combining the two factors together:
---
--- 1. Attached units cannot move independently so must not accept move goals.
--- 2. Attached units cannot have different state or status than the base unit.
--- 3. Attached units cannot target one another or even be aware of one another.
--- ... etc.
---
--- But the real requirements can be assigned to pairing or to virtuality.
---
---------------------------------------------------------------------------------
-
 --------------------------------------------------------------------------------
 -- Global values ---------------------------------------------------------------
 
