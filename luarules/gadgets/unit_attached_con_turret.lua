@@ -101,19 +101,96 @@ local SpCallCOBScript = Spring.CallCOBScript
 --------------------------------------------------------------------------------
 -- Initialize ------------------------------------------------------------------
 
---repairs and reclaims start at the edge of the unit radius
---so we need to increase our search radius by the maximum unit radius
-local max_unit_radius = 0
-function gadget:Initialize()
-	updateInterval = math.clamp(updateInterval * Game.gameSpeed, 1, Game.gameSpeed)
+updateInterval = math.floor(updateInterval * Game.gameSpeed + 0.5)
+updateInterval = math.clamp(updateInterval, 1, Game.gameSpeed)
+local updateOffset = math.round(updateInterval * 0.5)
 
-	local radius = 0
-	for ix, udef in pairs(UnitDefs) do
-		dimensions = SpGetUnitDefDimensions(udef.id)
-		radius = dimensions.radius
-		max_unit_radius = math.max(radius, max_unit_radius)
+local baseToTurretDefID = {}
+local baseDefAttachIndex = {}
+local turretDefAbilities = {}
+local repairableDefID = {}
+local reclaimableDefID = {}
+local capturableDefID = {}
+local unitDefRadiusMax = 0
+
+local combatReclaimDefID = {}
+local resurrectableDefID = {}
+
+local baseToTurretID = {}
+
+local function parseBaseUnitDef(unitDef)
+	local turretDef = UnitDefNames[unitDef.customParams.attached_con_turret]
+	local abilities
+	local pieceIndex = tonumber(unitDef.customParams.attached_piece_index)
+	local success = true
+
+	if turretDef then
+		abilities = {
+			[CMD.CAPTURE]   = turretDef.canCapture and turretDef.captureSpeed > 0 or nil,
+			[CMD.RECLAIM]   = turretDef.canReclaim and turretDef.reclaimSpeed > 0 or nil,
+			[CMD.REPAIR]    = turretDef.canRepair and turretDef.repairSpeed > 0 or nil,
+			[CMD.RESTORE]   = turretDef.canRestore and turretDef.terraformSpeed > 0 or nil,
+			[CMD.RESURRECT] = turretDef.canResurrect and turretDef.resurrectSpeed > 0 or nil,
+			-- We have two other types that complicate the issue.
+			-- These depend on move state (assist) and build option (build).
+			assist          = turretDef.canAssist and turretDef.buildSpeed > 0 or nil,
+			build           = turretDef.buildOptions and next(turretDef.buildOptions) and true or nil,
+		}
+
+		if next(abilities) == nil then
+			local message = "Con turret def has no builder abilities: "
+			Spring.Log(gadget:GetInfo().name, LOG.ERROR, message .. unitDef.name)
+			success = false
+		end
+	else
+		local message = "Incorrect or missing attached con def: "
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, message .. unitDef.name)
+		success = false
 	end
 
+	if not pieceIndex then
+		local message = "Incorrect or missing attach piece index: "
+		Spring.Log(gadget:GetInfo().name, LOG.ERROR, message .. unitDef.name)
+		success = false
+	end
+
+	if success then
+		return turretDef.id, abilities, pieceIndex
+	end
+end
+
+for unitDefID, unitDef in ipairs(UnitDefs) do
+	if unitDef.customParams.attached_con_turret and not (unitDef.extractsMetal > 0) then
+		local turretDefID, abilities, pieceNumber = parseBaseUnitDef(unitDef)
+		if turretDefID then
+			baseToTurretDefID[unitDefID] = turretDefID
+			turretDefAbilities[turretDefID] = abilities
+			baseDefAttachIndex[unitDefID] = pieceNumber
+			GG.addPairedUnitDef(unitDefID, turretDefID)
+		end
+	end
+end
+
+for unitDefID, unitDef in ipairs(UnitDefs) do
+	unitDefRadiusMax = math.max(unitDef.radius, unitDefRadiusMax)
+	if unitDef.capturable then
+		capturableDefID[unitDefID] = true
+	end
+	if unitDef.reclaimable then
+		reclaimableDefID[unitDefID] = true
+	end
+	if unitDef.repairable then
+		repairableDefID[unitDefID] = true
+	end
+end
+
+for featureDefID, featureDef in ipairs(FeatureDefs) do
+	if featureDef.reclaimable and (featureDef.resurrectable == 0 or not featureDef.customParams.fromunit) then
+		combatReclaimDefID[featureDefID] = true
+	end
+	if featureDef.resurrectable and (featureDef.resurrectable ~= 0 and not featureDef.customParams.fromunit) then
+		resurrectableDefID[featureDefID] = true
+	end
 end
 
 local function auto_repair_routine(nanoID, unitDefID, baseUnitID)
@@ -123,7 +200,7 @@ local function auto_repair_routine(nanoID, unitDefID, baseUnitID)
 	return
 	end
 	-- first, check command the body is performing
-	local commandQueue = SpGetUnitCommands(attached_builders[nanoID], 1)
+	local commandQueue = SpGetUnitCommands(baseToTurretID[nanoID], 1)
 	if (commandQueue[1] ~= nil and commandQueue[1]["id"] < 0) then
         -- build command
 		-- The attached turret must have the same buildlist as the body for this to work correctly
@@ -196,21 +273,21 @@ local function auto_repair_routine(nanoID, unitDefID, baseUnitID)
 	end
 
 	-- next, check to see if valid repair/reclaim targets in range
-	local near_units = SpGetUnitsInCylinder(ux, uz, radius + max_unit_radius, -3)
+	local near_units = SpGetUnitsInCylinder(ux, uz, radius + unitDefRadiusMax, -3)
 
 	for XX, near_unit in pairs(near_units) do
 		-- check for free repairs
 		local near_defid = SpGetUnitDefID(near_unit)
 		if ( (SpGetUnitSeparation(near_unit, nanoID, true) - SpGetUnitRadius(near_unit)) < radius) then
 			local health, maxHealth, paralyzeDamage, captureProgress, buildProgress = SpGetUnitHealth(near_unit)
-			if buildProgress == 1 and health < maxHealth and UnitDefs[near_defid].repairable and near_unit ~= attached_builders[nanoID] then
+			if buildProgress == 1 and health < maxHealth and UnitDefs[near_defid].repairable and near_unit ~= baseToTurretID[nanoID] then
 				SpGiveOrderToUnit(nanoID, CMD_REPAIR, {near_unit})
 				return
 			end
 		end
 	end
 
-	local near_enemies = SpGetUnitsInCylinder(ux, uz, radius + max_unit_radius, -4)
+	local near_enemies = SpGetUnitsInCylinder(ux, uz, radius + unitDefRadiusMax, -4)
 
 	for XX, near_unit in pairs(near_enemies) do
 		-- check for enemy to reclaim
@@ -223,7 +300,7 @@ local function auto_repair_routine(nanoID, unitDefID, baseUnitID)
 		end
 	end
 
-	local near_features = SpGetFeaturesInCylinder(ux, uz, radius + max_unit_radius)
+	local near_features = SpGetFeaturesInCylinder(ux, uz, radius + unitDefRadiusMax)
 	for XX, near_feature in pairs(near_features) do
 		-- check for non resurrectable feature to reclaim
 		local near_defid = SpGetFeatureDefID(near_feature)
@@ -252,10 +329,9 @@ local function auto_repair_routine(nanoID, unitDefID, baseUnitID)
 
 end
 
-attached_builders = {}
 attached_builder_def = {}
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
-	attached_builders[unitID] = nil
+	baseToTurretID[unitID] = nil
 	attached_builder_def[unitID] = nil
 end
 
@@ -274,7 +350,7 @@ function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 		-- makes the attached con turret as non-interacting as possible
 		Spring.SetUnitBlocking(nanoID, false, false, false)
 		Spring.SetUnitNoSelect(nanoID, true)
-		attached_builders[nanoID] = unitID
+		baseToTurretID[unitID] = nanoID
 		attached_builder_def[nanoID] = SpGetUnitDefID(nanoID)
 	end
 	if unitDef.name == "legmohobp" then
@@ -288,7 +364,7 @@ function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 		-- makes the attached con turret as non-interacting as possible 
 		Spring.SetUnitBlocking(nanoID, false, false, false)
         Spring.SetUnitNoSelect(nanoID, false)
-		attached_builders[nanoID] = unitID
+		baseToTurretID[unitID] = nanoID
 		attached_builder_def[nanoID] = SpGetUnitDefID(nanoID)
 	end
 
@@ -296,9 +372,9 @@ end
 
 function gadget:GameFrame(gameFrame)
 
-	if gameFrame % updateInterval == 0 then
+	if gameFrame % updateInterval == updateOffset then
 	    -- go on a slowupdate cycle
-		for nanoID, baseUnitID in pairs(attached_builders) do	
+		for baseUnitID, nanoID in pairs(baseToTurretID) do	
 			CallAsTeam(Spring.GetUnitTeam(baseUnitID), auto_repair_routine, nanoID, attached_builder_def[nanoID], baseUnitID)
 		end
 	end
