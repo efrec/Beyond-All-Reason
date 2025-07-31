@@ -94,6 +94,7 @@ local spGetUnitTeam = Spring.GetUnitTeam
 local spCallCOBScript = Spring.CallCOBScript
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
+local resolveCommand = Spring.Utilities.Commands.ResolveCommand
 local tryGiveOrder = Spring.Utilities.Commands.TryGiveOrder
 
 local CMD_GUARD = CMD.GUARD
@@ -557,4 +558,31 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 	baseToTurretID[unitID] = nil
 	turretAbilities[unitID] = nil
 	turretBuildRadius[unitID] = nil
+end
+
+function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOpts, cmdTag, playerID, fromSynced, fromLua)
+	if cmdTag == 0 and baseToTurretID[unitID] ~= nil then
+		-- Forward to the turret. Issues with paired units targeting one another
+		-- (and so on) are handled separately in unit_attached_virtual_pair.lua.
+		local turretID = baseToTurretID[unitID]
+
+		cmdID, cmdParams = resolveCommand(cmdID, cmdParams)
+
+		if cmdID >= 0 then
+			if commandParamForward[cmdID][#cmdParams] then
+				spGiveOrderToUnit(turretID, cmdID, cmdParams, cmdOpts)
+			end
+		else
+			-- To avoid checking build options, they are not passed to the turret.
+			-- When the build frame is already placed, though, issue a CMD_REPAIR.
+			local buildFrames = CallAsTeam(getReadHandle(unitTeam),
+				spGetUnitsInCylinder, cmdParams[1], cmdParams[3], Game.squareSize, FILTER_ALLY_UNITS)
+
+			for _, assistID in ipairs(buildFrames) do
+				if spGetUnitIsBeingBuilt(assistID) and -cmdID == spGetUnitDefID(assistID) then
+					spGiveOrderToUnit(turretID, CMD_REPAIR, assistID)
+				end
+			end
+		end
+	end
 end
