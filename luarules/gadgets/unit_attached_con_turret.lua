@@ -111,6 +111,8 @@ local FEATURE_BASE_INDEX = Game.maxUnits
 local FILTER_ALLY_UNITS = -3
 local FILTER_ENEMY_UNITS = -4
 
+local getUnitIsSuspended = GG.GetUnitIsSuspended
+
 --------------------------------------------------------------------------------
 -- Initialize ------------------------------------------------------------------
 
@@ -541,9 +543,11 @@ end
 function gadget:GameFrame(gameFrame)
 	if gameFrame % updateInterval == updateOffset then
 		for baseID, turretID in pairs(baseToTurretID) do
-			local unitTeam = spGetUnitTeam(baseID)
-			local teamRead = getReadHandle(unitTeam)
-			CallAsTeam(teamRead, updateTurretOrders, baseID, turretID)
+			if not getUnitIsSuspended(turretID) then
+				local unitTeam = spGetUnitTeam(baseID)
+				local teamRead = getReadHandle(unitTeam)
+				CallAsTeam(teamRead, updateTurretOrders, baseID, turretID)
+			end
 		end
 	end
 end
