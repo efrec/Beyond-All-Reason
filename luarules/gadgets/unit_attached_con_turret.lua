@@ -117,6 +117,8 @@ local combatReclaimDefID = {}
 local resurrectableDefID = {}
 
 local baseToTurretID = {}
+local turretAbilities = {}
+local turretBuildRadius = {}
 
 local function parseBaseUnitDef(unitDef)
 	local turretDef = UnitDefNames[unitDef.customParams.attached_con_turret]
@@ -193,7 +195,25 @@ for featureDefID, featureDef in ipairs(FeatureDefs) do
 	end
 end
 
-local function auto_repair_routine(nanoID, unitDefID, baseUnitID)
+--------------------------------------------------------------------------------
+-- Local functions -------------------------------------------------------------
+
+local function attachToUnit(baseID, baseDefID, baseTeam)
+	local turretDefID = baseToTurretDefID[baseDefID]
+	local ux, uy, uz = spGetUnitPosition(baseID)
+	local facing = Spring.GetUnitBuildFacing(baseID)
+	local turretID = Spring.CreateUnit(turretDefID, ux, uy, uz, facing, baseTeam)
+	if turretID and GG.addPairedUnit(baseID, turretID, baseDefAttachIndex[baseDefID]) then
+		baseToTurretID[baseID] = turretID
+		turretBuildRadius[turretID] = UnitDefs[turretDefID].buildDistance
+		turretAbilities[turretID] = turretDefAbilities[turretDefID]
+		return true
+	else
+		Spring.DestroyUnit(baseID)
+	end
+end
+
+local function auto_repair_routine(baseUnitID, nanoID)
 	local transporterID = SpGetUnitTransporter(baseUnitID)
 	if transporterID then
 		Spring.GiveOrderToUnit(nanoID, CMD_STOP, {}, 0)
@@ -229,7 +249,7 @@ local function auto_repair_routine(nanoID, unitDefID, baseUnitID)
 	commandQueue = SpGetUnitCommands(nanoID, 1)
 	local ux, uy, uz = SpGetUnitPosition(nanoID)
 	local tx, ty, tz
-	local radius = UnitDefs[unitDefID].buildDistance
+	local radius = turretBuildRadius[nanoID]
 	local distance = radius^2 + 1
 	local object_radius = 0
 	if (commandQueue[1] ~= nil and commandQueue[1]["id"] < 0) then
@@ -329,54 +349,26 @@ local function auto_repair_routine(nanoID, unitDefID, baseUnitID)
 
 end
 
-attached_builder_def = {}
-function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
-	baseToTurretID[unitID] = nil
-	attached_builder_def[unitID] = nil
-end
-
-function gadget:UnitFinished(unitID, unitDefID, unitTeam)
-
-	local unitDef = UnitDefs[unitDefID]
-	-- for now, just corvac gets an attached con turret
-	if unitDef.name == "corvac" then
-		local xx, yy, zz = SpGetUnitPosition(unitID)
-		nanoID = Spring.CreateUnit("corvacct", xx, yy, zz, 0, Spring.GetUnitTeam(unitID) )
-		if not nanoID then
-			-- unit limit hit or invalid spawn surface
-			return
-		end
-		Spring.UnitAttach(unitID, nanoID, 3)
-		-- makes the attached con turret as non-interacting as possible
-		Spring.SetUnitBlocking(nanoID, false, false, false)
-		Spring.SetUnitNoSelect(nanoID, true)
-		baseToTurretID[unitID] = nanoID
-		attached_builder_def[nanoID] = SpGetUnitDefID(nanoID)
-	end
-	if unitDef.name == "legmohobp" then
-		local xx, yy, zz = SpGetUnitPosition(unitID)
-		nanoID = Spring.CreateUnit("legmohobpct", xx, yy, zz, 0, Spring.GetUnitTeam(unitID) )
-		if not nanoID then
-			-- unit limit hit or invalid spawn surface
-			return
-		end
-		Spring.UnitAttach(unitID, nanoID, 3)
-		-- makes the attached con turret as non-interacting as possible 
-		Spring.SetUnitBlocking(nanoID, false, false, false)
-        Spring.SetUnitNoSelect(nanoID, false)
-		baseToTurretID[unitID] = nanoID
-		attached_builder_def[nanoID] = SpGetUnitDefID(nanoID)
-	end
-
-end
 
 function gadget:GameFrame(gameFrame)
 
 	if gameFrame % updateInterval == updateOffset then
 	    -- go on a slowupdate cycle
 		for baseUnitID, nanoID in pairs(baseToTurretID) do	
-			CallAsTeam(Spring.GetUnitTeam(baseUnitID), auto_repair_routine, nanoID, attached_builder_def[nanoID], baseUnitID)
+			CallAsTeam(Spring.GetUnitTeam(baseUnitID), auto_repair_routine, baseUnitID, nanoID)
 		end
 	end
 
+end
+
+function gadget:UnitFinished(unitID, unitDefID, unitTeam)
+	if baseToTurretDefID[unitDefID] then
+		attachToUnit(unitID, unitDefID, unitTeam)
+	end
+end
+
+function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
+	baseToTurretID[unitID] = nil
+	turretAbilities[unitID] = nil
+	turretBuildRadius[unitID] = nil
 end
