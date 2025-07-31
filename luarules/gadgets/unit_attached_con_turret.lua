@@ -138,31 +138,29 @@ local function auto_repair_routine(nanoID, unitDefID, baseUnitID)
 	end
 
 	-- next, check to see if valid repair/reclaim targets in range
-	local near_units = SpGetUnitsInCylinder(ux, uz, radius + max_unit_radius)
+	local near_units = SpGetUnitsInCylinder(ux, uz, radius + max_unit_radius, -3)
 
 	for XX, near_unit in pairs(near_units) do
 		-- check for free repairs
 		local near_defid = SpGetUnitDefID(near_unit)
-		if SpGetUnitAllyTeam(near_unit) == SpGetUnitAllyTeam(nanoID) then
-			if ( (SpGetUnitSeparation(near_unit, nanoID, true) - SpGetUnitRadius(near_unit)) < radius) then
-				local health, maxHealth, paralyzeDamage, captureProgress, buildProgress = SpGetUnitHealth(near_unit)
-				if buildProgress == 1 and health < maxHealth and UnitDefs[near_defid].repairable and near_unit ~= attached_builders[nanoID] then
-					SpGiveOrderToUnit(nanoID, CMD_REPAIR, {near_unit})
-					return
-				end
+		if ( (SpGetUnitSeparation(near_unit, nanoID, true) - SpGetUnitRadius(near_unit)) < radius) then
+			local health, maxHealth, paralyzeDamage, captureProgress, buildProgress = SpGetUnitHealth(near_unit)
+			if buildProgress == 1 and health < maxHealth and UnitDefs[near_defid].repairable and near_unit ~= attached_builders[nanoID] then
+				SpGiveOrderToUnit(nanoID, CMD_REPAIR, {near_unit})
+				return
 			end
 		end
 	end
 
-	for XX, near_unit in pairs(near_units) do
+	local near_enemies = SpGetUnitsInCylinder(ux, uz, radius + max_unit_radius, -4)
+
+	for XX, near_unit in pairs(near_enemies) do
 		-- check for enemy to reclaim
 		local near_defid = SpGetUnitDefID(near_unit)
-		if SpGetUnitAllyTeam(near_unit) ~= SpGetUnitAllyTeam(nanoID) then
-			if ( (SpGetUnitSeparation(near_unit, nanoID, true) - SpGetUnitRadius(near_unit)) < radius) then
-				if UnitDefs[near_defid].reclaimable then
-					SpGiveOrderToUnit(nanoID, CMD_RECLAIM, {near_unit})
-					return
-				end
+		if ( (SpGetUnitSeparation(near_unit, nanoID, true) - SpGetUnitRadius(near_unit)) < radius) then
+			if UnitDefs[near_defid].reclaimable then
+				SpGiveOrderToUnit(nanoID, CMD_RECLAIM, {near_unit})
+				return
 			end
 		end
 	end
@@ -243,7 +241,7 @@ function gadget:GameFrame(gameFrame)
 	if gameFrame % 15 == 0 then
 	    -- go on a slowupdate cycle
 		for nanoID, baseUnitID in pairs(attached_builders) do	
-			auto_repair_routine(nanoID, attached_builder_def[nanoID], baseUnitID)
+			CallAsTeam(Spring.GetUnitTeam(baseUnitID), auto_repair_routine, nanoID, attached_builder_def[nanoID], baseUnitID)
 		end
 	end
 
