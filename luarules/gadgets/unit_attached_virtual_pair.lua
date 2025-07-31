@@ -32,17 +32,6 @@ local GameCMD = Game.CustomCommands.GameCMD
 --------------------------------------------------------------------------------
 -- Command introspection -------------------------------------------------------
 
----Commands typically have up to six parameters,
----but can be inserted, which adds three params.
----@alias CommandParamsCount 0|1|2|3|4|5|6|7|8|9
----The index for a particular command parameter.
----@alias CommandParamIndex 1|2|3|4|5|6|7|8|9
----The accepted parameter counts of a command.
----@alias CommandParamsType table<CommandParamsCount, true>
----The index for a particular command parameter,
----given the command's count of parameters passed.
----@alias CommandParamsMap table<CommandParamsCount, CommandParamIndex>
-
 ---@type CommandParamsType
 local PRM_ANY = setmetatable({}, { __index = function() return true end })
 ---@type CommandParamsType
