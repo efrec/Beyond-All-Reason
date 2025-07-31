@@ -540,6 +540,28 @@ end
 --------------------------------------------------------------------------------
 -- Engine call-ins -------------------------------------------------------------
 
+function gadget:Initialize()
+	if not next(baseToTurretDefID) then
+		gadgetHandler:RemoveGadget(self)
+		return
+	end
+
+	for _, unitID in ipairs(Spring.GetAllUnits()) do
+		local unitDefID = spGetUnitDefID(unitID)
+		local transportID = Spring.GetUnitTransporter(unitID)
+		if transportID then
+			local transportDefID = Spring.GetUnitDefID(transportID)
+			if unitDefID == baseToTurretDefID[transportDefID] then
+				if GG.addPairedUnit(transportID, unitID, baseDefAttachIndex[transportDefID]) then
+					baseToTurretID[transportID] = unitID
+					turretBuildRadius[unitID] = UnitDefs[unitDefID].buildDistance
+					turretAbilities[unitID] = turretDefAbilities[unitDefID]
+				end
+			end
+		end
+	end
+end
+
 function gadget:GameFrame(gameFrame)
 	if gameFrame % updateInterval == updateOffset then
 		for baseID, turretID in pairs(baseToTurretID) do
