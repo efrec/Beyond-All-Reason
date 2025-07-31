@@ -72,38 +72,43 @@ local commandParamForward = setmetatable({
 --------------------------------------------------------------------------------
 -- Global values ---------------------------------------------------------------
 
+local CallAsTeam = CallAsTeam
+
+local spGetFeatureDefID = Spring.GetFeatureDefID
+local spGetFeaturePosition = Spring.GetFeaturePosition
+local spGetFeatureRadius = Spring.GetFeatureRadius
+local spGetFeaturesInCylinder = Spring.GetFeaturesInCylinder
+local spGetHeadingFromVector = Spring.GetHeadingFromVector
+local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
+local spGetUnitDefID = Spring.GetUnitDefID
+local spGetUnitEffectiveBuildRange = Spring.GetUnitEffectiveBuildRange
+local spGetUnitFeatureSeparation = Spring.GetUnitFeatureSeparation
+local spGetUnitHeading = Spring.GetUnitHeading
+local spGetUnitHealth = Spring.GetUnitHealth
+local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
+local spGetUnitPosition = Spring.GetUnitPosition
+local spGetUnitSeparation = Spring.GetUnitSeparation
+local spGetUnitsInCylinder = Spring.GetUnitsInCylinder
+local spGetUnitTeam = Spring.GetUnitTeam
+
+local spCallCOBScript = Spring.CallCOBScript
+local spGiveOrderToUnit = Spring.GiveOrderToUnit
+
+local tryGiveOrder = Spring.Utilities.Commands.TryGiveOrder
+
 local CMD_GUARD = CMD.GUARD
+local CMD_CAPTURE = CMD.CAPTURE
 local CMD_RECLAIM = CMD.RECLAIM
 local CMD_REMOVE = CMD.REMOVE
 local CMD_REPAIR = CMD.REPAIR
-local CMD_STOP = CMD.STOP
+local CMD_RESURRECT = CMD.RESURRECT
 local OPT_ALT = CMD.OPT_ALT
 local OPT_INTERNAL = CMD.OPT_INTERNAL
-local SpGetUnitCommands = Spring.GetUnitCommands
-local SpGiveOrderToUnit = Spring.GiveOrderToUnit
-local SpGetUnitPosition = Spring.GetUnitPosition
-local SpGetFeaturePosition = Spring.GetFeaturePosition
-local SpGetUnitDefID = Spring.GetUnitDefID
-local SpGetUnitsInCylinder = Spring.GetUnitsInCylinder
-local SpGetUnitAllyTeam = Spring.GetUnitAllyTeam
-local SpGetFeaturesInCylinder = Spring.GetFeaturesInCylinder
-local SpGetFeatureDefID = Spring.GetFeatureDefID
-local SpGetFeatureResurrect = Spring.GetFeatureResurrect
-local SpGetUnitHealth = Spring.GetUnitHealth
-local SpGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
-local SpGetUnitDefDimensions = Spring.GetUnitDefDimensions
-local SpGetFeatureRadius = Spring.GetFeatureRadius
-local spGetUnitPosition = Spring.GetUnitPosition
-local SpGetUnitRadius = Spring.GetUnitRadius
-local SpGetUnitFeatureSeparation = Spring.GetUnitFeatureSeparation
-local SpGetUnitSeparation = Spring.GetUnitSeparation
-local SpGetUnitTransporter = Spring.GetUnitTransporter
-local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
-local spGiveOrderToUnit = Spring.GiveOrderToUnit
+local MOVESTATE_ASSIST = CMD.MOVESTATE_MANEUVER
 
-local SpGetHeadingFromVector = Spring.GetHeadingFromVector
-local SpGetUnitHeading = Spring.GetUnitHeading
-local SpCallCOBScript = Spring.CallCOBScript
+local FEATURE_BASE_INDEX = Game.maxUnits
+local FILTER_ALLY_UNITS = -3
+local FILTER_ENEMY_UNITS = -4
 
 --------------------------------------------------------------------------------
 -- Initialize ------------------------------------------------------------------
@@ -270,10 +275,217 @@ end
 
 -- Process commands ------------------------------------------------------------
 
--- FIXME: Added in next commit:
-local tryOrderDirection
-local applyTurretOrder
-local tryExecuteFight
+---OK: CMD/integer are mismatched, and our docs do not support conditional nil.
+---@diagnostic disable: param-type-mismatch, return-type-mismatch, missing-return
+
+---@param paramsType table<CommandParamsCount, true>
+---@param params number[]
+---@param turretID integer
+---@param radius number
+---@return number dx
+---@return number dz
+local function tryOrderDirection(paramsType, params, turretID, radius)
+	if paramsType[#params] then
+		if PRMTYPE_OBJECT[paramsType] then
+			local objectID = params[1]
+			if objectID < FEATURE_BASE_INDEX then
+				if isUnitInBuildRadius(turretID, objectID) then
+					local tx, _, tz = spGetUnitPosition(turretID)
+					local ux, _, uz = spGetUnitPosition(objectID)
+					return ux - tx, uz - tz
+				end
+			else
+				objectID = objectID - FEATURE_BASE_INDEX
+				if isFeatureInBuildRadius(turretID, objectID, radius) then
+					local tx, _, tz = spGetUnitPosition(turretID)
+					local fx, _, fz = spGetFeaturePosition(objectID)
+					return fx - tx, fz - tz
+				end
+			end
+		elseif PRMTYPE_COORDS[paramsType] then
+			local ux, uy, uz = spGetUnitPosition(turretID)
+			local rx = params[1] - ux
+			local ry = params[2] - uy
+			local rz = params[3] - uz
+			if radius * radius >= rx * rx + ry * ry + rz * rz then
+				return rx, rz
+			end
+		end
+	end
+end
+
+---Set the turret's orientation and push commands from turret to base as needed.
+---@param turretID integer
+---@param dx number
+---@param dz number
+---@param toBaseID integer?
+local function applyTurretOrder(turretID, dx, dz, toBaseID)
+	local headingCurrent = spGetUnitHeading(turretID)
+	local headingNew = spGetHeadingFromVector(dx, dz)
+	spCallCOBScript(turretID, "UpdateHeading", 0, headingNew - headingCurrent)
+	-- Base unit should turn toward targets when it is otherwise idle:
+	if toBaseID and spGetUnitCurrentCommand(toBaseID) == nil then
+		local ux, uy, uz = Spring.GetUnitPosition(toBaseID)
+		local moveRadius = turretBuildRadius[turretID] / Game.squareSize
+		ux = ux + math.sgn(dx) * math.sqrt(math.abs(dx)) / moveRadius
+		uz = uz + math.sgn(dz) * math.sqrt(math.abs(dz)) / moveRadius
+		Spring.SetUnitMoveGoal(toBaseID, ux, uy, uz)
+	end
+end
+
+---Search for orders for the turret to perform not as a "con" but as a "nano".
+---This was developed for a combat engineer so is patterned for that use case.
+---@param baseID integer
+---@param turretID integer
+---@param abilities table
+---@param buildRadius number
+---@return number? targetX non-nil when an order is found
+---@return number targetZ
+---@return CMD command
+---@return number[] params
+local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
+	local badTargets = { [baseID] = true, [turretID] = true }
+	local searchRadius = buildRadius + unitDefRadiusMax
+	local ux, _, uz = spGetUnitPosition(turretID)
+
+	local _, moveState = Spring.GetUnitStates(baseID, false)
+	local canSpendFunds = moveState >= MOVESTATE_ASSIST
+	local canFundAllies = moveState >= MOVESTATE_ASSIST + 1
+
+	local allyUnits = spGetUnitsInCylinder(ux, uz, searchRadius, FILTER_ALLY_UNITS)
+	local bruised = {}
+	local unbuilt = {}
+
+	if abilities[CMD_REPAIR] then
+		for _, unitID in ipairs(allyUnits) do
+			if not badTargets[unitID] and isUnitInBuildRadius(turretID, unitID) then
+				if not spGetUnitIsBeingBuilt(unitID) then
+					if repairableDefID[spGetUnitDefID(unitID)] then
+						local health, healthMax = spGetUnitHealth(unitID)
+						if health ~= nil and health < healthMax then
+							if health <= healthMax * 0.95 - 20 then
+								if tryGiveOrder(turretID, CMD_REPAIR, unitID) then
+									local x, _, z = spGetUnitPosition(unitID)
+									return x - ux, z - uz, CMD_REPAIR, unitID
+								end
+							else
+								bruised[#bruised + 1] = unitID
+							end
+						end
+					end
+				elseif canSpendFunds then
+					unbuilt[#unbuilt + 1] = unitID
+				end
+			end
+		end
+	end
+
+	local enemyUnits = spGetUnitsInCylinder(ux, uz, searchRadius, FILTER_ENEMY_UNITS)
+	local capturable = {}
+
+	local features = spGetFeaturesInCylinder(ux, uz, searchRadius)
+	local resurrectable = {}
+
+	if abilities[CMD_RECLAIM] then
+		for _, unitID in ipairs(enemyUnits) do
+			if isUnitInBuildRadius(turretID, unitID) then
+				local unitDefID = spGetUnitDefID(unitID)
+				if reclaimableDefID[unitDefID] and tryGiveOrder(turretID, CMD_RECLAIM, unitID) then
+					local x, _, z = spGetUnitPosition(unitID)
+					return x - ux, z - uz, CMD_RECLAIM, unitID
+				end
+
+				if canSpendFunds and capturableDefID[unitDefID] then
+					capturable[unitID] = true
+				end
+			end
+		end
+
+		for _, featureID in ipairs(features) do
+			if isFeatureInBuildRadius(turretID, featureID, buildRadius) then
+				local featureDefID = spGetFeatureDefID(featureID)
+				if combatReclaimDefID[featureDefID] and tryGiveOrder(turretID, CMD_RECLAIM, unitID) then
+					local x, _, z = spGetFeaturePosition(featureID)
+					return x - ux, z - uz, CMD_RECLAIM, featureID + FEATURE_BASE_INDEX
+				end
+
+				if canSpendFunds and resurrectableDefID[featureDefID] then
+					resurrectable[featureID] = true
+				end
+			end
+		end
+	end
+
+	if abilities[CMD_REPAIR] then
+		for _, unitID in ipairs(bruised) do
+			if tryGiveOrder(turretID, CMD_REPAIR, unitID) then
+				local x, _, z = spGetUnitPosition(unitID)
+				return x - ux, z - uz, CMD_REPAIR, unitID
+			end
+		end
+	end
+
+	if canSpendFunds then
+		if abilities[CMD_CAPTURE] then
+			if not abilities[CMD_REPAIR] then
+				-- The `capturable` table was not populated earlier. Do so now:
+				for _, unitID in ipairs(enemyUnits) do
+					if capturableDefID[spGetUnitDefID(unitID)] and isUnitInBuildRadius(turretID, unitID) then
+						capturable[#capturable + 1] = true
+					end
+				end
+			end
+
+			for _, unitID in ipairs(capturable) do
+				if tryGiveOrder(turretID, CMD_CAPTURE, unitID) then
+					local x, _, z = spGetUnitPosition(unitID)
+					return x - ux, z - uz, CMD_CAPTURE, unitID
+				end
+			end
+		end
+
+		if abilities[CMD_RESURRECT] then
+			if not abilities[CMD_RECLAIM] then
+				-- The `resurrectable` table was not populated earlier. Do so now:
+				for _, featureID in ipairs(features) do
+					if resurrectableDefID[spGetFeatureDefID(featureID)] and isFeatureInBuildRadius(turretID, featureID, buildRadius) then
+						resurrectable[#resurrectable + 1] = true
+					end
+				end
+			end
+
+			for _, featureID in ipairs(resurrectable) do
+				if tryGiveOrder(turretID, CMD_RESURRECT, featureID) then
+					local x, _, z = spGetFeaturePosition(featureID)
+					return x - ux, z - uz, CMD_RESURRECT, featureID
+				end
+			end
+		end
+	end
+
+	if canSpendFunds and abilities.assist then
+		if not abilities[CMD_REPAIR] then
+			-- The `unbuilt` table was not populated earlier. Do so now:
+			for _, unitID in ipairs(allyUnits) do
+				if not badTargets[unitID] and spGetUnitIsBeingBuilt(unitID) then
+					if isUnitInBuildRadius(turretID, unitID) then
+						unbuilt[#unbuilt + 1] = unitID
+					end
+				end
+			end
+		end
+
+		local teamID = Spring.GetUnitTeam(baseID)
+		for _, unitID in ipairs(unbuilt) do
+			if canFundAllies or teamID == spGetUnitTeam(unitID) then
+				if tryGiveOrder(turretID, CMD_REPAIR, unitID) then
+					local x, _, z = spGetUnitPosition(unitID)
+					return x - ux, z - uz, CMD_REPAIR, unitID
+				end
+			end
+		end
+	end
+end
 
 ---Synchronize the turret unit to the base unit's current activity,
 ---then attempt to continue an ongoing command already in progress,
@@ -320,18 +532,19 @@ local function updateTurretOrders(baseID, turretID)
 	end
 end
 
+---@diagnostic enable: param-type-mismatch, return-type-mismatch, missing-return
+
 --------------------------------------------------------------------------------
 -- Engine call-ins -------------------------------------------------------------
 
 function gadget:GameFrame(gameFrame)
-
 	if gameFrame % updateInterval == updateOffset then
-	    -- go on a slowupdate cycle
-		for baseUnitID, nanoID in pairs(baseToTurretID) do	
-			CallAsTeam(Spring.GetUnitTeam(baseUnitID), auto_repair_routine, baseUnitID, nanoID)
+		for baseID, turretID in pairs(baseToTurretID) do
+			local unitTeam = spGetUnitTeam(baseID)
+			local teamRead = getReadHandle(unitTeam)
+			CallAsTeam(teamRead, updateTurretOrders, baseID, turretID)
 		end
 	end
-
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
