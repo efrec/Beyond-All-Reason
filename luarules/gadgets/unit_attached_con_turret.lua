@@ -586,3 +586,11 @@ function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOp
 		end
 	end
 end
+
+function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, featureDefID, part)
+	return baseToTurretID[builderID] == nil
+end
+
+function gadget:AllowUnitBuildStep(builderID, builderTeam, featureID, featureDefID, part)
+	return baseToTurretID[builderID] == nil
+end
