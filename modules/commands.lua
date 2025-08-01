@@ -310,16 +310,18 @@ local resolveCommand = Commands.ResolveCommand
 ---Retrieve the actual command from an order, resolving any meta-commands passed.
 ---@param command CMD
 ---@param params number[]
+---@param options CommandOptions
+---@param tag integer
 ---@return CMD? command
 ---@return number[]|number? commandParams
 ---@return CommandOptions? commandOptions
 ---@return integer? insertIndex
-Commands.ResolveFullCommand = function(command, params)
+Commands.ResolveFullCommand = function(command, params, options, tag)
 	if command == CMD_INSERT then
 		---@diagnostic disable-next-line: param-type-mismatch -- Should throw on nil.
 		return getInsertedFullCommand(params)
 	else
-		return command, params
+		return command, params, options, tag
 	end
 end
 
@@ -344,7 +346,7 @@ Commands.IsInTempCommand = function(command, options, cmdID, cmdOpts)
 	if isInternal(options) then
 		return true -- Disregards additional command info.
 	elseif cmdID == CMD_FIGHT then
-		return command == CMD_ATTACK and equalOption(options, cmdOpts, true)
+		return command == CMD_ATTACK and (cmdOpts == nil or equalOption(options, cmdOpts, true))
 	else
 		return false
 	end
@@ -362,8 +364,6 @@ Commands.IsInCommand = function(unitID, cmdID, cmdParams, cmdOpts)
 	local index = 1
 
 	while true do
-		-- The engine and other gadgets can reject or modify the orders we issue.
-		-- The only way to know is through checking and verifying the new result.
 		local command, options, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
 
 		if command == cmdID and equalParams(cmdParams, p1, p2, p3, p4, p5, p6) then

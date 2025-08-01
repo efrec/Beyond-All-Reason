@@ -94,7 +94,8 @@ local spGetUnitTeam = Spring.GetUnitTeam
 local spCallCOBScript = Spring.CallCOBScript
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
-local resolveCommand = Spring.Utilities.Commands.ResolveCommand
+local isInCommand = Spring.Utilities.Commands.IsInCommand
+local resolveFullCommand = Spring.Utilities.Commands.ResolveFullCommand
 local tryGiveOrder = Spring.Utilities.Commands.TryGiveOrder
 
 local CMD_GUARD = CMD.GUARD
@@ -583,12 +584,16 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 end
 
 function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOpts, cmdTag, playerID, fromSynced, fromLua)
-	if cmdTag == 0 and baseToTurretID[unitID] ~= nil then
+	if baseToTurretID[unitID] ~= nil then
 		-- Forward to the turret. Issues with paired units targeting one another
 		-- (and so on) are handled separately in unit_attached_virtual_pair.lua.
 		local turretID = baseToTurretID[unitID]
 
-		cmdID, cmdParams = resolveCommand(cmdID, cmdParams)
+		cmdID, cmdParams, cmdOpts, cmdTag = resolveFullCommand(cmdID, cmdParams, cmdOpts, cmdTag)
+
+		if not isInCommand(unitID, cmdID, cmdParams, cmdOpts) then
+			return
+		end
 
 		if cmdID >= 0 then
 			if commandParamForward[cmdID][#cmdParams] then
