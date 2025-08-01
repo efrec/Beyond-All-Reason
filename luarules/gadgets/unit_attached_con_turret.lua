@@ -502,10 +502,10 @@ local function updateTurretOrders(baseID, turretID)
 	if paramsType == PRM_WAIT then
 		return
 	elseif command ~= nil then
-		if command ~= CMD_GUARD and
-			math.bit_and(options, OPT_INTERNAL) == OPT_INTERNAL and
-			spGetUnitCurrentCommand(baseID, 2) == CMD_GUARD
-		then
+		if command == CMD_GUARD or (
+				math.bit_and(options, OPT_INTERNAL) == OPT_INTERNAL and
+				spGetUnitCurrentCommand(baseID, 2) == CMD_GUARD
+			) then
 			return
 		elseif paramsType ~= nil and paramsType[#params] ~= nil then
 			spGiveOrderToUnit(turretID, command, params)
