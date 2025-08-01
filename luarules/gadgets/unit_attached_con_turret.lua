@@ -585,24 +585,21 @@ end
 
 function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOpts, cmdTag, playerID, fromSynced, fromLua)
 	if baseToTurretID[unitID] ~= nil then
-		cmdID, cmdParams, cmdOpts, cmdTag = resolveFullCommand(cmdID, cmdParams, cmdOpts, cmdTag)
-
-		if not isInCommand(unitID, cmdID, cmdParams, cmdOpts) then
-			return
-		end
-
-		if cmdID >= 0 then
-			if commandParamForward[cmdID][#cmdParams] then
-				spGiveOrderToUnit(baseToTurretID[unitID], cmdID, cmdParams, cmdOpts)
-			end
-		else
-			-- To avoid checking build options, they are not passed to the turret.
-			-- When the build frame is already placed, though, issue a CMD_REPAIR.
-			local buildFrames = CallAsTeam(getReadHandle(unitTeam),
-				spGetUnitsInCylinder, cmdParams[1], cmdParams[3], Game.squareSize, FILTER_ALLY_UNITS)
-			for _, assistID in ipairs(buildFrames) do
-				if spGetUnitIsBeingBuilt(assistID) and -cmdID == spGetUnitDefID(assistID) then
-					spGiveOrderToUnit(baseToTurretID[unitID], CMD_REPAIR, assistID)
+		local command, params, options = resolveFullCommand(cmdID, cmdParams, cmdOpts)
+		if isInCommand(unitID, command, params, options) then
+			if command >= 0 then
+				if commandParamForward[command][#params] then
+					spGiveOrderToUnit(baseToTurretID[unitID], command, params, options)
+				end
+			else
+				-- To avoid checking build options, they are not passed to the turret.
+				-- When the build frame is already placed, though, issue a CMD_REPAIR.
+				local buildFrames = CallAsTeam(getReadHandle(unitTeam),
+					spGetUnitsInCylinder, params[1], params[3], Game.squareSize, FILTER_ALLY_UNITS)
+				for _, assistID in ipairs(buildFrames) do
+					if spGetUnitIsBeingBuilt(assistID) and -command == spGetUnitDefID(assistID) then
+						spGiveOrderToUnit(baseToTurretID[unitID], CMD_REPAIR, assistID)
+					end
 				end
 			end
 		end

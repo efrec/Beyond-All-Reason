@@ -310,10 +310,10 @@ local resolveCommand = Commands.ResolveCommand
 ---Retrieve the actual command from an order, resolving any meta-commands passed.
 ---@param command CMD
 ---@param params number[]
----@param options CommandOptions
----@param tag integer
----@return CMD? command
----@return number[]|number? commandParams
+---@param options CommandOptions?
+---@param tag integer?
+---@return CMD command
+---@return number[]|number commandParams
 ---@return CommandOptions? commandOptions
 ---@return integer? insertIndex
 Commands.ResolveFullCommand = function(command, params, options, tag)
