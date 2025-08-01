@@ -162,16 +162,14 @@ local inactiveUnits = {} ---@type table<integer, true>
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
----@return integer? baseID
----@return integer? attachedID
+---@return integer baseID
+---@return integer attachedID
 local function getUnitPair(unitID)
 	local otherID = pairUnitID[unitID]
-	if otherID ~= nil then
-		if pairAttachID[unitID] then
-			return otherID, unitID
-		else
-			return unitID, otherID
-		end
+	if pairAttachID[unitID] then
+		return otherID, unitID
+	else
+		return unitID, otherID
 	end
 end
 
@@ -231,8 +229,7 @@ local function allowAttachedUnitCommand(unitID, command, params, cmdOptions, ins
 end
 
 local function setUnitPairInactive(sourceID, inactive)
-	---@type integer, integer
-	local baseID, attachedID = getUnitPair(sourceID) ---@diagnostic disable-line -- OK
+	local baseID, attachedID = getUnitPair(sourceID)
 
 	if sourceID == baseID then
 		if inactive then
