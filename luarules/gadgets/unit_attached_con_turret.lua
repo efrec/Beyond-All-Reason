@@ -585,10 +585,6 @@ end
 
 function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOpts, cmdTag, playerID, fromSynced, fromLua)
 	if baseToTurretID[unitID] ~= nil then
-		-- Forward to the turret. Issues with paired units targeting one another
-		-- (and so on) are handled separately in unit_attached_virtual_pair.lua.
-		local turretID = baseToTurretID[unitID]
-
 		cmdID, cmdParams, cmdOpts, cmdTag = resolveFullCommand(cmdID, cmdParams, cmdOpts, cmdTag)
 
 		if not isInCommand(unitID, cmdID, cmdParams, cmdOpts) then
@@ -597,17 +593,16 @@ function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOp
 
 		if cmdID >= 0 then
 			if commandParamForward[cmdID][#cmdParams] then
-				spGiveOrderToUnit(turretID, cmdID, cmdParams, cmdOpts)
+				spGiveOrderToUnit(baseToTurretID[unitID], cmdID, cmdParams, cmdOpts)
 			end
 		else
 			-- To avoid checking build options, they are not passed to the turret.
 			-- When the build frame is already placed, though, issue a CMD_REPAIR.
 			local buildFrames = CallAsTeam(getReadHandle(unitTeam),
 				spGetUnitsInCylinder, cmdParams[1], cmdParams[3], Game.squareSize, FILTER_ALLY_UNITS)
-
 			for _, assistID in ipairs(buildFrames) do
 				if spGetUnitIsBeingBuilt(assistID) and -cmdID == spGetUnitDefID(assistID) then
-					spGiveOrderToUnit(turretID, CMD_REPAIR, assistID)
+					spGiveOrderToUnit(baseToTurretID[unitID], CMD_REPAIR, assistID)
 				end
 			end
 		end
