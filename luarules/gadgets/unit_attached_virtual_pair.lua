@@ -262,7 +262,7 @@ function gadget:Initialize()
 	local function suspendCallback(unitID, suspended)
 		if pairUnitID[unitID] then
 			local baseID, attachedID = getUnitPair(unitID)
-			setUnitPairInactive(baseID, attachedID, unitID, suspended)
+			setUnitPairInactive(unitID, suspended)
 		end
 	end
 	GG.RegisterSuspendNotify(suspendCallback)
