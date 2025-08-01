@@ -136,7 +136,6 @@ local commandParamTarget = setmetatable({
 	[CMD.REPAIR]                        = indexMap.buildCAI,
 	[CMD.RESURRECT]                     = indexMap.buildCAI,
 
-	-- We need special exceptions for these, in fact:
 	[CMD.UNLOAD_UNIT]                   = indexMap.placeUnit,
 	[CMD.UNLOAD_UNITS]                  = indexMap.placeList,
 
