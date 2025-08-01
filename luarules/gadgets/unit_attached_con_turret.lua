@@ -488,10 +488,8 @@ local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
 	end
 end
 
----Synchronize the turret unit to the base unit's current activity,
----then attempt to continue an ongoing command already in progress,
----then attempt to find an action to perform independently,
----then forward any command to the base, if it is not busy.
+---When its base unit is performing tasks, the turret behaves like a constructor.
+---When it is moving or idle, though, the turret unit acts more like a con turret.
 ---@param baseID integer
 ---@param turretID integer
 local function updateTurretOrders(baseID, turretID)
