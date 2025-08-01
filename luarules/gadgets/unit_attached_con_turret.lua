@@ -289,27 +289,25 @@ end
 ---@return number dz
 local function tryOrderDirection(paramsType, params, turretID, radius)
 	if paramsType[#params] then
+		local tx, ty, tz = spGetUnitPosition(turretID)
 		if PRMTYPE_OBJECT[paramsType] then
 			local objectID = params[1]
 			if objectID < FEATURE_BASE_INDEX then
 				if isUnitInBuildRadius(turretID, objectID) then
-					local tx, _, tz = spGetUnitPosition(turretID)
 					local ux, _, uz = spGetUnitPosition(objectID)
 					return ux - tx, uz - tz
 				end
 			else
 				objectID = objectID - FEATURE_BASE_INDEX
 				if isFeatureInBuildRadius(turretID, objectID, radius) then
-					local tx, _, tz = spGetUnitPosition(turretID)
 					local fx, _, fz = spGetFeaturePosition(objectID)
 					return fx - tx, fz - tz
 				end
 			end
 		elseif PRMTYPE_COORDS[paramsType] then
-			local ux, uy, uz = spGetUnitPosition(turretID)
-			local rx = params[1] - ux
-			local ry = params[2] - uy
-			local rz = params[3] - uz
+			local rx = params[1] - tx
+			local ry = params[2] - ty
+			local rz = params[3] - tz
 			if radius * radius >= rx * rx + ry * ry + rz * rz then
 				return rx, rz
 			end
