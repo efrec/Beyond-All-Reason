@@ -68,6 +68,44 @@ for featureDefName, featureDef in pairs(FeatureDefs) do
 end
 
 --------------------------------------------------------------------------------
+-- Process the featureDefs
+
+local modOptions = Spring.GetModOptions()
+
+local function getSiphonReclaimTime(featureDef)
+	if featureDef.reclaimtime then
+		-- avoid changing any preconfigured values
+		-- we are only overriding the engine default
+		return featureDef.reclaimtime
+	elseif featureDef.resurrectable then
+		local metal = featureDef.metal or 0
+		local energy = featureDef.energy or 0
+
+		local unitTime = 0
+		if featureDef.customparams.fromunit then
+			local unitDef = UnitDefs[featureDef.customparams.fromunit]
+			if unitDef then
+				unitTime = unitDef.buildtime -- or whatever the names are for anything
+			end
+		end
+
+		-- **ALL** other modoptions that change metal, energy, and build times
+		-- therefore **MUST** also update these values or we **WILL** be wrong
+		return math.max(
+			(metal + energy) * 6, -- engine default
+			unitTime, -- it simply stands to reason
+			metal * 20 -- our new transfer rate max -- todo: some derivation
+		)
+	end
+end
+
+if modOptions.resource_siphons then
+	for name, featureDef in pairs(FeatureDefs) do
+		featureDef.reclaimtime = getSiphonReclaimTime(featureDef)
+	end
+end
+
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
 local function isModelOK(featureDef)
