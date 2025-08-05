@@ -2013,6 +2013,35 @@ function UnitDef_Post(name, uDef)
 		end
 	end
 
+	-- Derived stats that might rely on previous multipliers
+
+	if modOptions.resource_siphons then
+		if uDef.canresurrect then
+			-- The modoption assumes most builder speeds were not set.
+			if not uDef.capturespeed and uDef.cancapture ~= false then
+				uDef.capturespeed = uDef.workertime
+			end
+			if not uDef.reclaimspeed and uDef.canreclaim ~= false then
+				uDef.reclaimspeed = uDef.workertime
+			end
+			if not uDef.terraformspeed then
+				uDef.terraformspeed = uDef.workertime
+			end
+			-- Repair is used when healing a damaged wreck to full hp.
+			if not uDef.repairspeed and uDef.canrepair ~= false then
+				uDef.repairspeed = uDef.workertime
+			end
+			-- Resurrect is used only when gaining resurrect progress.
+			if not uDef.resurrectspeed then
+				uDef.resurrectspeed = uDef.workertime
+			end
+			-- Build speed is used to determine the metal fill rate, which
+			-- is the resource transfer rate that the modoption is limiting,
+			-- and even could be (should be?) limited by CMD_PRIORITY state:
+			uDef.workertime = uDef.workertime * 0.25 -- So cut it way down.
+		end
+	end
+
 	-- add model vertex displacement
 	local vertexDisplacement = 5.5 + ((uDef.footprintx + uDef.footprintz) / 12)
 	if vertexDisplacement > 10 then
