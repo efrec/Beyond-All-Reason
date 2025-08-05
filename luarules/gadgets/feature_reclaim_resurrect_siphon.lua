@@ -38,11 +38,12 @@ local spDestroyFeature = Spring.DestroyFeature
 
 local buildSpeeds = {}
 local unitBuildSpeeds = {}
+local inRepairingTask = {}
 local inReplenishTask = {}
 
 for unitDefID, unitDef in ipairs(UnitDefs) do
 	if unitDef.canResurrect then
-		buildSpeeds[unitDefID] = { unitDef.buildSpeed, unitDef.resurrectSpeed }
+		buildSpeeds[unitDefID] = { unitDef.buildSpeed, unitDef.repairSpeed, unitDef.resurrectSpeed }
 	end
 end
 
@@ -53,6 +54,12 @@ local function missingReclaim(featureID)
 	return metal < metalMax
 end
 
+local function setBuildSpeedRepairing(unitID)
+	local build = unitBuildSpeeds[unitID][1]
+	local repair = unitBuildSpeeds[unitID][2]
+	spSetUnitBuildSpeed(unitID, build, nil, nil, repair)
+end
+
 local function setBuildSpeedReplenish(unitID)
 	local build = unitBuildSpeeds[unitID][1]
 	spSetUnitBuildSpeed(unitID, build, nil, nil, build)
@@ -60,7 +67,7 @@ end
 
 local function resetBuildSpeed(unitID)
 	local speeds = unitBuildSpeeds[unitID]
-	spSetUnitBuildSpeed(unitID, speeds[1], nil, nil, speeds[2])
+	spSetUnitBuildSpeed(unitID, speeds[1], nil, nil, speeds[3])
 end
 
 -- Engine callins
@@ -84,6 +91,7 @@ end
 function gadget:UnitCmdDone(unitID, unitDefID, unitTeam, cmdID)
 	if cmdID == CMD.RECLAIM and inReplenishTask[unitID] then
 		resetBuildSpeed(unitID)
+		inRepairingTask[unitID] = nil
 		inReplenishTask[unitID] = nil
 	end
 end
@@ -109,24 +117,32 @@ function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, feature
 
 	-- Otherwise, we are resurrecting a unit from a feature.
 
-	if health >= healthMax then
+	if healthAfter == 1 then
 		local isInReplenishTask = inReplenishTask[builderID]
 		local hasMissingReclaim = missingReclaim(featureID)
 
 		if not isInReplenishTask then
 			if hasMissingReclaim then
 				setBuildSpeedReplenish(builderID) -- Trade down to slower build speed.
+				inRepairingTask[builderID] = nil
 				inReplenishTask[builderID] = true
 			end
 		else
 			if not hasMissingReclaim then
 				resetBuildSpeed(builderID) -- Restore both build and ressurect speeds.
+				inRepairingTask[builderID] = nil
 				inReplenishTask[builderID] = nil
 			end
 		end
 
 		return true
 	else
+		if not inRepairingTask[builderID] then
+			setBuildSpeedRepairing(builderID) -- Repair wrecks using the repair speed.
+			inRepairingTask[builderID] = true
+			inReplenishTask[builderID] = nil
+		end
+
 		return false
 	end
 end
