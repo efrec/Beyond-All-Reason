@@ -4,13 +4,13 @@ local enabled = Spring.GetModOptions().resource_siphons
 
 function gadget:GetInfo()
 	return {
-		name    = 'Reclaim Degrades Features',
+		name    = 'Anti-Siphoning',
 		desc    = 'Reclaim harms wrecks. Resurrect heals them. Only full-health wrecks regain resources. Only full-health, full-resource wrecks gain resurrect progress.',
 		author  = 'efrec',
-		version = '0.0',
+		version = '0.1',
 		date    = '2025-08-05',
 		license = 'GNU GPL, v2 or later',
-		layer   = 0,
+		layer   = -1, -- Should precede unit_reclaim_fix to prevent refilling metal early.
 		enabled = enabled,
 	}
 end
@@ -19,20 +19,15 @@ if not enabled or not gadgetHandler:IsSyncedCode() then
 	return
 end
 
--- Configuration
-
--- Destroy features with at least this much max hp when their health remaining is fractional.
-local HEALTH_FRACTION_LIMIT = 10
-
 -- Global values
 
 local spGetFeatureHealth = Spring.GetFeatureHealth
 local spGetFeatureResources = Spring.GetFeatureResources
-
 local spSetFeatureHealth = Spring.SetFeatureHealth
 local spSetUnitBuildSpeed = Spring.SetUnitBuildSpeed
-
 local spDestroyFeature = Spring.DestroyFeature
+
+local CMD_RECLAIM = CMD.RECLAIM
 
 -- Initialize
 
@@ -49,11 +44,6 @@ end
 
 -- Local functions
 
-local function missingReclaim(featureID)
-	local metal, metalMax = spGetFeatureResources(featureID)
-	return metal < metalMax
-end
-
 local function setBuildSpeedRepairing(unitID)
 	local build = unitBuildSpeeds[unitID][1]
 	local repair = unitBuildSpeeds[unitID][2]
@@ -66,8 +56,45 @@ local function setBuildSpeedReplenish(unitID)
 end
 
 local function resetBuildSpeed(unitID)
-	local speeds = unitBuildSpeeds[unitID]
-	spSetUnitBuildSpeed(unitID, speeds[1], nil, nil, speeds[3])
+	local build = unitBuildSpeeds[unitID][1]
+	local resurrect = unitBuildSpeeds[unitID][3]
+	spSetUnitBuildSpeed(unitID, build, nil, nil, resurrect)
+end
+
+local function missingReclaim(featureID)
+	local metal, metalMax = spGetFeatureResources(featureID)
+	return metal < metalMax
+end
+
+local function updateResurrect(unitID, featureID, healthRatio)
+	if healthRatio == 1 then
+		local isInReplenishTask = inReplenishTask[unitID]
+		local hasMissingReclaim = missingReclaim(featureID)
+
+		if not isInReplenishTask then
+			if hasMissingReclaim then
+				setBuildSpeedReplenish(unitID)
+				inRepairingTask[unitID] = nil
+				inReplenishTask[unitID] = true
+			end
+		else
+			if not hasMissingReclaim then
+				resetBuildSpeed(unitID)
+				inRepairingTask[unitID] = nil
+				inReplenishTask[unitID] = nil
+			end
+		end
+
+		return true
+	else
+		if not inRepairingTask[unitID] then
+			setBuildSpeedRepairing(unitID)
+			inRepairingTask[unitID] = true
+			inReplenishTask[unitID] = nil
+		end
+
+		return false
+	end
 end
 
 -- Engine callins
@@ -89,7 +116,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam)
 end
 
 function gadget:UnitCmdDone(unitID, unitDefID, unitTeam, cmdID)
-	if cmdID == CMD.RECLAIM and inReplenishTask[unitID] then
+	if cmdID == CMD_RECLAIM and (inRepairingTask[unitID] or inReplenishTask[unitID]) then
 		resetBuildSpeed(unitID)
 		inRepairingTask[unitID] = nil
 		inReplenishTask[unitID] = nil
@@ -101,48 +128,15 @@ function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, feature
 	local healthAfter = health / healthMax + part
 
 	if healthAfter > 0 then
-		if healthMax * healthAfter >= 1 or healthMax < HEALTH_FRACTION_LIMIT then
-			if healthAfter > 1 then
-				healthAfter = 1
-			end
-			spSetFeatureHealth(featureID, healthMax * healthAfter)
-		end
+		if healthAfter > 1 then healthAfter = 1 end
+		spSetFeatureHealth(featureID, healthMax * healthAfter)
 	else
-		spDestroyFeature(featureID)
+		spDestroyFeature(featureID) -- Is this really needed?
 	end
 
-	if part <= 0 then
-		return true
-	end
-
-	-- Otherwise, we are resurrecting a unit from a feature.
-
-	if healthAfter == 1 then
-		local isInReplenishTask = inReplenishTask[builderID]
-		local hasMissingReclaim = missingReclaim(featureID)
-
-		if not isInReplenishTask then
-			if hasMissingReclaim then
-				setBuildSpeedReplenish(builderID) -- Trade down to slower build speed.
-				inRepairingTask[builderID] = nil
-				inReplenishTask[builderID] = true
-			end
-		else
-			if not hasMissingReclaim then
-				resetBuildSpeed(builderID) -- Restore both build and ressurect speeds.
-				inRepairingTask[builderID] = nil
-				inReplenishTask[builderID] = nil
-			end
-		end
-
-		return true
+	if part > 0 then
+		return updateResurrect(builderID, featureID, healthAfter)
 	else
-		if not inRepairingTask[builderID] then
-			setBuildSpeedRepairing(builderID) -- Repair wrecks using the repair speed.
-			inRepairingTask[builderID] = true
-			inReplenishTask[builderID] = nil
-		end
-
-		return false
+		return true
 	end
 end
