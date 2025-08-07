@@ -37,7 +37,7 @@ local TARGET_UNIT = string.byte('u')
 local canLandUnitDefs = {}
 local groundUnitDefs = {}
 local testCommandRange = {}
-local testWeaponRange = {}
+local testFiringRange = {}
 
 do
 	local weaponTypes = {
@@ -51,7 +51,7 @@ do
 	local function addGroundUnit(unitDef)
 		if unitDef.canFly or unitDef.canSubmerge then
 			canLandUnitDefs[unitDef.id] = true
-		else
+		elseif unitDef.canMove then
 			groundUnitDefs[unitDef.id] = true
 		end
 	end
@@ -61,11 +61,11 @@ do
 			return true
 		elseif not weaponTypes[weaponDef.type] then
 			return true
+		elseif weaponDef.waterWeapon then
+			return true
 		else
 			for _, damage in ipairs(weaponDef.damages) do
-				if damage > 10 then
-					return true
-				end
+				if damage > 10 then return false end
 			end
 		end
 		return false
@@ -108,7 +108,7 @@ do
 			if not ignore[weaponDefID] and (
 				not weaponDef.tracks or not weaponDef.turnRate or weaponDef.turnRate < 400
 			) then
-				testWeaponRange[weaponDefID] = true
+				testFiringRange[weaponDefID] = true
 			end
 		end
 	end
@@ -141,16 +141,60 @@ local function isOnGround(unitID)
 end
 
 local function getTargetPosition(targetID)
-	if targetID > Game.maxUnits then
-		return Spring.GetFeaturePosition(targetID - Game.maxUnits)
-	else
+	if targetID <= Game.maxUnits then
 		local unitDefID = Spring.GetUnitDefID(targetID)
 		if groundUnitDefs[unitDefID] or (canLandUnitDefs[unitDefID] and isOnGround(unitID)) then
-			-- Get the aim point position:
-			return select(7, Spring.GetUnitPosition(targetID, true, true))
+			local _, _, _, _, _, _, ux, uy, uz = Spring.GetUnitPosition(targetID, true, true)
+			return ux, uy, uz
 		end
 	end
 end
+
+local ARC_EPSILON = 1e-6 -- Any certainly small-enough angular epsilon
+
+local function dot(vector1, vector2)
+	return vector1[1] * vector2[1] + vector1[2] * vector2[2] + vector1[3] * vector2[3]
+end
+
+---Get the coordinates marking the intersection, if colliding, or the nearest point, if not,
+---of a ray and a plane. The plane is set by a point (any) in the plane and the planar normal.
+---@param pointRay table
+---@param direction table
+---@param pointPlane table
+---@param normal table
+---@return number x coordinates
+---@return number y
+---@return number z
+---@return boolean collision `true`: intersection, `false`: nearest point
+local function getRayPlaneApproach(pointRay, direction, pointPlane, normal)
+	local rx = pointRay[1]
+	local ry = pointRay[2]
+	local rz = pointRay[3]
+
+	local product = dot(direction, normal)
+
+	if math.abs(product) > ARC_EPSILON then
+		local d1 = pointPlane[1] - rx
+		local d2 = pointPlane[2] - ry
+		local d3 = pointPlane[3] - rz
+		local t = (d1 * normal[1] + d2 * normal[2] + d3 * normal[3]) / product
+
+		if t >= 0 then
+			return
+				rx + t * direction[1],
+				ry + t * direction[2],
+				rz + t * direction[3],
+				true
+		else
+			return rx, ry, rz, false
+		end
+	end
+end
+
+local origin = { 0, 0, 0 }
+local rayDir = { 0, 0, 0, 1 }
+local planar = { 0, 0, 0 }
+local normal = { 0, 1, 0, 1 }
 
 local function weaponRangeCorrection(projectileID, unitID, weaponDefID)
 	local targetType, target = Spring.GetProjectileTarget(projectileID)
@@ -159,29 +203,39 @@ local function weaponRangeCorrection(projectileID, unitID, weaponDefID)
 		return
 	end
 
-	local x, y, z = getTargetPosition(target)
-
-	if x == nil then
-		return
-	end
-
+	local px, py, pz = Spring.GetProjectilePosition(projectileID)
 	local vx, vy, vz, vw = Spring.GetProjectileVelocity(projectileID)
 
 	if vw == nil or vw == 0 or vy < vw * -0.125 or vy > vw * 0.375 then
 		return
 	end
 
-	local px, py, pz = Spring.GetProjectilePosition(projectileID)
-	local range = WeaponDefs[weaponDefID].range
-	local distance = math.distance3d(px, py, pz, x, y, z)
-	local rangeFactor = distance / range
-	local pitchFactor = math.sin((vy / vw) ^ 2)
-	local extraHeight = unitHeightAllowance * (1 + rangeFactor) * pitchFactor
-	local elevation = spGetGroundHeight(x, z) + extraHeight
+	local ux, uy, uz = getTargetPosition(target)
 
-	if y > elevation then
-		local timeToXZ = math.distance2d(px, pz, x, z) / math.diag(vx, vz)
-		local correction = (y - elevation) / timeToXZ
+	if ux == nil then
+		return
+	end
+
+	origin[1], origin[2], origin[3] = px, py, pz
+	rayDir[1], rayDir[2], rayDir[3] = math.normalize(vx, vy, vz)
+	planar[1], planar[2], planar[3] = ux, uy, uz
+
+	local tx, ty, tz, collision = getRayPlaneApproach(origin, rayDir, planar, normal)
+
+	if not collision then
+		return
+	end
+
+	local range = WeaponDefs[weaponDefID].range -- todo: cache
+	local distance = math.distance3d(px, py, pz, tx, ty, tz)
+	local rangeFactor = math.clamp(1 - distance / range, 0, 1)
+	local pitchFactor = math.sin((vy / vw) ^ 2)
+	local extraHeight = unitHeightAllowance * rangeFactor * pitchFactor
+	local elevation = spGetGroundHeight(ux, uz) + extraHeight
+
+	if uy > elevation then
+		local timeToXZ = math.distance2d(px, pz, tx, tz) / math.diag(vx, vz)
+		local correction = (uy - elevation) / timeToXZ
 		Spring.SetProjectileVelocity(projectileID, vx, vy - correction, vz)
 	end
 end
@@ -189,6 +243,13 @@ end
 -- Engine call-ins
 
 function gadget:Initialize()
+	if not next(testCommandRange) then
+		Spring.Echo('unit_prevent_range_hax has no range haxxors')
+	end
+
+	Spring.Echo(testCommandRange)
+	Spring.Echo(testFiringRange)
+
 	gadgetHandler:RegisterAllowCommand(CMD_INSERT)
 	gadgetHandler:RegisterAllowCommand(CMD_ATTACK)
 end
@@ -215,7 +276,7 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpt
 end
 
 function gadget:ProjectileCreated(projectileID, ownerID, weaponDefID)
-	if weaponDefID and testWeaponRange[weaponDefID] then
+	if weaponDefID and testFiringRange[weaponDefID] then
 		weaponRangeCorrection(projectileID, ownerID, weaponDefID)
 	end
 end
