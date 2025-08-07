@@ -20,6 +20,7 @@ end
 
 local unitHeightAllowance = 24 ---@type number Ignore some amount of height offset.
 local unitTypicalMoveSpeed = 80 ---@type number Determines the weapon speed cutoff.
+local areaOfEffectMinimum = 36 ---@type number Only aim splash damage at the ground.
 
 -- Global values
 
@@ -110,6 +111,7 @@ do
 
 			if not ignore[weaponDefID] and
 				(weaponDef.projectilespeed and weaponDef.projectilespeed <= weaponSpeedMax) and
+				(weaponDef.damageAreaOfEffect > areaOfEffectMinimum) and
 				(not weaponDef.tracks or not weaponDef.turnRate or weaponDef.turnRate < 400)
 			then
 				testFiringRange[weaponDefID] = true
