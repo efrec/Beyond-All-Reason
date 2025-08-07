@@ -147,8 +147,8 @@ local function weaponRangeCorrection(projectileID, unitID, weaponDefID)
 	local elevation = spGetGroundHeight(x, z) + extraHeight
 
 	if y > elevation then
-		-- todo: this is mostly made up
-		local correction = math.abs((1 + vy / vw) * (y - elevation) / vw)
+		local timeToXZ = math.distance2d(px, pz, x, z) / math.diag(vx, vz)
+		local correction = (y - elevation) / timeToXZ
 		Spring.SetProjectileVelocity(vx, vy - correction, vz)
 	end
 end
