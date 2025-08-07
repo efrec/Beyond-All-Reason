@@ -16,8 +16,11 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
--- Ignore some amount of height offset.
-local unitHeightAllowance = 24
+-- Configuration
+
+local unitHeightAllowance = 24 ---@type number Ignore some amount of height offset.
+
+-- Global values
 
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 local spGetGroundHeight = Spring.GetGroundHeight
@@ -28,6 +31,8 @@ local CMD_INSERT = CMD.INSERT
 
 local PSTATE_GROUND = 1 + 2 + 4 -- ignoring underground pstates
 local TARGET_UNIT = string.byte('u')
+
+-- Initialize
 
 local canLandUnitDefs = {}
 local groundUnitDefs = {}
@@ -43,26 +48,40 @@ do
 
 	local ignore = {}
 
-	for unitDefID, unitDef in ipairs(UnitDefs) do
-		-- Check that unit midpoints aren't allowing hacky over-ranging.
+	local function addGroundUnit(unitDef)
 		if unitDef.canFly or unitDef.canSubmerge then
-			canLandUnitDefs[unitDefID] = true
+			canLandUnitDefs[unitDef.id] = true
 		else
-			groundUnitDefs[unitDefID] = true
+			groundUnitDefs[unitDef.id] = true
 		end
+	end
 
-		-- Check only certain weapons for over-ranging.
+	local function isBogusWeapon(weaponDef)
+		if weaponDef.customParams.bogus then
+			return true
+		elseif not weaponTypes[weaponDef.type] then
+			return true
+		else
+			for _, damage in ipairs(weaponDef.damages) do
+				if damage > 10 then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	local function needCommandsCheck(unitDef)
 		local count = 0
 
 		for _, weapon in ipairs(unitDef.weapons) do
 			local weaponDefID = weapon.weaponDef
 			local weaponDef = WeaponDefs[weaponDefID]
 
-			local hasAirTargeting = false -- Nothing to do when shooting air units.
-
-			if not weaponTypes[weaponDef.type] or weaponDef.customParams.bogus then
-				ignore[weaponDefID] = true -- todo: other cases?
+			if isBogusWeapon(weaponDef) then
+				ignore[weaponDefID] = true
 			else
+				local hasAirTargeting = false
 				for category in pairs(weapon.onlyTargets) do
 					if category == "vtol" then
 						hasAirTargeting = true
@@ -74,21 +93,35 @@ do
 		end
 
 		if count > 0 then
-			testCommandRange[unitDefID] = true
+			testCommandRange[unitDef.id] = true
+			return true
+		else
+			return false
+		end
+	end
 
-			for _, weapon in ipairs(unitDef.weapons) do
-				local weaponDefID = weapon.weaponDef
-				local weaponDef = WeaponDefs[weaponDefID]
+	local function needWeaponsCheck(unitDef)
+		for _, weapon in ipairs(unitDef.weapons) do
+			local weaponDefID = weapon.weaponDef
+			local weaponDef = WeaponDefs[weaponDefID]
 
-				if not ignore[weaponDefID] and (
-					not weaponDef.tracks or not weaponDef.turnRate or weaponDef.turnRate < 800
-				) then
-					testWeaponRange[weaponDefID] = true
-				end
+			if not ignore[weaponDefID] and (
+				not weaponDef.tracks or not weaponDef.turnRate or weaponDef.turnRate < 400
+			) then
+				testWeaponRange[weaponDefID] = true
 			end
 		end
 	end
+
+	for _, unitDef in ipairs(UnitDefs) do
+		addGroundUnit(unitDef)
+		if needCommandsCheck(unitDef) then
+			needWeaponsCheck(unitDef)
+		end
+	end
 end
+
+-- Local functions
 
 local function commandRangeCorrection(unitID, params, options)
 	if params[3] then
@@ -153,12 +186,14 @@ local function weaponRangeCorrection(projectileID, unitID, weaponDefID)
 	end
 end
 
+-- Engine call-ins
+
 function gadget:Initialize()
 	gadgetHandler:RegisterAllowCommand(CMD_INSERT)
 	gadgetHandler:RegisterAllowCommand(CMD_ATTACK)
 end
 
-local params = { 0, 0, 0 }
+local params = { 0, 0, 0 } -- Reusable helper for CMD_INSERT.
 
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
 	if fromSynced or not testCommandRange[unitDefID] then
