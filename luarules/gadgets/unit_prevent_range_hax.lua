@@ -48,8 +48,10 @@ do
 		TorpedoLauncher = true,
 	}
 
-	-- Some reasonable filter for "slow" projectiles:
-	local weaponSpeedMax = unitTypicalMoveSpeed * 3
+	-- Some reasonable filter for "slow" projectiles
+	-- NB: The original code didn't care about slowness at all.
+	-- So e.g. a Pitbull (speed 800) would have been a perfect fit.
+	local weaponSpeedMax = unitTypicalMoveSpeed * 5
 
 	local function addGroundUnit(unitDef)
 		if unitDef.canFly or unitDef.canSubmerge then
