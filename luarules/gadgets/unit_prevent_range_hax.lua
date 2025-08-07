@@ -35,12 +35,13 @@ local testCommandRange = {}
 local testWeaponRange = {}
 
 do
-	local ignore = {}
 	local weaponTypes = {
 		Cannon          = true,
 		MissileLauncher = true,
 		TorpedoLauncher = true,
 	}
+
+	local ignore = {}
 
 	for unitDefID, unitDef in ipairs(UnitDefs) do
 		-- Check that unit midpoints aren't allowing hacky over-ranging.
@@ -57,7 +58,7 @@ do
 			local weaponDefID = weapon.weaponDef
 			local weaponDef = WeaponDefs[weaponDefID]
 
-			local hasAirTargeting = false
+			local hasAirTargeting = false -- Nothing to do when shooting air units.
 
 			if not weaponTypes[weaponDef.type] or weaponDef.customParams.bogus then
 				ignore[weaponDefID] = true -- todo: other cases?
@@ -89,7 +90,17 @@ do
 	end
 end
 
-local temp = { 0, 0, 0 }
+local function commandRangeCorrection(unitID, params, options)
+	if params[3] then
+		local y = spGetGroundHeight(params[1], params[3])
+		if params[2] > y and spGetUnitWeaponTestTarget(unitID, params[1], y, params[3]) then
+			params[2] = y
+			spGiveOrderToUnit(unitID, CMD_ATTACK, params, options)
+			return false
+		end
+	end
+	return true
+end
 
 local function isOnGround(unitID)
 	local physicalState = Spring.GetUnitPhysicalState(unitID)
@@ -106,18 +117,6 @@ local function getTargetPosition(targetID)
 			return select(7, Spring.GetUnitPosition(targetID, true, true))
 		end
 	end
-end
-
-local function commandRangeCorrection(unitID, params, options)
-	if params[3] then
-		local y = spGetGroundHeight(params[1], params[3])
-		if params[2] > y and spGetUnitWeaponTestTarget(unitID, params[1], y, params[3]) then
-			params[2] = y
-			spGiveOrderToUnit(unitID, CMD_ATTACK, params, options)
-			return false
-		end
-	end
-	return true
 end
 
 local function weaponRangeCorrection(projectileID, unitID, weaponDefID)
@@ -158,6 +157,8 @@ function gadget:Initialize()
 	gadgetHandler:RegisterAllowCommand(CMD_ATTACK)
 end
 
+local params = { 0, 0, 0 }
+
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
 	if fromSynced or not testCommandRange[unitDefID] then
 		return true
@@ -166,7 +167,7 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpt
 			return true
 		else
 			cmdOptions = cmdParams[3]
-			local p = temp
+			local p = params
 			p[1], p[2], p[3] = cmdParams[4], cmdParams[5], cmdParams[6]
 			cmdParams = p
 		end
