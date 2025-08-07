@@ -142,8 +142,9 @@ local function weaponRangeCorrection(projectileID, unitID, weaponDefID)
 	local range = WeaponDefs[weaponDefID].range
 	local distance = math.distance3d(px, py, pz, x, y, z)
 	local rangeFactor = distance / range
-	local angleFactor = math.sin((vy / vw) ^ 2)
-	local elevation = spGetGroundHeight(x, z) + unitHeightAllowance * (1 + rangeFactor) * angleFactor
+	local pitchFactor = math.sin((vy / vw) ^ 2)
+	local extraHeight = unitHeightAllowance * (1 + rangeFactor) * pitchFactor
+	local elevation = spGetGroundHeight(x, z) + extraHeight
 
 	if y > elevation then
 		-- todo: this is mostly made up
