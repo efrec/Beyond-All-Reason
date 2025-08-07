@@ -19,6 +19,7 @@ end
 -- Configuration
 
 local unitHeightAllowance = 24 ---@type number Ignore some amount of height offset.
+local unitTypicalMoveSpeed = 80 ---@type number Determines the weapon speed cutoff.
 
 -- Global values
 
@@ -46,7 +47,8 @@ do
 		TorpedoLauncher = true,
 	}
 
-	local ignore = {}
+	-- Some reasonable filter for "slow" projectiles:
+	local weaponSpeedMax = unitTypicalMoveSpeed * 3
 
 	local function addGroundUnit(unitDef)
 		if unitDef.canFly or unitDef.canSubmerge then
@@ -56,6 +58,7 @@ do
 		end
 	end
 
+	local ignore = {}
 	local function isBogusWeapon(weaponDef)
 		if weaponDef.customParams.bogus then
 			return true
@@ -105,9 +108,10 @@ do
 			local weaponDefID = weapon.weaponDef
 			local weaponDef = WeaponDefs[weaponDefID]
 
-			if not ignore[weaponDefID] and (
-				not weaponDef.tracks or not weaponDef.turnRate or weaponDef.turnRate < 400
-			) then
+			if not ignore[weaponDefID] and
+				(weaponDef.projectilespeed and weaponDef.projectilespeed <= weaponSpeedMax) and
+				(not weaponDef.tracks or not weaponDef.turnRate or weaponDef.turnRate < 400)
+			then
 				testFiringRange[weaponDefID] = true
 			end
 		end
