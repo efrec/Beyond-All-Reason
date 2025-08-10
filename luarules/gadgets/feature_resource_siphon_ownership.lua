@@ -45,9 +45,7 @@ local featureTracking = {}
 -- Local functions
 
 local function sendToOwner(builderTeam, feature, metal, energy)
-	if feature.team == builderTeam then
-		feature.resources[1], feature.resources[2] = metal, energy
-	else
+	if feature.team ~= builderTeam then
 		local metalDiff = feature.resources[1] - metal
 		local energyDiff = feature.resources[2] - energy
 
@@ -61,6 +59,8 @@ local function sendToOwner(builderTeam, feature, metal, energy)
 			Spring.UseTeamResource(feature.team, "energy", -energyDiff)
 		end
 	end
+
+	feature.resources[1], feature.resources[2] = metal, energy
 end
 
 -- Engine callins
