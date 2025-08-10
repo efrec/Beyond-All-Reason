@@ -299,12 +299,18 @@ local options = {
 	},
 	{
 		key		= "resource_siphons",
-		name	= "Rebalance Indirect Resource Transfer",
-		desc	= "Discourages siphoning through wrecks.",
-		type	= "bool",
-		section	= "options_main",
-		def		=  false,
-		column	= 1.76,
+		name	= "Resource Transfer Restrictions",
+		desc	= "Collection of methods to discourage reclaim-resurrect siphoning between allied players.",
+		type	= "list",
+        def		= "unchanged",
+        hidden 	= true, -- Other modoptions should select their preferred option.
+        section	= "options",
+        items	= {
+            { key = "unchanged",  name = "Unchanged",            desc = "No changes" },
+            { key = "degrading",  name = "Reclaim is Damaging",  desc = "Reclaiming damages wrecks, which must be repaired before resurrect." },
+            { key = "ownership",  name = "Reclaim to Owner",     desc = "Reclaimed resources are sent to the unit's previous owner" },
+            { key = "slowmoded",  name = "Slow Mode Resurrect",  desc = "Resurrection has a very slow metal transfer rate (2m/s)." },
+        }
 	},
 	{
 		key		= "unit_market",

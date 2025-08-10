@@ -2015,7 +2015,7 @@ function UnitDef_Post(name, uDef)
 
 	-- Derived stats that might rely on previous multipliers
 
-	if modOptions.resource_siphons then
+	if modOptions.resource_siphons == "degrading" then
 		if uDef.canresurrect then
 			-- The modoption assumes most builder speeds were not set.
 			if not uDef.capturespeed and uDef.cancapture ~= false then

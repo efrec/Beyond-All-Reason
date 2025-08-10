@@ -99,7 +99,7 @@ local function getSiphonReclaimTime(featureDef)
 	end
 end
 
-if modOptions.resource_siphons then
+if modOptions.resource_siphons == "degrading" then
 	for name, featureDef in pairs(FeatureDefs) do
 		featureDef.reclaimtime = getSiphonReclaimTime(featureDef)
 	end

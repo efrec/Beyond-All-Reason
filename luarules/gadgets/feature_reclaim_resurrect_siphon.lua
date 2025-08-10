@@ -1,6 +1,7 @@
 local gadget = gadget ---@type Gadget
 
-local enabled = Spring.GetModOptions().resource_siphons
+-- Part of a collection of changes to prevent resource sharing:
+local enabled = Spring.GetModOptions().resource_siphons == "degrading"
 
 function gadget:GetInfo()
 	return {
