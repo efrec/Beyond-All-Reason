@@ -5,7 +5,7 @@ local enabled = Spring.GetModOptions().resource_siphons == "degrading"
 
 function gadget:GetInfo()
 	return {
-		name    = 'Anti-Siphoning',
+		name    = 'Anti-Siphoning: Degrading',
 		desc    = 'Reclaim harms wrecks. Resurrect heals them. Only full-health wrecks regain resources. Only full-health, full-resource wrecks gain resurrect progress.',
 		author  = 'efrec',
 		version = '0.1',
