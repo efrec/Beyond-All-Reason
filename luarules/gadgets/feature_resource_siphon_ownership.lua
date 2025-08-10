@@ -46,8 +46,8 @@ local featureTracking = {}
 
 local function sendToOwner(builderTeam, feature, metal, energy)
 	if feature.team ~= builderTeam then
-		local metalDiff = feature.resources[1] - metal
-		local energyDiff = feature.resources[2] - energy
+		local metalDiff = feature.metal - metal
+		local energyDiff = feature.energy - energy
 
 		if metalDiff > 0 then
 			Spring.UseTeamResource(builderTeam, "metal", metalDiff)
@@ -60,7 +60,8 @@ local function sendToOwner(builderTeam, feature, metal, energy)
 		end
 	end
 
-	feature.resources[1], feature.resources[2] = metal, energy
+	feature.metal = metal
+	feature.energy = energy
 end
 
 -- Engine callins
@@ -72,8 +73,9 @@ function gadget:FeatureCreated(featureID, featureAllyTeam)
 		if featureTeam and featureTeam >= 0 then
 			local metal, _, energy = spGetFeatureResources(featureID)
 			featureTracking[featureID] = {
-				resources = { metal, energy },
-				team      = featureTeam,
+				team   = featureTeam,
+				metal  = metal,
+				energy = energy,
 			}
 		end
 	end
