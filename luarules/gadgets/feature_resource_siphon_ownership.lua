@@ -28,16 +28,19 @@ local spAreTeamsAllied = Spring.AreTeamsAllied
 -- Initialize
 
 local ownedDefs = {}
-local taxRate = Spring.GetModOptions().whatever_tax_variable -- todo
+local shareTaxRate = Spring.GetModOptions().tax_resource_sharing_amount or 0
+
+local function addOwnedDef(metalCost, featureDef)
+	if metalCost > 0 and featureDef and featureDef.metal / metalCost > 1 - shareTaxRate then
+		ownedDefs[featureDef.id] = true
+		return true
+	end
+end
 
 for unitDefID, unitDef in ipairs(UnitDefs) do
-	if unitDef.corpse then
-		local corpseDef = FeatureDefNames[unitDef.corpse]
-		if corpseDef.metal and corpseDef.metal > 0 then
-			ownedDefs[corpseDef.id] = true
-		end
-		-- todo: Also get debris and transfer it to the owner
-		-- todo: Given that its %metal > 1 - %tax
+	local metalCost = unitDef.metalCost
+	if addOwnedDef(metalCost, FeatureDefNames[unitDef.corpse or unitDef.name .. "_dead"]) then
+		addOwnedDef(metalCost, FeatureDefNames[unitDef.name .. "_heap"])
 	end
 end
 
