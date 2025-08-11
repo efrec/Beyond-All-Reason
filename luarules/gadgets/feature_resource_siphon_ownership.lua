@@ -23,6 +23,7 @@ end
 -- Global values
 
 local spGetFeatureResources = Spring.GetFeatureResources
+local spAreTeamsAllied = Spring.AreTeamsAllied
 
 -- Initialize
 
@@ -44,8 +45,8 @@ local featureTracking = {}
 
 -- Local functions
 
-local function sendToOwner(builderTeam, feature, metal, energy)
-	if feature.team ~= builderTeam then
+local function sendToAlliedOwner(builderTeam, feature, metal, energy)
+	if feature.team ~= builderTeam and spAreTeamsAllied(feature.team, builderTeam) then
 		local metalDiff = feature.metal - metal
 		local energyDiff = feature.energy - energy
 
@@ -89,7 +90,7 @@ function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, feature
 	if part < 0 and featureTracking[featureID] then
 		local feature = featureTracking[featureID]
 		local metal, _, energy = spGetFeatureResources(featureID)
-		sendToOwner(builderTeam, feature, metal, energy)
+		sendToAlliedOwner(builderTeam, feature, metal, energy)
 	end
 	return true
 end
