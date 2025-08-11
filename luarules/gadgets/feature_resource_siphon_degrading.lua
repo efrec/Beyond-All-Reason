@@ -137,7 +137,7 @@ function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, feature
 		if healthAfter > 1 then healthAfter = 1 end
 		spSetFeatureHealth(featureID, healthMax * healthAfter)
 	else
-		spDestroyFeature(featureID) -- Is this really needed?
+		spDestroyFeature(featureID) -- todo: planned engine update will obviate manual destroy call
 	end
 
 	if part > 0 then
