@@ -20,6 +20,10 @@ if not enabled or not gadgetHandler:IsSyncedCode() then
 	return
 end
 
+---Resurrection now consists of three possible stages: repairing, replenishing, and resurrecting.
+---Each of these stages may use a different build speed, depending on the resurrector's unit def.
+---@alias ResurrectStageBuildSpeed table<number, number, number>
+
 -- Global values
 
 local spGetFeatureHealth = Spring.GetFeatureHealth
@@ -28,20 +32,21 @@ local spSetFeatureHealth = Spring.SetFeatureHealth
 local spSetUnitBuildSpeed = Spring.SetUnitBuildSpeed
 local spDestroyFeature = Spring.DestroyFeature
 
-local CMD_RECLAIM = CMD.RECLAIM
+local CMD_RESURRECT = CMD.RESURRECT
 
 -- Initialize
 
-local buildSpeeds = {}
-local unitBuildSpeeds = {}
-local inRepairingTask = {}
-local inReplenishTask = {}
+local buildSpeedDef = {} ---@type table<integer, ResurrectStageBuildSpeed>
 
 for unitDefID, unitDef in ipairs(UnitDefs) do
 	if unitDef.canResurrect then
-		buildSpeeds[unitDefID] = { unitDef.buildSpeed, unitDef.repairSpeed, unitDef.resurrectSpeed }
+		buildSpeedDef[unitDefID] = { unitDef.buildSpeed, unitDef.repairSpeed, unitDef.resurrectSpeed }
 	end
 end
+
+local unitBuildSpeeds = {} ---@type table<integer, ResurrectStageBuildSpeed> [unitID] := <build speed, repair speed, resurrect speed>
+local inRepairingTask = {} ---@type table<integer, true> Resurrector is using its repair speed.
+local inReplenishTask = {} ---@type table<integer, true> Resurrector is using its build speed.
 
 -- Local functions
 
@@ -101,14 +106,14 @@ end
 -- Engine callins
 
 function gadget:Initialize()
-	if not next(buildSpeeds) then
+	if not next(buildSpeedDef) then
 		gadgetHandler:RemoveGadget()
 	end
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
-	if buildSpeeds[unitDefID] then
-		unitBuildSpeeds[unitID] = buildSpeeds[unitDefID]
+	if buildSpeedDef[unitDefID] then
+		unitBuildSpeeds[unitID] = buildSpeedDef[unitDefID]
 	end
 end
 
@@ -117,7 +122,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam)
 end
 
 function gadget:UnitCmdDone(unitID, unitDefID, unitTeam, cmdID)
-	if cmdID == CMD_RECLAIM and (inRepairingTask[unitID] or inReplenishTask[unitID]) then
+	if cmdID == CMD_RESURRECT and (inRepairingTask[unitID] or inReplenishTask[unitID]) then
 		resetBuildSpeed(unitID)
 		inRepairingTask[unitID] = nil
 		inReplenishTask[unitID] = nil
