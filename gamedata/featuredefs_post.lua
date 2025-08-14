@@ -72,30 +72,34 @@ end
 
 local modOptions = Spring.GetModOptions()
 
+-- The "degrading" resource siphon fix requires tuning rezzer workertime:feature buildtime.
+local metalBuildTime = 1 / Game.gameSpeed -- The maximum m/sec transfer rate from 1 workertime.
+local metalRefillRate = 0.25 -- The debuff applied to resurrectors when filling metal to wrecks.
+metalBuildTime = metalBuildTime / metalRefillRate -- Net workertime:buildtime proportion.
+
 local function getSiphonReclaimTime(featureDef)
 	if featureDef.reclaimtime then
-		-- avoid changing any preconfigured values
-		-- we are only overriding the engine default
+		-- Keep any preconfigured values
 		return featureDef.reclaimtime
 	elseif featureDef.resurrectable then
 		local metal = featureDef.metal or 0
 		local energy = featureDef.energy or 0
 
-		local unitTime = 0
+		local siphonBuildTime = metal / metalBuildTime
+		local engineBuildTime = (metal + energy) * 6
+		local fromUnitTime = engineBuildTime
+
 		if featureDef.customparams.fromunit then
 			local unitDef = UnitDefs[featureDef.customparams.fromunit]
 			if unitDef then
-				unitTime = unitDef.buildtime -- or whatever the names are for anything
+				fromUnitTime = unitDef.buildtime
+				fromUnitTime = fromUnitTime * 0.5 * (metal / unitDef.metalcost)
 			end
 		end
 
-		-- **ALL** other modoptions that change metal, energy, and build times
-		-- therefore **MUST** also update these values or we **WILL** be wrong
-		return math.max(
-			(metal + energy) * 6, -- engine default
-			unitTime, -- it simply stands to reason
-			metal * 20 -- our new transfer rate max -- todo: some derivation
-		)
+		-- Taking the average here will increase feature build times,
+		-- making reclaim and resurrect both slightly slower overall.
+		return (engineBuildTime + fromUnitTime + siphonBuildTime) / 3
 	end
 end
 
