@@ -32,6 +32,11 @@ local commonFunctions = {
 		LuaUI     = true,
 	},
 
+	def = {
+		LuaRules  = true,
+		LuaUI     = true,
+	},
+
 	map = {
 		LuaRules  = true,
 		LuaUI     = true,
@@ -57,6 +62,11 @@ end
 
 if commonFunctions.cmd[environment] then
 	Game.CustomCommands = VFS.Include("modules/customcommands.lua")
+end
+
+if commonFunctions.def[environment] then
+	Game.MoveDefs = VFS.Include("gamedata/movedefs.lua")
+	Game.UnitInfo = VFS.Include("modules/UnitInfo.lua")
 end
 
 if commonFunctions.map[environment] then
