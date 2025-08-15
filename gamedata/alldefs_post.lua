@@ -623,6 +623,12 @@ function UnitDef_Post(name, uDef)
 
 	-- Scavengers Units ------------------------------------------------------------------------------------------------------------------------
 	if modOptions.scavunitsforplayers then
+		if name:find("_scav") then
+			uDef.customparams.is_scavenger = true
+		else
+			uDef.customparams.is_scavenger = nil
+		end
+
 		-- Armada T1 Land Constructors
 		if name == "armca" or name == "armck" or name == "armcv" then
 			local numBuildoptions = #uDef.buildoptions
@@ -780,6 +786,7 @@ function UnitDef_Post(name, uDef)
 	end
 
 	if string.find(name, "raptor") and uDef.health then
+		uDef.customparams.is_raptor = true
 		local raptorHealth = uDef.health
 		uDef.activatewhenbuilt = true
 		uDef.metalcost = raptorHealth * 0.5
@@ -840,6 +847,8 @@ function UnitDef_Post(name, uDef)
 				uDef.speedtofront = 0.01
 				--uDef.attackrunlength = 32
 		end
+	else
+		uDef.customparams.is_raptor = nil
 	end
 
 	--[[ Sanitize to whole frames (plus leeways because float arithmetic is bonkers).
