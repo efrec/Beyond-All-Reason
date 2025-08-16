@@ -310,6 +310,7 @@ local options = {
             { key = "degrading",  name = "Reclaim is Damaging",  desc = "Reclaiming damages wrecks, which must be repaired before resurrect." },
             { key = "ownership",  name = "Reclaim to Owner",     desc = "Reclaimed resources are sent to the unit's previous owner" },
             { key = "slowmoded",  name = "Slow Mode Resurrect",  desc = "Resurrection has a very slow metal transfer rate (2m/s)." },
+            { key = "taxshared",  name = "Shared to Owner",      desc = "Reclaimed resources are shared to the unit's previous owner with tax" },
         }
 	},
 	{
