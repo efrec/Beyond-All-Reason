@@ -4,9 +4,10 @@ local gadget = gadget ---@type Gadget
 local enabled = Spring.GetModOptions().resource_siphons == "ownership"
 
 -- The "ownership" method sends reclaim back to the original unit's owner.
--- It does not, as of yet, reestablish as a new owner a player who refills
--- the metal missing from a wreckage; so at present it is a very efficient
--- means of sending metal directly to another player via their unit wreck.
+
+-- To prevent supremely efficient metal siphoning, when a resurrector adds
+-- metal back into a wreckage, they gain incremental progress towards the
+-- ownership of that wreck. Otherwise, this becomes a flawless workaround.
 
 function gadget:GetInfo()
 	return {
