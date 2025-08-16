@@ -2018,7 +2018,7 @@ function UnitDef_Post(name, uDef)
 	if modOptions.resource_siphons == "degrading" then
 		if uDef.canresurrect then
 			-- The modoption assumes most builder speeds were not set.
-			if not uDef.capturespeed and uDef.cancapture ~= false then
+			if not uDef.capturespeed and uDef.cancapture then
 				uDef.capturespeed = uDef.workertime
 			end
 			if not uDef.reclaimspeed and uDef.canreclaim ~= false then
