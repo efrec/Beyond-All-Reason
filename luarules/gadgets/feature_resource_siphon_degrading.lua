@@ -22,7 +22,7 @@ end
 
 ---Resurrection now consists of three possible stages: repairing, replenishing, and resurrecting.
 ---Each of these stages may use a different build speed, depending on the resurrector's unit def.
----@alias ResurrectStageBuildSpeed table<number, number, number>
+---@alias ResurrectStageBuildSpeed float3
 
 -- Global values
 
