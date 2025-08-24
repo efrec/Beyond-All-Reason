@@ -1,9 +1,6 @@
-
-if not Spring.GetModOptions().emprework then
-	return
-end
-
 local gadget = gadget ---@type Gadget
+
+local enabled = Spring.GetModOptions().emprework
 
 function gadget:GetInfo()
 	return {
@@ -13,96 +10,23 @@ function gadget:GetInfo()
 		date      = "11 November 2018",
 		license   = "GNU GPL, v2 or later",
 		layer     = -1000000, -- Before every state toggle gadget.
-		enabled   = true,
+		enabled   = enabled,
 	}
 end
-
 
 if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
+local CMD_WANTED_SPEED = GameCMD.WANTED_SPEED
 
---I have no idea what this is trying to do or why
----local CMD_WANTED_SPEED = Spring.Utilities.CMD.WANTED_SPEED
-
---local wantedCommand = {
-
-	--[CMD_WANTED_SPEED] = true,
---}
-
-
-
-
-local function getMovetype(ud)
-	if ud.canFly or ud.isAirUnit then
-		if ud.isHoveringAirUnit then
-			return 1 -- gunship
-		else
-			return 0 -- fixedwing
-		end
-	elseif not ud.isImmobile then
-		return 2 -- ground/sea
-	end
-	return false -- For structures or any other invalid movetype
-end
-
-
-
-		--Spring.Echo('hornet debug wanted_speed loaded')
-
-
-
+local moveTypeByDefID = Game.UnitInfo.Cache.moveType
 local units = {}
-local moveTypeByDefID = {}
-local moveType = 0
-do
-
-
-	--local moveData = {}
-	--local moveType = 0
-
-	-- why is this cached
-	---local getMovetype = UTC.getMovetype
-	for i = 1, #UnitDefs do
-		moveTypeByDefID[i] = getMovetype(UnitDefs[i])
-	end
-
-
-	--local getMovetype = Spring.Utilities.getMovetype
-	--for i = 1, #UnitDefs do
-		--moveTypeByDefID[i] = getMovetype(UnitDefs[i])
-		--moveData = spGetUnitMoveTypeData(i)
-
-
-		--Spring.Echo("hornet movedef name" .. UnitDefs[i].moveDef.name)
-		--Spring.Echo("hornet movedef name")
-
-
-		--Spring.Echo('hornetdebug UnitDefs[i]')
-		--Spring.Echo(UnitDefs[i])
-		--for k,v in pairs(UnitDefs[i]) do
-		--  Spring.Echo(k,v)
-		--end
-
-
-		--moveType = 0
-		--moveType = SU.getMovetypeByID(UnitDefs[i])
-
-
-		--if UnitDefs[i].moveDef.name == "ground" then moveType = 2 end
-		--moveTypeByDefID[i] = moveType
-	--end
-end
 
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 
 local function SetUnitWantedSpeed(unitID, unitDefID, wantedSpeed, forceUpdate)
-
-
---Spring.Echo("hornet SetUnitWantedSpeed" .. unitID .. "wanted speed " .. (wantedSpeed or 'nil'))
-
 	if not unitDefID then
 		return
 	end
@@ -139,9 +63,6 @@ local function SetUnitWantedSpeed(unitID, unitDefID, wantedSpeed, forceUpdate)
 	end
 end
 
-
-
----this makes no sense, why does this chain exist
 function GG.ForceUpdateWantedMaxSpeed(unitID, unitDefID, clearWanted)
 	SetUnitWantedSpeed(unitID, unitDefID, (not clearWanted) and units and units[unitID] and units[unitID].lastWantedSpeed, true)
 end

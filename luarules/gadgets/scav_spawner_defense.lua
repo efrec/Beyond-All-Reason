@@ -188,6 +188,15 @@ if gadgetHandler:IsSyncedCode() then
 	local minDynamicDifficulty = 0.85
 	local maxDynamicDifficulty = 1.05
 
+	local unitDefName = Game.UnitInfo.Cache.name
+	local unitDefHealth = Game.UnitInfo.Cache.health
+	local canMove = Game.UnitInfo.Cache.canMove
+	local canCloak = Game.UnitInfo.Cache.canCloak
+	local techLevel = Game.UnitInfo.Cache.techLevel
+	local isScavengerUnit = Game.UnitInfo.Cache.isScavengerUnit
+	local swapCreated = Game.UnitInfo.Cache.scav_swap_override_created
+	local swapCaptured = Game.UnitInfo.Cache.scav_swap_override_captured
+
 	--------------------------------------------------------------------------------
 	-- Teams
 	--------------------------------------------------------------------------------
@@ -1558,7 +1567,7 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	function SpawnMinions(unitID, unitDefID)
-		local unitName = UnitDefs[unitDefID].name
+		local unitName = unitDefName[unitDefID]
 		if config.scavMinions[unitName] then
 			local minion = config.scavMinions[unitName][mRandom(1,#config.scavMinions[unitName])]
 			SpawnRandomOffWaveSquad(unitID, minion, 4)
@@ -1574,35 +1583,31 @@ if gadgetHandler:IsSyncedCode() then
 			local _, maxH = Spring.GetUnitHealth(unitID)
 			Spring.SetUnitHealth(unitID, maxH)
 			local x,y,z = Spring.GetUnitPosition(unitID)
-			if not UnitDefs[unitDefID].customParams.isscavenger then
-				--Spring.Echo(UnitDefs[unitDefID].name, "unit created swap", UnitDefs[unitDefID].customParams.scav_swap_override_created)
-				if not UnitDefs[unitDefID].customParams.scav_swap_override_created then
-					if UnitDefs[unitDefID] and UnitDefs[unitDefID].name and UnitDefNames[UnitDefs[unitDefID].name .. "_scav"] then
-						createUnitQueue[#createUnitQueue+1] = {UnitDefs[unitDefID].name .. "_scav", x, y, z, Spring.GetUnitBuildFacing(unitID) or 0, scavTeamID}
+			if not isScavengerUnit[unitDefID] then
+				local swapName = swapCreated[unitDefID]
+				if not swapName then
+					swapName = unitDefName[unitDefID] .. "_scav"
+					if UnitDefNames[swapName] then
+						createUnitQueue[#createUnitQueue+1] = {swapName, x, y, z, Spring.GetUnitBuildFacing(unitID) or 0, scavTeamID}
 						Spring.DestroyUnit(unitID, true, true)
 					end
-				elseif UnitDefs[unitDefID].customParams.scav_swap_override_created ~= "null" then
-					if UnitDefNames[UnitDefs[unitDefID].customParams.scav_swap_override_created] then
-						createUnitQueue[#createUnitQueue+1] = {UnitDefs[unitDefID].customParams.scav_swap_override_created, x, y, z, Spring.GetUnitBuildFacing(unitID) or 0, scavTeamID}
+				elseif swapName ~= "null" then
+					if swapName ~= "delete" and UnitDefNames[swapName] then
+						createUnitQueue[#createUnitQueue+1] = {swapName, x, y, z, Spring.GetUnitBuildFacing(unitID) or 0, scavTeamID}
 					end
 					Spring.DestroyUnit(unitID, true, true)
-				elseif UnitDefs[unitDefID].customParams.scav_swap_override_created == "delete" then
-					Spring.DestroyUnit(unitID, true, true)
 				end
-				return
 			else
 				Spring.GiveOrderToUnit(unitID,CMD.FIRE_STATE,{config.defaultScavFirestate},0)
 				GG.ScavengersSpawnEffectUnitID(unitID)
-				if UnitDefs[unitDefID].canCloak then
+				if canCloak[unitDefID] then
 					Spring.GiveOrderToUnit(unitID,37382,{1},0)
 				end
-				if squadSpawnOptions.commanders[UnitDefs[unitDefID].name] then
+				if squadSpawnOptions.commanders[unitDefName[unitDefID]] then
 					CommandersPopulation = CommandersPopulation + 1
-				end
-				if squadSpawnOptions.decoyCommanders[UnitDefs[unitDefID].name] then
+				elseif squadSpawnOptions.decoyCommanders[unitDefName[unitDefID]] then
 					DecoyCommandersPopulation = DecoyCommandersPopulation + 1
 				end
-				return
 			end
 		end
 
@@ -1611,7 +1616,7 @@ if gadgetHandler:IsSyncedCode() then
 			squadPotentialTarget[unitID] = nil
 			squadPotentialHighValueTarget[unitID] = nil
 		end
-		if not UnitDefs[unitDefID].canMove then
+		if not canMove[unitDefID] then
 			squadPotentialTarget[unitID] = true
 			if config.highValueTargets[unitDefID] then
 				squadPotentialHighValueTarget[unitID] = true
@@ -1631,7 +1636,7 @@ if gadgetHandler:IsSyncedCode() then
 		if unitTeam == scavTeamID then
 			damage = damage / config.healthMod
 
-			if math.random(0,600) == 0 and math.random() <= config.spawnChance and attackerTeam ~= gaiaTeamID and waveParameters.lastBackupSquadSpawnFrame+300 < Spring.GetGameFrame() and attackerID and UnitDefs[unitDefID].canMove then
+			if math.random(0,600) == 0 and math.random() <= config.spawnChance and attackerTeam ~= gaiaTeamID and waveParameters.lastBackupSquadSpawnFrame+300 < Spring.GetGameFrame() and attackerID and canMove[unitDefID] then
 				local ux, uy, uz = Spring.GetUnitPosition(attackerID)
 				local burrow, distance = getNearestScavBeacon(ux, uy, uz)
 				--Spring.Echo("Nearest Beacon Distance", distance)
@@ -2153,7 +2158,7 @@ if gadgetHandler:IsSyncedCode() then
 					local ux, uy, uz = Spring.GetUnitPosition(unitID)
 					local health, maxHealth, _, captureLevel = Spring.GetUnitHealth(unitID)
 					if health then
-						local captureProgress = 0.016667 * (3/math.ceil(math.sqrt(math.sqrt(UnitDefs[Spring.GetUnitDefID(unitID)].health)))) * math.max(0.1, (techAnger/100)) -- really wack formula that i really don't want to explain.
+						local captureProgress = 0.016667 * (3/math.ceil(math.sqrt(math.sqrt(unitDefHealth[Spring.GetUnitDefID(unitID)])))) * math.max(0.1, (techAnger/100)) -- really wack formula that i really don't want to explain.
 						if health < maxHealth then
 							captureProgress = captureProgress/math.max(0.000001, (health/maxHealth)^3)
 						end
@@ -2228,51 +2233,45 @@ if gadgetHandler:IsSyncedCode() then
 			end
 
 			local x,y,z = Spring.GetUnitPosition(unitID)
-			if not UnitDefs[unitDefID].customParams.isscavenger then
-				--Spring.Echo(UnitDefs[unitDefID].name, "unit captured swap", UnitDefs[unitDefID].customParams.scav_swap_override_captured)
-				if not UnitDefs[unitDefID].customParams.scav_swap_override_captured then
-					if UnitDefs[unitDefID] and UnitDefs[unitDefID].name and UnitDefNames[UnitDefs[unitDefID].name .. "_scav"] then
-						createUnitQueue[#createUnitQueue+1] = {UnitDefs[unitDefID].name .. "_scav", x, y, z, Spring.GetUnitBuildFacing(unitID) or 0, scavTeamID}
+			if not isScavengerUnit[unitDefID] then
+				local swapUnit = swapCaptured[unitDefID]
+				if not swapUnit then
+					swapUnit = unitDefName[unitDefID] .. "_scav"
+					if UnitDefNames[swapUnit] then
+						createUnitQueue[#createUnitQueue+1] = {swapUnit, x, y, z, Spring.GetUnitBuildFacing(unitID) or 0, scavTeamID}
 						Spring.DestroyUnit(unitID, true, true)
 					end
-				elseif UnitDefs[unitDefID].customParams.scav_swap_override_captured ~= "null" then
-					if UnitDefNames[UnitDefs[unitDefID].customParams.scav_swap_override_captured] then
-						createUnitQueue[#createUnitQueue+1] = {UnitDefs[unitDefID].customParams.scav_swap_override_captured, x, y, z, Spring.GetUnitBuildFacing(unitID) or 0, scavTeamID}
+				elseif swapUnit ~= "null" then
+					if swapUnit ~= "delete" and UnitDefNames[swapUnit] then
+						createUnitQueue[#createUnitQueue+1] = {swapUnit, x, y, z, Spring.GetUnitBuildFacing(unitID) or 0, scavTeamID}
 					end
 					Spring.DestroyUnit(unitID, true, true)
-				elseif UnitDefs[unitDefID].customParams.scav_swap_override_captured == "delete" then
-					Spring.DestroyUnit(unitID, true, true)
 				end
-				return
 			else
 				Spring.GiveOrderToUnit(unitID,CMD.FIRE_STATE,{config.defaultScavFirestate},0)
 				GG.ScavengersSpawnEffectUnitID(unitID)
-				if UnitDefs[unitDefID].canCloak then
+				if canCloak[unitDefID] then
 					Spring.GiveOrderToUnit(unitID,37382,{1},0)
 				end
-				if squadSpawnOptions.commanders[UnitDefs[unitDefID].name] then
+				if squadSpawnOptions.commanders[unitDefName[unitDefID]] then
 					CommandersPopulation = CommandersPopulation + 1
-				end
-				if squadSpawnOptions.decoyCommanders[UnitDefs[unitDefID].name] then
+				elseif squadSpawnOptions.decoyCommanders[unitDefName[unitDefID]] then
 					DecoyCommandersPopulation = DecoyCommandersPopulation + 1
 				end
-				return
 			end
 		end
 	end
 
 	function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID)
 		if unitTeam == scavTeamID then
-			if string.find(UnitDefs[unitDefID].name, "scavbeacon") then
+			if string.find(unitDefName[unitDefID], "scavbeacon") then
 				if mRandom() <= config.spawnChance then
 					spawnCreepStructuresWave()
 				end
-			end
-			if UnitDefs[unitDefID].isscavenger then
-				if squadSpawnOptions.commanders[UnitDefs[unitDefID].name] then
+			elseif isScavengerUnit[unitDefID] then
+				if squadSpawnOptions.commanders[unitDefName[unitDefID]] then
 					CommandersPopulation = CommandersPopulation - 1
-				end
-				if squadSpawnOptions.decoyCommanders[UnitDefs[unitDefID].name] then
+				elseif squadSpawnOptions.decoyCommanders[unitDefName[unitDefID]] then
 					DecoyCommandersPopulation = DecoyCommandersPopulation - 1
 				end
 			end
@@ -2379,8 +2378,8 @@ if gadgetHandler:IsSyncedCode() then
 
 	function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 		if unitTeam ~= scavTeamID and unitTeam ~= gaiaTeamID then
-			local unitTech = tonumber(UnitDefs[unitDefID].customParams.techlevel)
-			HumanTechLevel = math.max(HumanTechLevel, unitTech)
+			local unitTech = techLevel[unitDefID]
+			HumanTechLevel = math.max(HumanTechLevel, unitTech) -- unused?
 		end
 		if unitTeam ~= scavTeamID then
 			capturableUnits[unitID] = true

@@ -92,7 +92,7 @@ local SimpleUndefinedUnitDefs = {RandomChoice = RandomChoice}
 
 local BuildOptions = {} -- {unitDefHasBuildOptions = {1= buildOpt0, RandomChoice = RandomChoice}}
 
-local isBuilding = Game.UnitInfo.Cache.isBuilding
+local isBuilding = Game.UnitInfo.Cache.isImmobile
 local isCommander = Game.UnitInfo.Cache.isCommanderUnit
 local footprintSize = Game.UnitInfo.Cache.footprintSize
 for unitDefID, unitDef in pairs(UnitDefs) do

@@ -28,20 +28,11 @@ local CMD_STOP = CMD.STOP
 local massLeft = {}
 local toBeLoaded = {}
 
-local unitTransportMass = {}
-local unitTransportVtol = {}
-local unitMass = {}
-local isTransport = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	unitMass[unitDefID] = unitDef.mass
-	unitTransportMass[unitDefID] = unitDef.transportMass
-	if not unitDef.modCategories.vtol and not unitDef.customParams.isairbase then
-		unitTransportVtol[unitDefID] = true
-	end
-	if unitDef.isTransport then
-		isTransport[unitDefID] = true
-	end
-end
+local isTransport = Game.UnitInfo.Cache.isTransport
+local isAirUnit = Game.UnitInfo.Cache.isAirUnit
+local isAirbase = Game.UnitInfo.Cache.isairbase
+local unitMass = Game.UnitInfo.Cache.mass
+local unitTransportMass = Game.UnitInfo.Cache.transportMass
 
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
 	-- accepts: CMD.LOAD_ONTO
@@ -84,10 +75,12 @@ function gadget:UnitLoaded(unitID, unitDefID, unitTeam, transportID, transportTe
 		return
 	end
 	massLeft[transportID] = massLeft[transportID] - unitMass[unitDefID]
-	if massLeft[transportID] == 0 then
+	-- todo: Why on earth does "transportee hider" handle transported unit mass?
+	if massLeft[transportID] <= 0 then
 		TransportIsFull(transportID)
 	end
-	if unitTransportVtol[GetUnitDefID(transportID)] then
+	local transportDefID = GetUnitDefID(transportID)
+	if not isAirUnit[transportDefID] and not isAirbase[transportDefID] then
 		SetUnitNoDraw(unitID, true)
 		SetUnitStealth(unitID, true)
 		SetUnitSonarStealth(unitID, true)
@@ -100,7 +93,8 @@ function gadget:UnitUnloaded(unitID, unitDefID, teamID, transportID)
 		return
 	end
 	massLeft[transportID] = massLeft[transportID] + unitMass[unitDefID]
-	if unitTransportVtol[GetUnitDefID(transportID)] then
+	local transportDefID = GetUnitDefID(transportID)
+	if not isAirUnit[transportDefID] and not isAirbase[transportDefID] then
 		SetUnitNoDraw(unitID, false)
 		SetUnitStealth(unitID, false)
 		SetUnitSonarStealth(unitID, false)

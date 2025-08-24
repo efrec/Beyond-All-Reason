@@ -269,16 +269,9 @@ else	-- UNSYNCED
 	local myTeamID = Spring.GetMyTeamID()
 	local myAllyTeamID = Spring.GetMyAllyTeamID()
 	local gaiaTeamID = Spring.GetGaiaTeamID()
-
-	local isBuilder = {}
-	local unitBuildSpeedTime = {}
-
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		if unitDef.isBuilder then
-			isBuilder[unitDefID] = true
-		end
-		unitBuildSpeedTime[unitDefID] = unitDef.buildTime / unitDef.buildSpeed
-	end
+	local isBuilder = Game.UnitInfo.Cache.isBuilder
+	local unitBuildSpeed = Game.UnitInfo.Cache.buildSpeed
+	local unitBuildTime = Game.UnitInfo.Cache.buildTime
 
 	local function onInitialQueueTime(_,_,words)
 		initialQueueTime = tonumber(words[1])
@@ -381,8 +374,9 @@ else	-- UNSYNCED
 				if isBuilder[GetUnitDefID(unitID)] then
 					local buildQueue = GetRealBuildQueue(unitID)
 					if buildQueue then
-						for uDID,_ in pairs(buildQueue) do
-							thisQueueTime = thisQueueTime + unitBuildSpeedTime[uDID]
+						local buildSpeed = unitBuildSpeed[Spring.GetUnitDefID(unitID)]
+						for uDID, count in pairs(buildQueue) do
+							thisQueueTime = thisQueueTime + count * unitBuildTime[uDID] / buildSpeed
 						end
 					end
 				end
