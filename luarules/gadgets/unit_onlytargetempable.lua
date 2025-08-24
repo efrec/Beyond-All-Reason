@@ -12,19 +12,8 @@ function gadget:GetInfo()
 	}
 end
 
-local empUnits = {}
-local unEmpableUnits = {}
-for udid, unitDef in pairs(UnitDefs) do
-	local weapons = unitDef.weapons
-	for i=1, #weapons do
-		if WeaponDefs[weapons[i].weaponDef].paralyzer then
-			empUnits[udid] = true
-		end
-	end
-	if not unitDef.modCategories.empable then
-		unEmpableUnits[udid] = true
-	end
-end
+local empUnits = Game.UnitInfo.Cache.hasParalyzerWeapon
+local unEmpableUnits = Game.UnitInfo.Cache.isParalyzeImmune
 
 function gadget:Initialize()
     gadgetHandler:RegisterAllowCommand(CMD.ATTACK)

@@ -25,12 +25,7 @@ if gadgetHandler:IsSyncedCode() then
 	for _, teamID in ipairs(Spring.GetTeamList()) do
 		totalTeamActions[teamID] = 0
 	end
-	local ignoreUnitDefs = {}
-	for uDefID, uDef in pairs(UnitDefs) do
-		if uDef.customParams.drone then
-			ignoreUnitDefs[uDefID] = true
-		end
-	end
+	local ignoreUnitDefs = Game.UnitInfo.Cache.isAutonomousUnit
 
 	local function addSkipOrder(unitID)
 		ignoreUnits[unitID] = gameFrame + 1

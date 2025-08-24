@@ -171,12 +171,57 @@ if gadgetHandler:IsSyncedCode() then
 		needsrefresh = true,
 	}
 
+	local unitDefName = Game.UnitInfo.Cache.name
+	local canCloak = Game.UnitInfo.Cache.canCloak
+	local isBuilding = Game.UnitInfo.Cache.isBuilding
+	local isUnusualUnit = Game.UnitInfo.Cache.isUnusualUnit
 
-	local isObject = {}
-	for udefID, def in ipairs(UnitDefs) do
-		if def.modCategories['object'] or def.customParams.objectify then
-			isObject[udefID] = true
+	local economicValue = {}
+	local hasEconomicValue = {}
+	for unitDefID, unitDef in ipairs(UnitDefs) do
+		if unitDef.isImmobile or unitDef.customParams.iscommander then
+			hasEconomicValue[unitDefID] = true
 		end
+	end
+	-- Calculate an eco value based on energy and metal production
+	-- Ends up building an object like:
+	-- {
+	--  0: [non-eco]
+	--	25: [t1 windmill, t1 solar, t1 mex],
+	--	75: [adv solar]
+	--	1000: [fusion]
+	--	3000: [adv fusion]
+	-- }
+	local function getEconomicValue(unitDefID)
+		local unitDef = UnitDefs[unitDefID]
+		local value = 1
+		value = value + unitDef.energyMake
+		value = value - unitDef.energyUpkeep
+		value = value + unitDef.windGenerator * 0.75
+		value = value + unitDef.tidalGenerator * 15
+		if unitDef.extractsMetal and unitDef.extractsMetal > 0 then
+			value = value + 200
+		end
+		if unitDef.customParams.energyconv_capacity then
+			value = value + tonumber(unitDef.customParams.energyconv_capacity) / 2
+		end
+
+		-- Decoy fusion support
+		if unitDef.customParams.decoyfor == "armfus" then
+			value = value + 1000
+		end
+
+		-- Make it extra risky to build T2+ eco
+		if tonumber(unitDef.customParams.techlevel) and tonumber(unitDef.customParams.techlevel) > 1 then
+			value = value * tonumber(unitDef.customParams.techlevel) * 2
+		end
+
+		-- Anti-nuke - add value to force players to go T2 economy, rather than staying T1
+		if unitDef.customParams.unitgroup == "antinuke" or unitDef.customParams.unitgroup == "nuke" then
+			value = 1000
+		end
+
+		return value
 	end
 
 	--------------------------------------------------------------------------------
@@ -1312,7 +1357,7 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	function SpawnMinions(unitID, unitDefID)
-		local unitName = UnitDefs[unitDefID].name
+		local unitName = unitDefName[unitDefID]
 		if config.raptorMinions[unitName] then
 			local minion = config.raptorMinions[unitName][mRandom(1,#config.raptorMinions[unitName])]
 			SpawnRandomOffWaveSquad(unitID, minion, 4)
@@ -1324,12 +1369,9 @@ if gadgetHandler:IsSyncedCode() then
 	--------------------------------------------------------------------------------
 
 	function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-
-		local unitDef = UnitDefs[unitDefID]
-
 		if unitTeam == raptorTeamID then
 			Spring.GiveOrderToUnit(unitID,CMD.FIRE_STATE,{config.defaultRaptorFirestate},0)
-			if unitDef.canCloak then
+			if canCloak[unitDefID] then
 				Spring.GiveOrderToUnit(unitID,37382,{1},0)
 			end
 			return
@@ -1340,57 +1382,17 @@ if gadgetHandler:IsSyncedCode() then
 			unitList:Remove(unitID)
 		end
 
-		-- If a wall
-		if isObject[unitDefID] then
+		-- If a wall, etc.
+		if isUnusualUnit[unitDefID] then
 			return
 		end
 
-		if not unitDef.canMove or (unitDef.customParams and unitDef.customParams.iscommander) then
-			-- Calculate an eco value based on energy and metal production
-			local ecoValue = 1
-			if unitDef.energyMake then
-				ecoValue = ecoValue + unitDef.energyMake
+		if hasEconomicValue[unitDefID] then
+			local ecoValue = economicValue[unitDefID]
+			if not economicValue[unitDefID] then
+				ecoValue = getEconomicValue(unitDefID)
+				economicValue[unitDefID] = ecoValue
 			end
-			if unitDef.energyUpkeep and unitDef.energyUpkeep < 0 then
-				ecoValue = ecoValue - unitDef.energyUpkeep
-			end
-			if unitDef.windGenerator then
-				ecoValue = ecoValue + unitDef.windGenerator*0.75
-			end
-			if unitDef.tidalGenerator then
-				ecoValue = ecoValue + unitDef.tidalGenerator*15
-			end
-			if unitDef.extractsMetal and unitDef.extractsMetal > 0 then
-				ecoValue = ecoValue + 200
-			end
-			if unitDef.customParams and unitDef.customParams.energyconv_capacity then
-				ecoValue = ecoValue + tonumber(unitDef.customParams.energyconv_capacity) / 2
-			end
-
-			-- Decoy fusion support
-			if unitDef.customParams and unitDef.customParams.decoyfor == "armfus" then
-				ecoValue = ecoValue + 1000
-			end
-
-			-- Make it extra risky to build T2 eco
-			if unitDef.customParams and unitDef.customParams.techlevel and tonumber(unitDef.customParams.techlevel) > 1 then
-				ecoValue = ecoValue * tonumber(unitDef.customParams.techlevel) * 2
-			end
-
-			-- Anti-nuke - add value to force players to go T2 economy, rather than staying T1
-			if unitDef.customParams and (unitDef.customParams.unitgroup == "antinuke" or unitDef.customParams.unitgroup == "nuke") then
-				ecoValue = 1000
-			end
-			-- Spring.Echo("Built units eco value: " .. ecoValue)
-
-			-- Ends up building an object like:
-			-- {
-			--  0: [non-eco]
-			--	25: [t1 windmill, t1 solar, t1 mex],
-			--	75: [adv solar]
-			--	1000: [fusion]
-			--	3000: [adv fusion]
-			-- }
 
 			if not squadTargetsByEcoWeight[ecoValue] then
 				squadTargetsByEcoWeight[ecoValue] = SetListUtilities.NewSetListNoTable()
@@ -2010,7 +2012,7 @@ if gadgetHandler:IsSyncedCode() then
 		if unitTeam == raptorTeamID then
 			if config.useEggs then
 				local x,y,z = Spring.GetUnitPosition(unitID)
-				spawnRandomEgg(x,y,z, UnitDefs[unitDefID].name)
+				spawnRandomEgg(x,y,z, unitDefName[unitDefID])
 			end
 			if unitDefID == config.burrowDef then
 				if mRandom() <= config.spawnChance then
@@ -2113,7 +2115,7 @@ if gadgetHandler:IsSyncedCode() then
 			end
 
 			SetGameRulesParam("raptor_hiveCount", SetCount(burrows))
-		elseif unitTeam == raptorTeamID and UnitDefs[unitDefID].isBuilding and (attackerID and Spring.GetUnitTeam(attackerID) ~= raptorTeamID) then
+		elseif unitTeam == raptorTeamID and isBuilding[unitDefID] and (attackerID and Spring.GetUnitTeam(attackerID) ~= raptorTeamID) then
 			playerAggression = playerAggression + ((config.angerBonus/config.raptorSpawnMultiplier)*0.1)
 		end
 		if unitTeleportCooldown[unitID] then
@@ -2205,8 +2207,9 @@ else	-- UNSYNCED
 	local nocolorshift = {0,0,0}
 	local colorshiftcache = {0,0,0}
 	if gl.SetUnitBufferUniforms then
+		local isRaptorUnit = Game.UnitInfo.Cache.israptor
 		function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-			if string.find(UnitDefs[unitDefID].name, "raptor") then
+			if isRaptorUnit[unitDefID] then
 				gl.SetUnitBufferUniforms(unitID, nocolorshift, 8)
 				colorshiftcache[1] = mRandom(-100,100)*0.0001 -- hue (hue hue)
 				colorshiftcache[2] = mRandom(-200,200)*0.0001 -- saturation

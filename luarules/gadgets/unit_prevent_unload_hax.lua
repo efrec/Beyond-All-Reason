@@ -16,12 +16,7 @@ if not gadgetHandler:IsSyncedCode() then return end
 
 local frameMargin = 10
 
-local isCommando = {}
-for udid, ud in pairs(UnitDefs) do
-    if string.find(ud.name, 'cormando') then
-        isCommando[udid] = true
-    end
-end
+local isParatrooperUnit = Game.UnitInfo.Cache.isParatrooperUnit
 
 local SpSetUnitVelocity = Spring.SetUnitVelocity
 local SpGetUnitVelocity = Spring.GetUnitVelocity
@@ -35,8 +30,7 @@ local unloadedUnits = {}
 
 function gadget:UnitUnloaded(unitID, unitDefID, teamID, transportID)
 	if unitID == nil or unitDefID == nil or transportID == nil then return end
-    --FIXME: is this exception for commando this really necessary?
-	if isCommando[unitDefID] then
+	if isParatrooperUnit[unitDefID] then
 		local x,y,z = SpGetUnitVelocity(transportID)
 		if x > 10 then x = 10 elseif x <- 10 then x = -10 end -- 10 is well above 'normal' air-trans velocity
 		if z > 10 then z = 10 elseif z <- 10 then z = -10 end

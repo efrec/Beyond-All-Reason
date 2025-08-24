@@ -14,12 +14,7 @@ end
 
 if (gadgetHandler:IsSyncedCode()) then
 
-    local canResurrect = {}
-    for unitDefID, unitDef in pairs(UnitDefs) do
-        if unitDef.canResurrect then
-            canResurrect[unitDefID] = true
-        end
-    end
+    local canResurrect = Game.UnitInfo.Cache.canResurrect
 
     -- detect resurrected units here
 	function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)

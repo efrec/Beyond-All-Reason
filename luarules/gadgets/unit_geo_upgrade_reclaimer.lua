@@ -19,16 +19,9 @@ end
 
 local transferInstantly = true	-- false = transfer geo on completion
 
-
 _G.transferredUnits = {}
 
-local isGeo = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.geothermal then
-		isGeo[unitDefID] = unitDef.metalCost
-	end
-end
-
+local isGeo = Game.UnitInfo.Cache.needsGeothermal
 
 local function hasGeoUnderneat(unitID)
 	local x, _, z = Spring.GetUnitPosition(unitID)

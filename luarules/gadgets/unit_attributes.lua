@@ -98,40 +98,13 @@ end
 --------------------------------------------------------------------------------
 -- UnitDefs caching
 
-local shieldWeaponDef = {}
-local buildSpeedDef = {}
-local reclaimSpeedDef = {}
+local shieldWeaponDef = Game.UnitInfo.Cache.shieldWeaponDef
+local buildSpeedDef = Game.UnitInfo.Cache.buildSpeed
+local reclaimSpeedDef = Game.UnitInfo.Cache.reclaimSpeed
 
-
-for i = 1, #UnitDefs do
-	local ud = UnitDefs[i]
-	if ud.shieldWeaponDef then
-		shieldWeaponDef[i] = true
-	end
-	--Spring.Echo(ud.name)
-	if (ud.buildSpeed or 0) ~= 0 then
-
-		buildSpeedDef[i] = ud.buildSpeed
-		reclaimSpeedDef[i] = ud.reclaimSpeed or 0
-
-	end
-end
-
-local radarUnitDef = {}
-local sonarUnitDef = {}
-local jammerUnitDef = {}
-
-for unitDefID, ud in pairs(UnitDefs) do
-	if (ud.radarDistance or 0) > 0 then
-		radarUnitDef[unitDefID] = ud.radarDistance
-	end
-	if (ud.sonarDistance or 0) > 0 then-- and tobool(ud.customParams.sonar_can_be_disabled)
-		sonarUnitDef[unitDefID] = ud.sonarDistance
-	end
-	if (ud.radarDistanceJam or 0) > 0 then
-		jammerUnitDef[unitDefID] = ud.radarDistanceJam
-	end
-end
+local radarUnitDef = Game.UnitInfo.Cache.radarDistance
+local sonarUnitDef = Game.UnitInfo.Cache.sonarDistance
+local jammerUnitDef = Game.UnitInfo.Cache.radarDistanceJam
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------

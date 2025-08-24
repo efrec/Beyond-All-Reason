@@ -64,16 +64,18 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
-	local unitName = {}
-	local unitModeltype ={}
-	local canFly = {}
-	for unitDefID, def in pairs(UnitDefs) do
+	local unitName = Game.UnitInfo.Cache.name
+	local unitModeltype = Game.UnitInfo.Cache.modeltype
+	local canFly = Game.UnitInfo.Cache.isAirUnit
+	local isTransport = Game.UnitInfo.Cache.isTransport
+	local applyWaterDepthFix = {}
+	for unitDefID, def in ipairs(UnitDefs) do
 		parseMidAndAimPos(unitDefID, def, unitDefMidAndAimPos, 'aim')
 		parseMidAndAimPos(unitDefID, def, unitDefMidAndAimPos, 'mid')
-		unitName[unitDefID] = def.name
-		unitModeltype[unitDefID] = def.modeltype
-		if def.canFly then
-			canFly[unitDefID] = def.canFly
+		if def.minWaterDepth > 0 and def.modCategories.underwater then
+			if def.minWaterDepth + def.radius > 0 then
+				applyWaterDepthFix[unitDefID] = def.minWaterDepth
+			end
 		end
 	end
 	--unitDefMidAndAimPos[UnitDefNames['armllt'].id] = { midx = -5, midy = 0, midz= 0, aimx = -40, aimy = 20, aimz = 20}
@@ -185,18 +187,19 @@ if gadgetHandler:IsSyncedCode() then
 		elseif unitModeltype[unitDefID] == "3do" then
 			local rs, hs, ws
 			local r = spGetUnitRadius(unitID)
-			if r>47 and not canFly[unitDefID] then
+			local unitCanFly = canFly[unitDefID]
+			if r>47 and not unitCanFly then
 				rs, hs, ws = 0.68, 0.68, 0.68
-			elseif not canFly[unitDefID] then
+			elseif not unitCanFly then
 				rs, hs, ws = 0.73, 0.73, 0.73
 			else
 				rs, hs, ws = 0.53, 0.17, 0.53
 			end
 			local xs, ys, zs, xo, yo, zo, vtype, htype, axis, _ = spGetUnitCollisionData(unitID)
 			if vtype>=3 and xs==ys and ys==zs then
-			  if ys*hs < 13 and canFly[unitDefID] then -- Limit Max V height
+			  if ys*hs < 13 and unitCanFly then -- Limit Max V height
 			    spSetUnitCollisionData(unitID, xs*ws, 13, zs*rs,  xo, yo, zo,  1, htype, 1)
-			  elseif canFly[unitDefID] then
+			  elseif unitCanFly then
 				spSetUnitCollisionData(unitID, xs*ws, ys*hs, zs*rs,  xo, yo, zo,  1, htype, 1)
 			  else
 				spSetUnitCollisionData(unitID, xs*ws, ys*hs, zs*rs,  xo, yo, zo,  vtype, htype, axis)
@@ -204,16 +207,16 @@ if gadgetHandler:IsSyncedCode() then
 			end
 
 			-- set aircraft size
-			if canFly[unitDefID] and UnitDefs[unitDefID].transportCapacity>0 then
+			if unitCanFly and isTransport[unitDefID] then
 				spSetUnitRadiusAndHeight(unitID, 16, 16)
 			else
 				spSetUnitRadiusAndHeight(unitID, spGetUnitRadius(unitID)*rs, spGetUnitHeight(unitID)*hs)
 			end
 
 			-- make sure underwater units are really underwater (need midpoint + model radius <0)
-			local h = spGetUnitHeight(unitID)
-			local wd = UnitDefs[unitDefID].minWaterDepth
-			if UnitDefs[unitDefID].modCategories['underwater'] and wd and wd+r>0 then
+			local wd = applyWaterDepthFix[unitDefID]
+			if wd then
+				local h = spGetUnitHeight(unitID)
 				spSetUnitRadiusAndHeight(unitID, wd-1, h)
 			end
 		elseif unitModeltype[unitDefID] == "s3o" then

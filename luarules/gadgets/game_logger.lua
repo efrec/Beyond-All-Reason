@@ -38,29 +38,8 @@ else
 	local spAreTeamsAllied = Spring.AreTeamsAllied
 	local validation = SYNCED.validationLog
 
-	local isCommander = {}
-	local isEcoUnit = {}
-	for udefID, def in ipairs(UnitDefs) do
-		if def.customParams.iscommander then
-			isCommander[udefID] = true
-		end
-		if not def.canMove then
-			if def.metalMake > 0.5 or def.energyMake > 5 or def.energyUpkeep < 0 or def.windGenerator > 0 or def.tidalGenerator > 0 or def.customParams.solar or def.customParams.energyconv_capacity then
-				isEcoUnit[udefID] = true
-			end
-		end
-	end
-
-	local isDgun = {}
-	for weaponDefID, weaponDef in pairs(WeaponDefs) do
-		if weaponDef.type == 'DGun' and weaponDef.damages  then -- to filter out decoy comm -- and weaponDef.damage.default > 5000
-			for _, v in pairs(weaponDef.damages) do
-				if v > 99000 then
-					isDgun[weaponDefID] = true
-				end
-			end
-		end
-	end
+	local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+	local isEcoUnit = Game.UnitInfo.Cache.isEconomicUnit
 
 	local myTeamID = Spring.GetMyTeamID()
 	local myPlayerID = Spring.GetMyPlayerID()

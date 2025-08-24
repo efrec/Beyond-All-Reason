@@ -26,19 +26,12 @@ local spGetUnitsInCylinder	= Spring.GetUnitsInCylinder
 local spGetUnitDefID		= Spring.GetUnitDefID
 local spGetUnitTeam			= Spring.GetUnitTeam
 
-local minesweeperRanges = {}
+local minesweeperRanges = Game.UnitInfo.Cache.minesweeper
 local minesweepers = {}
 
-local mineDefIDs = {}
+local mineDefIDs = Game.UnitInfo.Cache.mine
 local revealedMines = {}
 
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.minesweeper then
-		minesweeperRanges[unitDefID] = unitDef.customParams.minesweeper
-	elseif unitDef.customParams.mine then
-		mineDefIDs[unitDefID] = true
-	end
-end
 if table.count(minesweeperRanges) == 0 or table.count(mineDefIDs) == 0 then
 	return false
 end

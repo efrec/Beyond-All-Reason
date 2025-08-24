@@ -16,21 +16,12 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
-local unitSpeed = {}
-local unitRspeed = {}
-local unitRspeedCount = 0
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.rSpeed > 0 then
-		unitSpeed[unitDefID] = unitDef.speed
-		unitRspeed[unitDefID] = unitDef.rSpeed
-		unitRspeedCount = unitRspeedCount + 1
-	end
-end
+local unitSpeed = Game.UnitInfo.Cache.speed
+local unitRspeed = Game.UnitInfo.Cache.rSpeed
 
-if unitRspeedCount == 0 then
+if not next(unitRspeed) then
 	return
 end
-unitRspeedCount = nil
 
 local spGetUnitCommands = Spring.GetUnitCommands
 local reverseUnit = {}

@@ -27,6 +27,8 @@ end
 
 local scavengerAITeamID = Spring.Utilities.GetScavTeamID()
 
+local isFactory = Game.UnitInfo.Cache.isFactory
+local canAssist = Game.UnitInfo.Cache.canAssist
 local builderDefs = {}
 for unitDefID, data in pairs(UnitDefs) do
 	if data.buildOptions and #data.buildOptions > 0 and (not data.customParams.nopvebuilder) then
@@ -67,10 +69,8 @@ function gadget:GameFrame(frame)
                         --Spring.Echo(data.unitDefName, "Isn't building anything")
                         local turretOptions = {}
                         for buildOptionIndex, buildOptionID in pairs(data.buildOptions) do
-                            --Spring.Echo("buildOptionID", buildOptionID, UnitDefs[buildOptionID].name)
-                            if buildOptionID and (((not UnitDefs[buildOptionID].canAssist) and (not UnitDefs[buildOptionID].isFactory)) or (math.random(1,20) == 1 and UnitDefs[buildOptionID].isFactory)) then
+                            if buildOptionID and (not isFactory[buildOptionID] and not canAssist[buildOptionID]) or (isFactory[buildOptionID] and math.random(1,20) == 1) then
                                 turretOptions[#turretOptions+1] = buildOptionID
-                                --Spring.Echo(data.unitDefName, UnitDefs[buildOptionID].name, "Is a turret")
                             end
                         end
                         if #turretOptions > 1 then

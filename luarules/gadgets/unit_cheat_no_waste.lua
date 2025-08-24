@@ -40,7 +40,7 @@ local boostableTeams = {}
 local boostableAllies = {}
 local overflowingAllies = {}
 local teamBoostableUnits = {}
-local builderWatchDefs = {}
+local isStaticBuilder = Game.UnitInfo.Cache.isStaticBuilder
 local builderWatch = {}
 
 local isAllyTeamWinning
@@ -49,12 +49,6 @@ local averageAlliedTechGuesstimate
 --localized functions
 local spGetTeamResources = Spring.GetTeamResources
 local spSetUnitBuildSpeed = Spring.SetUnitBuildSpeed
-
-for id, def in pairs(UnitDefs) do
-	if def.buildSpeed and def.buildSpeed > 0 and def.speed and def.speed == 0 then --we only want base factories and construction turrets to get boosted
-		builderWatchDefs[id] = def.buildSpeed
-	end
-end
 
 local function updateTeamOverflowing(allyID, oldMultiplier)
 	--static
@@ -110,9 +104,9 @@ local function updateAllyUnitsBuildPowers(allyID, boostMultiplier)
 end
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
-	if builderWatchDefs[unitDefID] then
+	if isStaticBuilder[unitDefID] then
 		if teamBoostableUnits[unitTeam] then
-			teamBoostableUnits[unitTeam][unitID] = builderWatchDefs[unitDefID]
+			teamBoostableUnits[unitTeam][unitID] = isStaticBuilder[unitDefID]
 			builderWatch[unitID] = true
 		end
 	end

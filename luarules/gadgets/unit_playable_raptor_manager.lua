@@ -15,16 +15,12 @@ function gadget:GetInfo()
 	}
 end
 
-local foundling			= {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.prap_foundling then
-		foundling[unitDefID] = true
-	end
+local foundling = Game.UnitInfo.Cache.prap_foundling
+
+if not gadgetHandler:IsSyncedCode() then
+	return
 end
 
-if gadgetHandler:IsSyncedCode() then
-
--- Synced Space
 function gadget:UnitCreated(unitID, unitDefID, teamID, builderID)
 	if not builderID then
 		return
@@ -35,9 +31,4 @@ function gadget:UnitCreated(unitID, unitDefID, teamID, builderID)
 		Spring.SetUnitHealth(unitID, {health=2,build=1})
 		Spring.DestroyUnit(builderID, false, true)
 	end
-end
-
-else
--- Unsynced Space
-
 end

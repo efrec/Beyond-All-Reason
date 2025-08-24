@@ -31,7 +31,7 @@ local maxImpulseMultiplier = 5.5
 --to save performance and reduce unit hesitation from nominal impulse, impulse values below (minImpulseMultiplier * mass) returns 0 impulse.
 local minImpulseMultiplier = 0.01
 
--- elmo/s, converted to elmo/frame. If a unit is launched via explosion faster than this, it is instantly slowed. If unit speed/gameSpeed is greater or canFly = true, speed/gameSpeed is used instead.
+-- elmo/s, converted to elmo/frame. If a unit is launched via explosion faster than this, it is instantly slowed. If unit speed/gameSpeed is greater or isAirUnit, speed/gameSpeed is used instead.
 local velocityCap = 330 / Game.gameSpeed
 
 --measured in elmos per frame. If velocity is above this threshold, it will be slowed until below this threshold so long as its initial velocity was greater than velocityCap.
@@ -59,8 +59,9 @@ local unitsMaxImpulse = {}
 local unitsMinImpulse = {}
 local weaponDefIDImpulses = {}
 local transportedUnits = {}
-local unitMasses = {}
-local unitDefData = {}
+local unitMasses = Game.UnitInfo.Cache.mass
+local isAirUnit = Game.UnitInfo.Cache.isAirUnit
+local unitsVelocityCap = {}
 local weaponDefIgnored = {}
 local unitInertiaCheckFlags = {}
 local fallingKillQueue = {}
@@ -71,25 +72,20 @@ local gameFrame = 0
 local velocityWatchFrames = 300 / Game.gameSpeed
 
 for unitDefID, unitDef in ipairs(UnitDefs) do
-	unitDefData[unitDefID] = {}
-	if unitDef.canFly then
-		unitDefData[unitDefID].canFly = true
-	end
-	if unitDef.speed and unitDef.speed > 0 then
-		if unitDefData[unitDefID].canFly then
-			unitDefData[unitDefID].velocityCap = unitDef.speed / Game.gameSpeed
+	if unitDef.speed > 0 then
+		if unitDef.isAirUnit then
+			unitsVelocityCap[unitDefID] = unitDef.speed / Game.gameSpeed
 		else
-			unitDefData[unitDefID].velocityCap = math.max(unitDef.speed / Game.gameSpeed, velocityCap)
+			unitsVelocityCap[unitDefID] = math.max(unitDef.speed / Game.gameSpeed, velocityCap)
 		end
 	else
-		unitDefData[unitDefID].velocityCap = velocityCap
+		unitsVelocityCap[unitDefID] = velocityCap
 	end
 
 	local fallDamageMultiplier = unitDef.customParams.fall_damage_multiplier or 1.0
 	fallDamageMultipliers[unitDefID] = fallDamageMultiplier * fallDamageMagnificationFactor
 	unitsMaxImpulse[unitDefID] = unitDef.mass * maxImpulseMultiplier
 	unitsMinImpulse[unitDefID] = unitDef.mass * minImpulseMultiplier
-	unitMasses[unitDefID] = unitDef.mass
 end
 
 for name, weaponDefID in pairs(Game.envDamageTypes) do
@@ -167,7 +163,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 		local impulseMultiplier = 1
 			impulseMultiplier = getImpulseMultiplier(unitDefID, weaponDefID, damage)
 			if not unitInertiaCheckFlags[unitID] and impulseMultiplier ~= 0 then
-				unitInertiaCheckFlags[unitID] = {expirationFrame = gameFrame + velocityWatchFrames, velocityCap = unitDefData[unitDefID].velocityCap}
+				unitInertiaCheckFlags[unitID] = {expirationFrame = gameFrame + velocityWatchFrames, velocityCap = unitsVelocityCap[unitDefID]}
 			end
 			return damage, impulseMultiplier
 	elseif (weaponDefID == groundCollisionDefID or weaponDefID == objectCollisionDefID) and (isValidCollisionDirection(unitID) or fallingUnits[unitID]) then
@@ -189,7 +185,7 @@ function gadget:UnitUnloaded(unitID, unitDefID, unitTeam,  transportID, transpor
 end
 
 function gadget:UnitEnteredAir(unitID, unitDefID, unitTeam)
-	if not transportedUnits[unitID] and not unitDefData[unitDefID].canFly then
+	if not transportedUnits[unitID] and not isAirUnit[unitDefID] then
 		launchedUnits[unitID] = true
 	end
 end
@@ -264,7 +260,7 @@ local function setVelocityControl(unitID, enabled)
 	elseif not unitInertiaCheckFlags[unitID] then
 		unitInertiaCheckFlags[unitID] = {
 			expirationFrame = gameFrame + velocityWatchFrames,
-			velocityCap     = unitDefData[Spring.GetUnitDefID(unitID)].velocityCap,
+			velocityCap     = unitsVelocityCap[Spring.GetUnitDefID(unitID)],
 		}
 	end
 end

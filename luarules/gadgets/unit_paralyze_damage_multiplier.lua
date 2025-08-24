@@ -13,29 +13,16 @@ function gadget:GetInfo()
     }
 end
 
-
 if not gadgetHandler:IsSyncedCode() then
     return false
 end
 
-local paralyzeMultipliers = {} -- paralyzeMultipliers[uDefID] = uDef.customParams.paralyzemultiplier or 1
-for uDefID, uDef in pairs(UnitDefs) do
-	paralyzeMultipliers[uDefID] = uDef.customParams.paralyzemultiplier or 1
-end
+local paralyzeMultipliers = Game.UnitInfo.Cache.paralyzeMultiplier
 
 function gadget:UnitPreDamaged(uID, uDefID, uTeam, damage, paralyzer, weaponID, projID, aID, aDefID, aTeam)
     if paralyzer then
         -- apply customParams paralyse multiplier
         local paralyzeMultiplier = paralyzeMultipliers[uDefID]
-		
-		
-		if Spring.GetModOptions().emprework==true then
-		
-			if paralyzeMultiplier==1 then
-				--paralyzeMultiplier = 0.6 --a new default EMP resistance for everything
-			end
-		
-		end
 		return damage * paralyzeMultiplier, paralyzeMultiplier
     end
     return damage, 1

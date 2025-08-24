@@ -16,15 +16,10 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
+local footprintSize = Game.squareSize * Game.footprintScale
+local isMine = Game.UnitInfo.Cache.mine
+local footprints = Game.UnitInfo.Cache.footprintSize
 local mines = {}
-local isMine = {}
-local unitSizing = {}
-for udid, ud in pairs(UnitDefs) do
-	if ud.customParams.detonaterange then
-		isMine[udid] = true
-	end
-	unitSizing[udid] = {ud.xsize * 4 + 8, ud.zsize * 4 + 8} -- add 8 for the mines size too
-end
 
 local spSetUnitBlocking = Spring.SetUnitBlocking
 
@@ -45,10 +40,12 @@ end
 
 function gadget:AllowUnitCreation(unitDefID, builderID, builderTeam, x, y, z)
 	if x and y and z then
-		local footprintx = unitSizing[unitDefID][1]
-		local footprintz = unitSizing[unitDefID][2]
+		local footprint = footprints[unitDefID]
+		-- todo: this does not check facing
+		local offsetX = (footprint[1] + footprintSize) * 0.5 -- add +1 to scale for the mine's size
+		local offsetZ = (footprint[2] + footprintSize) * 0.5
 		for mine, pos in pairs(mines) do
-			if math.abs(x - pos[1]) < footprintx and math.abs(z - pos[2]) < footprintz then
+			if math.abs(x - pos[1]) < offsetX and math.abs(z - pos[2]) < offsetZ then
 				return false
 			end
 		end

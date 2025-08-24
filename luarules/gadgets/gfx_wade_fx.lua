@@ -47,7 +47,7 @@ local cegSizes = {"waterwake-tiny", "waterwake-small", "waterwake-medium", "wate
 
 local unitWadeCeg = {}
 for unitDefID, unitDef in pairs(UnitDefs) do
-	if not unitDef.isBuilding then
+	if not unitDef.isImmobile then
 		local footprint = math.max(unitDef.xsize, unitDef.zsize)
 		unitWadeCeg[unitDefID] = cegSizes[math.clamp(footprint - 2, 1, #cegSizes)]
 	end

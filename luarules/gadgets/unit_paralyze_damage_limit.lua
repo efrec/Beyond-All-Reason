@@ -21,21 +21,12 @@ end
 local modOptions = Spring.GetModOptions()
 
 local maxTime = modOptions.emprework==true and 10 or 20 --- bug fixed
-
-
-local excluded = {
-    -- mobile units that are excluded from the maxTime limit
-    [UnitDefNames.armscab.id] = true,
-    [UnitDefNames.cormabm.id] = true,
-    [UnitDefNames.corcarry.id] = true,
-    [UnitDefNames.armcarry.id] = true,
-	[UnitDefNames.armantiship.id] = true,
-	[UnitDefNames.corantiship.id] = true,
-}
-
-
-local isBuilding = {}
 local unitOhms = {} -- rework related
+
+
+-- mobile units that are excluded from the maxTime limit
+local isExcluded = {}
+local isImmobile = Game.UnitInfo.Cache.isImmobile
 
 local weaponParalyzeDamageTime = {}
 local weaponsWithCustomStunLogic = {}
@@ -103,15 +94,12 @@ local function EvaluateCustomStunCondition(unitDef, unitConditionKey, unitCondit
 	return false
 end
 
+local hasInterceptorWeapon = Game.UnitInfo.Cache.hasInterceptorWeapon
+local hasDroneWeapon = Game.UnitInfo.Cache.hasDroneWeapon
 
 for udid, ud in pairs(UnitDefs) do
-	for id, v in pairs(excluded) do
-		if string.find(ud.name, UnitDefs[id].name) then
-			excluded[udid] = v
-		end
-		if ud.isBuilding then
-			isBuilding[udid] = true
-		end
+	if not ud.isImmobile and (hasInterceptorWeapon[udid] or hasDroneWeapon[udid]) then
+		isExcluded[udid] = true
 	end
 
 	-- Precompute our fixed_stun_duration and paralyzetime_exceptions to save on computation during the game
@@ -144,10 +132,8 @@ for udid, ud in pairs(UnitDefs) do
 		--Spring.Echo('ohm', ud.name, ud.customParams.paralyzemultiplier)
 		end
 	end
-
 end
-
-	
+hasInterceptorWeapon, hasDroneWeapon = nil, nil
 
 
 local spGetUnitHealth = Spring.GetUnitHealth
@@ -175,7 +161,7 @@ function gadget:UnitPreDamaged(uID, uDefID, uTeam, damage, paralyzer, weaponID, 
 		return damage, 1
 	else
 		-- restrict the max paralysis time of mobile units
-		if not isBuilding[uDefID] and not excluded[uDefID] then
+		if not isImmobile[uDefID] and not isExcluded[uDefID] then
 			local ohm = 0
 			if Spring.GetModOptions().emprework==true then
 				ohm = unitOhms[uDefID]--	 or 0)) <= 0 and 0.6 or unitOhms[uDefID]

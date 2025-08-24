@@ -44,16 +44,6 @@ local function AllButAllyTeamID(allyTeamID)
 end
 
 if gadgetHandler:IsSyncedCode() then
-
-	local isT2Mex = {}
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		-- not critter/raptor/object
-		if not string.find(unitDef.name, 'critter') and not string.find(unitDef.name, 'raptor') and (not unitDef.modCategories or not unitDef.modCategories.object) then
-			if unitDef.extractsMetal >= 0.004 then
-				isT2Mex[unitDefID] = unitDef.extractsMetal
-			end
-		end
-	end
 	local nukeWeapons = {}
 	for id, def in pairs(WeaponDefs) do
 		if def.targetable and def.targetable == 1 then
@@ -83,8 +73,8 @@ if gadgetHandler:IsSyncedCode() then
 
 	-- NUKE LAUNCH send to all but ally team
 	function gadget:ProjectileCreated(proID, proOwnerID, weaponDefID)
-		if nukeWeapons[Spring.GetProjectileDefID(proID)] then
-			local players = AllButAllyTeamID(GetAllyTeamID(Spring.GetUnitTeam(proOwnerID)))
+		if nukeWeapons[weaponDefID] then
+			local players = AllButAllyTeamID(Spring.GetUnitAllyTeam(proOwnerID))
 			for ct, player in pairs (players) do
 				if tostring(player) then
 					SendToUnsynced("NotificationEvent", "NukeLaunched", tostring(player))
@@ -122,27 +112,11 @@ else
 
 	local enableLastcomNotif = (Spring.GetModOptions().deathmode == 'com')
 
-	local isCommander = {}
-	local isRadar = {}
-	local isMex = {}
-	local isLrpc = {}
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		-- not critter/raptor/object
-		if not string.find(unitDef.name, 'critter') and not string.find(unitDef.name, 'raptor') and (not unitDef.modCategories or not unitDef.modCategories.object) then
-			if unitDef.customParams.iscommander or unitDef.customParams.isscavcommander then
-				isCommander[unitDefID] = true
-			end
-			if string.find(unitDef.name,'corint') or string.find(unitDef.name,'armbrtha') or string.find(unitDef.name,'corbuzz') or string.find(unitDef.name,'armvulc') or string.find(unitDef.name,'legstarfall') then
-				isLrpc[unitDefID] = true
-			end
-			if unitDef.isBuilding and unitDef.radarDistance > 1900 then
-				isRadar[unitDefID] = unitDef.radarDistance
-			end
-			if unitDef.extractsMetal > 0 then
-				isMex[unitDefID] = unitDef.extractsMetal
-			end
-		end
-	end
+	local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+	local isRadar = Game.UnitInfo.Cache.isRadarBuilding
+	local isMex = Game.UnitInfo.Cache.extractsMetal
+	local isLrpc = Game.UnitInfo.Cache.isLongRangeCannonUnit
+	local isAdvanced = Game.UnitInfo.Cache.isTech2
 
 	local isSpec = Spring.GetSpectatingState()
 	local myTeamID = Spring.GetMyTeamID()
@@ -207,7 +181,7 @@ else
 		-- if own and not killed by yourself
 		if not isSpec and not unitInView and unitTeam == myTeamID and attackerTeam and attackerTeam ~= unitTeam then
 			if isRadar[unitDefID] then
-				local event = isRadar[unitDefID] > 2800 and 'AdvRadarLost' or 'RadarLost'
+				local event = isAdvanced[unitDefID] and 'AdvRadarLost' or 'RadarLost'
 				BroadcastEvent("NotificationEvent", event, tostring(myPlayerID))
 				return
 			elseif isMex[unitDefID] then

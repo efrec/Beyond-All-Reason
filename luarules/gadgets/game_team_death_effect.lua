@@ -21,16 +21,8 @@ end
 local wavePeriod = 550
 GG.wipeoutWithWreckage = false		-- FFA can enable this
 
-local isCommander = {}
-local unitDecoration = {}
-for udefID,def in ipairs(UnitDefs) do
-	if def.customParams.iscommander then
-		isCommander[udefID] = true
-	end
-	if def.customParams.decoration then
-		unitDecoration[udefID] = true
-	end
-end
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+local isDecoration = Game.UnitInfo.Cache.isDecorationUnit
 
 local spDestroyUnit = Spring.DestroyUnit
 local spGetUnitPosition = Spring.GetUnitPosition
@@ -50,7 +42,7 @@ local function wipeoutTeam(teamID, originX, originZ, attackerUnitID, periodMult)
 	local teamUnits = Spring.GetTeamUnits(teamID)
 	for i=1, #teamUnits do
 		local unitID = teamUnits[i]
-		if not unitDecoration[spGetUnitDefID(unitID)] then
+		if not isDecoration[spGetUnitDefID(unitID)] then
 			local x,_,z = spGetUnitPosition(unitID)
 			local deathFrame
 			if originX then

@@ -29,9 +29,9 @@ local inheritChildrenXP = {} -- stores the value of XP rate to be derived from u
 local childrenInheritXP = {} -- stores the string that represents the types of units that will inherit the parent's XP when created
 local parentsInheritXP = {} -- stores the string that represents the types of units the parent will gain xp from
 local childrenWithParents = {} --stores the parent/child relationships format. Each entry stores key of unitID with an array of {unitID, builderID, xpInheritance}
-local mobileUnits = {}
-local turretUnits = {}
-local unitPowerDefs = {}
+local turretUnits = Game.UnitInfo.Cache.isDefensiveStructureUnit
+local mobileUnits = Game.UnitInfo.Cache.canMove
+local unitPowerDefs = Game.UnitInfo.Cache.power
 
 for id, def in pairs(UnitDefs) do
 	if def.customParams.inheritxpratemultiplier then
@@ -44,21 +44,6 @@ for id, def in pairs(UnitDefs) do
 	if def.customParams.childreninheritxp then
 		childrenInheritXP[id] = def.customParams.childreninheritxp or " "
 	else childrenInheritXP[id] = " "
-	end
-	if def.speed and def.speed ~= 0 then
-		mobileUnits[id] = true
-	end
-	if def.speed == 0 and def.weapons and def.weapons[1] then
-		for i = 1, #def.weapons do
-			local wDef = WeaponDefs[def.weapons[i].weaponDef]
-			if wDef.type ~= "Shield" then
-				turretUnits[id] = true
-				break
-			end
-		end
-	end
-	if def.power then
-		unitPowerDefs[id] = def.power
 	end
 end
 

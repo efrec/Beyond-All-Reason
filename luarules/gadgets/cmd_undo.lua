@@ -49,25 +49,28 @@ if gadgetHandler:IsSyncedCode() then
 
 	local safeguardedUnits = {}
 	local weaponUnitSelfd = {}
+	local unitSelfdRadius = {}
+	local unitWreckDefID = {}
+	local unitDefName = Game.UnitInfo.Cache.name
+	local isTech1 = Game.UnitInfo.Cache.isTech1
+	local isEconomicUnit = Game.UnitInfo.Cache.isEconomicUnit
+	local isEnergyConverter = Game.UnitInfo.Cache.isEnergyConverter
 	for unitDefID, unitDef in pairs(UnitDefs) do
-		if unitDef.customParams and tonumber(unitDef.customParams.techlevel) > 1 then
-			if unitDef.isBuilding then
-				safeguardedUnits[unitDefID] = true
-			end
-			if unitDef.metalMake > 0.5 or unitDef.energyMake > 5 or unitDef.energyUpkeep < 0 or unitDef.windGenerator > 0 or unitDef.customParams.solar or unitDef.tidalGenerator > 0 or unitDef.customParams.energyconv_capacity then
-				safeguardedUnits[unitDefID] = true
-			end
-		end
-		if unitDef.customParams.energyconv_capacity then
+		if (not isTech1[unitDefID] and (unitDef.isBuilding or isEconomicUnit[unitDefID])) or isEnergyConverter[unitDefID] then
 			safeguardedUnits[unitDefID] = true
 		end
 		if unitDef.selfDExplosion then
 			local wDef = WeaponDefNames[unitDef.selfDExplosion]
 			if wDef then
 				weaponUnitSelfd[wDef.id] = unitDefID
+				unitSelfdRadius[unitDefID] = wDef.damageAreaOfEffect
 			end
 		end
+		if unitDef.wreckName then
+			unitWreckDefID[unitDefID] = FeatureDefNames[unitDef.wreckName].id
+		end
 	end
+	isTech1, isEconomicUnit, isEnergyConverter = nil, nil, nil
 
 	local startPlayers = {}
 	local function checkStartPlayers()
@@ -130,19 +133,15 @@ if gadgetHandler:IsSyncedCode() then
 		local leftovers = {}
 		for oldUnitID, params in pairs(teamSelfdUnits[teamID]) do
 			if params[1] > oldestGameFrame then
-
 				-- destroy old unit wreckage if any
-				local features = Spring.GetFeaturesInCylinder(math.floor(params[4]),math.floor(params[6]),70)	-- using radius larger than 1 cause wreckage can fly off a bit
-				for i=1,#features do
-					local featureID = features[i]
-					if UnitDefs[params[2]] ~= nil then
-						local wreckName = UnitDefs[params[2]].wreckName
-						if wreckName ~= nil and FeatureDefNames[wreckName] then
-							local wreckageID = FeatureDefNames[wreckName].id
-							if wreckageID ~= nil and wreckageID == Spring.GetFeatureDefID(featureID) then
-								Spring.DestroyFeature(featureID, false)
-								break
-							end
+				local wreckDefID = unitWreckDefID[params[2]]
+				if wreckDefID ~= nil then
+					local features = Spring.GetFeaturesInCylinder(math.floor(params[4]),math.floor(params[6]),70)	-- using radius larger than 1 cause wreckage can fly off a bit
+					for i=1,#features do
+						local featureID = features[i]
+						if wreckDefID == Spring.GetFeatureDefID(featureID) then
+							Spring.DestroyFeature(featureID, false)
+							break
 						end
 					end
 				end
@@ -161,12 +160,9 @@ if gadgetHandler:IsSyncedCode() then
 				if sceduledRestoreHeightmap[Spring.GetGameFrame() + 15] == nil then
 					sceduledRestoreHeightmap[Spring.GetGameFrame() + 15] = {}
 				end
-				if UnitDefs[params[2]].selfDExplosion ~= nil then
-					local radius = WeaponDefs[WeaponDefNames[UnitDefs[params[2]].selfDExplosion].id].damageAreaOfEffect
-					if radius ~= nil then
-						sceduledRestoreHeightmap[Spring.GetGameFrame() + 15][#sceduledRestoreHeightmap[Spring.GetGameFrame() + 15]+1] = {params[4]-radius, params[6]-radius, params[4]+radius, params[6]+radius}
-						--table.insert(sceduledRestoreHeightmap[Spring.GetGameFrame() + 15], {params[4]-radius, params[6]-radius, params[4]+radius, params[6]+radius})
-					end
+				local radius = unitSelfdRadius[params[2]]
+				if radius then
+					sceduledRestoreHeightmap[Spring.GetGameFrame() + 15][#sceduledRestoreHeightmap[Spring.GetGameFrame() + 15]+1] = {params[4]-radius, params[6]-radius, params[4]+radius, params[6]+radius}
 				end
 			else
 				leftovers[oldUnitID] = params
@@ -219,7 +215,7 @@ if gadgetHandler:IsSyncedCode() then
 				end
 				attackerName = attackerName or '---'
 				local x,_,z = Spring.GetUnitPosition(unitID)
-				local unitName = UnitDefs[unitDefID].name
+				local unitName = unitDefName[unitDefID]
 				local atPosition = not x and '' or "   (pos: "..math.floor(math.floor(x/100)*100)..", "..math.floor(math.floor(z/100)*100)..")"
 				--if not attackerIsAi then
 				if dgunDef[weaponID] then

@@ -17,20 +17,10 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local isCritter = {}
-local isCommander = {}
-local isFlyingCritter = {}
-
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if string.sub(unitDef.name, 1, 7) == "critter" then
-		isCritter[unitDefID] = true
-		if unitDef.canFly then
-			isFlyingCritter[unitDefID] = true
-		end
-	elseif unitDef.customParams.iscommander then
-		isCommander[unitDefID] = true
-	end
-end
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+local isCritter = Game.UnitInfo.Cache.isGaiaCritterUnit
+local isAirUnit = Game.UnitInfo.Cache.isAirUnit
+local unitDefName = Game.UnitInfo.Cache.name
 
 local removeCritters		= true		-- gradually remove critters when unitcont gets higher
 local addCrittersAgain		= true		-- re-add the removed critters again
@@ -194,10 +184,7 @@ local function setGaiaUnitSpecifics(unitID)
 	Spring.SetUnitSensorRadius(unitID, 'airLos', 0)
 	Spring.SetUnitSensorRadius(unitID, 'radar', 0)
 	Spring.SetUnitSensorRadius(unitID, 'sonar', 0)
-	for weaponID, _ in pairs(UnitDefs[GetUnitDefID(unitID)].weapons) do
-		Spring.GiveOrderToUnit(unitID, CMD.FIRE_STATE, {0}, 0)
-		--Spring.UnitWeaponHoldFire(unitID, weaponID)		-- doesnt seem to work :S (maybe because they still patrol)
-	end
+	Spring.GiveOrderToUnit(unitID, CMD.FIRE_STATE, 0)
 end
 
 local function makeUnitCritter(unitID)
@@ -242,12 +229,6 @@ function gadget:Initialize()
 
 	if amountMultiplier < minMulti then amountMultiplier = minMulti end
 	if amountMultiplier > maxMulti then amountMultiplier = maxMulti end
-end
-
-local function getUnitDefIdbyName(unitName)
-	for udid, unitDef in pairs(UnitDefs) do
-		if unitDef.name == unitName then return udid end
-	end
 end
 
 -- excluding gaia units
@@ -370,8 +351,8 @@ local function addMapCritters()
 	for key, cC in pairs(mapConfig) do
 		if cC.spawnBox then
 			for unitName, unitAmount in pairs(cC.unitNames) do
-				local unitDefID = getUnitDefIdbyName(unitName)
-				local minWaterDepth = 0 - UnitDefs[unitDefID].minWaterDepth
+				local unitDef = UnitDefNames[unitName]
+				local minWaterDepth = 0 - unitDef.minWaterDepth
 				local waterunit = false
 				if minWaterDepth < 0 then waterunit = true end
 
@@ -404,11 +385,8 @@ local function addMapCritters()
 		elseif cC.spawnCircle then
 			local spawnCircle = cC.spawnCircle
 			for unitName, unitAmount in pairs(cC.unitNames) do
-				local unitDefID = getUnitDefIdbyName(unitName)
-				if not UnitDefs[unitDefID] then
-					break
-				end
-				local minWaterDepth = 0 - UnitDefs[unitDefID].minWaterDepth
+				local unitDef = UnitDefNames[unitName]
+				local minWaterDepth = 0 - unitDef.minWaterDepth
 				local waterunit = false
 				if minWaterDepth < 0 then waterunit = true end
 
@@ -513,7 +491,7 @@ function gadget:UnitIdle(unitID, unitDefID, unitTeam)
 	if isCritter[unitDefID] and not sceduledOrders[unitID] then
 		local x,y,z = GetUnitPosition(unitID,true,true)
 		local radius = 220
-		if isFlyingCritter[unitDefID] then
+		if isAirUnit[unitDefID] then
 			radius = 750
 		end
 		randomPatrolInCircle(unitID, x, z, radius)
@@ -541,7 +519,7 @@ function gadget:UnitCreated(unitID, unitDefID, unitTeam)
 	elseif isCritter[unitDefID] then
 		local x,_,z = GetUnitPosition(unitID,true,true)
 		local radius = 300
-		if isFlyingCritter[unitDefID] then
+		if isAirUnit[unitDefID] then
 			radius = 1500
 		end
 		randomPatrolInCircle(unitID, x, z, radius)
@@ -551,7 +529,7 @@ function gadget:UnitCreated(unitID, unitDefID, unitTeam)
 		if unitTeam == GaiaTeamID then
 			--if critterUnits[unitID] == nil then
 				makeUnitCritter(unitID)
-				critterUnits[unitID].unitName = UnitDefs[unitDefID].name
+				critterUnits[unitID].unitName = unitDefName[unitDefID]
 		--end
 			for _, comUnitID in pairs(commanders) do
 				--pairCompanionToUnit(unitID,comUnitID)

@@ -16,6 +16,8 @@ function gadget:GetInfo()
 	}
 end
 
+local needsGeo = Game.UnitInfo.Cache.needsGeothermal
+
 local function isNearGeo(x, z)
 	-- modded geos can be bigger than 40 elmo but w/e, this gadget only lives
 	-- until next engine anyway, plus centered placement still works
@@ -39,10 +41,10 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpt
 	if cmdID == CMD_INSERT then
 		return gadget:AllowCommand(unitID, unitDefID, teamID, cmdParams[2], {cmdParams[4], cmdParams[5], cmdParams[6]}, cmdParams[3])
 	else
-		return not UnitDefs[-cmdID].needGeo or isNearGeo(cmdParams[1], cmdParams[3])
+		return not needsGeo[-cmdID] or isNearGeo(cmdParams[1], cmdParams[3])
 	end
 end
 
 function gadget:AllowUnitCreation(unitDefID, builderID, builderTeam, x, y, z, facing)
-	return not UnitDefs[unitDefID].needGeo or isNearGeo(x, z)
+	return not needsGeo[unitDefID] or isNearGeo(x, z)
 end

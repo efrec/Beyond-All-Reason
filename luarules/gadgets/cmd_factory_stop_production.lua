@@ -16,13 +16,7 @@ local identifier = "StopProduction"
 
 if gadgetHandler:IsSyncedCode() then
 
-	local isFactory = {}
-	for udid = 1, #UnitDefs do
-		local ud = UnitDefs[udid]
-		if ud.isFactory then
-			isFactory[udid] = true
-		end
-	end
+	local isFactory = Game.UnitInfo.Cache.isFactory
 
 	local spGetRealBuildQueue = Spring.GetRealBuildQueue
 	local spGiveOrderToUnit = Spring.GiveOrderToUnit

@@ -25,12 +25,7 @@ local spIsCheatingEnabled = Spring.IsCheatingEnabled
 
 local marketplaces = {}
 
-local isMarketPlace = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.marketplace and unitDef.customParams.marketplace then
-		isMarketPlace[unitDefID] = true
-	end
-end
+local isMarketPlace = Game.UnitInfo.Cache.marketplace
 
 local teams = Spring.GetTeamList()
 for i=1,#teams do

@@ -118,11 +118,7 @@ if gadgetHandler:IsSyncedCode() then
 		--end
 	end
 
-	local unitMass = {}
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		unitMass[unitDefID] = unitDef.mass
-	end
-
+	local unitMass = Game.UnitInfo.Cache.mass
 
 
 	local function ComSpawnDefoliate(spawnx,spawny,spawnz)

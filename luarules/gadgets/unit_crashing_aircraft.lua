@@ -25,16 +25,10 @@ if gadgetHandler:IsSyncedCode() then
 	local crashing = {}
 	local crashingCount = 0
 
-	local isAircon = {}
-	local crashable  = {}
+	local isConstructor = Game.UnitInfo.Cache.isConstructionUnit
+	local crashable = Game.UnitInfo.Cache.canCrash
 	local unitWeapons = {}
-	for udid,UnitDef in pairs(UnitDefs) do
-		if UnitDef.canFly == true and (not UnitDef.customParams.crashable or UnitDef.customParams.crashable ~= '0') then
-			crashable[UnitDef.id] = true
-			if UnitDef.buildSpeed > 1 then
-				isAircon[udid] = true
-			end
-		end
+	for udid,UnitDef in ipairs(UnitDefs) do
 		if #UnitDef.weapons > 0 then
 			unitWeapons[udid] = UnitDef.weapons
 		end
@@ -81,7 +75,7 @@ if gadgetHandler:IsSyncedCode() then
 			SetUnitSensorRadius(unitID, "sonar", 0)
 
 			-- make sure aircons stop building
-			if isAircon[unitDefID] then
+			if isConstructor[unitDefID] then
 				Spring.GiveOrderToUnit(unitID, CMD.STOP, {}, 0)
 			end
 

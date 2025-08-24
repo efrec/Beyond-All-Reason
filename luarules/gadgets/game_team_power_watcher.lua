@@ -29,6 +29,7 @@ local teamPowers = {}
 local peakTeamPowers = {}
 local unitsWithPower = {}
 local playerAllies = {}
+local unitPower = Game.UnitInfo.Cache.power
 local powerThresholds = {
     {techLevel = 0.5, threshold = 0},
     {techLevel = 1, threshold = 9000},
@@ -67,8 +68,9 @@ for _, teamNumber in ipairs(teamList) do
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
-    unitsWithPower[unitID] = { power = UnitDefs[unitDefID].power, team = unitTeam}
-    teamPowers[unitTeam] = teamPowers[unitTeam] + UnitDefs[unitDefID].power
+	local power = unitPower[unitDefID]
+    unitsWithPower[unitID] = { power = power, team = unitTeam}
+    teamPowers[unitTeam] = teamPowers[unitTeam] + power
     if peakTeamPowers[unitTeam] < teamPowers[unitTeam] then
         peakTeamPowers[unitTeam] = teamPowers[unitTeam]
     end
@@ -76,7 +78,7 @@ end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
         unitsWithPower[unitID] = nil
-            teamPowers[unitTeam] = math.max(teamPowers[unitTeam] - UnitDefs[unitDefID].power, 0)
+            teamPowers[unitTeam] = math.max(teamPowers[unitTeam] - unitPower[unitDefID], 0)
 end
 
 --handles capture events on units already added to unitsWithPower by UnitFinished
@@ -84,13 +86,14 @@ function gadget:MetaUnitAdded(unitID, unitDefID, unitTeam)
     if unitsWithPower[unitID] then
         local oldTeam = unitsWithPower[unitID].team
 
-        unitsWithPower[unitID] = { power = UnitDefs[unitDefID].power, team = unitTeam}
-        teamPowers[unitTeam] = teamPowers[unitTeam] + UnitDefs[unitDefID].power
+		local power = unitPower[unitDefID]
+        unitsWithPower[unitID] = { power = power, team = unitTeam}
+        teamPowers[unitTeam] = teamPowers[unitTeam] + power
 
-        if teamPowers[oldTeam] <= UnitDefs[unitDefID].power then
+        if teamPowers[oldTeam] <= power then
             teamPowers[oldTeam] = 0
         else
-            teamPowers[oldTeam] = teamPowers[unitTeam] - UnitDefs[unitDefID].power
+            teamPowers[oldTeam] = teamPowers[unitTeam] - power
         end
 
         if teamPowers[unitTeam] and peakTeamPowers[unitTeam] < teamPowers[unitTeam] then

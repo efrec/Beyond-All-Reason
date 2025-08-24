@@ -15,16 +15,11 @@ end
 
 
 if (gadgetHandler:IsSyncedCode()) then
-
-    local isNano = {}
-    for unitDefID, defs in pairs(UnitDefs) do
-        if string.find(defs.name, "nanotc") then
-            isNano[unitDefID] = true
-        end
-    end
+	-- may include more than nanos:
+    local isImmobileUnit = Game.UnitInfo.Cache.isImmobileUnit
 
     function gadget:UnitCreated(uid, udid)
-        if isNano[udid] then
+        if isImmobileUnit[udid] then
             Spring.SetUnitPosErrorParams(udid, 0,0,0, 0,0,0, math.huge)
         end
     end

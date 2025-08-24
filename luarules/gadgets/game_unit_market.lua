@@ -65,12 +65,7 @@ local sellCmd = {
 
 local buildPower = {}
 local realBuildSpeed = {}
-local unitBuildSpeed = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-    if unitDef.buildSpeed > 0 then
-        unitBuildSpeed[unitDefID] = unitDef.buildSpeed
-    end
-end
+local unitBuildSpeed = Game.UnitInfo.Cache.buildSpeed
 
 local function UnitSaleBroadcast(unitID, price, msgFromTeamID)
     SendToUnsynced("UnitSale",  unitID, price, msgFromTeamID)

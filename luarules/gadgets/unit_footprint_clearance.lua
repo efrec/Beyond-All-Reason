@@ -17,14 +17,8 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
-local unitXsize5 = {}
-local unitZsize5 = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.isBuilding or unitDef.isFactory then
-		unitXsize5[unitDefID] = unitDef.xsize * 5
-		unitZsize5[unitDefID] = unitDef.zsize * 5
-	end
-end
+local isBuilding = Game.UnitInfo.Cache.isStructureUnit
+local footprint = Game.UnitInfo.Cache.footprint
 local gibFeatureDefs = {}
 for featureDefID, fDef in pairs(FeatureDefs) do
 	if not fDef.geoThermal and fDef.name ~= 'geovent' and fDef.name ~= 'xelnotgawatchtower' and fDef.name ~= 'crystalring' then
@@ -33,15 +27,17 @@ for featureDefID, fDef in pairs(FeatureDefs) do
 end
 
 function gadget:UnitCreated(uID, uDefID, uTeam, bID)
-
 	--Instagibb any features that are unlucky enough to be in the build radius of new construction projects
-	if unitXsize5[uDefID] then	-- buildings/factories
+	if isBuilding[uDefID] then
 		local xr, zr
+		local sizes = footprint[uDefID]
 		if Spring.GetUnitBuildFacing(uID) % 2 == 0 then
-			xr, zr = unitXsize5[uDefID], unitZsize5[uDefID]
+			xr, zr = sizes[1], sizes[2]
 		else
-			xr, zr = unitZsize5[uDefID], unitXsize5[uDefID]
+			xr, zr = sizes[2], sizes[1]
 		end
+		xr = xr * 5 -- maybe should be: Game.squareSize * Game.footprintScale * 0.5
+		zr = zr * 5 -- which is larger (8 vs 5)
 
 		local ux, _, uz = Spring.GetUnitPosition(uID)
 		local features = Spring.GetFeaturesInRectangle(ux-xr, uz-zr, ux+xr, uz+zr)

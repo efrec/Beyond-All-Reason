@@ -48,13 +48,7 @@ for unitDefName, isqueen in pairs(queenUnitDefs) do
 end
 queenUnitDefs = nil
 
-local queenTargets = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-    if unitDef.customParams.iscommander or unitDef.customParams.isscavcommander then
-        queenTargets[unitDefID] = true
-    end
-end
-
+local queenTargets = Game.UnitInfo.Cache.isCommanderUnit
 
 local aliveQueens = {}
 local aliveTargets = {}

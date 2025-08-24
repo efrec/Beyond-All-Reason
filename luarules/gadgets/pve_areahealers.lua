@@ -66,7 +66,7 @@ if Spring.Utilities.Gametype.IsRaptors() then
     }
 end
 
-local unitBuildtime = {}
+local unitBuildtime = Game.UnitInfo.Cache.buildTime
 for unitDefID, unitDef in pairs(UnitDefs) do
 	if unitDef.customParams.isscavenger and unitDef.canRepair and unitDef.repairSpeed and unitDef.buildDistance then
 		healersTable[unitDefID] = {
@@ -75,7 +75,6 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 			canbehealed = true,
 		}
 	end
-	unitBuildtime[unitDefID] = unitDef.buildTime
 end
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)

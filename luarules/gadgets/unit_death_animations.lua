@@ -33,18 +33,18 @@ local units = {
 	corak = true,
 	corck = true,
 }
-local unitsCopy = table.copy(units)
-for name,v in pairs(unitsCopy) do
+for name in pairs(units) do
 	units[name..'_scav'] = true
 end
+
 local hasDeathAnim = {}
-for udid, ud in pairs(UnitDefs) do
-	if units[ud.name] then
-		hasDeathAnim[udid] = true
-	end
-	-- almost all raptors have dying anims
-	if string.find(ud.name, "raptor") or (ud.customParams.subfolder and ud.customParams.subfolder == "other/raptors") then
-		hasDeathAnim[udid] = true
+do
+	local isRaptorUnit = Game.UnitInfo.Cache.isRaptorUnit -- almost all raptors have dying anims
+	local getDeathAnim = Game.UnitInfo.Classifers.hasDeathAnimation -- expensive to run
+	for udid, ud in pairs(UnitDefs) do
+		if units[ud.name] or isRaptorUnit[udid] or getDeathAnim(ud) then
+			hasDeathAnim[udid] = true
+		end
 	end
 end
 

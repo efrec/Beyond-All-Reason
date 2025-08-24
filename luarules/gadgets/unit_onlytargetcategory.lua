@@ -12,33 +12,12 @@ function gadget:GetInfo()
 	}
 end
 
-local unitCategories = {}
-local unitOnlyTargetsCategory = {}
+local unitCategories = Game.UnitInfo.Cache.modCategories
+local unitOnlyTargetsCategory = Game.UnitInfo.Cache.onlyTargetCategory
 local unitDontAttackGround = {}
-for udid, unitDef in pairs(UnitDefs) do
-	if unitDef.modCategories then
-		unitCategories[udid] = unitDef.modCategories
-	end
-
-	local skip = false
-	local add = false
-	for wid, weapon in ipairs(unitDef.weapons) do
-		if weapon.onlyTargets then
-			local i = 0
-			for category, _ in pairs(weapon.onlyTargets) do
-				i = i + 1
-				if not unitOnlyTargetsCategory[udid] then
-					unitOnlyTargetsCategory[udid] = category
-					if category == 'vtol' then
-						unitDontAttackGround[udid] = true
-					end
-				elseif unitOnlyTargetsCategory[udid] ~= category then	-- multiple different onlytargetcategory used: disregard
-					unitOnlyTargetsCategory[udid] = nil
-					unitDontAttackGround[udid] = nil -- If there are multiple categories, then it can shoot ground, and should be allowed to do so
-					break
-				end
-			end
-		end
+for udid, category in pairs(unitOnlyTargetsCategory) do
+	if category == "vtol" then
+		unitDontAttackGround[udid] = true
 	end
 end
 

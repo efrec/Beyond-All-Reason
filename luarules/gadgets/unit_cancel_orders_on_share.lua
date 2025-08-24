@@ -32,11 +32,12 @@ if (not gadgetHandler:IsSyncedCode()) then
 
 else -- SYNCED
 
+  local isMex = Game.UnitInfo.Cache.extractsMetal
   local recievedMexes = {}
 
   function gadget:UnitGiven(unitID, unitDefID, unitTeam, oldTeam)
     -- if the unit is a metal extractor, turn it on:
-    if UnitDefs[unitDefID] and UnitDefs[unitDefID].extractsMetal and UnitDefs[unitDefID].extractsMetal > 0 then
+    if isMex[unitDefID] then
       recievedMexes[#recievedMexes+1] = unitID
     end
   end

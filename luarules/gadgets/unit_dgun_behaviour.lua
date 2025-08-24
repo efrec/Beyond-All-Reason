@@ -40,24 +40,9 @@ for weaponDefID, weaponDef in ipairs(WeaponDefs) do
 	end
 end
 
-local isCommander = {}
-local isDecoyCommander = {}
-local commanderNames = {}
-
-for unitDefID, unitDef in ipairs(UnitDefs) do
-	if unitDef.customParams.iscommander or unitDef.customParams.isscavcommander then
-		isCommander[unitDefID] = true
-		commanderNames[unitDef.name] = true
-	end
-end
-
-for unitDefID, unitDef in ipairs(UnitDefs) do
-	if unitDef.customParams.decoyfor and commanderNames[unitDef.customParams.decoyfor] then
-		isDecoyCommander[unitDefID] = true
-	end
-end
-
-commanderNames = nil
+local armorType = Game.UnitInfo.Cache.armorType
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+local isDecoyCommander = Game.UnitInfo.Cache.isDecoyCommanderUnit
 
 local flyingDGuns = {}
 local groundedDGuns = {}
@@ -152,8 +137,7 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 			spDeleteProjectile(projectileID)
 			local x, y, z = spGetUnitPosition(unitID)
 			spSpawnCEG("dgun-deflect", x, y, z, 0, 0, 0, 0, 0)
-			local armorClass = UnitDefs[unitDefID].armorType
-			return dgunDef[weaponDefID].damages[armorClass]
+			return dgunDef[weaponDefID].damages[armorType[unitDefID]]
 		end
 	end
 

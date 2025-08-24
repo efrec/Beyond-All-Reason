@@ -28,16 +28,11 @@ local spMoveCtrlSetAirMoveTypeData = Spring.MoveCtrl.SetAirMoveTypeData
 
 local Bombers = {}
 local bomberTurnRadius = {}
-for udid, ud in pairs(UnitDefs) do
-	if ud.canFly then
-		if not ud.hoverAttack and ud.weapons and ud.weapons[1] then
-			for i = 1, #ud.weapons do
-				local wDef = WeaponDefs[ud.weapons[i].weaponDef]
-				if wDef.type == "AircraftBomb" or wDef.type == "TorpedoLauncher" then
-					bomberTurnRadius[udid] = ud.turnRadius
-					break
-				end
-			end
+do
+	local isBomber = Game.UnitInfo.Cache.isAnyBomberAirUnit
+	for udid, ud in pairs(UnitDefs) do
+		if isBomber[udid] and not ud.hoverAttack then
+			bomberTurnRadius[udid] = ud.turnRadius
 		end
 	end
 end

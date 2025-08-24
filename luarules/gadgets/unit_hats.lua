@@ -50,26 +50,14 @@ local unitsWearingHats = {} -- key unitID of wearer, value unitID of hat
 local Hats = {}  -- key of unitID of hat, value of wearer unitID
 
 local unitDefHat = {}
+local unitDefCanWearHats = Game.UnitInfo.Cache.isAnyCommanderUnit
+local isUnitScriptLUS = Game.UnitInfo.Cache.isUnitScriptLUS
 for udid, ud in pairs(UnitDefs) do
-	--almost all raptors have dying anims
 	if ud.customParams.subfolder and ud.customParams.subfolder == "other/hats" then
 		unitDefHat[udid] = true
 	end
 end
 
-local unitDefCanWearHats = {
-	[UnitDefNames.corcom.id] = true,
-	[UnitDefNames.cordecom.id] = true,
-	[UnitDefNames.armcom.id] = true,
-	[UnitDefNames.armdecom.id] = true,
-}
-
- if Spring.GetModOptions().experimentallegionfaction then
-	unitDefCanWearHats[UnitDefNames.legcom.id] = true
-	unitDefCanWearHats[UnitDefNames.legcomlvl2.id] = true
-	unitDefCanWearHats[UnitDefNames.legcomlvl3.id] = true
-	unitDefCanWearHats[UnitDefNames.legcomlvl4.id] = true
- end
  local halloween = { -- Halloween Fight Night winner
  	[139750] = true, ---Sashkorin
  }
@@ -187,7 +175,7 @@ function gadget:GameFrame(gf)
 							gadget:UnitGiven(unitID, hatDefID, teamID)
 						end
 
-						if string.sub(UnitDefs[unitDefID].name, 1, 3) == 'arm' then
+						if isUnitScriptLUS[unitDefID] then
 							local scriptEnv = Spring.UnitScript.GetScriptEnv(unitID)
 							if scriptEnv then
 								if MatchPlayer(kings, playerName, accountID) and scriptEnv['ShowCrown'] then

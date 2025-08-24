@@ -69,6 +69,9 @@ local CMD_CARRIER_SPAWN_ONOFF = GameCMD.CARRIER_SPAWN_ONOFF
 
 local noCreate = false
 
+local isAirUnit = Game.UnitInfo.Cache.isAirUnit
+local maxRudder = Game.UnitInfo.Cache.maxRudder
+local spawnerDefs = {}
 local spawnDefs = {}
 local shieldCollide = {}
 local wantedList = {}
@@ -234,6 +237,18 @@ for weaponDefID = 1, #WeaponDefs do
 	end
 end
 
+for unitDefID, unitDef in ipairs(UnitDefs) do
+	for _, weapon in ipairs(unitDef.weapons) do
+		if spawnDefs[weapon.weaponDef] then
+			local weapons = spawnerDefs[unitDefID]
+			if not weapons then
+				weapons = {}
+				spawnerDefs[unitDefID] = weapons
+			end
+			weapons[#weapons+1] = weapon.weaponDef
+		end
+	end
+end
 
 -- local function GetDistance(x1, x2, y1, y2)
 -- 	if x1 and x2 then
@@ -467,7 +482,7 @@ local function SpawnUnit(spawnData)
 								engaged = false,
 								bomberStage = 0,
 								lastBombing = 0,
-								originalmaxrudder = UnitDefs[subunitDefID].maxRudder,
+								originalmaxrudder = maxRudder[subunitDefID],
 								fighterStage = 0,
 								dockingPiece = dockingpiece, --
 								dockingPieceIndex = dockingpieceindex,
@@ -575,133 +590,131 @@ local function attachToNewCarrier(newCarrier, subUnitID)
 end
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-	local unitDef = UnitDefs[unitDefID]
-	local weaponList = unitDef.weapons
-	for i = 1, #weaponList do
-		local weapon = weaponList[i]
-		local weaponDefID = weapon.weaponDef
-		if weaponDefID and spawnDefs[weaponDefID] then
+	local spawnWeapons = spawnerDefs[unitDefID]
+	if not spawnWeapons then
+		return
+	end
 
-			local spawnDef = spawnDefs[weaponDefID]
-			if spawnDef.radius then
+	for i = 1, #spawnWeapons do
+		local weaponDefID = spawnWeapons[i]
+		local spawnDef = spawnDefs[weaponDefID]
+		if spawnDef.radius then
 
-				spawnCount = spawnCount + 1
-				local spawnData = spawnList[spawnCount] or {}
-				spawnData.spawnDef = spawnDef
-				local x, y, z = spGetUnitPosition(unitID)
-				spawnData.x = x
-				spawnData.y = y
-				spawnData.z = z
-				spawnData.ownerID = unitID
-				spawnData.teamID = unitTeam
+			spawnCount = spawnCount + 1
+			local spawnData = spawnList[spawnCount] or {}
+			spawnData.spawnDef = spawnDef
+			local x, y, z = spGetUnitPosition(unitID)
+			spawnData.x = x
+			spawnData.y = y
+			spawnData.z = z
+			spawnData.ownerID = unitID
+			spawnData.teamID = unitTeam
 
+			if carrierMetaList[unitID] == nil then
+				local dronenames = spawnDef.name
+				local dronetypes = spawnDef.dronetype
+				local dockingsections = spawnDef.dockingsections
+				local maxunits = spawnDef.maxunits
+				local metalCost = spawnDef.metalPerUnit
+				local energyCost = spawnDef.energyPerUnit
 
-				if carrierMetaList[unitID] == nil then
-					local dronenames = spawnDef.name
-					local dronetypes = spawnDef.dronetype
-					local dockingsections = spawnDef.dockingsections
-					local maxunits = spawnDef.maxunits
-					local metalCost = spawnDef.metalPerUnit
-					local energyCost = spawnDef.energyPerUnit
+				local availableSections = {}
 
-					local availableSections = {}
-
-					for sectionIndex, dockingpieces in pairs(dockingsections) do
-						local availableSectionsData = {
-							availablePieces = {}
-						}
-						local availablePieces = {}
-						local piecenumbers = strSplit(dockingpieces)
-						for pieceindex, piecenumber in pairs(piecenumbers) do
-							availablePieces[pieceindex] = {
-								dockingPieceAvailable = true,
-								dockingPieceIndex = pieceindex,
-								dockingPiece = tonumber(piecenumber),
-							}
-						end
-						availableSectionsData.availablePieces = availablePieces
-						availableSections[sectionIndex] = availableSectionsData
-
-					end
-
-					--####### remove #######
-					-- for i = 1, maxunits do
-					-- 	availablePieces[i] = {
-					-- 		dockingPieceAvailable = true,
-					-- 		dockingPieceIndex = i,
-					-- 		dockingPiece = dockingPiece,
-					-- 	}
-					-- 	dockingPiece = dockingPiece + dockingInterval
-					-- 	if dockingPiece > dockingCap then
-					-- 		dockingPiece = dockingOffset
-					-- 	end
-					-- end
-					--####### / remove #######
-					local carrierData = {
-						dronenames = dronenames,
-						dronetypes = dronetypes,
-						radius = tonumber(spawnDef.minRadius) or 65535,
-						controlRadius = tonumber(spawnDef.radius) or 65535,
-						subUnitsList = {}, -- list of subUnitIDs owned by this unit.
-						subUnitCount = {},
-						subUnitsCommand = {
-							cmdID = nil,
-							cmdParams = nil,
-						},
-						subInitialSpawnData = spawnData,
-						spawnRateFrames = tonumber(spawnDef.spawnRate) * 30 or 30,
-						lastSpawn = 0,
-						lastOrderUpdate = 0,
-						maxunits = {},
-						metalCost = {},
-						energyCost = {},
-						docking = tonumber(spawnDef.docking),
-						dockRadius = tonumber(spawnDef.dockingRadius) or 100,
-						dockHelperSpeed = tonumber(spawnDef.dockingHelperSpeed) or 10,
-						dockArmor = tonumber(spawnDef.dockingArmor),
-						dockedHealRate = tonumber(spawnDef.dockingHealrate) or 0,
-						dockToHealThreshold = tonumber(spawnDef.dockToHealThreshold) or 30,
-						attackFormationSpread = tonumber(spawnDef.attackFormationSpread) or 0,
-						attackFormationOffset = tonumber(spawnDef.attackFormationOffset) or 0,
-						decayRate = tonumber(spawnDef.decayRate) or 0,
-						deathdecayRate = tonumber(spawnDef.deathdecayRate) or tonumber(spawnDef.decayRate) or 0,
-						activeDocking = false, --currently not in use
-						activeRecall = false,
-						activeSpawning = 1,
-						--availablePieces = availablePieces,
-						availableSections = availableSections,
-						carrierDeaththroe =spawnDef.carrierdeaththroe or "death",
-						parasite = "all",
-						holdfireRadius = spawnDef.holdfireRadius or 0,
-						droneminimumidleradius = spawnDef.droneminimumidleradius or 0,
-						dronebombingruns = tonumber(spawnDef.dronebombingruns) or 1,
-						dronebombingoffset = tonumber(spawnDef.dronebombingoffset) or 0.5,
-						dronebombingside = 1,
-						dronebomberinterval = tonumber(spawnDef.dronebomberinterval) or 2,
-						dronebombertimer = 0,
-						dronebomberminengagementrange = tonumber(spawnDef.dronebomberminengagementrange) or 200,
-						manualDrones = tonumber(spawnDef.manualDrones),
-						weaponNr = i,
-						--ignorenextcommand = false,
-						stockpilelimit = tonumber(spawnDef.stockpilelimit) or 0,
-						usestockpile = tonumber(spawnDef.usestockpile),
-						stockpilecount = 0,
-						metalperstockpile = tonumber(spawnDef.metalperstockpile) or 0,
-						energyperstockpile = tonumber(spawnDef.energyperstockpile) or 0,
-						cobdockparam = tonumber(spawnDef.cobdockparam) or 0,
-						cobundockparam = tonumber(spawnDef.cobundockparam) or 0
+				for sectionIndex, dockingpieces in pairs(dockingsections) do
+					local availableSectionsData = {
+						availablePieces = {}
 					}
-					for dronetypeIndex, _ in pairs(carrierData.dronenames) do
-						carrierData.subUnitCount[dronetypeIndex] = 0
-						carrierData.maxunits[dronetypeIndex] = tonumber(maxunits[dronetypeIndex]) or 1
-						carrierData.metalCost[dronetypeIndex] = tonumber(metalCost[dronetypeIndex])
-						carrierData.energyCost[dronetypeIndex] = tonumber(energyCost[dronetypeIndex])
+					local availablePieces = {}
+					local piecenumbers = strSplit(dockingpieces)
+					for pieceindex, piecenumber in pairs(piecenumbers) do
+						availablePieces[pieceindex] = {
+							dockingPieceAvailable = true,
+							dockingPieceIndex = pieceindex,
+							dockingPiece = tonumber(piecenumber),
+						}
 					end
-					carrierMetaList[unitID] = carrierData
-					--spSetUnitRulesParam(unitID, "is_carrier_unit", "enabled", PRIVATE)
-					if not(carrierMetaList[unitID].usestockpile) then
-						InsertUnitCmdDesc(unitID, 500, spawnCmd) --temporary
-					end
+					availableSectionsData.availablePieces = availablePieces
+					availableSections[sectionIndex] = availableSectionsData
+
+				end
+
+				--####### remove #######
+				-- for i = 1, maxunits do
+				-- 	availablePieces[i] = {
+				-- 		dockingPieceAvailable = true,
+				-- 		dockingPieceIndex = i,
+				-- 		dockingPiece = dockingPiece,
+				-- 	}
+				-- 	dockingPiece = dockingPiece + dockingInterval
+				-- 	if dockingPiece > dockingCap then
+				-- 		dockingPiece = dockingOffset
+				-- 	end
+				-- end
+				--####### / remove #######
+				local carrierData = {
+					dronenames = dronenames,
+					dronetypes = dronetypes,
+					radius = tonumber(spawnDef.minRadius) or 65535,
+					controlRadius = tonumber(spawnDef.radius) or 65535,
+					subUnitsList = {}, -- list of subUnitIDs owned by this unit.
+					subUnitCount = {},
+					subUnitsCommand = {
+						cmdID = nil,
+						cmdParams = nil,
+					},
+					subInitialSpawnData = spawnData,
+					spawnRateFrames = tonumber(spawnDef.spawnRate) * 30 or 30,
+					lastSpawn = 0,
+					lastOrderUpdate = 0,
+					maxunits = {},
+					metalCost = {},
+					energyCost = {},
+					docking = tonumber(spawnDef.docking),
+					dockRadius = tonumber(spawnDef.dockingRadius) or 100,
+					dockHelperSpeed = tonumber(spawnDef.dockingHelperSpeed) or 10,
+					dockArmor = tonumber(spawnDef.dockingArmor),
+					dockedHealRate = tonumber(spawnDef.dockingHealrate) or 0,
+					dockToHealThreshold = tonumber(spawnDef.dockToHealThreshold) or 30,
+					attackFormationSpread = tonumber(spawnDef.attackFormationSpread) or 0,
+					attackFormationOffset = tonumber(spawnDef.attackFormationOffset) or 0,
+					decayRate = tonumber(spawnDef.decayRate) or 0,
+					deathdecayRate = tonumber(spawnDef.deathdecayRate) or tonumber(spawnDef.decayRate) or 0,
+					activeDocking = false, --currently not in use
+					activeRecall = false,
+					activeSpawning = 1,
+					--availablePieces = availablePieces,
+					availableSections = availableSections,
+					carrierDeaththroe =spawnDef.carrierdeaththroe or "death",
+					parasite = "all",
+					holdfireRadius = spawnDef.holdfireRadius or 0,
+					droneminimumidleradius = spawnDef.droneminimumidleradius or 0,
+					dronebombingruns = tonumber(spawnDef.dronebombingruns) or 1,
+					dronebombingoffset = tonumber(spawnDef.dronebombingoffset) or 0.5,
+					dronebombingside = 1,
+					dronebomberinterval = tonumber(spawnDef.dronebomberinterval) or 2,
+					dronebombertimer = 0,
+					dronebomberminengagementrange = tonumber(spawnDef.dronebomberminengagementrange) or 200,
+					manualDrones = tonumber(spawnDef.manualDrones),
+					weaponNr = i,
+					--ignorenextcommand = false,
+					stockpilelimit = tonumber(spawnDef.stockpilelimit) or 0,
+					usestockpile = tonumber(spawnDef.usestockpile),
+					stockpilecount = 0,
+					metalperstockpile = tonumber(spawnDef.metalperstockpile) or 0,
+					energyperstockpile = tonumber(spawnDef.energyperstockpile) or 0,
+					cobdockparam = tonumber(spawnDef.cobdockparam) or 0,
+					cobundockparam = tonumber(spawnDef.cobundockparam) or 0
+				}
+				for dronetypeIndex, _ in pairs(carrierData.dronenames) do
+					carrierData.subUnitCount[dronetypeIndex] = 0
+					carrierData.maxunits[dronetypeIndex] = tonumber(maxunits[dronetypeIndex]) or 1
+					carrierData.metalCost[dronetypeIndex] = tonumber(metalCost[dronetypeIndex])
+					carrierData.energyCost[dronetypeIndex] = tonumber(energyCost[dronetypeIndex])
+				end
+				carrierMetaList[unitID] = carrierData
+				--spSetUnitRulesParam(unitID, "is_carrier_unit", "enabled", PRIVATE)
+				if not(carrierMetaList[unitID].usestockpile) then
+					InsertUnitCmdDesc(unitID, 500, spawnCmd) --temporary
 				end
 			end
 		end
@@ -1385,8 +1398,6 @@ local function DockUnits(dockingqueue, queuestart, queueend)
 		local unitID = dockingqueue[i].ownerID
 		local subUnitID = dockingqueue[i].subunitID
 		local subunitDefID	= spGetUnitDefID(subUnitID)
-		local subunitDef = UnitDefs[subunitDefID]
-		local ox, oy, oz = spGetUnitPosition(unitID)
 		local subx, suby, subz = spGetUnitPosition(subUnitID)
 		local dockingSnapRange
 
@@ -1415,7 +1426,7 @@ local function DockUnits(dockingqueue, queuestart, queueend)
 							if not distance then
 								return
 							end
-							if distance < 25 and subunitDef.isAirUnit then
+							if distance < 25 and isAirUnit[subunitDefID] then
 								local landingspeed = carrierMetaList[unitID].dockHelperSpeed
 								if 0.2*heightDifference > landingspeed then
 									landingspeed = 0.2*heightDifference

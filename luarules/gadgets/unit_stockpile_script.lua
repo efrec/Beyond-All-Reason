@@ -17,12 +17,7 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local hasSetStockpile  = {}
-for udid, ud in pairs(UnitDefs) do
-	if ud.canStockpile then
-		hasSetStockpile[udid] = true
-	end
-end
+local hasSetStockpile = Game.UnitInfo.Cache.canStockpile
 
 local spGetUnitStockpile = Spring.GetUnitStockpile
 local spCallCOBScript = Spring.CallCOBScript

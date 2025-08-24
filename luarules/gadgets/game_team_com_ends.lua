@@ -1,14 +1,28 @@
 local gadget = gadget ---@type Gadget
 
+local endlessOrScoredModes = {
+	none = true,
+	killall = true,
+	territorial_domination = true,
+}
+
+local deathmode = Spring.GetModOptions().deathmode
+local enabled = not deathmode or not endlessOrScoredModes[deathmode]
+
+-- todo: remove when beta is over
+if enabled and Spring.GetModOptions().temp_enable_territorial_domination then
+	enabled = false
+end
+
 function gadget:GetInfo()
 	return {
-		name = "Team Com Ends",
-		desc = "Implements com ends for allyteams",
+		name = "Team Death Modes",
+		desc = "Implements com and builder game ends for allyteams",
 		author = "KDR_11k (David Becker), Floris",
 		date = "2008-02-04",
 		license = "Public domain",
 		layer = 1,
-		enabled = true
+		enabled = enabled,
 	}
 end
 
@@ -49,11 +63,11 @@ local aliveComCount = {}
 local aliveTeamComCount = {}
 local commanderDeathQueue = {}
 
-local isCommander = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.iscommander or unitDef.customParams.isscavcommander or (Spring.GetModOptions().deathmode == "builders" and ((unitDef.buildOptions and #unitDef.buildOptions > 0) or unitDef.canResurrect == true)) then
-		isCommander[unitDefID] = true
-	end
+local isEndUnit
+if deathmode == "builders" then
+	isEndUnit = Game.UnitInfo.Cache.canCreateUnits
+elseif deathmode == "com" or deathmode == "own_com" then
+	isEndUnit = Game.UnitInfo.Cache.isCommanderUnit
 end
 
 local function commanderDeath(teamID, originX, originZ) -- optional: attackerUnitID, originX, originZ
@@ -85,7 +99,7 @@ function gadget:GameFrame(gf)
 end
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-	if isCommander[unitDefID] and unitTeam ~= gaiaTeamID then
+	if isEndUnit[unitDefID] and unitTeam ~= gaiaTeamID then
 		local allyTeam = GetUnitAllyTeam(unitID)
 		aliveComCount[allyTeam] = aliveComCount[allyTeam] + 1
 		aliveTeamComCount[unitTeam] = aliveTeamComCount[unitTeam] + 1
@@ -93,7 +107,7 @@ function gadget:UnitCreated(unitID, unitDefID, unitTeam)
 end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
-	if isCommander[unitDefID] and not ignoredTeams[unitTeam] then
+	if isEndUnit[unitDefID] and not ignoredTeams[unitTeam] then
 		local x,_,z = Spring.GetUnitPosition(unitID)
 		commanderDeathQueue[unitID] = {unitTeam, x, z}
 	end
@@ -113,24 +127,18 @@ local function transferCommander(unitID, unitTeam, newTeam)
 end
 
 function gadget:UnitGiven(unitID, unitDefID, newTeam, unitTeam)
-	if isCommander[unitDefID] and not ignoredTeams[unitTeam] then
+	if isEndUnit[unitDefID] and not ignoredTeams[unitTeam] then
 		transferCommander(unitID, unitTeam, newTeam)
 	end
 end
 
 function gadget:UnitTaken(unitID, unitDefID, unitTeam, newTeam)
-	if isCommander[unitDefID] and not ignoredTeams[unitTeam] then
+	if isEndUnit[unitDefID] and not ignoredTeams[unitTeam] then
 		transferCommander(unitID, unitTeam, newTeam)
 	end
 end
 
 function gadget:Initialize()
-	-- disable gadget when deathmode is "killall" or "none", or scoremode isnt regular
-	local deathmode = Spring.GetModOptions().deathmode
-	if deathmode ~= 'com' and deathmode ~= 'own_com' and deathmode ~= 'territorial_domination' and deathmode ~= 'builders' and not Spring.GetModOptions().temp_enable_territorial_domination then
-		gadgetHandler:RemoveGadget(self)
-	end
-
 	for _,allyTeamID in ipairs(Spring.GetAllyTeamList()) do
 		aliveComCount[allyTeamID] = 0
 	end

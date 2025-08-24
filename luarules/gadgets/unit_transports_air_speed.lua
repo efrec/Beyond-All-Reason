@@ -1,5 +1,7 @@
 local gadget = gadget ---@type Gadget
 
+local doesThisDoAnythingAtAll = false -- why
+
 function gadget:GetInfo()
 	return {
 		name = "Air Transports Speed",
@@ -8,7 +10,7 @@ function gadget:GetInfo()
 		date = "2015",
 		license = "PD",
 		layer = 0,
-		enabled = true,
+		enabled = doesThisDoAnythingAtAll,
 	}
 end
 
@@ -20,22 +22,15 @@ local FRAMES_PER_SECOND = Game.gameSpeed
 local airTransports = {}
 local airTransportMaxSpeeds = {}
 
-local canFly = {}
-local unitMass = {}
-local unitTransportMass = {}
-local unitSpeed = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.canFly then
-		canFly[unitDefID] = true
-		unitTransportMass[unitDefID] = unitDef.transportMass
-	end
-	unitMass[unitDefID] = unitDef.mass
-	unitSpeed[unitDefID] = unitDef.speed
-end
+local isAirUnit = Game.UnitInfo.Cache.isAirUnit
+local unitMass = Game.UnitInfo.Cache.mass
+local unitTransportMass = Game.UnitInfo.Cache.transportMass
+local unitSpeed = Game.UnitInfo.Cache.speed
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+local transportSpeedMult = Game.UnitInfo.Cache.transportspeedmult
 
 local massUsageFraction = 0
 local allowedSpeed = 0
-local currentMassUsage = 0
 
 local spGetUnitVelocity = Spring.GetUnitVelocity
 local spSetUnitVelocity = Spring.SetUnitVelocity
@@ -45,44 +40,34 @@ local spGetUnitIsTransporting = Spring.GetUnitIsTransporting
 -- update allowed speed for transport
 local function updateAllowedSpeed(transportId)
 	local uDefID = spGetUnitDefID(transportId)
-
-	-- get sum of mass and size for all transported units
-	currentMassUsage = 0
 	local units = spGetUnitIsTransporting(transportId)
 	local tunitdefid
-	local tunitdefcustom
-	local iscom = false
-	local transportspeedmult = 0.0
-	if 1 == 2 then --stops the gadget from doing anything. CHANGE TO GET ACTUAL SLOWDOWN
+	local hasCommander = false
+	local massTotal = 0
+	local speedmult = 0.0
+	if doesThisDoAnythingAtAll then
 		if units then
 			for _,tUnitId in pairs(units) do
 				tunitdefid = spGetUnitDefID(tUnitId)
-				tunitdefcustom = UnitDefs[tunitdefid].customParams		
-				if (tunitdefcustom ~=nil) then
-					transportspeedmult = tunitdefcustom.transportspeedmult ~=nil and tunitdefcustom.transportspeedmult or transportspeedmult--use custom if present (can be tweaked)
-					iscom = tunitdefcustom.iscommander=='1'
-				end
-				
-				currentMassUsage = currentMassUsage + unitMass[tunitdefid]
+				hasCommander = hasCommander or isCommander[tunitdefid]
+				speedmult = transportSpeedMult[tunitdefid] or speedmult
+				massTotal = massTotal + unitMass[tunitdefid]
 			end
-			massUsageFraction = (currentMassUsage / unitTransportMass[uDefID])
+			massUsageFraction = (massTotal / unitTransportMass[uDefID])
 
-			if (iscom) then
-
-				allowedSpeed = unitSpeed[uDefID] * (1 - massUsageFraction * (TRANSPORTED_MASS_SPEED_PENALTY+transportspeedmult)) / FRAMES_PER_SECOND
+			if hasCommander then
+				allowedSpeed = unitSpeed[uDefID] * (1 - massUsageFraction * (TRANSPORTED_MASS_SPEED_PENALTY+speedmult)) / FRAMES_PER_SECOND
 			else
 				allowedSpeed = unitSpeed[uDefID] * (1 - massUsageFraction * TRANSPORTED_MASS_SPEED_PENALTY) / FRAMES_PER_SECOND
-				--Spring.Echo("unit "..transportUnitDef.name.." is air transport at  "..(massUsageFraction*100).."%".." load, curSpeed="..vw.." allowedSpeed="..allowedSpeed)
 			end
 			airTransportMaxSpeeds[transportId] = allowedSpeed
 		end
 	end
 end
 
-
 -- add transports to table when they load a unit
 function gadget:UnitLoaded(unitId, unitDefId, unitTeam, transportId, transportTeam)
-	if canFly[spGetUnitDefID(transportId)] and not airTransports[transportId] then
+	if isAirUnit[spGetUnitDefID(transportId)] and not airTransports[transportId] then
 		airTransports[transportId] = true
 		updateAllowedSpeed(transportId)
 	end
@@ -96,7 +81,6 @@ end
 
 -- every frame, adjust speed of air transports according to transported mass, if any
 function gadget:GameFrame(n)
-
 	-- for each air transport with units loaded, reduce speed if currently greater than allowed
 	local factor = 1
 	local vx,vy,vz,vw = 0
@@ -113,7 +97,7 @@ end
 
 
 function gadget:UnitUnloaded(unitId, unitDefId, teamId, transportId)
-	if canFly[spGetUnitDefID(transportId)] then
+	if isAirUnit[spGetUnitDefID(transportId)] then
 		local units = airTransports[transportId] and spGetUnitIsTransporting(transportId) or {}
 		if airTransports[transportId] and not units[1] then
 			-- transport is empty, cleanup tables

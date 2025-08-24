@@ -19,18 +19,16 @@ end
 local mapsizeX = Game.mapSizeX
 local mapsizeZ = Game.mapSizeZ
 
-local isAffectedUnit = {}
-local canMove = {}
+local isAffectedUnit = Game.UnitInfo.Cache.isImmobileUnit -- isImmobile + no yardmap
+local canMove = Game.UnitInfo.Cache.canMove
+local stackParams = {}
 for udid, ud in pairs(UnitDefs) do
-	if string.find(ud.id, "nanotc") then
-		isAffectedUnit[udid] = {
+	if isAffectedUnit[udid] then
+		stackParams[udid] = {
 			math.floor(((ud.xsize + ud.zsize)*0.5)*6),
 			ud.minWaterDepth,
 			ud.maxWaterDepth,
 		}
-	end
-	if ud.canMove then
-		canMove[udid] = true
 	end
 end
 
@@ -44,8 +42,8 @@ end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
 	if isAffectedUnit[unitDefID] then
-		for i = 1, #affectedUnits do
-			if affectedUnits[i][1] and affectedUnits[i][1] == unitID then
+		for i = #affectedUnits, 1, -1 do
+			if affectedUnits[i][1] == unitID then
 				table.remove(affectedUnits, i)
 			end
 		end
@@ -56,7 +54,7 @@ function gadget:GameFrame(n)
 	for i = 1, #affectedUnits do
 		local unitID = affectedUnits[i][1]
 		local unitDefID = affectedUnits[i][2]
-		local nearestAlly = Spring.GetUnitNearestAlly(unitID, isAffectedUnit[unitDefID][1])
+		local nearestAlly = Spring.GetUnitNearestAlly(unitID, stackParams[unitDefID][1])
 		if nearestAlly then
 			if not canMove[Spring.GetUnitDefID(nearestAlly)] then
 				if not Spring.GetUnitTransporter(unitID) then
@@ -68,7 +66,7 @@ function gadget:GameFrame(n)
 
 					if r == 1 then
 						if x == ax or z == az then
-							local testRange = isAffectedUnit[unitDefID][1] * 2
+							local testRange = stackParams[unitDefID][1] * 2
 							movementTargetX = math.random(-testRange, testRange)
 							movementTargetZ = math.random(-testRange, testRange)
 						end
@@ -88,8 +86,8 @@ function gadget:GameFrame(n)
 						end
 					end
 					local movementTargetY = Spring.GetGroundHeight(x+movementTargetX, z+movementTargetZ)
-					local aboveMinWaterDepth = -(isAffectedUnit[unitDefID][2]) > movementTargetY
-					local belowMaxWaterDepth = -(isAffectedUnit[unitDefID][3]) < movementTargetY
+					local aboveMinWaterDepth = -(stackParams[unitDefID][2]) > movementTargetY
+					local belowMaxWaterDepth = -(stackParams[unitDefID][3]) < movementTargetY
 
 					local onMap = true
 					if x+movementTargetX > mapsizeX or x+movementTargetX < 0 then

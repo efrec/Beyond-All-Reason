@@ -21,12 +21,7 @@ if (not gadgetHandler:IsSyncedCode()) then
   return false  --  no unsynced code
 end
 
-local selfddefs = {}
-for i=1,#UnitDefs do
-	if UnitDefs[i].customParams and UnitDefs[i].customParams.instantselfd then
-		selfddefs[i] = true
-	end
-end
+local selfddefs = Game.UnitInfo.Cache.instantselfd
 
 local CMD_SELFD = CMD.SELFD
 local spGetUnitIsStunned = Spring.GetUnitIsStunned

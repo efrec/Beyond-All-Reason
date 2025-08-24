@@ -25,20 +25,7 @@ local ValidUnitID = Spring.ValidUnitID
 local CMD_LOAD_UNITS = CMD.LOAD_UNITS
 local CMD_UNLOAD_UNITS = CMD.UNLOAD_UNITS
 
-local Nanos = {
-	[UnitDefNames.cornanotc.id] = true,
-	[UnitDefNames.armnanotc.id] = true,
-}
-if Spring.GetModOptions().experimentallegionfaction then
-	Nanos[UnitDefNames.legnanotc.id] = true
-end
-for udid, ud in pairs(UnitDefs) do
-    for id, v in pairs(Nanos) do
-        if string.find(ud.name, UnitDefs[id].name) then
-            Nanos[udid] = v
-        end
-    end
-end
+local Nanos = Game.UnitInfo.Cache.isConstructionTurret
 
 function gadget:Initialize()
 	gadgetHandler:RegisterAllowCommand(CMD_LOAD_UNITS)

@@ -93,7 +93,7 @@ local armorShields = Game.armorTypes.shields
 -- Find all weapons with an over-penetration behavior.
 
 local weaponParams = {}
-local unitArmorType = {}
+local unitArmorType = Game.UnitInfo.Cache.armorType
 
 -- Track projectiles and their remaining damage and sequence their collisions.
 
@@ -277,10 +277,6 @@ function gadget:Initialize()
 
 	for weaponDefID, params in pairs(weaponParams) do
 		Script.SetWatchProjectile(weaponDefID, true)
-	end
-
-	for unitDefID, unitDef in ipairs(UnitDefs) do
-		unitArmorType[unitDefID] = unitDef.armorType
 	end
 end
 

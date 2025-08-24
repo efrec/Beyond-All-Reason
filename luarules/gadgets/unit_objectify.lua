@@ -19,20 +19,11 @@ end
 	- Decorations are things like hats and xmas baubles an should be invulnerable
 ]]--
 
-local isBuilder = {}
+local isBuilder = Game.UnitInfo.Cache.isBuilder
+local isObject = Game.UnitInfo.Cache.isObjectifiedUnit
+local isDecoration = Game.UnitInfo.Cache.isDecorationUnit
 local unitSize = {}
-local isObject = {}
-local isDecoration = {}
 for udefID,def in ipairs(UnitDefs) do
-    if def.customParams.objectify then
-        isObject[udefID] = true
-    end
-    if def.customParams.decoration then
-        isDecoration[udefID] = true
-    end
-	if def.isBuilder then
-		isBuilder[udefID] = true
-	end
 	unitSize[udefID] = { ((def.xsize*8)+8)/2, ((def.zsize*8)+8)/2 }
 end
 

@@ -18,12 +18,7 @@ end
 
 local spSetTeamRulesParam = Spring.SetTeamRulesParam
 
-local isCommander = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.iscommander or unitDef.customParams.isscavcommander then
-		isCommander[unitDefID] = true
-	end
-end
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
 
 local teamComs = {}
 local teamAllyTeam = {}

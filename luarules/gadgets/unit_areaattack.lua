@@ -27,9 +27,13 @@ if gadgetHandler:IsSyncedCode() then
 	local math_sin = math.sin
 
 	local canAreaAttack = {}
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		if #unitDef.weapons > 0 and unitDef.customParams.canareaattack then
-			canAreaAttack[unitDefID] = WeaponDefs[unitDef.weapons[1].weaponDef].range
+	do
+		local isAirUnit = Game.UnitInfo.Cache.isAirUnit -- Air units have an area attack in-engine
+		local hasWeapon = Game.UnitInfo.Cache.hasWeapon
+		for unitDefID, unitDef in pairs(UnitDefs) do
+			if unitDef.customParams.canareaattack and not isAirUnit[unitDefID] and hasWeapon[unitDefID] then
+				canAreaAttack[unitDefID] = WeaponDefs[unitDef.weapons[1].weaponDef].range
+			end
 		end
 	end
 

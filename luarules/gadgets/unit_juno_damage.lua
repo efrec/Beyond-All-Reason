@@ -17,127 +17,19 @@ end
 -- Synced only
 ----------------------------------------------------------------
 if gadgetHandler:IsSyncedCode() then
-
-	----------------------------------------------------------------
-	-- Config
-	----------------------------------------------------------------
-	local tokillUnitsNames = {
-		['armarad'] = true,
-		['armaser'] = true,
-		['armason'] = true,
-		['armeyes'] = true,
-		['armfrad'] = true,
-		['armjam'] = true,
-		['armjamt'] = true,
-		['armmark'] = true,
-		['armrad'] = true,
-		['armseer'] = true,
-		['armsjam'] = true,
-		['armsonar'] = true,
-		['armveil'] = true,
-		['corarad'] = true,
-		['corason'] = true,
-		['coreter'] = true,
-		['coreyes'] = true,
-		['corfrad'] = true,
-		['corjamt'] = true,
-		['corrad'] = true,
-		['legjam'] = true,
-		['legrad'] = true,
-		['corshroud'] = true,
-		['corsjam'] = true,
-		['corsonar'] = true,
-		['corspec'] = true,
-		['corvoyr'] = true,
-		['corvrad'] = true,
-		['legarad'] = true,
-		['legajam'] = true,
-		['legavrad'] = true,
-		['legavjam'] = true,
-		['legaradk'] = true,
-		['legajamk'] = true,
-		['legfrad'] = true,
-		
-		['armmine1'] = true,
-		['armmine2'] = true,
-		['armmine3'] = true,
-		['armfmine3'] = true,	
-		['cormine1'] = true,
-		['cormine2'] = true,
-		['cormine3'] = true,		
-		['cormine4'] = true,		
-		['corfmine3'] = true,	
-		['legmine1'] = true,
-		['legmine2'] = true,
-		['legmine3'] = true,		
-
-		['corfav'] = true,
-		['armfav'] = true,
-		['armflea'] = true,
-		['legscout'] = true,
-		['raptor_land_swarmer_brood_t2_v1'] = true,
-		['raptor_land_kamikaze_basic_t2_v1'] = true,
-		['raptor_land_kamikaze_emp_t2_v1'] = true,
-		['raptor_land_kamikaze_basic_t4_v1'] = true,
-		['raptor_land_kamikaze_emp_t4_v1'] = true,
-		['scavmist'] = true,
-		['scavmistxl'] = true,
-		['scavmistxxl'] = true,
-	}
-	-- convert unitname -> unitDefID
-	local tokillUnits = {}
-	for name, params in pairs(tokillUnitsNames) do
-		if UnitDefNames[name] then
-			tokillUnits[UnitDefNames[name].id] = params
-		end
-	end
-	tokillUnitsNames = nil
-
-	local todenyUnitsNames = {
-		['corfav'] = true,
-		['armfav'] = true,
-		['armflea'] = true,
-		['legscout'] = true,
-		['raptor_land_swarmer_brood_t2_v1'] = true,
-		['raptor_land_kamikaze_basic_t2_v1'] = true,
-		['raptor_land_kamikaze_emp_t2_v1'] = true,
-		['raptor_land_kamikaze_basic_t4_v1'] = true,
-		['raptor_land_kamikaze_emp_t4_v1'] = true,
-		['scavmist'] = true,
-		['scavmistxl'] = true,
-		['scavmistxxl'] = true,
-	}
-	-- convert unitname -> unitDefID
-	local todenyUnits = {}
-	for name, params in pairs(todenyUnitsNames) do
-		if UnitDefNames[name] then
-			todenyUnits[UnitDefNames[name].id] = params
-		end
-	end
-	todenyUnitsNames = nil
-
-
-	for udid, ud in pairs(UnitDefs) do
-		for id, v in pairs(tokillUnits) do
-			if string.find("_scav", ud.name) and string.sub(UnitDefs[id].name, 1, -5) == ud.name then
-			--if string.find(ud.name, UnitDefs[id].name) then
-				tokillUnits[udid] = v
-			end
-		end
-		for id, v in pairs(todenyUnits) do
-			if string.find("_scav", ud.name) and string.sub(UnitDefs[id].name, 1, -5) == ud.name then
-			--if string.find(ud.name, UnitDefs[id].name) then
-				todenyUnits[udid] = v
-			end
-		end
-	end
-
-
 	--config -- see also in unsynced
 	local radius = 450 --outer radius of area denial ring
 	local width = 30 --width of area denial ring
 	local effectlength = 30 --how long area denial lasts, in seconds
 	local fadetime = 2 --how long fade in/out effect lasts, in seconds
+	local junoWeaponsNames = {
+		["armjuno_juno_pulse"] = true,
+		["legjuno_juno_pulse"] = true,
+		["corjuno_juno_pulse"] = true,
+		["armjuno_scav_juno_pulse"] = true,
+		["legjuno_scav_juno_pulse"] = true,
+		["corjuno_scav_juno_pulse"] = true,
+	}
 
 	--locals
 	local SpGetGameSeconds = Spring.GetGameSeconds
@@ -147,17 +39,8 @@ if gadgetHandler:IsSyncedCode() then
 	local SpValidUnitID = Spring.ValidUnitID
 	local Mmin = math.min
 
+	local junoDamageTarget = Game.UnitInfo.Cache.isJunoDamageTarget
 
-	-- kill appropriate things from initial juno blast --
-
-	local junoWeaponsNames = {
-		["armjuno_juno_pulse"] = true,
-		["legjuno_juno_pulse"] = true,
-		["corjuno_juno_pulse"] = true,
-		["armjuno_scav_juno_pulse"] = true,
-		["legjuno_scav_juno_pulse"] = true,
-		["corjuno_scav_juno_pulse"] = true,
-	}
 	-- convert unitname -> unitDefID
 	local junoWeapons = {}
 	for name, params in pairs(junoWeaponsNames) do
@@ -167,8 +50,18 @@ if gadgetHandler:IsSyncedCode() then
 	end
 	junoWeaponsNames = nil
 
+	function gadget:Initialize()
+		if next(junoWeapons) and next(junoDamageTarget) then
+			for weaponDefID in pairs(junoWeapons) do
+				Script.SetWatchExplosion(weaponDefID, true)
+			end
+		else
+			gadgetHandler:RemoveGadget()
+		end
+	end
+
 	function gadget:UnitDamaged(uID, uDefID, uTeam, damage, paralyzer, weaponID, projID, aID, aDefID, aTeam)
-		if junoWeapons[weaponID] and tokillUnits[uDefID] then
+		if junoWeapons[weaponID] and junoDamageTarget[uDefID] then
 			if uID and SpValidUnitID(uID) then
 				local px, py, pz = Spring.GetUnitPosition(uID)
 				if px then
@@ -186,18 +79,6 @@ if gadgetHandler:IsSyncedCode() then
 	-- area denial --
 	local centers = {} --table of where juno missiles hit etc
 	local counter = 1 --index each explosion of juno missile with this counter
-
-	function gadget:Initialize()
-		if WeaponDefNames.armjuno_juno_pulse then
-			Script.SetWatchExplosion(WeaponDefNames.armjuno_juno_pulse.id, true)
-		end
-		if WeaponDefNames.legjuno_juno_pulse then
-			Script.SetWatchExplosion(WeaponDefNames.legjuno_juno_pulse.id, true)
-		end
-		if WeaponDefNames.corjuno_juno_pulse then
-			Script.SetWatchExplosion(WeaponDefNames.corjuno_juno_pulse.id, true)
-		end
-	end
 
 	function gadget:Explosion(weaponID, px, py, pz, ownerID)
 		if junoWeapons[weaponID] then
@@ -235,7 +116,7 @@ if gadgetHandler:IsSyncedCode() then
 					-- linear and not O(n^2)
 					local unitID = unitIDsBig[i]
 					local unitDefID = SpGetUnitDefID(unitID)
-					if todenyUnits[unitDefID] then
+					if junoDamageTarget[unitDefID] then
 						local px, py, pz = Spring.GetUnitPosition(unitID)
 						local dx = expl.x - px
 						local dz = expl.z - pz

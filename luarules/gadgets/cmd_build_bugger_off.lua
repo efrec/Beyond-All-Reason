@@ -17,16 +17,10 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
-local shouldNotBuggeroff = {}
-local cachedUnitDefs = {}
+local isImmobile = Game.UnitInfo.Cache.isImmobile
+local isBuilder = Game.UnitInfo.Cache.isBuilder
+local unitRadius = Game.UnitInfo.Cache.radius
 local cachedBuilderTeams = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.isImmobile then
-		shouldNotBuggeroff[unitDefID] = true
-	end
-
-	cachedUnitDefs[unitDefID] = { radius = unitDef.radius, isBuilder = unitDef.isBuilder}
-end
 
 local function willBeNearTarget(unitID, tx, ty, tz, seconds, maxDistance)
 	local ux, uy, uz = Spring.GetUnitPosition(unitID)
@@ -102,7 +96,7 @@ local function shouldIssueBuggeroff(builderTeam, interferingUnitID, x, y, z, rad
 		return false
 	end
 
-	if shouldNotBuggeroff[Spring.GetUnitDefID(interferingUnitID)] then
+	if isImmobile[Spring.GetUnitDefID(interferingUnitID)] then
 		return false
 	end
 
@@ -125,20 +119,18 @@ function gadget:GameFrame(frame)
 	local builderTeams = {}
 	for builderID, _ in pairs(watchedBuilders) do
 		local cmdID, options, tag, targetX, targetY, targetZ =  Spring.GetUnitCurrentCommand(builderID, 1)
-		local isBuilding  	= false
+		local inBuildTask  	= not not Spring.GetUnitIsBuilding(builderID)
 		local x, y, z		= Spring.GetUnitPosition(builderID)
-		local targetID		= Spring.GetUnitIsBuilding(builderID)
 		local builderTeam   = Spring.GetUnitTeam(builderID);
-		if targetID then isBuilding = true end
 		local visited = {}
 
 		if cmdID == nil or cmdID > -1 or math.distance2d(targetX, targetZ, x, z) > FAST_UPDATE_RADIUS  then
 			slowWatchBuilder(builderID)
 
-		elseif math.distance2d(targetX, targetZ, x, z) < BUILDER_BUILD_RADIUS + cachedUnitDefs[-cmdID].radius and isBuilding == false and Spring.GetUnitIsBeingBuilt(builderID) == false then
+		elseif math.distance2d(targetX, targetZ, x, z) < BUILDER_BUILD_RADIUS + unitRadius[-cmdID] and not inBuildTask and Spring.GetUnitIsBeingBuilt(builderID) == false then
 			local builtUnitDefID	= -cmdID
-			local buggerOffRadius	= cachedUnitDefs[builtUnitDefID].radius + builderRadiusOffsets[builderID]
-			local searchRadius		= cachedUnitDefs[builtUnitDefID].radius + SEARCH_RADIUS_OFFSET
+			local buggerOffRadius	= unitRadius[builtUnitDefID] + builderRadiusOffsets[builderID]
+			local searchRadius		= unitRadius[builtUnitDefID] + SEARCH_RADIUS_OFFSET
 			local interferingUnits	= Spring.GetUnitsInCylinder(targetX, targetZ, searchRadius)
 
 			-- Make sure at least one builder per player is never told to move
@@ -169,7 +161,7 @@ function gadget:GameFrame(frame)
 				removeBuilder(builderID)
 			end
 
-		elseif isBuilding then
+		elseif inBuildTask then
 			-- We want to keep updating in case the builder has got another job nearby
 			builderRadiusOffsets[builderID] = 0
 		end
@@ -197,20 +189,19 @@ function gadget:GameFrame(frame)
 			end
 		end
 
-		local isBuilding  = false
-		if Spring.GetUnitIsBuilding(builderID) then isBuilding = true end
+		local inBuildTask = not not Spring.GetUnitIsBuilding(builderID)
 
 		local x, _, z = Spring.GetUnitPosition(builderID)
 		if hasBuildCommand == false then
 			removeBuilder(builderID)
-		elseif buildCommandFirst and isBuilding == false and math.distance2d(targetX, targetZ, x, z) <= FAST_UPDATE_RADIUS then
+		elseif buildCommandFirst and not inBuildTask and math.distance2d(targetX, targetZ, x, z) <= FAST_UPDATE_RADIUS then
 			watchBuilder(builderID)
 		end
 	end
 end
 
 function gadget:MetaUnitAdded(unitID, unitDefID, unitTeam)
-	if cachedUnitDefs[unitDefID].isBuilder then
+	if isBuilder[unitDefID] then
 		cachedBuilderTeams[unitID] = unitTeam
 	end
 end
@@ -226,13 +217,13 @@ end
 
 function gadget:MetaUnitRemoved(unitID, unitDefID, unitTeam)
 	cachedBuilderTeams[unitID] = nil
-	if cachedUnitDefs[unitDefID].isBuilder then
+	if isBuilder[unitDefID] then
 		removeBuilder(unitID)
 	end
 end
 
 function gadget:UnitCommand(unitID, unitDefID, unitTeamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
-	if cachedUnitDefs[unitDefID].isBuilder then
+	if isBuilder[unitDefID] then
 		slowWatchBuilder(unitID)
 	end
 end

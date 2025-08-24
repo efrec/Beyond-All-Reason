@@ -12,10 +12,13 @@ function gadget:GetInfo()
     }
 end
 
+local unitSizeX = Game.UnitInfo.Cache.xsize
+local unitSizeZ = Game.UnitInfo.Cache.zsize
+
 if gadgetHandler:IsSyncedCode() then -- Synced 
     local function getUnitSize(unitDefID)
         if UnitDefs[unitDefID] then
-            local size = math.ceil((UnitDefs[unitDefID].xsize / 2 + UnitDefs[unitDefID].zsize / 2) / 2)
+            local size = math.ceil((unitSizeX[unitDefID] / 2 + unitSizeZ[unitDefID] / 2) / 2)
             if size > 4.5 then
                 return "huge"
             elseif size > 3.5 then

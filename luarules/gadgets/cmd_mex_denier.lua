@@ -27,13 +27,7 @@ local spGetUnitsInCylinder = Spring.GetUnitsInCylinder
 local CMD_INSERT = CMD.INSERT
 
 local gExtractorRadius = Game.extractorRadius
-
-local isMex = {}
-for uDefID, uDef in pairs(UnitDefs) do
-	if uDef.extractsMetal > 0 then
-		isMex[uDefID] = true
-	end
-end
+local isMex = Game.UnitInfo.Cache.extractsMetal
 
 local metalSpotsList
 

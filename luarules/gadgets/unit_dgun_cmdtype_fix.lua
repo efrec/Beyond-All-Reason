@@ -16,12 +16,7 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local canDGun = {}
-for uDefID, uDef in pairs(UnitDefs) do
-	if uDef.canManualFire then
-		canDGun[uDefID] = true
-	end
-end
+local canDGun = Game.UnitInfo.Cache.canManualFire
 
 local spFindUnitCmdDesc = Spring.FindUnitCmdDesc
 local spGetUnitCmdDescs = Spring.GetUnitCmdDescs

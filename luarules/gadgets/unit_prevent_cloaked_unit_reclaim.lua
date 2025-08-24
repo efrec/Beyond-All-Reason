@@ -12,8 +12,9 @@ function gadget:GetInfo()
     }
 end
 
-local canReclaim = {}
-local unitRadius = {}
+local buildDistance = Game.UnitInfo.Cache.buildDistance
+local canReclaim = Game.UnitInfo.Cache.canReclaim
+local unitRadius = Game.UnitInfo.Cache.radius
 local cloakedUnits = {}
 local checkedUnits = {}
 
@@ -64,8 +65,9 @@ if gadgetHandler:IsSyncedCode() then
             cloakedUnits[unitID] = true
         end
         if canReclaim[unitDefID] then
-            if canReclaim[unitDefID] > maxBuildDist then
-                maxBuildDist = canReclaim[unitDefID]
+			local distance = buildDistance[unitDefID]
+            if distance > maxBuildDist then
+                maxBuildDist = distance
             end
         end
     end
@@ -75,20 +77,12 @@ if gadgetHandler:IsSyncedCode() then
     end
 
     function gadget:Initialize()
-	gadgetHandler:RegisterAllowCommand(CMD.RECLAIM)
-        for unitDefID, unitDef in pairs(UnitDefs) do
-            if unitDef.canReclaim then
-                canReclaim[unitDefID] = unitDef.buildDistance or 0
-            end
-            if unitDef.canCloak then
-                unitRadius[unitDefID] = unitDef.radius
-            end
-        end
-        -- handle luarules reload
+		gadgetHandler:RegisterAllowCommand(CMD.RECLAIM)
+
+		-- handle luarules reload
         local units = GetAllUnits()
         for _,unitID in ipairs(units) do
-            local unitDefID = GetUnitDefID(unitID)
-            initUnit(unitID, unitDefID)
+            initUnit(unitID, GetUnitDefID(unitID))
         end
     end
 

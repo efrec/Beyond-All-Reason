@@ -32,7 +32,7 @@ function gadget:GetInfo()
       date      = "2020",
 	  license   = "GNU GPL, v2 or later",
       layer     = -100,
-      enabled   = true,
+      enabled   = lootboxSpawnEnabled,
     }
 end
 
@@ -40,7 +40,7 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-
+local unitName = Game.UnitInfo.Cache.name
 local isLootbox = {}
 for unitDefID, unitDef in pairs(UnitDefs) do
 	if string.find(unitDef.name, "lootbox", nil, true) then
@@ -190,7 +190,7 @@ end
 
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-    local UnitName = UnitDefs[unitDefID].name
+    local UnitName = unitName[unitDefID]
 	if isLootbox[unitDefID] then
 		Spring.SetUnitNeutral(unitID, true)
 		Spring.SetUnitAlwaysVisible(unitID, true)
@@ -285,7 +285,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 			break
 		end
 	end
-	if string.find(UnitDefs[unitDefID].name, "scavbeacon") then
+	if string.find(unitName[unitDefID], "scavbeacon") then
 		if math.random() <= 0.33 then
 			local posx, posy, posz = Spring.GetUnitPosition(unitID)
 			SpawnLootbox(posx, posy, posz)

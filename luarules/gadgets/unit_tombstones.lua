@@ -17,25 +17,25 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
-local isCommander = {}
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+local tombstone = {}
 for defID, def in ipairs(UnitDefs) do
-	if def.customParams.iscommander ~= nil and not string.find(def.name, "scav") then
-		if string.sub(def.name, 1, 6) == 'corcom' and FeatureDefNames.corstone then
-			isCommander[defID] = FeatureDefNames.corstone.id
-		elseif string.sub(def.name, 1, 6) == 'armcom' and FeatureDefNames.armstone then
-			isCommander[defID] = FeatureDefNames.armstone.id
-		elseif string.sub(def.name, 1, 6) == 'legcom' and FeatureDefNames.legstone then
-			isCommander[defID] = FeatureDefNames.legstone.id
+	if isCommander[defID] then
+		local stone = FeatureDefNames[def.name:sub(1, 3) .. "stone"]
+		if stone then
+			tombstone[defID] = stone and stone.id
+		else
+			Spring.Log("UnitDefs", LOG.WARNING, "Commander missing its tombstone: " .. def.name)
 		end
 	end
 end
 
 function gadget:UnitDestroyed(unitID, unitDefID, teamID, attackerID, attackerDefID, attackerTeamID)
-	if isCommander[unitDefID] then
+	if tombstone[unitDefID] then
 		local px,py,pz = Spring.GetUnitPosition(unitID)
 		pz = pz - 40
 		if not Spring.GetUnitRulesParam(unitID, "unit_evolved") then
-			local tombstoneID = Spring.CreateFeature(isCommander[unitDefID], px, Spring.GetGroundHeight(px,pz), pz, 0, teamID)
+			local tombstoneID = Spring.CreateFeature(tombstone[unitDefID], px, Spring.GetGroundHeight(px,pz), pz, 0, teamID)
 			if tombstoneID then
 				local rx,ry,rz = Spring.GetFeatureRotation(tombstoneID)
 				rx = rx + 0.18 + (math.random(0, 6) / 50)

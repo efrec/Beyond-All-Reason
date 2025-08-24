@@ -55,10 +55,11 @@ local recloakUnit = {}
 local recloakFrame = {}
 local currentFrame = 0
 
-local canCloak = {}
+local canCloak = Game.UnitInfo.Cache.canCloak
+local cloakParams = {}
 for udid, ud in pairs(UnitDefs) do
 	if ud.canCloak then
-		canCloak[udid] = {
+		cloakParams[udid] = {
 			ud.startCloaked,
 			ud.cloakCostMoving,
 			ud.cloakCost,
@@ -148,7 +149,7 @@ function gadget:AllowUnitCloak(unitID, enemyID)
 	if not areaCloaked then
 		local speed = select(4, spGetUnitVelocity(unitID))
 		local moving = speed and speed > CLOAK_MOVE_THRESHOLD
-		local cost = moving and canCloak[unitDefID][2] or canCloak[unitDefID][3]
+		local cost = cloakParams[unitDefID][moving and 2 or 3]
 
 		if not spUseUnitResource(unitID, "e", cost/2) then -- SlowUpdate happens twice a second.
 			return false
@@ -217,7 +218,7 @@ function gadget:UnitCreated(unitID, unitDefID)
 			spInsertUnitCmdDesc(unitID, unitWantCloakCommandDesc)
 			spRemoveUnitCmdDesc(unitID, cloakDescID)
 			spSetUnitRulesParam(unitID, 'wantcloak', 0, alliedTrueTable)
-			if canCloak[unitDefID][1] then
+			if cloakParams[unitDefID][1] then
 				SetWantedCloaked(unitID, 1)
 			end
 			return

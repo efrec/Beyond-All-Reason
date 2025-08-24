@@ -32,16 +32,8 @@ local spIsPosInMap = Spring.IsPosInMap
 local CMD_STOP = CMD.STOP
 local CMD_GUARD = CMD.GUARD
 
-local isMobileUnit = {}
-local isBuilder = {}
-for unitDefID, udef in pairs(UnitDefs) do
-	if not (udef.isBuilding or udef.speed == 0) then
-		isMobileUnit[unitDefID] = true
-	end
-	if udef.isBuilder and (udef.buildSpeed and udef.buildSpeed > 0) and (udef.buildDistance and udef.buildDistance > 0) then
-		isBuilder[unitDefID] = true
-	end
-end
+local isImmobile = Game.UnitInfo.Cache.isImmobile
+local isBuilder = Game.UnitInfo.Cache.isBuilder
 
 function gadget:Initialize()
 	gadgetHandler:RegisterAllowCommand(CMD_STOP)
@@ -52,7 +44,7 @@ function gadget:Initialize()
 end
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-	if isMobileUnit[unitDefID] then
+	if not isImmobile[unitDefID] then
 		allMobileUnits[unitID] = true
 	end
 end
@@ -93,7 +85,7 @@ local function isInsideMap(unitID)
 end
 
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, fromSynced, fromLua)
-	if cmdID == CMD_STOP and isMobileUnit[unitDefID] then
+	if cmdID == CMD_STOP and not isImmobile[unitDefID] then
 		return isInsideMap(unitID)
 	elseif cmdID == CMD_GUARD then
 		-- To guard out of map both units must be builders

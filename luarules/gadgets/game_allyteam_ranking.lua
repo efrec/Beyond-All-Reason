@@ -40,10 +40,7 @@ local spGetTeamResources = Spring.GetTeamResources
 local spGetTeamList = Spring.GetTeamList
 local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
 
-local unitCost = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	unitCost[unitDefID] = math.floor(unitDef.metalCost + (unitDef.energyCost / 65))
-end
+local unitCost = Game.UnitInfo.Cache.metalCostTotal
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
 	if unitTeam ~= GaiaTeamID then

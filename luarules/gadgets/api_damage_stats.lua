@@ -17,12 +17,7 @@ if gadgetHandler:IsSyncedCode() then
     return
 end
 
-local unitMetalCost = {}
-local unitEnergyCost = {}
-for unitDefID, defs in pairs(UnitDefs) do
-    unitMetalCost[unitDefID] = defs.metalCost
-    unitEnergyCost[unitDefID] = defs.energyCost
-end
+local unitCost = Game.UnitInfo.Cache.metalCostTotal
 
 local info = {}
 local gameType
@@ -103,7 +98,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
     if unitTeam==attackerTeam then return end
 
     info[attackerDefID].kills = info[attackerDefID].kills + 1
-    info[attackerDefID].killed_cost = info[attackerDefID].killed_cost + unitMetalCost[unitDefID] + unitEnergyCost[unitDefID]/60
+    info[attackerDefID].killed_cost = info[attackerDefID].killed_cost + unitCost[unitDefID]
 end
 
 function gadget:GameOver()

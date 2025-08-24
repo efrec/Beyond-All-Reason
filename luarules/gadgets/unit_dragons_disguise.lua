@@ -20,14 +20,7 @@ local GetUnitCOBValue = Spring.GetUnitCOBValue
 local SetUnitNeutral = Spring.SetUnitNeutral
 local ValidUnitID = Spring.ValidUnitID
 local neutralUnits = {}
-local armourTurrets = {}
-for udid,ud in ipairs(UnitDefs) do
-	if ud.customParams then
-		if ud.customParams.neutral_when_closed then
-			armourTurrets[udid] = true
-		end
-	end
-end
+local armourTurrets = Game.UnitInfo.Cache.neutral_when_closed
 local UPDATE = 30
 local timeCounter = 15
 

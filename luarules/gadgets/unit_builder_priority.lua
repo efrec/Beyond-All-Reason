@@ -88,22 +88,10 @@ local updateFrame = {}
 
 local teamList
 local deadTeamList = {}
-local unitBuildSpeed = {}
-local canPassive = {} -- canPassive[unitDefID] = nil / true
-local cost = {} -- cost[unitDefID] = { metal, energy, buildTime }
+local unitBuildSpeed = Game.UnitInfo.Cache.buildSpeed
+local cost = Game.UnitInfo.Cache.unitCosts -- cost[unitDefID] = { metal, energy, buildTime }
+local canPassive = Game.UnitInfo.Cache.canBuild -- canPassive[unitDefID] = nil / true
 local suspendBuilderPriority
-
-for unitDefID, unitDef in pairs(UnitDefs) do
-	-- All builders can have their build speeds changed via lua
-    if unitDef.buildSpeed > 0 then
-        unitBuildSpeed[unitDefID] = unitDef.buildSpeed
-    end
-    -- Units that can only repair, ressurrect, or capture don't have a passive mode (in this gadget)
-	local prioritizes = ((unitDef.canAssist and unitDef.buildSpeed > 0) or #unitDef.buildOptions > 0)
-    canPassive[unitDefID] = prioritizes and true or nil
-	-- Minor speedup for determining total resource drain per frame/interval
-	cost[unitDefID] = { unitDef.metalCost, unitDef.energyCost, unitDef.buildTime }
-end
 
 local function updateTeamList()
 	teamList = spGetTeamList()

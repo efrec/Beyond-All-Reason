@@ -21,20 +21,11 @@ CMD.LAND_AT_SPECIFIC_AIRBASE = CMD_LAND_AT_SPECIFIC_AIRBASE
 CMD[CMD_LAND_AT_SPECIFIC_AIRBASE] = "LAND_AT_SPECIFIC_AIRBASE"
 
 local tractorDist = 100 ^ 2 -- default sqr tractor distance
-local isAirbase = {}
-local isAirUnit = {}
-local isAirCon = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.isairbase then
-		isAirbase[unitDefID] = { tractorDist, unitDef.buildSpeed }
-	end
-	if unitDef.isAirUnit and unitDef.canFly then
-		isAirUnit[unitDefID] = true
-		if unitDef.isBuilder then
-    		isAirCon[unitDefID] = true
-		end
-	end
-end
+local isAirUnit = Game.UnitInfo.Cache.isAirUnit
+local isConstructor = Game.UnitInfo.Cache.isConstructionUnit
+local buildSpeed = Game.UnitInfo.Cache.buildSpeed
+local buildTime = Game.UnitInfo.Cache.buildTime
+local isAirbase = Game.UnitInfo.Cache.isairbase
 
 if gadgetHandler:IsSyncedCode() then
 
@@ -77,11 +68,6 @@ if gadgetHandler:IsSyncedCode() then
 	local CMD_WAIT = CMD.WAIT
 
 	local toRemoveCount
-
-	local unitBuildtime = {}
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		unitBuildtime[unitDefID] = unitDef.buildTime
-	end
 
 	---------------------------
 	-- custom commands
@@ -283,8 +269,7 @@ if gadgetHandler:IsSyncedCode() then
 		end
 		local airbaseDefID = spGetUnitDefID(airbaseID)
 		local unitDefID = spGetUnitDefID(unitID)
-		--local healthGain = (mh * (isAirbase[airbaseDefID][2] / unitBuildtime[unitDefID])) * resourceFrames
-		local healthGain = (unitBuildtime[unitDefID] / isAirbase[airbaseDefID][2]) / resourceFrames
+		local healthGain = (buildTime[unitDefID] / buildSpeed[airbaseDefID]) / resourceFrames
 		local newHealth = math_min(h + healthGain, mh)
 		if mh < newHealth then
 			newHealth = mh
@@ -508,7 +493,7 @@ if gadgetHandler:IsSyncedCode() then
 					if sqrDist and h < mh then
 						-- check if we're close enough, move into tractorPlanes if so
 						local airbaseDefID = spGetUnitDefID(airbaseID)
-						if airbaseDefID and sqrDist < isAirbase[airbaseDefID][1] then
+						if airbaseDefID and sqrDist < tractorDist then
 							-- land onto pad
 							landingPlanes[unitID] = nil
 							tractorPlanes[unitID] = { airbaseID, padPieceNum }
@@ -659,7 +644,7 @@ else	-- Unsynced
 			local sUnits = spGetSelectedUnits()
 			for i = 1, #sUnits do
 				local unitDefID = spGetUnitDefID(sUnits[i])
-				if isAirUnit[unitDefID] and not isAirCon[unitDefID] then -- cons still default to their usual construction tasks
+				if isAirUnit[unitDefID] and not isConstructor[unitDefID] then -- cons still default to their usual construction tasks
 					return CMD_LAND_AT_SPECIFIC_AIRBASE
 				end
 			end

@@ -56,6 +56,7 @@ local EMPTY_TABLE = {}
 
 local noCreate = false
 
+local spawnerDefs = {}
 local spawnDefs = {}
 local shieldCollide = {}
 local wantedList = {}
@@ -87,6 +88,16 @@ for weaponDefID = 1, #WeaponDefs do
 			shieldCollide[weaponDefID] = WeaponDefs[weaponDefID].damages[Game.armorTypes.shield]
 		end
 		wantedList[#wantedList + 1] = weaponDefID
+	end
+end
+
+for unitDefID, unitDef in ipairs(UnitDefs) do
+	for _, weapon in ipairs(unitDef.weapons) do
+		if spawnDefs[weapon.weaponDef] then
+			local weapons = spawnerDefs[unitDefID] or {}
+			weapons[#weapons+1] = weapon.weaponDef
+			spawnerDefs[unitDefID] = weapons
+		end
 	end
 end
 
@@ -294,30 +305,27 @@ end
 
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-	local unitDef = UnitDefs[unitDefID]
-	local weaponList = unitDef.weapons
-	
-	for i = 1, #weaponList do
-		local weapon = weaponList[i]
-		local weaponDefID = weapon.weaponDef
-		if weaponDefID and spawnDefs[weaponDefID] then
+	local spawnWeapons = spawnerDefs[unitDefID]
+	if not spawnWeapons then
+		return
+	end
 
-			local spawnDef = spawnDefs[weaponDefID]
-			if not spawnNames[unitID] then
-			    spawnNames[unitID] = {
-			        weapon = {}
-			    }
+	for i = 1, #spawnWeapons do
+		local weaponDefID = spawnWeapons[i]
+		local spawnDef = spawnDefs[weaponDefID]
+		if not spawnNames[unitID] then
+			spawnNames[unitID] = {
+				weapon = {}
+			}
+		end
+		if spawnNames[unitID] then
+			spawnNames[unitID].weapon[weaponDefID] = {
+				names = strSplit(spawnDef.name),
+				unitSequence = 1,
+			}
+			if spawnDef.mode == "random_locked" then
+				spawnNames[unitID].weapon[weaponDefID].unitSequence = random(#spawnNames[unitID].weapon[weaponDefID].names)
 			end
-			if spawnNames[unitID] then
-    			spawnNames[unitID].weapon[weaponDefID] = {
-    			    names = strSplit(spawnDef.name),
-    			    unitSequence = 1,
-    			}
-    			if spawnDef.mode == "random_locked" then
-    			    spawnNames[unitID].weapon[weaponDefID].unitSequence = random(#spawnNames[unitID].weapon[weaponDefID].names)
-    			end
-		    end
-			
 		end
 	end
 end

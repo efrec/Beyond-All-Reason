@@ -22,12 +22,7 @@ local transferInstantly = true	-- false = transfer mex on completion
 
 _G.transferredUnits = {}
 -- table of all mex unitDefIDs
-local isMex = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.extractsMetal > 0 then
-		isMex[unitDefID] = unitDef.metalCost
-	end
-end
+local isMex = Game.UnitInfo.Cache.extractsMetal
 
 -- [UNFINISHED] possible alternative method
 -- transform t1 mex assist to t2 mex assist

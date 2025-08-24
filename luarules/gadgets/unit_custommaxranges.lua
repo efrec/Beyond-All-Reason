@@ -23,12 +23,7 @@ end
 -------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 
-local unitMaxRange = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-    if unitDef.customParams.maxrange then
-        unitMaxRange[unitDefID] = tonumber(unitDef.customParams.maxrange)
-    end
-end
+local unitMaxRange = Game.UnitInfo.Cache.maxrange
 
 function gadget:Initialize()
 	for ct, unitID in pairs(Spring.GetAllUnits()) do

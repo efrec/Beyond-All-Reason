@@ -40,6 +40,24 @@ if gadgetHandler:IsSyncedCode() then
 	local GAME_SPEED = Game.gameSpeed
 	local PRIVATE = { private = true }
 
+	local unitPower = Game.UnitInfo.Cache.power
+	local unitEvolution = {}
+
+	for unitDefID, unitDef in ipairs(UnitDefs) do
+		if unitDef.customParams.evolution_target then
+			local udcp = unitDef.customParams
+			unitEvolution[unitDefID] = {
+				combatradius                     = tonumber(udcp.combatradius),
+				evolution_announcement_size      = tonumber(udcp.evolution_announcement_size),
+				evolution_health_threshold       = tonumber(udcp.evolution_health_threshold),
+				evolution_power_enemy_multiplier = tonumber(udcp.evolution_power_enemy_multiplier),
+				evolution_power_multiplier       = tonumber(udcp.evolution_power_multiplier),
+				evolution_power_threshold        = tonumber(udcp.evolution_power_threshold),
+				evolution_timer                  = tonumber(udcp.evolution_timer),
+			}
+		end
+	end
+
 	local evolutionMetaList = {}
 	local teamList = spGetTeamList()
 	local neutralTeamNumber = tonumber(teamList[#teamList])
@@ -251,29 +269,27 @@ if gadgetHandler:IsSyncedCode() then
 
 	end
 
+	function gadget:Initialize()
+		if not next(unitEvolution) then
+			gadgetHandler:RemoveGadget()
+		end
+	end
+
 	function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-		local udcp = UnitDefs[unitDefID].customParams
-		if udcp.evolution_target then
-			evolutionMetaList[unitID] = table.merge(udcp, {
-				combatradius                     = tonumber(udcp.combatradius),
-				evolution_announcement_size      = tonumber(udcp.evolution_announcement_size),
-				evolution_health_threshold       = tonumber(udcp.evolution_health_threshold),
-				evolution_power_enemy_multiplier = tonumber(udcp.evolution_power_enemy_multiplier),
-				evolution_power_multiplier       = tonumber(udcp.evolution_power_multiplier),
-				evolution_power_threshold        = tonumber(udcp.evolution_power_threshold),
-				evolution_timer                  = tonumber(udcp.evolution_timer),
-				timeCreated                      = spGetGameSeconds(),
-			})
+		local evolution = unitEvolution[unitDefID]
+		if evolution then
+			evolutionMetaList[unitID] = table.copy(evolution)
+			evolutionMetaList[unitID].timeCreated = spGetGameSeconds()
 		end
 	end
 
 	function gadget:UnitFinished(unitID, unitDefID, unitTeam)
-		if UnitDefs[unitDefID].power then
+		if unitPower[unitDefID] then
 			if unitTeam < neutralTeamNumber then
 				if teamPowerList[unitTeam] then
-					teamPowerList[unitTeam] = teamPowerList[unitTeam] + UnitDefs[unitDefID].power
+					teamPowerList[unitTeam] = teamPowerList[unitTeam] + unitPower[unitDefID]
 				else
-					teamPowerList[unitTeam] = UnitDefs[unitDefID].power
+					teamPowerList[unitTeam] = unitPower[unitDefID]
 				end
 			end
 		end
@@ -286,15 +302,15 @@ if gadgetHandler:IsSyncedCode() then
 		end
 
 		if unitTeam < neutralTeamNumber then
-			if UnitDefs[unitDefID].power then
+			if unitPower[unitDefID] then
 				if teamPowerList[unitTeam] then
-					if teamPowerList[unitTeam] <= UnitDefs[unitDefID].power then
+					if teamPowerList[unitTeam] <= unitPower[unitDefID] then
 						teamPowerList[unitTeam] = nil
 					else
-						teamPowerList[unitTeam] = teamPowerList[unitTeam] - UnitDefs[unitDefID].power
+						teamPowerList[unitTeam] = teamPowerList[unitTeam] - unitPower[unitDefID]
 					end
 				else
-					teamPowerList[unitTeam] = UnitDefs[unitDefID].power
+					teamPowerList[unitTeam] = unitPower[unitDefID]
 				end
 			end
 		end

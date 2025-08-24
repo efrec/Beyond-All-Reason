@@ -49,16 +49,8 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
-	local isCommander = {}
-	local unitDecoration = {}
-	for udefID,def in ipairs(UnitDefs) do
-		if def.customParams.iscommander then
-			isCommander[udefID] = true
-		end
-		if def.customParams.decoration then
-			unitDecoration[udefID] = true
-		end
-	end
+	local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+	local unitDecoration = Game.UnitInfo.Cache.isDecorationUnit
 
 	local KillTeam = Spring.KillTeam
 	local GetPlayerInfo = Spring.GetPlayerInfo

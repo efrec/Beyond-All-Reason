@@ -44,7 +44,7 @@ if gadgetHandler:IsSyncedCode() then
 	local attackAOEs = {}
 	local attackDamages = {}
 	local allianceStatus = {}
-	local unitArmorType = {}
+	local unitArmorType = Game.UnitInfo.Cache.armorType
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		local weapons = unitDef.weapons
 		if #weapons > 0 then
@@ -56,7 +56,6 @@ if gadgetHandler:IsSyncedCode() then
 				end
 			end
 		end
-		unitArmorType[unitDefID] = unitDef.armorType
 	end
 
 	function gadget:GameFrame(n)

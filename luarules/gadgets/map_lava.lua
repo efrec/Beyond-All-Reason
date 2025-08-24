@@ -63,23 +63,13 @@ if gadgetHandler:IsSyncedCode() then
 	local random = math.random
 	local clamp = math.clamp
 
-	local unitMoveDef = {}
-	local canFly = {}
-	local unitHeight = {}
-	local speedDefs = {}
-	local turnDefs = {}
-	local accDefs = {}
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		unitMoveDef[unitDefID] = unitDef.moveDef -- Will remove this when decision on hovercraft is made
-		if unitDef.canFly then
-			canFly[unitDefID] = true
-		else 
-			speedDefs[unitDefID] = unitDef.speed
-			turnDefs[unitDefID] = unitDef.turnRate
-			accDefs[unitDefID] = unitDef.maxAcc
-		end
-		unitHeight[unitDefID] = Spring.GetUnitDefDimensions(unitDefID).height
-	end
+	local unitMoveDef = Game.UnitInfo.Cache.moveDef -- Will remove this when decision on hovercraft is made
+	local canFly = Game.UnitInfo.Cache.canFly
+	local unitHeight = Game.UnitInfo.Cache.height
+	local speedDefs = Game.UnitInfo.Cache.speed
+	local turnDefs = Game.UnitInfo.Cache.turnRate
+	local accDefs = Game.UnitInfo.Cache.maxAcc
+
 	local geoThermal = {}
 	for featureDefID, featureDef in pairs(FeatureDefs) do
 		if featureDef.geoThermal then

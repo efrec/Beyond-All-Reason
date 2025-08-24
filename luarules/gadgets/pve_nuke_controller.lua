@@ -31,18 +31,7 @@ end
 
 local pveTeamID = Spring.Utilities.GetScavTeamID() or Spring.Utilities.GetRaptorTeamID()
 
-local nukeDefs = {}
-for unitDefID, def in ipairs(UnitDefs) do
-	if def.weapons then
-		for i = 1, #def.weapons do
-			local wDef = WeaponDefs[def.weapons[i].weaponDef]
-			if wDef.targetable == 1 then
-				nukeDefs[unitDefID] = true
-				break
-			end
-		end
-	end
-end
+local nukeDefs = Game.UnitInfo.Cache.hasInterceptableWeapon
 
 local aliveNukeLaunchers = {}
 

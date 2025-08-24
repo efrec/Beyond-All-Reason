@@ -31,32 +31,28 @@ end
 
 if not gadgetHandler:IsSyncedCode() then return end
 
-local isParatrooper = {}
-for udid, ud in pairs(UnitDefs) do
-	if ud.customParams.paratrooper then
-		isParatrooper[udid] = true
-	end
-  	if ud.customParams.subfolder and ud.customParams.subfolder == "other/hats" then
-		isParatrooper[udid] = true
+local deathExplosion = Game.UnitInfo.Cache.deathExplosionWeapon
+local doNotDestroy = {}
+do
+	local isDecorationUnit = Game.UnitInfo.Cache.isDecorationUnit -- hats
+	local isParatrooperUnit = Game.UnitInfo.Cache.isParatrooperUnit -- commandos
+	for udid, ud in pairs(UnitDefs) do
+		if isParatrooperUnit[udid] or isDecorationUnit[udid] then
+			doNotDestroy[udid] = true
+		end
 	end
 end
 
 local toKill = {} -- [frame][unitID]
 local fromtrans = {}
 
-local currentFrame = 0
-
---when a unit is unloaded, mark it either as a commando or for possible destruction on next frame
 function gadget:UnitUnloaded(unitID, unitDefID, teamID, transportID)
-
-	--Spring.Echo ("unloaded " .. unitID .. " (" .. unitDefID .. "), from transport " .. transportID)
-
-	if not isParatrooper[unitDefID] then
+	if not doNotDestroy[unitDefID] then
 		--don't destroy units with effigies. Spring.SetUnitPosition cannot move a unit mid-fall.
 		if Spring.GetUnitRulesParam(unitID, "unit_effigy") then
 			return
 		end
-		currentFrame = Spring.GetGameFrame()
+		local currentFrame = Spring.GetGameFrame()
 		if not toKill[currentFrame+1] then
 			toKill[currentFrame+1] = {}
 		end
@@ -72,30 +68,21 @@ function gadget:UnitUnloaded(unitID, unitDefID, teamID, transportID)
 	end
 end
 
-function gadget:GameFrame (currentFrame)
-	if toKill[currentFrame] then --kill units as requested from above
-		for uID,_ in pairs (toKill[currentFrame]) do
-			local tID = fromtrans[currentFrame][uID]
-			--Spring.Echo ("delayed killing check called for unit " .. uID .. " and trans " .. tID .. ". ")
+function gadget:GameFrame(frame)
+	if toKill[frame] then --kill units as requested from above
+		for uID in pairs (toKill[frame]) do
+			local tID = fromtrans[frame][uID]
 			--check that trans is dead/crashing and unit is still alive
-			if not Spring.GetUnitIsDead(uID) and (Spring.GetUnitIsDead(tID) or (Spring.GetUnitMoveTypeData(tID).aircraftState=="crashing"))	then
-				--Spring.Echo("killing unit " .. uID)=
-				local deathExplosion = UnitDefs[Spring.GetUnitDefID(uID)].deathExplosion
-				if deathExplosion and WeaponDefNames[deathExplosion].id and WeaponDefs[WeaponDefNames[deathExplosion].id] then
-					local tabledamages = WeaponDefs[WeaponDefNames[deathExplosion].id]
-					Spring.SetUnitWeaponDamages(uID, "selfDestruct", tabledamages)
-					tabledamages = WeaponDefs[WeaponDefNames[deathExplosion].id].damages
-					Spring.SetUnitWeaponDamages(uID, "selfDestruct", tabledamages)
+			if (Spring.GetUnitIsDead(tID) or Spring.GetUnitMoveTypeData(tID).aircraftState == "crashing") and Spring.GetUnitIsDead(uID) == false then
+				local explode = deathExplosion[Spring.GetUnitDefID(uID)]
+				if explode then
+					Spring.SetUnitWeaponDamages(uID, "selfDestruct", explode)
+					Spring.SetUnitWeaponDamages(uID, "selfDestruct", explode.damages)
 				end
 				Spring.DestroyUnit(uID, true, false)
 			end
 		end
-		toKill[currentFrame] = nil
-		fromtrans[currentFrame] = nil
+		toKill[frame] = nil
+		fromtrans[frame] = nil
 	end
 end
-
-
-
-
-

@@ -30,17 +30,15 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
+	local ignoreUnits = Game.UnitInfo.Cache.isObjectifiedUnit
 	local unitNumFx = {}
 	local unitMinX = {}
 	local unitMaxX = {}
 	local unitMinZ = {}
 	local unitMaxZ = {}
 	local unitMaxY = {}
-	local ignoreUnits = {}
 	for unitDefID, unitDef in ipairs(UnitDefs) do
-		if unitDef.modCategories['object'] or unitDef.customParams.objectify then
-			ignoreUnits[unitDefID] = true
-		else
+		if not ignoreUnits[unitDefID] then
 			unitNumFx[unitDefID] = math.min(1 + math.ceil(unitDef.metalCost/250), 30)
 			unitMinX[unitDefID] = unitDef.model.minx
 			unitMaxX[unitDefID] = unitDef.model.maxx

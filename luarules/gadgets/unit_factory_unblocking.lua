@@ -19,20 +19,12 @@ end
 
 local setBlockingOnFinished = {}
 local factoryUnits = {}
-local isFactory = {}
-local canFly = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.isFactory and #unitDef.buildOptions > 0 then
-		isFactory[unitDefID] = true
-	end
-	if unitDef.canFly then
-		canFly[unitDefID] = true
-	end
-end
+local isFactory = Game.UnitInfo.Cache.isFactory
+local canFly = Game.UnitInfo.Cache.isAirUnit
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 	if isFactory[unitDefID] then
-		factoryUnits[unitID] = isFactory[unitDefID]
+		factoryUnits[unitID] = true
 	end
 	if setBlockingOnFinished[unitID] then
 		if canFly[unitDefID] then

@@ -22,51 +22,9 @@ if gadgetHandler:IsSyncedCode() then
 	local coopInfo = {}
 	local present = {}
 
-	local isEcon = {
-		--land t1
-		[UnitDefNames.armsolar.id] = true,
-		[UnitDefNames.corsolar.id] = true,
-		[UnitDefNames.armadvsol.id] = true,
-		[UnitDefNames.coradvsol.id] = true,
-		[UnitDefNames.armwin.id] = true,
-		[UnitDefNames.corwin.id] = true,
-		[UnitDefNames.armmakr.id] = true,
-		[UnitDefNames.cormakr.id] = true,
-		--sea t1
-		[UnitDefNames.armtide.id] = true,
-		[UnitDefNames.cortide.id] = true,
-		[UnitDefNames.armfmkr.id] = true,
-		[UnitDefNames.corfmkr.id] = true,
-		--land t2
-		[UnitDefNames.armmmkr.id] = true,
-		[UnitDefNames.cormmkr.id] = true,
-		[UnitDefNames.corfus.id] = true,
-		[UnitDefNames.armfus.id] = true,
-		[UnitDefNames.armafus.id] = true,
-		[UnitDefNames.corafus.id] = true,
-		--sea t2
-		[UnitDefNames.armuwfus.id] = true,
-		[UnitDefNames.coruwfus.id] = true,
-		[UnitDefNames.armuwmmm.id] = true,
-		[UnitDefNames.coruwmmm.id] = true,
-	}
-	for udid, ud in pairs(UnitDefs) do
-		for id, v in pairs(isEcon) do
-			if string.find(ud.name, UnitDefs[id].name) then
-				isEcon[udid] = v
-			end
-		end
-	end
-
-	local unitNumWeapons = {}
-	local unitCombinedCost = {}
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		local weapons = unitDef.weapons
-		if #weapons > 0 then
-			unitNumWeapons[unitDefID] = #weapons
-		end
-		unitCombinedCost[unitDefID] = unitDef.energyCost + (60 * unitDef.metalCost)
-	end
+	local isBaseEconUnit = Game.UnitInfo.Cache.isBaseRaidTargetUnit -- excludes eco buildings usually outside your "base"
+	local unitHasWeapons = Game.UnitInfo.Cache.hasWeapon
+	local unitCombinedCost = Game.UnitInfo.Cache.energyCostTotal
 
 	-----------------------------------
 	-- set up book keeping
@@ -139,9 +97,9 @@ if gadgetHandler:IsSyncedCode() then
 
 		--keep track of killing
 		teamInfo[attackerTeamID].allDmg = teamInfo[attackerTeamID].allDmg + cost
-		if unitNumWeapons[unitDefID] then
+		if unitHasWeapons[unitDefID] then
 			teamInfo[attackerTeamID].fightDmg = teamInfo[attackerTeamID].fightDmg + cost
-		elseif isEcon[unitDefID] then
+		elseif isBaseEconUnit[unitDefID] then
 			teamInfo[attackerTeamID].ecoDmg = teamInfo[attackerTeamID].ecoDmg + cost
 		else
 			teamInfo[attackerTeamID].otherDmg = teamInfo[attackerTeamID].otherDmg + cost --currently not using this but recording it for interest

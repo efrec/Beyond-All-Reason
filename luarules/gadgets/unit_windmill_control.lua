@@ -1,5 +1,7 @@
 local gadget = gadget ---@type Gadget
 
+local enabled = Spring.GetModOptions().multiplier_energyproduction * Spring.GetModOptions().multiplier_resourceincome ~= 1
+
 function gadget:GetInfo()
 	return {
 		name = "Windmill Control",
@@ -8,32 +10,19 @@ function gadget:GetInfo()
 		date = "June 29, 2007",
 		license = "GNU GPL, v2 or later",
 		layer = 0,
-		enabled = true
+		enabled = enabled
 	}
+end
+
+local unitEnergyMultiplier = Game.UnitInfo.Cache.energymultiplier
+local windDefs = Game.UnitInfo.Cache.windGenerator
+
+if not next(unitEnergyMultiplier) or not next(windDefs) then
+	return false
 end
 
 if not gadgetHandler:IsSyncedCode() then
 	return false
-end
-
- -- Only apply these when resource multipliers are active, to save performance
-local energyMultActive = false
-if Spring.GetModOptions().multiplier_energyproduction * Spring.GetModOptions().multiplier_resourceincome ~= 1 then
-	energyMultActive = true
-end
-
-local windDefs = {}
-local unitEnergyMultiplier = {}
-for udid, ud in pairs(UnitDefs) do
-	if ud.windGenerator > 0 then
-		if energyMultActive then
-			windDefs[udid] = true
-		end
-		if ud.customParams.energymultiplier then
-			unitEnergyMultiplier[udid] = tonumber(ud.customParams.energymultiplier)
-			windDefs[udid] = true
-		end
-	end
 end
 
 local windmills = {}
@@ -45,7 +34,7 @@ local GetUnitIsStunned = Spring.GetUnitIsStunned
 --local GetHeadingFromVector = Spring.GetHeadingFromVector
 
 function gadget:GameFrame(n)
-	if (n + 15) % 30 < 0.1 then
+	if (n + 15) % 30 == 0 then
 		local _, _, _, strength, x, _, z = Spring.GetWind()
 		for unitID, scriptIDs in pairs(windmills) do
 			if not GetUnitIsStunned(unitID) then

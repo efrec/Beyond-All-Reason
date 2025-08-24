@@ -55,13 +55,7 @@ local positionCheckLibrary = VFS.Include("luarules/utilities/damgam_lib/position
 -- manually appoint units to avoid making
 -- (note that transports, stockpilers and objects/walls are auto skipped)
 local BadUnitsList = {}
-if Game.gameShortName == "BYAR" then
-	BadUnitsList = {
-		-- some depth charge launchers
-		"armdl",
-		"cordl",
-	}
-end
+
 
 local function RandomChoice(self)
 	-- lazy initialization
@@ -98,22 +92,18 @@ local SimpleUndefinedUnitDefs = {RandomChoice = RandomChoice}
 
 local BuildOptions = {} -- {unitDefHasBuildOptions = {1= buildOpt0, RandomChoice = RandomChoice}}
 
-local isBuilding = {}
-local isCommander = {}
+local isBuilding = Game.UnitInfo.Cache.isBuilding
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+local footprintSize = Game.UnitInfo.Cache.footprintSize
 for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.isBuilding then
-		isBuilding[unitDefID] = {unitDef.xsize, unitDef.zsize}
-	end
-	if unitDef.customParams.iscommander then
-		isCommander[unitDefID] = {unitDef.xsize, unitDef.zsize}
-	end
-
 	local skip = false
-	for a = 1, #BadUnitsList do
-		if BadUnitsList[a] == unitDef.name then
-			skip = true
-			break
-		end
+	if BadUnitsList[unitDef.name] then
+		skip = true
+	end
+	-- static depth charge launchers
+	-- (will not be placed correctly)
+	if unitDef.isImmobile and unitDef.maxWaterDepth == 0 and unitDef.customParams.unitgroup == "sub" then
+		skip = true
 	end
 	-- stockpilers
 	if unitDef.weapons then
@@ -248,8 +238,9 @@ local function SimpleBuildOrder(cUnitID, building)
 				local refDefID = spGetUnitDefID(buildnear)
 				if isBuilding[refDefID] or isCommander[refDefID] then
 					local refx, _, refz = spGetUnitPosition(buildnear)
-					local reffootx = (isBuilding[refDefID] and isBuilding[refDefID][1] or isCommander[refDefID][1]) * 8
-					local reffootz = (isBuilding[refDefID] and isBuilding[refDefID][2] or isCommander[refDefID][2]) * 8
+					local unitSize = footprintSize[refDefID]
+					local reffootx = unitSize[1] * 0.5 -- from center
+					local reffootz = unitSize[2] * 0.5
 					local spacing = random(64, 128)
 					local testspacing = spacing * 0.75
 					local buildingDefID = building

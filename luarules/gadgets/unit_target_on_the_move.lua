@@ -73,7 +73,7 @@ if gadgetHandler:IsSyncedCode() then
 
 	local validUnits = {}
 	local unitWeapons = {}
-	local unitAlwaysSeen = {}
+	local unitAlwaysSeen = Game.UnitInfo.Cache.isImmobile
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		if (unitDef.canAttack and unitDef.maxWeaponRange and unitDef.maxWeaponRange > 0) then
 			validUnits[unitDefID] = true
@@ -87,7 +87,6 @@ if gadgetHandler:IsSyncedCode() then
 				unitWeapons[unitDefID][i] = true
 			end
 		end
-		unitAlwaysSeen[unitDefID] = unitDef.isBuilding or unitDef.speed == 0
 	end
 
 	-- fastpass for units that don't have an attack command for other reasons

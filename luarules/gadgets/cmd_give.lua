@@ -19,12 +19,7 @@ local cmdname = 'give'
 local PACKET_HEADER = "$g$"
 local PACKET_HEADER_LENGTH = string.len(PACKET_HEADER)
 
-local isSilentUnitGift = {}
-for udefID,def in ipairs(UnitDefs) do
-	if def.modCategories['object'] or def.customParams.objectify then
-		isSilentUnitGift[udefID] = true
-	end
-end
+local isSilentUnitGift = Game.UnitInfo.Cache.isObjectifiedUnit
 
 local givenSomethingAtFrame = -1	-- used to fix double spawns when multiple authorized users are present
 
@@ -60,10 +55,7 @@ if gadgetHandler:IsSyncedCode() then
 			return
 		end
 		-- give units
-		local unitDefID
-		for udid, unitDef in pairs(UnitDefs) do
-			if unitDef.name == unitName then  unitDefID = udid break end
-		end
+		local unitDefID = unitName and UnitDefNames[unitName] or nil
 		if unitDefID == nil then
 			Spring.SendMessageToPlayer(playerID, "Unitname '"..unitName.."' isnt valid")
 			return
