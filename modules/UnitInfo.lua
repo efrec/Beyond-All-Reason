@@ -487,6 +487,10 @@ local function isConstructionTurret(unitDef)
 		and unitDef.isImmobile and not unitDef.isFactory
 end
 
+local function canBuild(unitDef)
+	return unitDef.buildSpeed > 0 and (unitDef.canAssist or next(unitDef.buildOptions))
+end
+
 local function canCreateUnits(unitDef)
 	return next(unitDef.buildOptions) or unitDef.canResurrect
 end
@@ -662,6 +666,21 @@ local function hasAreaDamageWeapon(unitDef)
 		local weapon = unitDef.weapons[i]
 		if weapon.customParams.area_onhit_ceg then
 			return true
+		end
+	end
+	return false
+end
+
+local function hasDroneWeapon(unitDef)
+	for i = 1, #unitDef.weapons do
+		local weapon = unitDef.weapons[i]
+		if weapon.customParams.carried_unit then
+			local names = string.split(weapon.customParams.carried_unit)
+			for _, name in ipairs(names) do
+				if UnitDefNames[name] then
+					return true
+				end
+			end
 		end
 	end
 	return false
@@ -1313,6 +1332,7 @@ UnitInfo.Classifiers = {
 	-- Unit creation
 	isConstructionUnit       = isConstructionUnit,
 	isConstructionTurret     = isConstructionTurret,
+	canBuild                 = canBuild,
 	canCreateUnits           = canCreateUnits,
 	isReplicatorUnit         = isReplicatorUnit,
 	factoryBuildOptions      = factoryBuildOptions,
@@ -1338,6 +1358,7 @@ UnitInfo.Classifiers = {
 	shieldPower              = shieldPower,
 	stockpileLimit           = stockpileLimit,
 	hasAreaDamageWeapon      = hasAreaDamageWeapon,
+	hasDroneWeapon           = hasDroneWeapon,
 	onlyTargetCategory       = onlyTargetCategory,
 
 	-- Damages
