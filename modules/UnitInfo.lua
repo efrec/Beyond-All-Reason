@@ -351,7 +351,7 @@ local function needsGeothermal(unitDef)
 end
 
 local function needsWater(unitDef)
-	return unitDef.minWaterDepth > 0
+	return unitDef.minWaterDepth >= 0
 end
 
 local function isRestrictedUnit(unitDef)
