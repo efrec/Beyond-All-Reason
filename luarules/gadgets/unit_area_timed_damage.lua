@@ -371,7 +371,7 @@ function gadget:Initialize()
         end
         frameNumber = Spring.GetGameFrame()
         frameExplosions = aliveExplosions[1 + (frameNumber % frameInterval)]
-        for frame = frameNumber - 1, frameNumber + gameSpeed do
+        for frame = frameNumber, frameNumber + gameSpeed do
             unitDamageReset[frame] = {}
             featDamageReset[frame] = {}
         end
