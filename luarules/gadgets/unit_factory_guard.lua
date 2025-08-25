@@ -41,9 +41,8 @@ local factoryGuardCmdDesc = {
 	params = { 0, "factoryguard", "factoryguard" }, -- named like this for translation - 0 is off, 1 is on
 }
 
-
 local isFactory = {}
-local isAssistBuilder = {}
+local isAssistBuilder = Game.UnitInfo.Cache.canAssist
 for unitDefID, unitDef in pairs(UnitDefs) do
 	if unitDef.isFactory then
 		local buildOptions = unitDef.buildOptions
@@ -52,17 +51,13 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 			local buildOptDefID = buildOptions[i]
 			local buildOpt = UnitDefs[buildOptDefID]
 
-			if (buildOpt and buildOpt.isBuilder and buildOpt.canAssist) then
+			if (buildOpt and buildOpt.canAssist) then
 				isFactory[unitDefID] = true  -- only factories that can build builders are included
 				break
 			end
 		end
 	end
-	if unitDef.isBuilder and unitDef.canAssist then
-		isAssistBuilder[unitDefID] = true
-	end
 end
-
 
 local function setFactoryGuardState(unitID, state)
 	local cmdDescID = spFindUnitCmdDesc(unitID, CMD_FACTORY_GUARD)
