@@ -294,6 +294,7 @@ local gaiaTeamID = Spring.GetGaiaTeamID()
 local myteamid = Spring.GetMyTeamID()
 local effectOn = false
 local effectStart = 0
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
 
 function widget:FeatureDestroyed(featureID, allyTeam)
 	if allyTeam == gaiaTeamID and glasstriggerfeaturedefsids[Spring.GetFeatureDefID(featureID)] then
@@ -303,12 +304,12 @@ function widget:FeatureDestroyed(featureID, allyTeam)
 		Spring.Echo("Reclaiming that was probably not a good idea...", featureHealth, mr, mm, er, em, rl )
 		if featureHealth > 0 and er == 0 then 
 			local unitsnearby = Spring.GetUnitsInCylinder(fx,fz, 170, myteamid)
-			for i, unitID in ipairs(unitsnearby) do 
+			for i, unitID in ipairs(unitsnearby) do
 				--Spring.Echo("nearby", unitID)
 				local unitDefID = Spring.GetUnitDefID(unitID) 
 				--Spring.Echo("nearby", unitID, UnitDefs[unitDefID].name)
-				if UnitDefs[unitDefID].name == 'armcom' or UnitDefs[unitDefID].name == 'corcom' then
-					if effectOn == false then 
+				if isCommander[unitDefID] then
+					if effectOn == false then
 						effectOn = true
 						effectStart = os.clock()
 						--Spring.Echo("Effect started")

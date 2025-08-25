@@ -20,26 +20,10 @@ function widget:Shutdown()
 	WG['dgunnoenemy'] = nil
 end
 
-local isAirUnit = {}
-local isShip = {}
-local isUnderwater = {}
-local isHover = {}
-for udid, ud in pairs(UnitDefs) do
-	if ud.isAirUnit then
-		isAirUnit[udid] = ud.isAirUnit
-	end
-	if ud.modCategories then
-		if ud.modCategories.ship then
-			isShip[udid] = true
-		end
-		if ud.modCategories.underwater then
-			isUnderwater[udid] = true
-		end
-		if ud.modCategories.hover then
-			isHover[udid] = true
-		end
-	end
-end
+local isAirUnit = Game.UnitInfo.Cache.isAirUnit
+local isShip = Game.UnitInfo.Cache.isWaterUnit
+local isUnderwater = Game.UnitInfo.Cache.isUnderwaterUnit
+local isHover = Game.UnitInfo.Cache.isHoverUnit
 
 function widget:CommandNotify(cmdID, cmdParams, cmdOptions)
 	if cmdID ~= CMD.MANUALFIRE then -- only hook dgun commands
@@ -58,6 +42,7 @@ function widget:CommandNotify(cmdID, cmdParams, cmdOptions)
 		return false
 	end
 
+	---@diagnostic disable-next-line -- OK
 	if cmdParams2[1] > 0 and not Spring.IsUnitAllied(cmdParams2[1]) then -- still snap aim at enemy units
 		local unitDefID = Spring.GetUnitDefID(cmdParams[1])
 		-- exclude air and ships, also hovers when on water

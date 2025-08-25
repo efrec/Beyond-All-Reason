@@ -52,16 +52,8 @@ local createdUnitLocDefID = {}
 local createdUnitID = {}
 local newBuildCmdUnits = {}
 
-local isBuilder = {}
-local unitWaterline = {}
-for udefID,def in ipairs(UnitDefs) do
-	if def.isBuilder and not def.isFactory and def.buildOptions[1] then
-		isBuilder[udefID] = true
-	end
-	if def.waterline and def.waterline > 0 then
-		unitWaterline[udefID] = def.waterline
-	end
-end
+local isBuilder = Game.UnitInfo.Cache.isConstructionUnit
+local unitWaterline = Game.UnitInfo.Cache.waterline
 
 local function addUnitShape(shapeID, unitDefID, px, py, pz, rotationY, teamID)
 	if not WG.DrawUnitShapeGL4 then

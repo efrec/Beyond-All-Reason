@@ -25,12 +25,7 @@ local opacity = 0
 local myTeamID = Spring.GetMyTeamID()
 local dList
 
-local comUnitDefIDs = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef and unitDef.customParams.iscommander then
-		comUnitDefIDs[unitDefID] = true
-	end
-end
+local comUnitDefIDs = Game.UnitInfo.Cache.isCommanderUnit
 
 --------------------------------------------------------------------------------
 

@@ -215,6 +215,7 @@ function widget:Initialize()
     gridVAO:AttachVertexBuffer(gridVBO)
 end
 
+local isUnderwaterUnit = Game.UnitInfo.Cache.isUnderwaterUnit
 
 function widget:Update()
 	local _, cmdID = Spring.GetActiveCommand()
@@ -228,7 +229,7 @@ function widget:DrawWorldPreUnit()
 		return
 	end
 
-	local waterSurfaceMode = not UnitDefs[showUnitDefID].modCategories.underwater
+	local waterSurfaceMode = not isUnderwaterUnit[showUnitDefID]
 
 	local mx, my, _ = Spring.GetMouseState()
 	local _, mousePos = Spring.TraceScreenRay(mx, my, true, false, false, not waterSurfaceMode)

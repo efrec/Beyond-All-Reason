@@ -23,24 +23,8 @@ local spGetUnitCommands = Spring.GetUnitCommands
 local spIsPosInLos = Spring.IsPosInLos
 local spValidUnitID = Spring.ValidUnitID
 
-local isBuilding = {}
-local isBomber = {}
-local isBomb = {}
-for id, wDef in pairs(WeaponDefs) do
-	if wDef.type == "AircraftBomb" then
-		isBomb[id] = true
-	end
-end
-for udid, ud in pairs(UnitDefs) do
-	if ud.isBuilding or string.find(ud.name, "nanotc") then
-		isBuilding[udid] = true
-	end
-	if (ud["weapons"] and ud["weapons"][1] and isBomb[ud["weapons"][1].weaponDef] == true) or (string.find(ud.name, 'armlance') or string.find(ud.name, 'cortitan') or string.find(ud.name, 'legatorpbomber')) then
-		isBomber[udid] = true
-	end
-end
-isBomb = nil
-
+local isImmobile = Game.UnitInfo.Cache.isImmobile
+local isBomber = Game.UnitInfo.Cache.hasBomberWeapon
 
 function widget:GameFrame(gf)
 	if gf % 7 == 1 then
@@ -85,7 +69,7 @@ function widget:CommandNotify(cmdID, cmdParams, cmdOptions)
 		return false
 	end
 	local targetBuildingID = cmdParams[1]
-	if not isBuilding[spGetUnitDefID(targetBuildingID)] then
+	if not isImmobile[spGetUnitDefID(targetBuildingID)] then
 		return false
 	end
 	local targetBuildingPosX, targetBuildingPosY, targetBuildingPosZ = Spring.GetUnitPosition(targetBuildingID)

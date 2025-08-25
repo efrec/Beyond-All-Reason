@@ -62,9 +62,9 @@ local spGetUnitStockpile		= Spring.GetUnitStockpile
 local spGetAllUnits    			= Spring.GetAllUnits
 local GetUnitIsStunned     		= Spring.GetUnitIsStunned
 
+local antiNukeDefs              = Game.UnitInfo.Cache.hasInterceptorWeapon
 local antiInLos					= {}
 local antiOutLos				= {}
-local antiNukeDefs              = {}
 
 local diag = math.diag
 
@@ -75,28 +75,12 @@ local chobbyInterface
 --------------------------------------------------------------------------------
 
 function widget:Initialize()
-    identifyAntiNukeUnits()  -- Pre-process unit definitions
     checkAllUnits()
-end
-
-function identifyAntiNukeUnits()
-    for unitDefID, unitDef in pairs(UnitDefs) do
-        local weapons = unitDef.weapons
-        for i=1, #weapons do
-            local weaponDef = WeaponDefs[weapons[i].weaponDef]
-            if weaponDef and weaponDef.interceptor and weaponDef.interceptor == 1 then
-                antiNukeDefs[unitDefID] = weaponDef.coverageRange
-                break
-            end
-        end
-    end
 end
 
 --------------------------------------------------------------------------------
 -- Callins
 --------------------------------------------------------------------------------
-
-
 
 function widget:RecvLuaMsg(msg, playerID)
 	if msg:sub(1,18) == 'LobbyOverlayActive' then

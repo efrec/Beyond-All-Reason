@@ -30,12 +30,7 @@ end
 
 local gameStarted
 
-local isFactory = {}
-for udid, ud in pairs(UnitDefs) do
-    if ud.isFactory then
-        isFactory[udid] = true
-    end
-end
+local isFactory = Game.UnitInfo.Cache.isFactory
 
 function maybeRemoveSelf()
     if Spring.GetSpectatingState() and (Spring.GetGameFrame() > 0 or gameStarted) then

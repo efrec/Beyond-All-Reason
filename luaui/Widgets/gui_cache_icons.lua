@@ -21,12 +21,9 @@ local delayedCacheUnitIconsTimer = 0
 local cachedUnitIcons = false
 
 
-local startUnits = { UnitDefNames.armcom.id, UnitDefNames.corcom.id }
-if Spring.GetModOptions().experimentallegionfaction then
-	startUnits[#startUnits + 1] = UnitDefNames.legcom.id
-end
+local startUnits = Game.UnitInfo.Cache.isCommanderUnit
 local startBuildOptions = {}
-for i, uDefID in pairs(startUnits) do
+for uDefID in pairs(startUnits) do
 	startBuildOptions[#startBuildOptions + 1] = uDefID
 	for u, buildoptionDefID in pairs(UnitDefs[uDefID].buildOptions) do
 		startBuildOptions[#startBuildOptions + 1] = buildoptionDefID

@@ -354,17 +354,14 @@ local GetUnitWeaponState = Spring.GetUnitWeaponState
 
 local chobbyInterface
 
-local unitDefIgnore = {} -- commanders!
-local unitDefhasShield = {} -- value is shield max power
-local unitDefCanStockpile = {} -- 0/1?
-local unitDefReload = {} -- value is max reload time
-local unitDefHeights = {} -- maps unitDefs to height
-local unitDefHideDamage = {}
+local unitDefIgnore = Game.UnitInfo.Cache.nohealthbars
+local unitDefShieldPower = Game.UnitInfo.Cache.shieldPower
+local unitDefCanStockpile = Game.UnitInfo.Cache.canStockpile
+local unitDefHeights = Game.UnitInfo.Cache.height
+local unitDefHideDamage = Game.UnitInfo.Cache.hideDamage
 local unitDefPrimaryWeapon = {} -- the index for reloadable weapon on unitdef weapons
 
 local unitBars = {} -- we need this additional table of {[unitID] = {barhealth, barrez, barreclaim}}
-local unitEmpWatch = {}
-local unitBeingBuiltWatch = {}
 local unitCaptureWatch = {}
 local unitShieldWatch = {} -- maps unitID to last shield value
 local unitEmpDamagedWatch = {}
@@ -467,18 +464,8 @@ local shaderSourceCache = {
 	}
 
 
--- Walk through unitdefs for the stuff we need:
+-- Walk through unitdefs for the primary weapon:
 for udefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams and unitDef.customParams.nohealthbars then
-		unitDefIgnore[udefID] = true
-	end --ignore debug units
-
-	local shieldDefID = unitDef.shieldWeaponDef
-	local shieldPower = ((shieldDefID) and (WeaponDefs[shieldDefID].shieldPower)) or (-1)
-	if shieldPower > 1 then unitDefhasShield[udefID] = shieldPower
-		--Spring.Echo("HAS SHIELD")
-	end
-
 	local weapons = unitDef.weapons
 	local reloadTime = unitDef.reloadTime or 0
 	local primaryWeapon = 1
@@ -489,17 +476,10 @@ for udefID, unitDef in pairs(UnitDefs) do
 			primaryWeapon = i
 		end
 	end
-	unitDefHeights[udefID] = unitDef.height
 	unitDefSizeMultipliers[udefID] = math.min(1.45, math.max(0.85, (Spring.GetUnitDefDimensions(udefID).radius / 150) + math.min(0.6, unitDef.power / 4000))) + math.min(0.6, unitDef.health / 22000)
-	if unitDef.canStockpile then unitDefCanStockpile[udefID] = unitDef.canStockpile end
 	if reloadTime and reloadTime > minReloadTime then
 		if debugmode then Spring.Echo("Unit with watched reload time:", unitDef.name, reloadTime, minReloadTime) end
-
-		unitDefReload[udefID] = reloadTime
 		unitDefPrimaryWeapon[udefID] = primaryWeapon
-	end
-	if unitDef.hideDamage == true then
-		unitDefHideDamage[udefID] = true
 	end
 end
 
@@ -682,7 +662,7 @@ local function addBarsForUnit(unitID, unitDefID, unitTeam, unitAllyTeam, reason)
 		end
 		addBarForUnit(unitID, unitDefID, "health", reason)
 	end
-	if unitDefhasShield[unitDefID] then
+	if unitDefShieldPower[unitDefID] then
 		--Spring.Echo("hasshield")
 		addBarForUnit(unitID, unitDefID, "shield", reason)
 		unitShieldWatch[unitID] = -1.0
@@ -1127,7 +1107,7 @@ function widget:GameFrame(n)
 				if shieldPower == nil then
 					removeBarFromUnit(unitID, "shield", "unitShieldWatch")
 				else
-					uniformcache[1] = shieldPower / (unitDefhasShield[Spring.GetUnitDefID(unitID)])
+					uniformcache[1] = shieldPower / (unitDefShieldPower[Spring.GetUnitDefID(unitID)])
 					gl.SetUnitBufferUniforms(unitID, uniformcache, 2)
 				end
 				unitShieldWatch[unitID] = shieldPower

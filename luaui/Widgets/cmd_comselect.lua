@@ -14,13 +14,10 @@ end
 
 local myTeamID
 
-local commanderDefIDs = {}
+local commanderDefIDs = Game.UnitInfo.Cache.isCommanderUnit
 local commanderDefIDsList = {}
-for udid, ud in pairs(UnitDefs) do
-	if ud.customParams.iscommander then
-		commanderDefIDs[udid] = true
-		table.insert(commanderDefIDsList, udid)
-	end
+for unitDefID in pairs(commanderDefIDs) do
+	table.insert(commanderDefIDsList, unitDefID)
 end
 
 -- We use unitIndex as a cursor for cycling on subsequent triggers

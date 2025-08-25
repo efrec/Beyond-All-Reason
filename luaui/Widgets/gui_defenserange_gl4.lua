@@ -168,14 +168,8 @@ local defensePosHash = {} -- key: {poshash=unitID}
 
 local featureDefIDtoUnitDefID = {} -- this table maps featureDefIDs to unitDefIDs for faster lookups on feature creation
 
-
-local unitName = {}
-local unitWeapons = {}
-for udid, ud in pairs(UnitDefs) do
-	unitName[udid] = ud.name
-	unitWeapons[udid] = ud.weapons
-end
-
+local unitName = Game.UnitInfo.Cache.name
+local unitWeapons = Game.UnitInfo.Cache.weapons
 
 local vtoldamagetag = Game.armorTypes['vtol']
 local defaultdamagetag = Game.armorTypes['default']

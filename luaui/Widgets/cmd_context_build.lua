@@ -112,10 +112,8 @@ local legionUnitlist = {
 local groundBuildings = {}
 local waterBuildings = {}
 
-local unitName = {}
-for udid, ud in pairs(UnitDefs) do
-	unitName[udid] = ud.name
-end
+local unitName = Game.UnitInfo.Cache.name
+
 local mouseDownPos
 
 local updateRate = 0.1

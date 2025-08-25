@@ -43,12 +43,7 @@ local function spotKey(x, z)
 	return tostring(x).."_"..tostring(z)
 end
 
-local extractors = {}
-for uDefID, uDef in pairs(UnitDefs) do
-	if uDef.needGeo then
-		extractors[uDefID] = true
-	end
-end
+local extractors = Game.UnitInfo.Cache.needsGeothermal
 
 local showGeothermalUnits = false
 local function checkGeothermalFeatures()

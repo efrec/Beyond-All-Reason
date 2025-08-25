@@ -99,19 +99,8 @@ local maxTotalCommandCount = 850        -- dont add more commands above this amo
 
 local lineImg = ":n:LuaUI/Images/commandsfx/line.dds"
 
-local isCritter = {}
-local ignoreUnits = {}
-for udefID, def in ipairs(UnitDefs) do
-	if string.find(def.name, "critter_") then
-		isCritter[udefID] = true
-	end
-	if def.customParams.nohealthbars then
-		ignoreUnits[udefID] = true
-	end
-	if def.customParams.drone then
-		ignoreUnits[udefID] = true
-	end
-end
+local isCritter = Game.UnitInfo.Cache.isGaiaCritterUnit
+local ignoreUnits = Game.UnitInfo.Cache.nohealthbars
 
 local mapX = Game.mapSizeX
 local mapZ = Game.mapSizeZ

@@ -73,36 +73,22 @@ local units                = {}  -- [unitID] = { decloakDist, empRadius }
 --------------------------------------------------------------------------------
 -- DETECT SPY / GREMLIN UNITS AND THEIR RADII
 --------------------------------------------------------------------------------
-local lower = string.lower
-local isSpy, isGremlin = {}, {}
+local decloakDistance = Game.UnitInfo.Cache.decloakDistance
+local selfDWeaponDef = Game.UnitInfo.Cache.selfDExplosionWeapon
+local isCloakedEMP = Game.UnitInfo.Cache.isCloakedEmpUnit
+local isCloaked = {}
 for udid, ud in pairs(UnitDefs) do
-    local name = ud.name:lower()
-    local decloakDist = ud.mincloakdistance or ud.decloakDistance or 0
-    if name:find("spy") or name:find("armamex") then
-        -- spy's EMP radius from its self-destruct weapon
-        local wdefName = lower(ud.selfDExplosion)
-        local wdef = WeaponDefNames[wdefName]
-        if wdef then
-            isSpy[udid] = { decloakDist, WeaponDefs[wdef.id].damageAreaOfEffect }
-        else
-            isSpy[udid] = { decloakDist, 0 }
-        end
-    end
-    if name:find("armgremlin") or name:find("armamb") or name:find("armpb") or name:find("armferret")
-       or name:find("armckfus") or name:find("armsnipe") or name:find("armshockwave")
-       or name:find("eyes") or name:find("mine")
-       or name:find("armcom") or name:find("corcom") or name:find("legcom") then
-        isGremlin[udid] = decloakDist
+    if ud.canCloak and not isCloakedEMP[udid] then
+		isCloaked[udid] = true
     end
 end
 
 local function addSpy(unitID, unitDefID)
-    local props = isSpy[unitDefID]
-    units[unitID] = { props[1], props[2] }
+    units[unitID] = { decloakDistance[unitDefID], selfDWeaponDef[unitDefID].damageAreaOfEffect }
 end
 
 local function addGremlin(unitID, unitDefID)
-    units[unitID] = { isGremlin[unitDefID], 0 }
+    units[unitID] = { decloakDistance[unitDefID], 0 }
 end
 
 --------------------------------------------------------------------------------
@@ -112,9 +98,9 @@ function widget:Initialize()
     units = {}
     for _, unitID in ipairs(spGetAllUnits()) do
         local udid = spGetUnitDefID(unitID)
-        if isSpy[udid] then
+        if isCloakedEMP[udid] then
             addSpy(unitID, udid)
-        elseif isGremlin[udid] then
+        elseif isCloaked[udid] then
             addGremlin(unitID, udid)
         end
     end
@@ -122,17 +108,17 @@ end
 
 function widget:UnitCreated(unitID, unitDefID, teamID, builderID)
     if not spValidUnitID(unitID) then return end
-    if isSpy[unitDefID] then
+    if isCloakedEMP[unitDefID] then
         addSpy(unitID, unitDefID)
-    elseif isGremlin[unitDefID] then
+    elseif isCloaked[unitDefID] then
         addGremlin(unitID, unitDefID)
     end
 end
 
 function widget:UnitFinished(unitID, unitDefID, teamID)
-    if isSpy[unitDefID] then
+    if isCloakedEMP[unitDefID] then
         addSpy(unitID, unitDefID)
-    elseif isGremlin[unitDefID] then
+    elseif isCloaked[unitDefID] then
         addGremlin(unitID, unitDefID)
     end
 end
@@ -144,9 +130,9 @@ end
 function widget:UnitEnteredLos(unitID, unitTeam)
     if not fullview then
         local udid = spGetUnitDefID(unitID)
-        if isSpy[udid] then
+        if isCloakedEMP[udid] then
             addSpy(unitID, udid)
-        elseif isGremlin[udid] then
+        elseif isCloaked[udid] then
             addGremlin(unitID, udid)
         end
     end

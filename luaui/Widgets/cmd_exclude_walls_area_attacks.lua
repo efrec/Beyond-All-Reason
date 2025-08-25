@@ -17,16 +17,10 @@ local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
 local CMD_ATTACK = CMD.ATTACK
 local CMD_STOP = CMD.STOP
 
-local excludedUnitsDefID = {}
-
 local spGetUnitDefID = Spring.GetUnitDefID
 local spGetUnitNeutral = Spring.GetUnitNeutral
 
-for id, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.objectify then
-		excludedUnitsDefID[id] = true
-	end
-end
+local excludedUnitsDefID = Game.UnitInfo.Cache.isObjectifiedUnit
 
 local function addNewCommand(newCmds, unitID, cmdOpts, cmdID)
 	if #newCmds == 0 and not cmdOpts.shift then

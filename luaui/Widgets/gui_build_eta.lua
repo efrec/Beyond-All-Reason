@@ -35,11 +35,7 @@ local etaTable = {}
 local etaMaxDist = 750000 -- max dist at which to draw ETA
 local blinkTime = 20
 
-local unitHeight = {}
-for udid, unitDef in pairs(UnitDefs) do
-	unitHeight[udid] = unitDef.height
-end
-
+local unitHeight = Game.UnitInfo.Cache.height
 
 function widget:ViewResize()
 	font = WG['fonts'].getFont(nil, 1.2, 0.2, 20)

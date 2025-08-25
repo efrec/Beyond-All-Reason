@@ -241,18 +241,9 @@ local state = {
 	buildPositions = nil,
 }
 
-local blueprintBuildableUnitDefs = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.isBuilding then
-		blueprintBuildableUnitDefs[unitDefID] = true
-	elseif unitDef.isBuilder and not unitDef.canMove and not unitDef.isFactory then
-		-- nanos
-		blueprintBuildableUnitDefs[unitDefID] = true
-	elseif unitDef.customParams.mine then
-		-- mines
-		blueprintBuildableUnitDefs[unitDefID] = true
-	end
-end
+local unitDefName = Game.UnitInfo.Cache.name
+local floatOnWater = Game.UnitInfo.Cache.floatOnWater
+local blueprintBuildableUnitDefs = Game.UnitInfo.Cache.isImmobile
 
 local blueprintCommandableUnitDefs = {}
 for builderUnitDefID, unitDef in pairs(UnitDefs) do
@@ -377,7 +368,7 @@ local function postProcessBlueprint(bp)
 	-- precompute some useful information
 	bp.dimensions = pack(WG["api_blueprint"].getBlueprintDimensions(bp))
 	bp.floatOnWater = table.any(bp.units, function(u)
-		return UnitDefs[u.unitDefID].floatOnWater
+		return floatOnWater[u.unitDefID]
 	end)
 	bp.minBuildingDimension = table.reduce(bp.units, function(acc, u)
 		local w, h = WG["api_blueprint"].getBuildingDimensions(
@@ -1105,7 +1096,7 @@ local function serializeBlueprint(blueprint)
 		ordered = blueprint.ordered,
 		units = table.map(blueprint.units, function(blueprintUnit)
 			return {
-				unitName = UnitDefs[blueprintUnit.unitDefID].name,
+				unitName = unitDefName[blueprintUnit.unitDefID],
 				position = blueprintUnit.position,
 				facing = blueprintUnit.facing
 			}

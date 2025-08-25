@@ -13,15 +13,8 @@ end
 local guardConstructors = true
 local guardFactories = true
 
-local isConstructor, isFactory = {}, {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-  if unitDef.isMobileBuilder then
-    isConstructor[unitDefID] = true
-  end
-  if unitDef.isFactory then
-    isFactory[unitDefID] = true
-  end
-end
+local isConstructor = Game.UnitInfo.Cache.isConstructionUnit
+local isFactory = Game.UnitInfo.Cache.isFactory
 
 function widget:DefaultCommand(targetType, targetID, engineCmd)
   if targetType ~= "unit" then

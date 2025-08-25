@@ -23,9 +23,6 @@ local blastAlphaValue = 0.5
 local blastColor = { 1.0, 0.0, 0.0 }
 local expBlastAlphaValue = 1.0
 local expBlastColor = { 1.0, 0.0, 0.0}
-local explodeTag = "deathExplosion"
-local selfdTag = "selfDExplosion"
-local aoeTag = "damageAreaOfEffect"
 
 local lastColorChangeTime = 0.0
 local selfdCycleDir = false
@@ -33,10 +30,6 @@ local selfdCycleTime = 0.3
 local expCycleTime = 0.5
 
 -------------------------------------------------------------------------------
-
-local udefTab				= UnitDefs
-local weapNamTab			= WeaponDefNames
-local weapTab				= WeaponDefs
 
 local spGetKeyState         = Spring.GetKeyState
 local spGetModKeyState      = Spring.GetModKeyState
@@ -60,6 +53,9 @@ local glBillboard           = gl.Billboard
 
 local sqrt					= math.sqrt
 local lower                 = string.lower
+
+local unitDeathWeaponDef    = Game.UnitInfo.Cache.deathExplosionWeapon
+local unitSelfdWeaponDef    = Game.UnitInfo.Cache.selfDExplosionWeapon
 
 local font, chobbyInterface
 
@@ -154,14 +150,11 @@ function DrawBuildMenuBlastRange()
 	end
 
 	local unitDefID = -cmd_id
-	local udef = udefTab[unitDefID]
-	if weapNamTab[lower(udef[explodeTag])] == nil then
+	local deathExplosion = unitDeathWeaponDef[unitDefID]
+	if deathExplosion == nil then
 		return
 	end
-
-	local deathBlasId = weapNamTab[lower(udef[explodeTag])].id
-	local blastRadius = weapTab[deathBlasId][aoeTag]
-	--local defaultDamage = weapTab[deathBlasId].damages[0]	--get default damage
+	local blastRadius = deathExplosion.damageAreaOfEffect
 
 	local mx, my = spGetMouseState()
 	local _, coords = spTraceScreenRay(mx, my, true, true)
@@ -189,19 +182,16 @@ end
 
 function DrawUnitBlastRadius( unitID )
 	local unitDefID =  spGetUnitDefID(unitID)
-	local udef = udefTab[unitDefID]
-
 	local x, y, z = spGetUnitPosition(unitID)
+	local deathExplosion = unitDeathWeaponDef[unitDefID]
+	local selfDExplosion = unitSelfdWeaponDef[unitDefID]
 
-	if weapNamTab[lower(udef[explodeTag])] ~= nil and weapNamTab[lower(udef[selfdTag])] ~= nil then
-		local deathBlasId = weapNamTab[lower(udef[explodeTag])].id
-		local blastId = weapNamTab[lower(udef[selfdTag])].id
+	if deathExplosion ~= nil and selfDExplosion ~= nil then
+		local deathblastRadius = deathExplosion.damageAreaOfEffect
+		local blastRadius = selfDExplosion.damageAreaOfEffect
 
-		local blastRadius = weapTab[blastId][aoeTag]
-		local deathblastRadius = weapTab[deathBlasId][aoeTag]
-
-		local blastDamage = weapTab[blastId].damages[0]
-		local deathblastDamage = weapTab[deathBlasId].damages[0]
+		local deathblastDamage = deathExplosion.damages[0]
+		local blastDamage = selfDExplosion.damages[0]
 
 		local height = Spring.GetGroundHeight(x,z)
 

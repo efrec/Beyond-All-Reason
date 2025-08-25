@@ -21,12 +21,7 @@ local spGiveOrderToUnit = Spring.GiveOrderToUnit
 local spGiveOrderToUnitArray = Spring.GiveOrderToUnitArray
 local activeModifier = false
 
-local unitBuildOptions = {}
-for udefID, def in ipairs(UnitDefs) do
-	if #def.buildOptions > 0 then
-		unitBuildOptions[udefID] = def.buildOptions
-	end
-end
+local unitBuildOptions = Game.UnitInfo.Cache.buildOptions
 
 local buildID = 0
 local buildLocs = {}

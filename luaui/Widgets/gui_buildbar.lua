@@ -48,13 +48,12 @@ local bopt_inext = { 0, 0 }
 
 local myTeamID = 0
 
-local orgIconTypes = VFS.Include("gamedata/icontypes.lua")
+local factoryOptions = Game.UnitInfo.Cache.factoryBuildOptions
+local unitTooltip = Game.UnitInfo.Cache.translatedTooltip
+local unitName = Game.UnitInfo.Cache.translatedHumanName
 local unitIcon = {}
-local unitBuildOptions = {}
+local orgIconTypes = VFS.Include("gamedata/icontypes.lua")
 for udid, unitDef in pairs(UnitDefs) do
-	if unitDef.isFactory and #unitDef.buildOptions > 0 then
-		unitBuildOptions[udid] = unitDef.buildOptions
-	end
 	if unitDef.iconType and orgIconTypes[unitDef.iconType] and orgIconTypes[unitDef.iconType].bitmap then
 		unitIcon[udid] = ':l:'..orgIconTypes[unitDef.iconType].bitmap
 	end
@@ -289,9 +288,9 @@ local function updateFactoryList()
 	for num = 1, #teamUnits do
 		local unitID = teamUnits[num]
 		local unitDefID = GetUnitDefID(unitID)
-		if unitBuildOptions[unitDefID] then
+		if factoryOptions[unitDefID] then
 			count = count + 1
-			facs[count] = { unitID = unitID, unitDefID = unitDefID, buildList = unitBuildOptions[unitDefID] }
+			facs[count] = { unitID = unitID, unitDefID = unitDefID, buildList = factoryOptions[unitDefID] }
 			if GetUnitIsBeingBuilt(unitID) then
 				unfinished_facs[unitID] = true
 			end
@@ -304,8 +303,8 @@ function widget:UnitCreated(unitID, unitDefID, unitTeam)
 		return
 	end
 
-	if unitBuildOptions[unitDefID] then
-		facs[#facs + 1] = { unitID = unitID, unitDefID = unitDefID, buildList = unitBuildOptions[unitDefID] }
+	if factoryOptions[unitDefID] then
+		facs[#facs + 1] = { unitID = unitID, unitDefID = unitDefID, buildList = factoryOptions[unitDefID] }
 	end
 	unfinished_facs[unitID] = true
 end
@@ -319,7 +318,7 @@ function widget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 		return
 	end
 
-	if unitBuildOptions[unitDefID] then
+	if factoryOptions[unitDefID] then
 		for i, facInfo in ipairs(facs) do
 			if unitID == facInfo.unitID then
 				if openedMenu + 1 == i and openedMenu > #facs - 2 then
@@ -356,7 +355,7 @@ function widget:Initialize()
 			unitOrder = WG['buildmenu'].getOrder()
 
 			-- order buildoptions
-			for uDefID, def in pairs(unitBuildOptions) do
+			for uDefID, def in pairs(factoryOptions) do
 				local temp = {}
 				for i, udid in pairs(def) do
 					temp[udid] = i
@@ -369,7 +368,7 @@ function widget:Initialize()
 						newBuildOptions[newBuildOptionsCount] = orderUDefID
 					end
 				end
-				unitBuildOptions[uDefID] = newBuildOptions
+				factoryOptions[uDefID] = newBuildOptions
 			end
 		end
 	end
@@ -508,13 +507,13 @@ local function drawButton(rect, unitDefID, options, isFac)	-- options = {pressed
 		iconAlpha = 1
 		zoom = 0.12
 		if WG.tooltip then
-			WG.tooltip.ShowTooltip('buildbar', UnitDefs[unitDefID].translatedTooltip, nil, nil, UnitDefs[unitDefID].translatedHumanName)
+			WG.tooltip.ShowTooltip('buildbar', unitTooltip[unitDefID], nil, nil, unitName[unitDefID])
 		end
 	end
 
 	-- draw icon
 	local imgRect = { rect[1] + (hoverPadding*1), rect[2] - hoverPadding, rect[3] - (hoverPadding*1), rect[4] + hoverPadding }
-	drawIcon(unitDefID, {imgRect[1], imgRect[4], imgRect[3], imgRect[2]}, '#' ..unitDefID , {1, 1, 1, iconAlpha}, zoom, (unitBuildOptions[unitDefID]~=nil), options.amount or 0)
+	drawIcon(unitDefID, {imgRect[1], imgRect[4], imgRect[3], imgRect[2]}, '#' ..unitDefID , {1, 1, 1, iconAlpha}, zoom, (factoryOptions[unitDefID]~=nil), options.amount or 0)
 
 	-- Progress
 	if (options.progress and options.progress < 1) then

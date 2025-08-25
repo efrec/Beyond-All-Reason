@@ -175,10 +175,7 @@ local spIsGUIHidden = Spring.IsGUIHidden
 local math_max = math.max
 local math_ceil = math.ceil
 
-local unitName = {}
-for udid, ud in pairs(UnitDefs) do
-	unitName[udid] = ud.name
-end
+local unitName = Game.UnitInfo.Cache.name
 
 ---------------------------------------------------------------------------------
 --Light falloff functions: http://gamedev.stackexchange.com/questions/56897/glsl-light-attenuation-color-and-intensity-formula

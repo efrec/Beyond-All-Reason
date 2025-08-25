@@ -57,23 +57,13 @@ local visibleUnits = {} -- table of unitID : unitDefID
 local visibleUnitsTeam = {} -- table of unitID : unitTeam
 local numVisibleUnits = 0
 
-local unitDefIgnore = {}
-
-local factoryUnitDefIDs = {} -- key unitdefid, internalname
+local unitName = Game.UnitInfo.Cache.name
+local unitDefIgnore = Game.UnitInfo.Cache.isDecorationUnit
+local factoryUnitDefIDs = Game.UnitInfo.Cache.isFactory
 
 local lastknownunitpos = {} -- table on unitID to {x,y,z}
 
 local gameFrame = Spring.GetGameFrame()
-
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams and unitDef.customParams.nohealthbars then
-		--unitDefIgnore[unitDefID] = true
-	end --ignore debug units
-	if unitDef.isFactory then
-		factoryUnitDefIDs[unitDefID] = unitDef.name
-	end
-
-end
 
 --- GL4 STUFF ---
 
@@ -410,7 +400,7 @@ function widget:UnitFinished(unitID, unitDefID, unitTeam) -- todo, this should p
 	widget:UnitDestroyed(unitID, unitDefID, unitTeam, nil, nil, nil, nil, "UnitFinished")
 	widget:UnitCreated(unitID, unitDefID, unitTeam, nil, "UnitFinished")
 	if unitTeam == myTeamID and factoryUnitDefIDs[unitDefID] then
-		widgetHandler:AddSpadsMessage("UnitFinished:"..tostring(factoryUnitDefIDs[unitDefID]))
+		widgetHandler:AddSpadsMessage("UnitFinished:"..tostring(unitName[unitDefID]))
 	end
 end
 
@@ -487,7 +477,7 @@ function widget:GameFrame()
 			if isValidLivingSeenUnit(unitID, unitDefID, 3) then
 				cntvisibleunits = cntvisibleunits + 1
 				local ux, uy, uz = spGetUnitPosition(unitID)
-				local unitDefName = UnitDefs[spGetUnitDefID(unitID)].name
+				local unitDefName = unitName[spGetUnitDefID(unitID)]
 				if lastknownunitpos[unitID] then
 					lastknownunitpos[unitID][1] = ux
 					lastknownunitpos[unitID][2] = uy

@@ -186,13 +186,8 @@ void main() {
 local uniqueIDtoUnitID = {}
 local unitIDtoUniqueID = {} -- table of tables, as a unitid can have multiple highlights fuck yeah
 
-local unitDefIgnore = {} -- We explicitly disallow the highlighting of any unitDef like this, as it interferes with unit tracker api!
---for unitDefID, unitDef in pairs(UnitDefs) do
---	if unitDef.customParams and unitDef.customParams.nohealthbars then
---		unitDefIgnore[unitDefID] = true
---	end --ignore debug units
---end
-
+-- Matches the untracked set in the tracking API:
+local unitDefIgnore = Game.UnitInfo.Cache.isDecorationUnit
 
 local function HighlightUnitGL4(objectID, objecttype, r, g, b, alpha, edgealpha, edgeexponent, animamount, px, py, pz, rotationY, consumerID)
 	-- Documentation for HighlightUnitGL4:

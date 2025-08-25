@@ -189,27 +189,13 @@ local builders = {} -- { unitID = unitDef, ...}
 local unitToggles = {}
 local unitTogglesChunked = {}
 
-
-local unitName = {}
-local unitWeapons = {}
-local unitMaxWeaponRange = {}
-local unitBuildDistance = {}
-local unitBuilder = {}
-local unitOnOffable = {}
-local unitOnOffName = {}
-for udid, ud in pairs(UnitDefs) do
-	unitBuilder[udid] = ud.isBuilder and (ud.canAssist or ud.canReclaim) and not (ud.isFactory and #ud.buildOptions > 0)
-	if unitBuilder[udid] then
-		unitBuildDistance[udid] = ud.buildDistance
-	end
-	unitName[udid] = ud.name
-	unitWeapons[udid] = ud.weapons
-	unitMaxWeaponRange[udid] = ud.maxWeaponRange
-	unitOnOffable[udid] = ud.onOffable
-	if ud.customParams.onoffname then
-		unitOnOffName[udid] = ud.customParams.onoffname
-	end
-end
+local unitName = Game.UnitInfo.Cache.name
+local unitWeapons = Game.UnitInfo.Cache.weapons
+local unitMaxWeaponRange = Game.UnitInfo.Cache.maxWeaponRange
+local unitBuildDistance = Game.UnitInfo.Cache.buildDistance
+local unitBuilder = Game.UnitInfo.Cache.isConstructionUnit
+local unitOnOffable = Game.UnitInfo.Cache.onOffable
+local unitOnOffName = Game.UnitInfo.Cache.onoffname
 
 local chunk, err = loadfile("LuaUI/config/AttackRangeConfig2.lua")
 if chunk then

@@ -115,14 +115,11 @@ local images = {
 	barglowedge = ":n:LuaUI/Images/ecostats/barglow-edge.png",
 }
 
-local comDefs = {}
+local comDefs = Game.UnitInfo.Cache.isCommanderUnit
 local reclaimerUnitDefs = {}
 for udefID, def in ipairs(UnitDefs) do
 	if def.isBuilder and not def.isFactory then
 		reclaimerUnitDefs[udefID] = { def.metalMake, def.energyMake }
-	end
-	if def.customParams.iscommander then
-		comDefs[udefID] = true
 	end
 end
 

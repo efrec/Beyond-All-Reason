@@ -16,18 +16,12 @@ local GetUnitsInSphere = Spring.GetUnitsInSphere
 local GetUnitCommands = Spring.GetUnitCommands
 local GiveOrderToUnit = Spring.GiveOrderToUnit
 local GetUnitDefID = Spring.GetUnitDefID
-local UnitDefs = UnitDefs
 local CMD_REPAIR = CMD.REPAIR
 local CMD_FIGHT = CMD.FIGHT
 local myTeam = Spring.GetMyTeamID()
 
-local nanoDefs = {}
-
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.isBuilder and not unitDef.canMove and not unitDef.isFactory then
-		nanoDefs[unitDefID] = unitDef.buildDistance
-	end
-end
+local nanoDefs = Game.UnitInfo.Cache.isConstructionTurret
+local buildDistance = Game.UnitInfo.Cache.buildDistance
 
 function widget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
     if unitTeam ~= myTeam then
@@ -36,10 +30,10 @@ function widget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
     if (nanoDefs[unitDefID] ~= nil) then
         -- Echo(turretCreatedMessage .. ": " .. unitID)
         local pos = {GetUnitPosition(unitID)}
-        local unitsNear = GetUnitsInSphere(pos[1], pos[2], pos[3], nanoDefs[unitDefID], -3)
+        local unitsNear = GetUnitsInSphere(pos[1], pos[2], pos[3], buildDistance[unitDefID], -3)
         -- Echo("found units nearby: " .. unitsNear)
         for _, id in ipairs(unitsNear) do
-            if (nanoDefs[GetUnitDefID(id)] ~= nil) then 
+            if (buildDistance[GetUnitDefID(id)] ~= nil) then 
                 local commandQueue = GetUnitCommands(id, 10)
                 if (commandQueue[2] ~= nil and commandQueue[2]["id"] == CMD_FIGHT) or (commandQueue[1] ~= nil and commandQueue[1]["id"] == CMD_FIGHT) or commandQueue[1] == nil then
                     -- Echo("giving repair command to " .. id)

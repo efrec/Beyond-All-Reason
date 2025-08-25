@@ -37,8 +37,8 @@ local CMD_MOVE = CMD.MOVE
 
 local myTeamID = GetMyTeamID()
 local engineers = {}
-local engineerDefs = {}
-local moveUnitsDefs = {}
+local engineerDefs = Game.UnitInfo.Cache.isConstructionUnit
+local unitRadius = Game.UnitInfo.Cache.radius
 local gameStarted
 
 function maybeRemoveSelf()
@@ -60,26 +60,12 @@ function widget:Initialize()
     if Spring.IsReplay() or Spring.GetGameFrame() > 0 then
         maybeRemoveSelf()
     end
-	for unitDefID,unitDef in pairs(UnitDefs) do
-		if unitDef.canMove and unitDef.speed > 0 then --mobile builder
-			for _,buildeeDefID in pairs(unitDef.buildOptions) do
-				local buildeeDef = UnitDefs[buildeeDefID]
-				if buildeeDef.canMove and buildeeDef.speed > 0 then -- can build a mobile unit
-					engineerDefs[unitDefID] = true -- mark the engineer
-					moveUnitsDefs[buildeeDefID] = true --mark the mobile unit
-				end
-			end
-		end
-	end
-
 	local units = Spring.GetTeamUnits(myTeamID);
 	for i=1,#units do
 		local unitID = units[i]
 		widget:UnitCreated(unitID,GetUnitDefID(unitID),myTeamID)
 	end
 end
-
-
 
 function widget:UnitCreated(unitID, unitDefID, unitTeam,builderID)
 	if unitTeam ~= myTeamID then
@@ -88,10 +74,10 @@ function widget:UnitCreated(unitID, unitDefID, unitTeam,builderID)
 	if engineerDefs[unitDefID] then
 		engineers[unitID] = {}
 	end
-	if builderID and moveUnitsDefs[unitDefID] and engineers[builderID] then
+	if builderID and engineers[builderID] then
 		local x, y, z = GetUnitPosition(unitID)
 		local dx,dy,dz = GetUnitDirection(unitID)
-		local moveDist = 50
+		local moveDist = 40 + unitRadius[unitID]
 		GiveOrderToUnit(unitID, CMD_MOVE, {x+dx*moveDist, y, z+dz*moveDist}, 0)
 	end
 end

@@ -83,28 +83,11 @@ local floor = math.floor
 local max = math.max
 local sqrt = math.sqrt
 
-local unitCost = {}
-local isAirUnit = {}
-local isShip = {}
-local isUnderwater = {}
-local isHover = {}
-for udid, ud in pairs(UnitDefs) do
-	unitCost[udid] = ud.cost
-	if ud.isAirUnit then
-		isAirUnit[udid] = ud.isAirUnit
-	end
-	if ud.modCategories then
-		if ud.modCategories.ship then
-			isShip[udid] = true
-		end
-		if ud.modCategories.underwater then
-			isUnderwater[udid] = true
-		end
-		if ud.modCategories.hover then
-			isHover[udid] = true
-		end
-	end
-end
+local unitCost = Game.UnitInfo.Cache.metalCostTotal
+local isAirUnit = Game.UnitInfo.Cache.isAirUnit
+local isShip = Game.UnitInfo.Cache.isWaterUnit
+local isUnderwater = Game.UnitInfo.Cache.isUnderwaterUnit
+local isHover = Game.UnitInfo.Cache.isHoverUnit
 
 --------------------------------------------------------------------------------
 -- utility functions

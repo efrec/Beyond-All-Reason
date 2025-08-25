@@ -22,8 +22,9 @@ local spPos2BuildPos = Spring.Pos2BuildPos
 
 local mexConstructors
 local geoConstructors
-local mexBuildings
-local geoBuildings
+local mexBuildings = Game.UnitInfo.Cache.metalExtraction
+local geoBuildings = Game.UnitInfo.Cache.needsGeothermal
+local footprints = Game.UnitInfo.Cache.footprintSize
 
 local selectedMex
 local selectedGeo
@@ -56,9 +57,6 @@ function widget:Initialize()
 	mexConstructors = builder.GetMexConstructors()
 	geoConstructors = builder.GetGeoConstructors()
 
-	mexBuildings = builder.GetMexBuildings()
-	geoBuildings = builder.GetGeoBuildings()
-
 	geoSpots = WG["resource_spot_finder"].geoSpotsList
 	metalSpots = WG["resource_spot_finder"].metalSpotsList
 	metalMap = WG["resource_spot_finder"].isMetalMap
@@ -84,6 +82,26 @@ local function clear()
 	buildCmd = {}
 end
 
+-- local building test functions taken from pregame_build
+local function GetBuildingDimensions(uDefID, facing)
+	local size = footprints[uDefID]
+	if (facing % 2 == 1) then
+		return 0.5 * size[2], 0.5 * size[1]
+	else
+		return 0.5 * size[1], 0.5 * size[2]
+	end
+end
+
+local function DoBuildingsClash(buildData1, buildData2)
+	if not buildData1[5] or not buildData2[5] then
+		return false
+	end
+	local w1, h1 = GetBuildingDimensions(buildData1[1], buildData1[5])
+	local w2, h2 = GetBuildingDimensions(buildData2[1], buildData2[5])
+
+	return math.abs(buildData1[2] - buildData2[2]) < w1 + w2 and
+		math.abs(buildData1[4] - buildData2[4]) < h1 + h2
+end
 
 ---If position of the active blueprint is an extractor, the snap behavior of this widget will be
 ---disabled to allow cancelling queue actions the same way other buildings would.
@@ -91,28 +109,6 @@ end
 ---@param pos table position in format { x, y, z }
 local function clashesWithBuildQueue(uid, pos)
 	local units = Spring.GetSelectedUnits()
-
-	-- local building test functions taken from pregame_build
-	local function GetBuildingDimensions(uDefID, facing)
-		local bDef = UnitDefs[uDefID]
-		if (facing % 2 == 1) then
-			return 4 * bDef.zsize, 4 * bDef.xsize
-		else
-			return 4 * bDef.xsize, 4 * bDef.zsize
-		end
-	end
-
-	local function DoBuildingsClash(buildData1, buildData2)
-		if not buildData1[5] or not buildData2[5] then
-			return false
-		end
-		local w1, h1 = GetBuildingDimensions(buildData1[1], buildData1[5])
-		local w2, h2 = GetBuildingDimensions(buildData2[1], buildData2[5])
-
-		return math.abs(buildData1[2] - buildData2[2]) < w1 + w2 and
-			math.abs(buildData1[4] - buildData2[4]) < h1 + h2
-	end
-
 	local buildFacing = Spring.GetBuildFacing()
 	local newBuildData = { uid, pos.x, pos.y, pos.z, buildFacing }
 	if isPregame then

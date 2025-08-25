@@ -32,10 +32,7 @@ local removableCommand = {
 local recentUnits = {}
 local updateTime = 0
 
-local validUnit = {}
-for udid, ud in pairs(UnitDefs) do
-	validUnit[udid] = ud.isBuilder and not ud.isFactory
-end
+local validUnit = Game.UnitInfo.Cache.isConstructionUnit
 
 function widget:UnitCommand(unitID, unitDefID, _, _, _, cmdOpts, _, _, _, _)
 

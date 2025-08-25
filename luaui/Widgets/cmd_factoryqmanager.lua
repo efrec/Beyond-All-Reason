@@ -121,16 +121,8 @@ local lastGameSeconds = Spring.GetGameSeconds()
 
 local font, gameStarted, selUnits
 
-local udefTab = {}
-local isFactory = {}
---local unitId = {}
-for udid, ud in pairs(UnitDefs) do
-	--unitId[udid] = ud.id
-	if ud.isFactory then
-		isFactory[udid] = true
-		udefTab[udid] = ud
-	end
-end
+local isFactory = Game.UnitInfo.Cache.isFactory
+local humanName = Game.UnitInfo.Cache.humanName
 
 function calcScreenCoords()
 	vsx, vsy = widgetHandler:GetViewSizes()
@@ -254,11 +246,11 @@ function widget:MousePress(x, y, button)
 		return false
 	end
 
-	local selUnit, unitDef = getSingleFactory()
+	local selUnit, unitDefID = getSingleFactory()
 
 	if button == 1 then
 		--LMB
-		loadQueue(selUnit, unitDef, btn)
+		loadQueue(selUnit, unitDefID, btn)
 	elseif button == 3 then
 		--RMB
 		--saving disabled
@@ -299,28 +291,27 @@ function getSingleFactory()
 	if not isFactory[unitDefID] then
 		return nil, nil
 	else
-		local unitDef = udefTab[unitDefID]
-		return selUnits[1], unitDef
+		return selUnits[1], unitDefID
 	end
 end
 
-function saveQueue(unitId, unitDef, groupNo)
+function saveQueue(unitId, unitDefID, groupNo)
 	local unitQ = Spring.GetFactoryCommands(unitId, -1)
 	if #unitQ <= 0 then
 		--queue is empty -> signal to delete preset
-		savedQueues[curModId][unitDef.id][groupNo] = nil
+		savedQueues[curModId][unitDefID][groupNo] = nil
 		return
 	end
 
 	if savedQueues[curModId] == nil then
 		savedQueues[curModId] = {}
 	end
-	if savedQueues[curModId][unitDef.id] == nil then
-		savedQueues[curModId][unitDef.id] = {}
+	if savedQueues[curModId][unitDefID] == nil then
+		savedQueues[curModId][unitDefID] = {}
 	end
 
-	savedQueues[curModId][unitDef.id][groupNo] = unitQ
-	savedQueues[curModId][unitDef.id][groupNo][facRepeatIdx] = select(4, Spring.GetUnitStates(unitId, false, true))    -- 4=repeat
+	savedQueues[curModId][unitDefID][groupNo] = unitQ
+	savedQueues[curModId][unitDefID][groupNo][facRepeatIdx] = select(4, Spring.GetUnitStates(unitId, false, true))    -- 4=repeat
 
 	modifiedGroup = groupNo
 	modifiedGroupTime = Spring.GetGameSeconds()
@@ -331,13 +322,13 @@ function saveQueue(unitId, unitDef, groupNo)
 	lastBoxY = nil
 end
 
-function loadQueue(unitId, unitDef, groupNo)
-	if savedQueues[curModId][unitDef.id] == nil then
+function loadQueue(unitId, unitDefID, groupNo)
+	if savedQueues[curModId][unitDefID] == nil then
 		--there are no queus for this factory type
 		return
 	end
 
-	local queue = savedQueues[curModId][unitDef.id][groupNo]
+	local queue = savedQueues[curModId][unitDefID][groupNo]
 	if queue ~= nil and #queue > 0 then
 		ClearFactoryQueues()
 		modifiedGroup = groupNo
@@ -363,9 +354,9 @@ end
 
 function widget:KeyPress(key, modifier, isRepeat)
 	local mode = nil
-	local selUnit, unitDef = getSingleFactory()
+	local selUnit, unitDefID = getSingleFactory()
 
-	if selUnit == nil and unitDef == nil then
+	if selUnit == nil and unitDefID == nil then
 		return false
 	end
 
@@ -417,9 +408,9 @@ function widget:KeyPress(key, modifier, isRepeat)
 
 	if gr ~= -2 then
 		if mode == 1 then
-			saveQueue(selUnit, unitDef, gr)
+			saveQueue(selUnit, unitDefID, gr)
 		elseif mode == 2 then
-			loadQueue(selUnit, unitDef, gr)
+			loadQueue(selUnit, unitDefID, gr)
 		end
 	end
 
@@ -454,7 +445,7 @@ function CalcDrawCoords(unitId, heightAll)
 	return x, y
 end
 
-function DrawBoxTitle(x, y, alpha, unitDef, selUnit)
+function DrawBoxTitle(x, y, alpha, unitDefID, selUnit)
 	UiElement(x, y - boxHeightTitle, x + boxWidth, y, 1,1,1,0, 1,1,0,1, math.max(0.75, Spring.GetConfigFloat("ui_opacity", 0.7)))
 	gl.Color(1, 1, 1, 1)
 
@@ -464,9 +455,9 @@ function DrawBoxTitle(x, y, alpha, unitDef, selUnit)
 		1,1,1,1,
 		0.08,
 		nil, nil,
-		'#'..unitDef.id
+		'#'..unitDefID
 	)
-	local text = unitDef.translatedHumanName
+	local text = humanName[unitDefID]
 
 	font:Begin()
 	font:SetTextColor(0, 1, 0, alpha or 1)
@@ -492,7 +483,7 @@ function SortQueueToUnits(queue)
 	return units
 end
 
-function DrawBoxGroup(x, y, yOffset, unitDef, selUnit, alpha, groupNo, queue)
+function DrawBoxGroup(x, y, yOffset, unitDefID, selUnit, alpha, groupNo, queue)
 	local xOff = 0
 	local loadedBorderWidth = 1
 
@@ -562,14 +553,14 @@ function DrawBoxGroup(x, y, yOffset, unitDef, selUnit, alpha, groupNo, queue)
 end
 
 function DrawBoxes()
-	local selUnit, unitDef = getSingleFactory()
-	if selUnit == nil and unitDef == nil then
+	local selUnit, unitDefID = getSingleFactory()
+	if selUnit == nil and unitDefID == nil then
 		return
 	end
 
 	local itemCount = 0
-	if savedQueues[curModId] ~= nil and savedQueues[curModId][unitDef.id] ~= nil then
-		itemCount = #savedQueues[curModId][unitDef.id]
+	if savedQueues[curModId] ~= nil and savedQueues[curModId][unitDefID] ~= nil then
+		itemCount = #savedQueues[curModId][unitDefID]
 	end
 	local heightAll = boxHeightTitle + itemCount * (boxHeight + boxOuterMargin)
 
@@ -582,9 +573,9 @@ function DrawBoxes()
 	lastBoxY = y
 	lastBoxX = x
 
-	DrawBoxTitle(x, y, alpha, unitDef, selUnit)
+	DrawBoxTitle(x, y, alpha, unitDefID, selUnit)
 
-	if savedQueues[curModId] == nil or savedQueues[curModId][unitDef.id] == nil then
+	if savedQueues[curModId] == nil or savedQueues[curModId][unitDefID] == nil then
 		return
 	end
 
@@ -595,14 +586,14 @@ function DrawBoxes()
 	local k = 1
 	local first = true
 	while (k < 10) do
-		local q = savedQueues[curModId][unitDef.id][k]
+		local q = savedQueues[curModId][unitDefID][k]
 		if q ~= nil then
 			local height = boxHeight
 			if first == true then
 				height = boxHeightTitle
 			end
 			yOffset = yOffset - height
-			DrawBoxGroup(x, y + yOffset, yOffset, unitDef, selUnit, alpha, k, savedQueues[curModId][unitDef.id][k])
+			DrawBoxGroup(x, y + yOffset, yOffset, unitDefID, selUnit, alpha, k, savedQueues[curModId][unitDefID][k])
 			first = false
 		end
 

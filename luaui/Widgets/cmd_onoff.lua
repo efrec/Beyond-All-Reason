@@ -16,10 +16,7 @@ local spGetSelectedUnitsSorted = Spring.GetSelectedUnitsSorted
 local spGetUnitStates = Spring.GetUnitStates
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
-local unitOnOffable = {}
-for udid, ud in pairs(UnitDefs) do
-	unitOnOffable[udid] = ud.onOffable
-end
+local unitOnOffable = Game.UnitInfo.Cache.onOffable
 
 local function onoff(_, _, args)
 	local state = args[1]

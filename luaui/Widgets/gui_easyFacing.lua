@@ -36,14 +36,8 @@ local gameStarted, lastTimeUpdate
 
 -------------------------------------------------------------------------------
 
-local isntFactory = {}
-local unitZsize = {}
-for udefID, def in ipairs(UnitDefs) do
-	if def.isFactory == false or #def.buildOptions == 0 then
-		isntFactory[udefID] = true
-	end
-	unitZsize[udefID] = def.zsize
-end
+local isFactory = Game.UnitInfo.Cache.isFactory
+local unitZsize = Game.UnitInfo.Cache.zsize
 
 local spGetModKeyState      = Spring.GetModKeyState
 local spGetGameSeconds      = Spring.GetGameSeconds
@@ -225,7 +219,7 @@ local function drawOrientation()
 
 	-- check for an empty buildlist to avoid to draw for air repair pads
 	local unitDefID = forceShowUnitDefID or -cmd_id
-	if drawForAll == false and isntFactory[unitDefID] then
+	if drawForAll == false and not isFactory[unitDefID] then
 		return
 	end
 

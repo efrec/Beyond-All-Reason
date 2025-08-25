@@ -22,10 +22,7 @@ local spGetActiveCommand = Spring.GetActiveCommand
 local spGetBuildSpacing = Spring.GetBuildSpacing
 local spSetBuildSpacing = Spring.SetBuildSpacing
 
-local unitNames = {}
-for udid, ud in pairs(UnitDefs) do
-    unitNames[udid] = ud.name
-end
+local unitNames = Game.UnitInfo.Cache.name
 
 function widget:Update()
     local _, cmdID = spGetActiveCommand()

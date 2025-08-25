@@ -19,6 +19,8 @@ local DEFAULT_RADIUS = 100
 local CYLINDER_SECTIONS = 32
 local REMOVE_EXPIRED_SPOTLIGHTS_PERIOD = 1
 
+local unitDefRadius = Game.UnitInfo.Cache.radius
+
 local spotlightTypes = {
 	unit = {
 		getDefaultRadius = function(unitID)
@@ -29,7 +31,7 @@ local spotlightTypes = {
 			if not unitDefID then
 				return nil
 			end
-			return UnitDefs[unitDefID].radius
+			return unitDefRadius[unitDefID]
 		end,
 		isValid = function(unitID)
 			return Spring.ValidUnitID(unitID)
