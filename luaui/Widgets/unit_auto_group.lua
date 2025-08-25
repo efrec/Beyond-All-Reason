@@ -57,16 +57,10 @@ end
 local unit2group = presets[currPreset] -- list of unit types to group
 
 
-local mobileBuilders = {}
+local mobileBuilders = Game.UnitInfo.Cache.isConstructionUnit
+local humanName = Game.UnitInfo.Cache.translatedHumanName
+local unitName = Game.UnitInfo.Cache.name
 local builtInPlace = {}
-
-for udefID, def in ipairs(UnitDefs) do
-	if not def.isFactory then
-		if def.buildOptions and #def.buildOptions > 0 then
-			mobileBuilders[udefID] = true
-		end
-	end
-end
 
 local finiGroup = {}
 local myTeam = Spring.GetMyTeamID()
@@ -143,9 +137,9 @@ local function changeUnitTypeAutogroup(gr, removeAll)
 	for udid, _ in pairs(selUnitDefIDs) do
 		if verbose then
 			if gr then
-				Echo( Spring.I18N('ui.autogroups.unitAdded', { unit = UnitDefs[udid].translatedHumanName, groupNumber = gr }) )
+				Echo( Spring.I18N('ui.autogroups.unitAdded', { unit = humanName[udid], groupNumber = gr }) )
 			else
-				Echo( Spring.I18N('ui.autogroups.unitRemoved', { unit = UnitDefs[udid].translatedHumanName }) )
+				Echo( Spring.I18N('ui.autogroups.unitRemoved', { unit = humanName[udid] }) )
 			end
 		end
 	end
@@ -397,7 +391,7 @@ function widget:GetConfigData()
 		local groups = {}
 		if persist then
 			for id, gr in pairs(preset) do
-				table.insert(groups, { UnitDefs[id].name, gr })
+				table.insert(groups, { unitName[id], gr })
 			end
 			for name, gr in pairs(rejectedUnits[i]) do
 				table.insert(groups, { name, gr })

@@ -30,21 +30,13 @@ local spGetCameraDirection		= Spring.GetCameraDirection
 
 local drawList
 local givenUnits = {}
-local unitScale = {}
-local unitHeight = {}
+local unitHeight = Game.UnitInfo.Cache.height
+local unitScale = Game.UnitInfo.Cache.unitScaleIcon
 local sec = 0
 local prevCam = {spGetCameraDirection()}
 local myTeamID = Spring.GetLocalTeamID()
 
 local gameStarted, selectionChanged
-
-for udid, unitDef in pairs(UnitDefs) do
-	local xsize, zsize = unitDef.xsize, unitDef.zsize
-	local scale = 6*( xsize^2 + zsize^2 )^0.5
-	unitScale[udid] = 7 + (scale/2.5)
-	unitHeight[udid] = unitDef.height
-end
-
 
 function DrawIcon()
 	local iconSize = 1

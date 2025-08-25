@@ -29,16 +29,10 @@ local INTERNAL_VERSION = 1 -- bump to reset stats file (user can delete file wit
 local game = Game.gameName
 local version = Game.gameVersion
 
-local unitName = {}
-local unitMetalCost = {}
-local unitEnergyCost = {}
-local unitHumanName = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-    unitName[unitDefID] = unitDef.name
-    unitMetalCost[unitDefID] = unitDef.metalCost
-    unitEnergyCost[unitDefID] = unitDef.energyCost
-    unitHumanName[unitDefID] = unitDef.translatedHumanName
-end
+local unitName = Game.UnitInfo.Cache.name
+local unitMetalCost = Game.UnitInfo.Cache.metalCost
+local unitEnergyCost = Game.UnitInfo.Cache.energyCost
+local unitHumanName = Game.UnitInfo.Cache.translatedHumanName
 
 local chunk, err = loadfile(STATS_FILE)
 if chunk then

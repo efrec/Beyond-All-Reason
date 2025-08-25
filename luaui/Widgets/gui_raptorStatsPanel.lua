@@ -65,6 +65,7 @@ local scoreCount = 0
 local resistancesTable = {}
 local currentlyResistantTo = {}
 local currentlyResistantToNames = {}
+local unitNames = Game.UnitInfo.Cache.name
 
 local guiPanel --// a displayList
 local updatePanel
@@ -251,7 +252,7 @@ local function getResistancesMessage()
 	local messages = {}
 	messages[1] = textColor .. Spring.I18N('ui.raptors.resistanceUnits', {count = nBosses})
 	for i = 1,#resistancesTable do
-		local attackerName = UnitDefs[resistancesTable[i]].name
+		local attackerName = unitNames[resistancesTable[i]]
 		if UnitDefNames[attackerName].customParams.i18nfromunit then
 			attackerName = UnitDefNames[attackerName].customParams.i18nfromunit
 		end

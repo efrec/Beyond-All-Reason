@@ -42,14 +42,15 @@ local colors = {
 }
 
 for unitDefId, unitDef in pairs(UnitDefs) do
-	if unitDef.isStaticBuilder and not unitDef.isFactory then
-		isTransportableBuilding[unitDefId] = true
-		turretRange[unitDefId] = unitDef.buildDistance
-		isTurret[unitDefId] = true
-	end
-	if unitDef.isBuilding and not unitDef.cantBeTransported then
-		isTransportableBuilding[unitDefId] = true
-		turretRange[unitDefId] = unitDef.maxWeaponRange
+	if not unitDef.cantBeTransported then
+		if Game.UnitInfo.Classifiers.isConstructionTurret(unitDef) then
+			isTransportableBuilding[unitDefId] = true
+			turretRange[unitDefId] = unitDef.buildDistance
+			isTurret[unitDefId] = true
+		elseif unitDef.isBuilding then
+			isTransportableBuilding[unitDefId] = true
+			turretRange[unitDefId] = unitDef.maxWeaponRange
+		end
 	end
 end
 

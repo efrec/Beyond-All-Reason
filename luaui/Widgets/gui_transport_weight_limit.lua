@@ -33,24 +33,20 @@ local unitstodraw = {}
 local transID = nil
 local transDefID = nil
 
-local validTrans = {}
 local math_sqrt = math.sqrt
 
+local validTrans = Game.UnitInfo.Cache.isTransporterUnit
+local cantBeTransported = Game.UnitInfo.Cache.cantBeTransported
+local unitMass = Game.UnitInfo.Cache.mass
+local unitXsize = Game.UnitInfo.Cache.xsize
 local transDefs = {}
-local cantBeTransported = {}
-local unitMass = {}
-local unitXsize = {}
 
 local circleList, chobbyInterface
 
 for defID, def in pairs(UnitDefs) do
 	if def.transportSize and def.transportSize > 0 then
-		validTrans[defID] = true
 		transDefs[defID] = { def.transportMass, def.transportCapacity, def.transportSize }
 	end
-	unitMass[defID] = def.mass
-	unitXsize[defID] = def.xsize
-	cantBeTransported[defID] = def.cantBeTransported
 end
 
 local function DrawCircleLine(innersize, outersize)

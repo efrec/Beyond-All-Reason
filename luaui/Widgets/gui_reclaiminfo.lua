@@ -40,14 +40,8 @@ local cmd, xend, yend, x, y, b1, b2
 local math_sqrt = math.sqrt
 local font
 
-local isReclaimable = {}
-local unitMetalCost = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.reclaimable then
-		isReclaimable[unitDefID] = unitDef.reclaimable
-	end
-	unitMetalCost[unitDefID] = unitDef.metalCost
-end
+local isReclaimable = Game.UnitInfo.Cache.reclaimable
+local unitMetalCost = Game.UnitInfo.Cache.metalCost
 
 function widget:Initialize()
 	widget:ViewResize()

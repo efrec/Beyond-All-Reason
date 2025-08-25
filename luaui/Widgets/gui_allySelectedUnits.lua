@@ -69,23 +69,10 @@ local lockPlayerID
 local unitAllyteam = {}
 local spGetUnitTeam = Spring.GetUnitTeam
 
-local unitScale = {}
-local unitCanFly = {}
-local unitBuilding = {}
+local unitCanFly = Game.UnitInfo.Cache.canFly
+local unitScale = Game.UnitInfo.Cache.unitScaleSize
+local unitBuilding = Game.UnitInfo.Cache.unitScaleFootprint
 local sizeAdd = -(lineSize*1.5)
-for unitDefID, unitDef in pairs(UnitDefs) do
-	unitScale[unitDefID] = (7.5 * ( unitDef.xsize^2 + unitDef.zsize^2 ) ^ 0.5) + 8
-	unitScale[unitDefID] = unitScale[unitDefID] + sizeAdd
-	if unitDef.canFly then
-		unitCanFly[unitDefID] = true
-		unitScale[unitDefID] = unitScale[unitDefID] * 0.7
-	elseif unitDef.isBuilding or unitDef.isFactory or unitDef.speed==0 then
-		unitBuilding[unitDefID] = {
-			(unitDef.xsize * 8.2 + 12) + sizeAdd,
-			(unitDef.zsize * 8.2 + 12) + sizeAdd
-		}
-	end
-end
 
 local instanceCache = {
 			0,0,0,0,  -- lengthwidthcornerheight
@@ -102,7 +89,7 @@ local function AddPrimitiveAtUnit(unitID)
 
 	local numVertices = useHexagons and 6 or 64
 	local cornersize = 0
-	local radius = unitScale[unitDefID]
+	local radius = unitScale[unitDefID] + sizeAdd
 	local additionalheight = 0
 	local width, length
 	if unitCanFly[unitDefID] then
@@ -110,8 +97,8 @@ local function AddPrimitiveAtUnit(unitID)
 		width = radius
 		length = radius
 	elseif unitBuilding[unitDefID] then
-		width = unitBuilding[unitDefID][1]
-		length = unitBuilding[unitDefID][2]
+		width = unitBuilding[unitDefID][1] + sizeAdd
+		length = unitBuilding[unitDefID][2] + sizeAdd
 		cornersize = (width + length) * 0.075
 		numVertices = 2
 	else

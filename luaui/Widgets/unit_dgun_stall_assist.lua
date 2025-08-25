@@ -20,10 +20,24 @@ local watchForTime = 3 --How long to monitor the energy level after the dgun com
 local watchTime = 0
 local targetEnergy = 0
 local waitedUnits = nil -- nil / waitedUnits[1..n] = uID
+local canStallEnergy = {}
 local shouldWait = {}
-local isFactory = {}
+local isFactory = Game.UnitInfo.Cache.isFactory
 
 local gameStarted
+
+for uDefID, uDef in pairs(UnitDefs) do
+	if uDef.canManualFire then
+		for _, weaponDef in next, uDef.wDefs do
+			if weaponDef.manualFire and weaponDef.energyCost > 10 then
+				canStallEnergy[uDefID] = weaponDef.energyCost * 1.2 -- add margin
+			end
+		end
+	end
+	if not canStallEnergy[uDefID] and (uDef.canAssist or uDef.buildOptions[1]) then
+		shouldWait[uDefID] = true
+	end
+end
 
 ----------------------------------------------------------------
 -- Speedups
@@ -67,15 +81,6 @@ function widget:Initialize()
     if Spring.IsReplay() or Spring.GetGameFrame() > 0 then
         maybeRemoveSelf()
     end
-
-	for uDefID, uDef in pairs(UnitDefs) do
-		if uDef.buildSpeed > 0 and not uDef.canManualFire and (uDef.canAssist or uDef.buildOptions[1]) then
-			shouldWait[uDefID] = true
-			if uDef.isFactory then
-				isFactory[uDefID] = true
-			end
-		end
-	end
 end
 
 function widget:Update(dt)
@@ -83,24 +88,12 @@ function widget:Update(dt)
 	local _, activeCmdID = spGetActiveCommand()
 	if activeCmdID == CMD_DGUN then
 		local selection = Spring.GetSelectedUnitsCounts()
-		local stallUnitSelected = false
-
 		for uDefID, _ in next, selection do
-			local uDef = UnitDefs[uDefID]
-			if uDef and uDef.canManualFire then
-				--Look for the weapondef with manual fire and energy cost
-				for _, wDef in next, uDef.wDefs do
-					if wDef.manualFire and wDef.energyCost and wDef.energyCost > 0 then
-						stallUnitSelected = true
-						targetEnergy = wDef.energyCost * 1.2 --Add some margin above the energy cost
-						break
-					end
-				end
+			if canStallEnergy[uDefID] then
+				targetEnergy = canStallEnergy[uDefID]
+				watchTime = watchForTime
+				break
 			end
-		end
-
-		if stallUnitSelected then
-			watchTime = watchForTime
 		end
 	else
 		watchTime = watchTime - dt

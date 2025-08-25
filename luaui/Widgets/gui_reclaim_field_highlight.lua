@@ -113,16 +113,8 @@ local actionActive = false
 local reclaimerSelected = false
 local resBotSelected = false
 
-local canReclaim = {}
-local canResurrect = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.canResurrect then
-		canResurrect[unitDefID] = true
-	end
-	if unitDef.canReclaim and not unitDef.isBuilding then
-		canReclaim[unitDefID] = true
-	end
-end
+local canReclaim = Game.UnitInfo.Cache.canReclaim
+local canResurrect = Game.UnitInfo.Cache.canResurrect
 
 -- Information tables
 local knownFeatures

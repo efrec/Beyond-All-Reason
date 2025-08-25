@@ -65,31 +65,22 @@ local selectedUnits = Spring.GetSelectedUnits()
 local spec = Spring.GetSpectatingState()
 local myTeamID = Spring.GetMyTeamID()
 
-local ignoreUnits = {}
-local combatFilter = {}
-local builderFilter = {}
-local buildingFilter = {}
-local mobileFilter = {}
-local customFilter = {}
-
-for udid, udef in pairs(UnitDefs) do
-	if udef.modCategories['object'] or udef.customParams.objectify then
-		ignoreUnits[udid] = true
+local ignoreUnits = Game.UnitInfo.Cache.isObjectifiedUnit
+local combatFilter = Game.UnitInfo.Cache.hasWeapon
+local builderFilter = Game.UnitInfo.isConstructionUnit
+local buildingFilter = Game.UnitInfo.isImmobile
+local mobileFilter
+if not includeNanosAsMobile then
+	mobileFilter = Game.UnitInfo.Cache.canMove
+else
+	mobileFilter = {}
+	for udid, udef in pairs(UnitDefs) do
+		if includeNanosAsMobile and (not udef.isImmobile or (udef.isStaticBuilder and not udef.isFactory)) then
+			mobileFilter[udid] = true
+		end
 	end
-
-	local isMobile = not udef.isImmobile  or  (includeNanosAsMobile and (udef.isStaticBuilder and not udef.isFactory))
-	local builder = (udef.canReclaim and udef.reclaimSpeed > 0)  or  (udef.canResurrect and udef.resurrectSpeed > 0)  or  (udef.canRepair and udef.repairSpeed > 0) or (udef.buildOptions and udef.buildOptions[1])
-	local building = (isMobile == false)
-	local combat = (not builder) and isMobile and (#udef.weapons > 0)
-
-	if string.find(udef.name, 'armspid') or string.find(udef.name, 'leginfestor') then
-		builder = false
-	end
-	combatFilter[udid] = combat
-	builderFilter[udid] = builder
-	buildingFilter[udid] = building
-	mobileFilter[udid] = isMobile
 end
+local customFilter = {}
 
 local dualScreen
 local vpy = select(Spring.GetViewGeometry(), 4)

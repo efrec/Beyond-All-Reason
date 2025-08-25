@@ -55,17 +55,9 @@ local gameStarted
 local mapSize = math.max(Game.mapSizeX, Game.mapSizeZ)
 local reclaimOrders = {}
 
-local unitCanReclaim = {}
-local unitCanMove = {}
-local unitBuildDistance = {}
-for udefID, def in ipairs(UnitDefs) do
-	if def.canReclaim then
-		unitCanReclaim[udefID] = true
-		unitCanMove[udefID] = def.canMove
-		unitBuildDistance[udefID] = def.buildDistance
-	end
-end
-
+local unitCanReclaim = Game.UnitInfo.Cache.canReclaim
+local unitCanMove = Game.UnitInfo.Cache.canMove
+local unitBuildDistance = Game.UnitInfo.Cache.buildDistance
 
 local function maybeRemoveSelf()
     if Spring.GetSpectatingState() and (Spring.GetGameFrame() > 0 or gameStarted) then

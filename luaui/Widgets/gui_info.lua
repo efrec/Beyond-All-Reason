@@ -132,9 +132,9 @@ local function convertColor(r, g, b)
 end
 
 local unitDefInfo = {}
-local unitRestricted = {}
+local unitRestricted = Game.UnitInfo.Cache.isRestrictedUnit
 local isWaterUnit = {}
-local isGeothermalUnit = {}
+local isGeothermalUnit = Game.UnitInfo.Cache.needsGeothermal
 
 local function refreshUnitInfo()
 	for unitDefID, unitDef in pairs(UnitDefs) do
@@ -149,14 +149,6 @@ local function refreshUnitInfo()
 			if not (unitDef.modCategories['hover'] or (unitDef.modCategories['mobile'] and unitDef.modCategories['canbeuw'])) then
 				isWaterUnit[unitDefID] = true
 			end
-		end
-
-		if unitDef.needGeo then
-			isGeothermalUnit[unitDefID] = true
-		end
-
-		if unitDef.maxThisUnit == 0 then
-			unitRestricted[unitDefID] = true
 		end
 
 		if unitDef.isAirUnit then

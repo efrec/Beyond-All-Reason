@@ -48,25 +48,10 @@ local spGetUnitTeam = Spring.GetUnitTeam
 local myTeamID = Spring.GetMyTeamID()
 local gaiaTeamID = Spring.GetGaiaTeamID()
 
-local unitScale = {}
-local unitCanFly = {}
-local unitBuilding = {}
-local unitDecoration = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	unitScale[unitDefID] = (7.5 * ( unitDef.xsize^2 + unitDef.zsize^2 ) ^ 0.5) + 8
-	if unitDef.canFly then
-		unitCanFly[unitDefID] = true
-		unitScale[unitDefID] = unitScale[unitDefID] * 0.7
-	elseif unitDef.isBuilding or unitDef.isFactory or unitDef.speed==0 then
-		unitBuilding[unitDefID] = {
-			unitDef.xsize * 8.2 + 12,
-			unitDef.zsize * 8.2 + 12
-		}
-	end
-	if unitDef.customParams.decoration then
-		unitDecoration[unitDefID] = true
-	end
-end
+local unitDecoration = Game.UnitInfo.Cache.isDecorationUnit
+local unitCanFly = Game.UnitInfo.Cache.canFly
+local unitScale = Game.UnitInfo.Cache.unitScaleSize
+local unitBuilding = Game.UnitInfo.Cache.unitScaleFootprint
 
 local function AddPrimitiveAtUnit(unitID, unitDefID, unitTeamID, noUpload)
 	if (not skipOwnTeam or unitTeamID ~= myTeamID) and unitTeamID ~= gaiaTeamID and not unitDecoration[unitDefID] then

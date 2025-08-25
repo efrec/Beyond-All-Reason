@@ -83,12 +83,7 @@ local font = gl.LoadFont(fontfile, fontfileSize*fontfileScale, fontfileOutlineSi
 
 local chobbyInterface
 
-local extractorDefs = {}
-for uDefID, uDef in pairs(UnitDefs) do
-	if uDef.extractsMetal > 0 then
-		extractorDefs[uDefID] = true
-	end
-end
+local extractorDefs = Game.UnitInfo.Cache.extractsMetal
 
 local teamIncomeMultipliers = {} -- {key teamID value Multiplier number}
 

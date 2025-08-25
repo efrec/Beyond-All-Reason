@@ -18,13 +18,6 @@ local texts = {}
 local damageStats = (VFS.FileExists("LuaUI/Config/BAR_damageStats.lua")) and VFS.Include("LuaUI/Config/BAR_damageStats.lua")
 local gameName = Game.gameName
 
-local isCommander = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.iscommander then
-		isCommander[unitDefID] = true
-	end
-end
-
 if damageStats and damageStats[gameName] and damageStats[gameName].team then
 	local rate = 0
 	for k, v in pairs (damageStats[gameName].team) do
@@ -169,13 +162,6 @@ local anonymousName = '?????'
 local anonymousTeamColor = {Spring.GetConfigInt("anonymousColorR", 255)/255, Spring.GetConfigInt("anonymousColorG", 0)/255, Spring.GetConfigInt("anonymousColorB", 0)/255}
 
 local showStats = false
-
-local isCommander = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.iscommander then
-		isCommander[unitDefID] = true
-	end
-end
 
 -- Reverse armor type table
 local armorTypes = {}

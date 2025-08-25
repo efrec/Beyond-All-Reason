@@ -20,7 +20,7 @@ local myTeam = Spring.GetMyTeamID()
 -- Tracks unit IDs of all assist-capable builders that I own and are alive
 local myAssistBuilders = {}
 
-local isAssistBuilder = {}
+local isAssistBuilder = Game.UnitInfo.Cache.canAssist
 
 ----------------------------------------------------------------
 -- Speedups
@@ -36,12 +36,6 @@ local CMD_REPAIR = CMD.REPAIR
 local CMD_GUARD = CMD.GUARD
 local CMD_REMOVE = CMD.REMOVE
 local CMD_OPT_ALT = CMD.OPT_ALT
-
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.isBuilder and unitDef.canAssist then
-		isAssistBuilder[unitDefID] = true
-	end
-end
 
 -- If this builder unit is repairing the newly built unit when it should
 -- instead be guarding the factory, remove the repair command

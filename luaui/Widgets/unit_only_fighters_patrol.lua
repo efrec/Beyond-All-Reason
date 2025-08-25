@@ -34,8 +34,8 @@ local myTeamID = Spring.GetMyTeamID()
 
 local gameStarted
 
-local isFactory = {}
-local isBuilder = {}
+local isFactory = Game.UnitInfo.Cache.isFactory
+local isBuilder = Game.UnitInfo.Cache.isBuilder
 local checkMustStop = {}
 
 local function UnitHasPatrolOrder(unitID)
@@ -50,12 +50,6 @@ local function UnitHasPatrolOrder(unitID)
 end
 
 for udid, ud in pairs(UnitDefs) do
-	if ud.isFactory then
-		isFactory[udid] = true
-	end
-	if ud.isBuilder then
-		isBuilder[udid] = true
-	end
 	if ud.canFly and (ud.weaponCount==0 or not ud.isFighterAirUnit or string.find(ud.name,"liche") or ud.noAutoFire) then      -- liche is classified as one somehow
 		checkMustStop[udid] = true
 	end

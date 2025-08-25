@@ -566,12 +566,7 @@ function widget:GameFrame(gf)
 
 	-- fake the commander spawn explosion
 	if gf == 85 then
-		local isCommander = {}
-		for unitDefID, unitDef in pairs(UnitDefs) do
-			if unitDef.customParams.iscommander then
-				isCommander[unitDefID] = true
-			end
-		end
+		local isCommander = Game.UnitInfo.Cache.isCommanderUnit
 		local allUnits = Spring.GetAllUnits()
 		for _, unitID in pairs(allUnits) do
 			if isCommander[Spring.GetUnitDefID(unitID)] then

@@ -67,6 +67,8 @@ local function handleBuildMenu(shift)
 end
 
 local FORCE_SHOW_REASON = "gui_pregame_build"
+local mexDefs = Game.UnitInfo.Cache.extractsMetal
+
 local function setPreGamestartDefID(uDefID)
 	selBuildQueueDefID = uDefID
 
@@ -78,9 +80,7 @@ local function setPreGamestartDefID(uDefID)
 		WG["easyfacing"].setForceShow(FORCE_SHOW_REASON, uDefID ~= nil, uDefID)
 	end
 
-	local isMex = UnitDefs[uDefID] and UnitDefs[uDefID].extractsMetal > 0
-
-	if isMex then
+	if mexDefs[uDefID] then
 		if Spring.GetMapDrawMode() ~= "metal" then
 			Spring.SendCommands("ShowMetalMap")
 		end

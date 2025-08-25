@@ -28,8 +28,8 @@ local fontSize = 16
 -----------------------------------------------------
 -- Globals
 -----------------------------------------------------
-local isFactory = {}
-local GaiaTeamID  = Spring.GetGaiaTeamID() 		-- set to -1 to include Gaia units
+local isFactory = Game.UnitInfo.Cache.isFactory
+local GaiaTeamID = Spring.GetGaiaTeamID() 		-- set to -1 to include Gaia units
 
 local font, chobbyInterface
 
@@ -77,11 +77,6 @@ end
 
 function widget:Initialize()
 	widget:ViewResize()
-	for uDefID, uDef in pairs(UnitDefs) do
-		if uDef.isFactory then
-			isFactory[uDefID] = true
-		end
-	end
 end
 
 function widget:DrawWorld()

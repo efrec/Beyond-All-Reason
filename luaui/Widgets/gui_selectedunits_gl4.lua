@@ -59,21 +59,10 @@ local selectedUnits = Spring.GetSelectedUnits()
 local unitTeam = {}
 local unitUnitDefID = {}
 
-local unitScale = {}
-local unitCanFly = {}
-local unitBuilding = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	unitScale[unitDefID] = (7.5 * ( unitDef.xsize^2 + unitDef.zsize^2 ) ^ 0.5) + 8
-	if unitDef.canFly then
-		unitCanFly[unitDefID] = true
-		unitScale[unitDefID] = unitScale[unitDefID] * 0.7
-	elseif unitDef.isBuilding or unitDef.isFactory or unitDef.speed==0 then
-		unitBuilding[unitDefID] = {
-			unitDef.xsize * 8.2 + 12,
-			unitDef.zsize * 8.2 + 12
-		}
-	end
-end
+local unitCanFly = Game.UnitInfo.Cache.canFly
+local unitScale = Game.UnitInfo.Cache.unitScaleSize
+local unitBuilding = Game.UnitInfo.Cache.unitScaleFootprint
+
 local unitBufferUniformCache = {0}
 local function AddPrimitiveAtUnit(unitID)
 	if Spring.ValidUnitID(unitID) ~= true or Spring.GetUnitIsDead(unitID) == true then return end

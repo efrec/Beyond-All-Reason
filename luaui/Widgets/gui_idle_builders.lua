@@ -23,7 +23,6 @@ local playSounds = true
 local soundVolume = 0.5
 local setHeight = 0.046
 local maxIcons = 9
-local showRez = true
 local doUpdateForce = true
 
 local leftclick = 'LuaUI/Sounds/buildbar_add.wav'
@@ -35,12 +34,11 @@ local spec = Spring.GetSpectatingState()
 
 local widgetSpaceMargin, backgroundPadding, elementCorner, RectRound, UiElement, UiUnit
 
-local spValidUnitID = Spring.ValidUnitID
 local spGetUnitIsDead = Spring.GetUnitIsDead
 local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
 local spGetMouseState = Spring.GetMouseState
 local spGetUnitCommandCount = Spring.GetUnitCommandCount
-local spGetFactoryCommands = Spring.GetFactoryCommands
+local spGetFactoryCommandCount = Spring.GetFactoryCommandCount
 local myTeamID = Spring.GetMyTeamID()
 
 local floor = math.floor
@@ -82,18 +80,33 @@ local idleList = {}
 local font, font2, buildmenuBottomPosition, dlist, dlistGuishader, backgroundRect, ordermenuPosY
 
 local unitHumanName = {}
-local unitConf = {}
+local isIdleBuilder = {}
 local function refreshUnitDefs()
 	unitHumanName = {}
+
+	local function isIdleFactory(unitID)
+		return spGetFactoryCommandCount(unitID) == 0
+	end
+
+	local function isIdleConstructionUnit(unitID)
+		return spGetUnitCommandCount(unitID) == 0
+	end
+
+	local ignored = Game.UnitInfo.Classifiers.isUnusualUnit
+	local isReplicator = Game.UnitInfo.Classifiers.isReplicatorUnit
+	local isSpyUnit = Game.UnitInfo.Cache.isCloakedEmpUnit
+
 	for unitDefID, unitDef in pairs(UnitDefs) do
-		local cp = unitDef.customParams
-		if not (cp.virtualunit == "1") then
-			if unitDef.translatedHumanName then
-				unitHumanName[unitDefID] = unitDef.translatedHumanName
+		if not ignored[unitDefID] then
+			if (unitDef.canAssist or unitDef.canResurrect or unitDef.buildOptions[1]) and
+				not (isSpyUnit[unitDefID] or isReplicator[unitDefID] or unitDef.customParams.isairbase)
+			then
+				if unitDef.isFactory then
+					isIdleBuilder[unitDefID] = isIdleFactory
+				else
+					isIdleBuilder[unitDefID] = isIdleConstructionUnit
+				end
 			end
-			if unitDef.buildSpeed > 0 and not string.find(unitDef.name, 'spy') and not string.find(unitDef.name, 'infestor') and (unitDef.canAssist or unitDef.buildOptions[1] or (showRez and unitDef.canResurrect)) and not unitDef.customParams.isairbase then
-				unitConf[unitDefID] = unitDef.isFactory
-		end
 		end
 	end
 end
@@ -105,7 +118,7 @@ function widget:VisibleUnitsChanged(extVisibleUnits, extNumVisibleUnits)
 end
 
 function widget:VisibleUnitAdded(unitID, unitDefID, unitTeam)
-	if myTeamID == unitTeam and unitConf[unitDefID] ~= nil then
+	if myTeamID == unitTeam and isIdleBuilder[unitDefID] ~= nil then
 		unitList[unitID] = unitDefID
 	end
 end
@@ -293,11 +306,9 @@ end
 local function updateList(force)
 	local prevIdleList = idleList
 	idleList = {}
-	local queue
 	for unitID, unitDefID in pairs(unitList) do
-		queue = unitConf[unitDefID] and spGetFactoryCommands(unitID, 0) or spGetUnitCommandCount(unitID, 0)
-		if queue == 0 then
-			if spValidUnitID(unitID) and not spGetUnitIsDead(unitID) and not spGetUnitIsBeingBuilt(unitID) then
+		if isIdleBuilder[unitDefID](unitID) then
+			if spGetUnitIsDead(unitID) == false and not spGetUnitIsBeingBuilt(unitID) then
 				if idleList[unitDefID] then
 					idleList[unitDefID][#idleList[unitDefID] + 1] = unitID
 				else

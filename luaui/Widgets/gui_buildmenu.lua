@@ -150,21 +150,14 @@ local unitTranslatedHumanName = {}
 local unitTranslatedTooltip = {}
 local iconTypes = {}
 local function refreshUnitDefs()
-	unitName = {}
-	unitBuildOptions = {}
-	unitMetal_extractor = {}
-	unitTranslatedHumanName = {}
-	unitTranslatedTooltip = {}
+	unitName = Game.UnitInfo.Cache.name
+	unitBuildOptions = Game.UnitInfo.Cache.buildOptions
+	unitMetal_extractor = Game.UnitInfo.Cache.metal_extractor
+	unitTranslatedHumanName = Game.UnitInfo.Cache.translatedHumanName
+	unitTranslatedTooltip = Game.UnitInfo.Cache.translatedTooltip
 	iconTypes = {}
 	local orgIconTypes = VFS.Include("gamedata/icontypes.lua")
 	for udid, ud in pairs(UnitDefs) do
-		unitName[udid] = ud.name
-		unitBuildOptions[udid] = ud.buildOptions
-		unitTranslatedHumanName[udid] = ud.translatedHumanName
-		unitTranslatedTooltip[udid] = ud.translatedTooltip
-		if ud.customParams.metal_extractor then
-			unitMetal_extractor[udid] = ud.customParams.metal_extractor
-		end
 		if ud.iconType and orgIconTypes[ud.iconType] and orgIconTypes[ud.iconType].bitmap then
 			iconTypes[ud.name] = orgIconTypes[ud.iconType].bitmap
 		end
@@ -983,10 +976,9 @@ function widget:DrawScreen()
 							-- when meta: unitstats does the tooltip
 							local text
 							local textColor = "\255\215\255\215"
+							text = unitTranslatedHumanName[uDefID]
 							if units.unitRestricted[uDefID] then
-								text = Spring.I18N('ui.buildMenu.disabled', { unit = unitTranslatedHumanName[uDefID], textColor = textColor, warnColor = "\255\166\166\166" })
-							else
-								text = UnitDefs[uDefID].translatedHumanName
+								text = Spring.I18N('ui.buildMenu.disabled', { unit = text, textColor = textColor, warnColor = "\255\166\166\166" })
 							end
 							local tooltip = unitTranslatedTooltip[uDefID]
 							if unitMetal_extractor[uDefID] then

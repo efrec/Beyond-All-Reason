@@ -240,22 +240,19 @@ local numFactoryShip = 0
 
 local hasMadeT2 = false
 
-local isCommander = {}
-local isBuilder = {}
-local isMex = {}
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+local isBuilder = Game.UnitInfo.Cache.canAssist
+local isMex = Game.UnitInfo.Cache.extractsMetal
 local isRadar = {}
 local isEnergyProducer = {}
-local isWind = {}
-local isAircraft = {}
+local isWind = Game.UnitInfo.Cache.windGenerator
+local isAircraft = Game.UnitInfo.Cache.canFly
 local isT2 = {}
 local isT3mobile = {}
 local isT4mobile = {}
-local isMine = {}
+local isMine = Game.UnitInfo.Cache.mine
 for udefID, def in ipairs(UnitDefs) do
 	if not string.find(def.name, 'critter') and not string.find(def.name, 'raptor') and (not def.modCategories or not def.modCategories.object) then
-		if def.canFly then
-			isAircraft[udefID] = true
-		end
 		if def.customParams.techlevel then
 			if def.customParams.techlevel == '2' and not (def.customParams.iscommander or def.customParams.isscavcommander) then
 				isT2[udefID] = true
@@ -266,21 +263,6 @@ for udefID, def in ipairs(UnitDefs) do
 			if def.customParams.techlevel == '4' and not def.isBuilding then
 				isT4mobile[udefID] = true --there are no units with this techlevel assigned, need to see which ones
 			end
-		end
-		if def.modCategories.mine then
-			isMine[udefID] = true
-		end
-		if def.customParams.iscommander or def.customParams.isscavcommander then
-			isCommander[udefID] = true
-		end
-		if def.isBuilder and def.canAssist then
-			isBuilder[udefID] = true
-		end
-		if def.windGenerator and def.windGenerator > 0 then
-			isWind[udefID] = true
-		end
-		if def.extractsMetal > 0 then
-			isMex[udefID] = true
 		end
 		if def.isBuilding and def.radarDistance > 1900 then
 			isRadar[udefID] = true

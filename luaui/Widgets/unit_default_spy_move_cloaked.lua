@@ -12,19 +12,7 @@ function widget:GetInfo()
 	}
 end
 
-local spies  = {}
-
-local spyNames = {
-	'armspy',
-	'corspy',
-	'legaspy',
-}
-
-for _, spyName in ipairs(spyNames) do
-	if UnitDefNames[spyName] then
-		spies[UnitDefNames[spyName].id] = true
-	end
-end
+local spies = Game.UnitInfo.Cache.isCloakedEmpUnit
 
 local GetSelectedUnitsSorted = Spring.GetSelectedUnitsSorted
 local GetUnitStates = Spring.GetUnitStates

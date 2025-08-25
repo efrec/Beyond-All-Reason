@@ -155,7 +155,7 @@ function widget:CommandNotify(id, params, options)
 	local spots = getSpotsInArea(cmdX, cmdZ, cmdRadius)
 
 	if not selectedMex then
-		selectedMex = WG['resource_spot_builder'].GetBestExtractorFromBuilders(selectedUnits, mexConstructors, mexBuildings)
+		selectedMex = WG['resource_spot_builder'].GetBestExtractorFromBuilders(selectedUnits, mexConstructors)
 	end
 
 	local alt, ctrl, meta, shift = Spring.GetModKeyState()

@@ -25,7 +25,7 @@ local ColorString = Spring.Utilities.Color.ToString
 
 local unitdefMobileDps = {}
 local unitdefStaticDps = {}
-local unitdefBuildespeed = {}
+local unitdefBuildespeed = Game.UnitInfo.Cache.buildSpeed
 for unitDefID, unitDef in pairs(UnitDefs) do
 	local totalDps = 0
 	local weapons = unitDef.weapons
@@ -52,9 +52,6 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 				end
 			end
 		end
-	end
-	if unitDef.buildSpeed > 0 then
-		unitdefBuildespeed[unitDefID] = unitDef.buildSpeed
 	end
 end
 

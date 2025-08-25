@@ -299,29 +299,26 @@ local grid = VFS.Include("luaui/configs/gridmenu_config.lua")
 local showWaterUnits = false
 units.restrictWaterUnits(true)
 
-local unitBuildOptions = {}
-local unitMetal_extractor = {}
-local unitTranslatedHumanName = {}
-local unitTranslatedTooltip = {}
+local unitBuildOptions = Game.UnitInfo.Cache.buildOptions
+local unitMetal_extractor = Game.UnitInfo.Cache.metal_extractor
+local unitTranslatedHumanName = Game.UnitInfo.Cache.translatedHumanName
+local unitTranslatedTooltip = Game.UnitInfo.Cache.translatedTooltip
 local iconTypes = {}
 
 local function refreshUnitDefs()
-	unitBuildOptions = {}
-	unitMetal_extractor = {}
-	unitTranslatedHumanName = {}
-	unitTranslatedTooltip = {}
+	-- todo: some mechanism to refresh caches instead of rebuilding them
+	Game.UnitInfo.Cache.buildOptions = nil
+	Game.UnitInfo.Cache.metal_extractor = nil
+	Game.UnitInfo.Cache.translatedHumanName = nil
+	Game.UnitInfo.Cache.translatedTooltip = nil
+	unitBuildOptions = Game.UnitInfo.Cache.buildOptions
+	unitMetal_extractor = Game.UnitInfo.Cache.metal_extractor
+	unitTranslatedHumanName = Game.UnitInfo.Cache.translatedHumanName
+	unitTranslatedTooltip = Game.UnitInfo.Cache.translatedTooltip
+
 	iconTypes = {}
 	local orgIconTypes = VFS.Include("gamedata/icontypes.lua")
-
-	-- unit names and icons
 	for udid, ud in pairs(UnitDefs) do
-		unitBuildOptions[udid] = ud.buildOptions
-		unitTranslatedHumanName[udid] = ud.translatedHumanName
-		unitTranslatedTooltip[udid] = ud.translatedTooltip
-
-		if ud.customParams.metal_extractor then
-			unitMetal_extractor[udid] = ud.customParams.metal_extractor
-		end
 		if ud.iconType and orgIconTypes[ud.iconType] and orgIconTypes[ud.iconType].bitmap then
 			iconTypes[ud.name] = orgIconTypes[ud.iconType].bitmap
 		end
@@ -329,10 +326,7 @@ local function refreshUnitDefs()
 end
 
 -- starting units
-local startUnits = { UnitDefNames.armcom.id, UnitDefNames.corcom.id }
-if Spring.GetModOptions().experimentallegionfaction then
-	startUnits[#startUnits + 1] = UnitDefNames.legcom.id
-end
+local startUnits = Game.UnitInfo.Cache.isStartUnit -- or isCommander?
 local startBuildOptions = {}
 for _, uDefID in pairs(startUnits) do
 	startBuildOptions[#startBuildOptions + 1] = uDefID

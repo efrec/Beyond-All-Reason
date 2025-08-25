@@ -19,12 +19,7 @@ end
 -------------------------------------------------------------------
 local watchList = {} -- watchList[uID] = tID
 
-local isTransport = {} -- isTransport[uDefID] = UnitDefs[uDefID].isTransport
-for uDefID, uDef in pairs(UnitDefs) do
-	if uDef.isTransport and uDef.canFly then
-		isTransport[uDefID] = true
-	end
-end
+local isAirTransport = Game.UnitInfo.Cache.isAirTransport
 
 -------------------------------------------------------------------
 -- Speedups
@@ -60,7 +55,7 @@ end
 -- Callins
 -------------------------------------------------------------------
 function widget:UnitCommand(uID, uDefID, uTeam)
-	if isTransport[uDefID] and uTeam == spGetMyTeamID() and GetTransportTarget(uID) then
+	if isAirTransport[uDefID] and uTeam == spGetMyTeamID() and GetTransportTarget(uID) then
 		watchList[uID] = true
 	end
 end

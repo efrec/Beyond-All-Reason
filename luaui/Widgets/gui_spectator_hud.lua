@@ -302,28 +302,16 @@ local function buildUnitDefs()
 	end
 
 	unitDefsToTrack = {}
-	unitDefsToTrack.commanderUnitDefs = {}
-	unitDefsToTrack.reclaimerUnitDefs = {}
-	unitDefsToTrack.energyConverterDefs = {}
-	unitDefsToTrack.buildPowerDefs = {}
+	unitDefsToTrack.commanderUnitDefs = Game.UnitInfo.Cache.isCommanderUnit
+	unitDefsToTrack.reclaimerUnitDefs = Game.UnitInfo.Cache.canReclaim
+	unitDefsToTrack.energyConverterDefs = Game.UnitInfo.Cache.energyconv_capacity
+	unitDefsToTrack.buildPowerDefs = Game.UnitInfo.Cache.buildSpeed
 	unitDefsToTrack.armyUnitDefs = {}
 	unitDefsToTrack.defenseUnitDefs = {}
 	unitDefsToTrack.utilityUnitDefs = {}
 	unitDefsToTrack.economyBuildingDefs = {}
 
 	for unitDefID, unitDef in ipairs(UnitDefs) do
-		if isCommander(unitDefID, unitDef) then
-			unitDefsToTrack.commanderUnitDefs[unitDefID] = true
-		end
-		if isReclaimerUnit(unitDefID, unitDef) then
-			unitDefsToTrack.reclaimerUnitDefs[unitDefID] = { unitDef.metalMake, unitDef.energyMake }
-		end
-		if isEnergyConverter(unitDefID, unitDef) then
-			unitDefsToTrack.energyConverterDefs[unitDefID] = tonumber(unitDef.customParams.energyconv_capacity)
-		end
-		if isBuildPower(unitDefID, unitDef) then
-			unitDefsToTrack.buildPowerDefs[unitDefID] = unitDef.buildSpeed
-		end
 		if isArmyUnit(unitDefID, unitDef) then
 			unitDefsToTrack.armyUnitDefs[unitDefID] = { unitDef.metalCost, unitDef.energyCost }
 		end

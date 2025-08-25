@@ -25,8 +25,8 @@ local CMD_REPEAT         = CMD.REPEAT
 local REMOVE_TOLERANCE   = 5 * 5 -- squared distance
 
 local trackedBuilders    = {}
-local isBuilding         = {}
-local builderDefs        = {}
+local isBuilding         = Game.UnitInfo.Cache.isImmobile
+local builderDefs        = Game.UnitInfo.Cache.isBuilder
 local myTeamID           = GetMyTeamID()
 
 local function IsUnitRepeatOn(unitID)
@@ -50,15 +50,6 @@ function widget:Initialize()
 	if GetSpectatingState() then
 		widgetHandler:RemoveWidget(self)
 		return
-	end
-
-	for udid, ud in pairs(UnitDefs) do
-		if ud.isBuilder then
-			builderDefs[udid] = true
-		end
-		if ud.isBuilding or ud.speed == 0 then
-			isBuilding[udid] = true
-		end
 	end
 
 	local allUnits = GetTeamUnits(myTeamID)

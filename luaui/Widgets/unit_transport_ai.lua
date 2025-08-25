@@ -54,39 +54,21 @@ local GetUnitIsTransporting = Spring.GetUnitIsTransporting
 local GetGroundHeight = Spring.GetGroundHeight
 local math_sqrt = math.sqrt
 
-local isFactory = {}
-local isTransport = {}
-local isTransportable = {}
-local unitAssistBuilder = {}
+local isFactory = Game.UnitInfo.Cache.isFactory
+local isTransport = Game.UnitInfo.Cache.isAirTransport
+local cantBeTransported = Game.UnitInfo.Cache.cantBeTransported
+local unitAssistBuilder = Game.UnitInfo.Cache.canAssist
+local unitSpeed = Game.UnitInfo.Cache.speed
+local unitXsize = Game.UnitInfo.Cache.xsize
+local unitMass = Game.UnitInfo.Cache.mass
+local unitTransportSize = Game.UnitInfo.Cache.transportSize
+local unitTransportCapacity = Game.UnitInfo.Cache.transportCapacity
+local unitTransportMass = Game.UnitInfo.Cache.transportMass
 local isGroundscout = {}
-local unitSpeed = {}
-local unitXsize = {}
-local unitMass = {}
-local unitTransportSize = {}
-local unitTransportCapacity = {}
-local unitTransportMass = {}
 for uDefID, uDef in pairs(UnitDefs) do
-	if uDef.isFactory then
-		isFactory[uDefID] = true
-	end
-	if uDef.isTransport and uDef.canFly and uDef.transportCapacity > 0 then
-		isTransport[uDefID] = true
-	end
-	if not uDef.canFly and uDef.speed > 0 and uDef.springCategories ~= nil then
-		isTransportable[uDefID] = true
-	end
-	if uDef.isBuilder and uDef.canAssist then
-		unitAssistBuilder[uDefID] = true
-	end
 	if uDef.modCategories.groundscout then
 		isGroundscout[uDefID] = true
 	end
-	unitSpeed[uDefID] = uDef.speed
-	unitXsize[uDefID] = uDef.xsize
-	unitMass[uDefID] = uDef.mass
-	unitTransportSize[uDefID] = uDef.transportSize
-	unitTransportCapacity[uDefID] = uDef.transportCapacity
-	unitTransportMass[uDefID] = uDef.transportMass
 end
 
 function IsEmbarkCommand(unitID)
@@ -277,7 +259,7 @@ function widget:UnitIdle(unitID, unitDefID, teamID)
 	if AddTransport(unitID, unitDefID) then
 		AssignTransports(unitID, 0)
 	else
-		if isTransportable[unitDefID] then
+		if not cantBeTransported[unitDefID] then
 			priorityUnits[unitID] = nil
 
 			local marked = GetToPickTransport(unitID)
@@ -302,7 +284,7 @@ function widget:UnitFromFactory(unitID, unitDefID, unitTeam, factID, factDefID, 
 		if CONST_IGNORE_GROUNDSCOUTS and isGroundscout[unitDefID] then
 			return
 		end
-		if isTransportable[unitDefID] and not userOrders then
+		if not cantBeTransported[unitDefID] and not userOrders then
 			local commands = GetUnitCommands(unitID, 20)
 			for i = 1, #commands do
 				local v = commands[i]
@@ -645,7 +627,7 @@ function widget:KeyPress(key, modifier, isRepeat)
 
       for _, id in ipairs(GetSelectedUnits()) do -- embark
         local def = GetUnitDefID(id)
-        if (isTransportable[def] or isFactory[def]) then
+        if (not cantBeTransported[def] or isFactory[def]) then
           GiveOrderToUnit(id, CMD.WAIT, {}, opts)
           if (not isFactory[def]) then priorityUnits[id] = def end
         end
@@ -655,7 +637,7 @@ function widget:KeyPress(key, modifier, isRepeat)
       if (modifier.shift) then table.insert(opts, "shift") end
       for _, id in ipairs(GetSelectedUnits()) do --disembark
         local def = GetUnitDefID(id)
-        if (isTransportable[def]  or isFactory[def]) then GiveOrderToUnit(id, CMD.WAIT, {}, opts) end
+        if (not cantBeTransported[def]  or isFactory[def]) then GiveOrderToUnit(id, CMD.WAIT, {}, opts) end
       end
 
     end

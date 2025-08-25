@@ -12,6 +12,7 @@ function widget:GetInfo()
    }
 end
 
+local isFactory = Game.UnitInfo.Cache.isFactory
 local ignoreUnitDefs = {}
 local unitConf = {}
 for udid, unitDef in pairs(UnitDefs) do
@@ -80,7 +81,7 @@ end
 local function hasSelfDQueued(unitID)
 	local limit = -1
 	local unitDefID = Spring.GetUnitDefID(unitID)
-	if unitDefID and UnitDefs[unitDefID].isFactory then
+	if unitDefID and isFactory[unitDefID] then
 		limit = 1
 	end
 	local cmdQueue = spGetUnitCommands(unitID, limit) or {}
@@ -222,7 +223,7 @@ function widget:UnitCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpts
 			queuedSelfD[unitID] = nil
 		end
 	elseif cmdID == CMD.SELFD then
-		if cmdOpts.shift and UnitDefs[unitDefID].isFactory then
+		if cmdOpts.shift and isFactory[unitDefID] then
 			-- factories can receive shift-selfd orders, but they go to the units produced, not the factory itself
 			return
 		end

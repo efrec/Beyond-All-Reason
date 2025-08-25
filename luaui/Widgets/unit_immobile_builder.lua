@@ -32,12 +32,7 @@ local gameStarted
 -- Set immobile builders to the MANEUVER movestate, and give them a FIGHT order
 -- Too close to the unit will drop the order so we add 50 distance
 
-local isImmobileBuilder = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.isBuilder and not unitDef.canMove and not unitDef.isFactory then
-		isImmobileBuilder[unitDefID] = true
-	end
-end
+local isImmobileBuilder = Game.UnitInfo.Cache.isConstructionTurret
 
 local function setupUnit(unitID)
 	local x, y, z = spGetUnitPosition(unitID)

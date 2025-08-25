@@ -24,10 +24,7 @@ e.g. bind  Ctrl  stateprefs_record
 
 --]]------------------------------------------------------------------------------
 local unitArray = {}
-local unitName = {}
-for udid, ud in pairs(UnitDefs) do
-	unitName[udid] = ud.name
-end
+local unitName = Game.UnitInfo.Cache.name
 
 local unitSet = {}
 local chunk, err = loadfile("LuaUI/config/StatesPrefs.lua")

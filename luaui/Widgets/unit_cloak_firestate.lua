@@ -27,31 +27,13 @@ local CMD_WANT_CLOAK    = GameCMD.WANT_CLOAK
 --------------------------------------------------------------------------------
 local myTeam = Spring.GetMyTeamID()
 
-local exceptionList = { --add exempt units here
-	"armmine1",
-	"armmine2",
-	"armmine3",
-	"armfmine3",
-	"cormine1",
-	"cormine2",
-	"cormine3",
-	"cormine4",
-	"corfmine3",
-	"legmine1",
-	"legmine2",
-	"legmine3",
-	"corsktl",
-	"armpb",
-	"armamb",
-	"armferret",
-	"armsnipe",
-}
+local exceptions = {}
 
-local exceptionArray = {}
-for _,name in pairs(exceptionList) do
-	local ud = UnitDefNames[name]
-	if ud then
-		exceptionArray[ud.id] = true
+for unitDefID, unitDef in pairs(UnitDefs) do
+	if unitDef.canCloak and (unitDef.canAttack or unitDef.canKamikaze) then
+		if unitDef.isImmobile or unitDef.name == "armsnipe" or unitDef.customParams.isscavenger then
+			exceptions[unitDefID] = true
+		end
 	end
 end
 
@@ -61,7 +43,7 @@ function widget:UnitCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpts
 	if teamID ~= myTeam then return end
 
 	if cmdID == CMD_WANT_CLOAK and cmdParams[1] ~= nil then -- is cloak command
-		if exceptionArray[unitDefID] or string.find(UnitDefs[unitDefID].name, "_scav") then return end -- don't do anything for these units
+		if exceptions[unitDefID] then return end -- don't do anything for these units
 
 		if cmdParams[1] == 1 then -- store current fire state and cloak
 			decloakFireState[unitID] = select(1, GetUnitStates(unitID, false)) --store last state

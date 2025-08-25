@@ -150,7 +150,7 @@ local iconTypes = VFS.Include("gamedata/icontypes.lua")
 local groups, unitGroup
 --
 local drawLists = {}
-local unitConf = {}
+local unitConf = Game.UnitInfo.Cache.unitScaleIcon
 local t2conDock, t2conDockShown = nil, false
 local buyRequestDock, buyRequestDockShown = nil, false
 local DrawIcon, DrawHoverIcon
@@ -172,10 +172,6 @@ local lastClickTime = nil
 --
 --------------------------------
 for unitDefID, unitDef in pairs(UnitDefs) do
-	local xsize, zsize = unitDef.xsize, unitDef.zsize
-	local scale = 6*( xsize^2 + zsize^2 )^0.5
-	unitConf[unitDefID] = 7 +(scale/2.5)
-
     if unitDef.customParams.unitgroup == "buildert2" and not unitDef.isFactory and unitDef.isBuilder then
         T2ConDef[unitDefID] = true
     end

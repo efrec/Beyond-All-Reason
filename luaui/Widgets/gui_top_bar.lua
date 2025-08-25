@@ -82,7 +82,7 @@ local allyComs = 0
 local enemyComs = 0 -- if we are counting ourselves because we are a spec
 local enemyComCount = 0 -- if we are receiving a count from the gadget part (needs modoption on)
 local prevEnemyComCount = 0
-local isCommander = {}
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
 local displayComCounter = false
 
 -- OpenGL
@@ -2144,12 +2144,6 @@ function widget:Initialize()
 	if not spec then
 		local teamList = Spring.GetTeamList(myAllyTeamID) or {}
 		isSingle = #teamList == 1
-	end
-
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		if unitDef.customParams.iscommander or unitDef.customParams.isscavcommander then
-			isCommander[unitDefID] = true
-		end
 	end
 
 	WG['topbar'] = {}

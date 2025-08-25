@@ -100,6 +100,7 @@ local COLOR_GREEN = { 0, 0.8, 0, 0.8 }
 local COLOR_GREY_LINE = { 0.7, 0.7, 0.7, 0.7 }
 local COLOR_WHITE_LINE = { 1, 1, 1, 0.8 }
 
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
 local myCommanders = {}
 local soundQueue = {}
 local allyTeamDefeatTimes = {}
@@ -1594,9 +1595,7 @@ end
 
 function widget:MetaUnitAdded(unitID, unitDefID, unitTeam, builderID)
 	if unitTeam == spGetMyTeamID() then
-		local unitDef = UnitDefs[unitDefID]
-
-		if unitDef.customParams and unitDef.customParams.iscommander then
+		if isCommander[unitDefID] then
 			myCommanders[unitID] = true
 		end
 	end

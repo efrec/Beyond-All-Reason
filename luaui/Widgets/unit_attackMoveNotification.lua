@@ -28,17 +28,14 @@ local lastAlarmTime = nil
 local lastCommanderAlarmTime = nil
 local localTeamID = nil
 
-local isCommander = {}
-local unitHumanName = {}
+local isCommander = Game.UnitInfo.Cache.isCommanderUnit
+local ignoreUnit = Game.UnitInfo.Cache.nohealthbars
+local unitHumanName = Game.UnitInfo.Cache.translatedHumanName
 local unitUnderattackSounds = {}
 
 local function refreshUnitInfo()
 	for unitDefID, unitDef in pairs(UnitDefs) do
-		if unitDef.customParams.iscommander then
-			isCommander[unitDefID] = true
-		end
-		if not unitDef.customParams.nohealthbars then
-			unitHumanName[unitDefID] = unitDef.translatedHumanName
+		if not ignoreUnit[unitDefID] then
 			if unitDef.sounds.underattack and #unitDef.sounds.underattack > 0 then
 				unitUnderattackSounds[unitDefID] = unitDef.sounds.underattack
 			end
@@ -91,7 +88,7 @@ function widget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer)
 			return
 		end
 	end
-	if unitHumanName[unitDefID] then
+	if not ignoreUnit[unitDefID] and unitHumanName[unitDefID] then
 		lastAlarmTime = now
 		spEcho( Spring.I18N('ui.moveAttackNotify.underAttack', { unit = unitHumanName[unitDefID] }) )
 

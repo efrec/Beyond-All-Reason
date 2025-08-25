@@ -25,8 +25,8 @@ local mexPlacementRadius = 2000
 
 local mexConstructors
 local geoConstructors
-local mexBuildings
-local geoBuildings
+local mexBuildings = Game.UnitInfo.Cache.metalExtraction
+local geoBuildings = Game.UnitInfo.Cache.needsGeothermal
 
 local bestGeo
 local bestMex
@@ -44,16 +44,6 @@ local buildCmd = {}
 
 local updateTime = 0
 
-local isCloakableBuilder = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.buildOptions[1] and unitDef.canCloak then
-		isCloakableBuilder[unitDefID] = true
-	end
-end
-local function unitIsCloaked(uDefId)
-	return isCloakableBuilder[Spring.GetUnitDefID(uDefId)] and select(5,Spring.GetUnitStates(uDefId,false,true))
-end
-
 
 function widget:Initialize()
 	if not WG.DrawUnitShapeGL4 then
@@ -64,9 +54,6 @@ function widget:Initialize()
 
 	mexConstructors = builder.GetMexConstructors()
 	geoConstructors = builder.GetGeoConstructors()
-
-	mexBuildings = builder.GetMexBuildings()
-	geoBuildings = builder.GetGeoBuildings()
 
 	local metalSpots = WG["resource_spot_finder"].metalSpotsList
 	if not metalSpots or (#metalSpots > 0 and #metalSpots <= 2) then
@@ -91,8 +78,8 @@ end
 local selectedUnits = Spring.GetSelectedUnits()
 function widget:SelectionChanged(sel)
 	selectedUnits = sel
-	bestMex = WG['resource_spot_builder'].GetBestExtractorFromBuilders(selectedUnits, mexConstructors, mexBuildings)
-	bestGeo = WG['resource_spot_builder'].GetBestExtractorFromBuilders(selectedUnits, geoConstructors, geoBuildings)
+	bestMex = WG['resource_spot_builder'].GetBestExtractorFromBuilders(selectedUnits, mexConstructors)
+	bestGeo = WG['resource_spot_builder'].GetBestExtractorFromBuilders(selectedUnits, geoConstructors)
 end
 
 
@@ -115,7 +102,7 @@ function widget:Update(dt)
 	end
 
 	-- Don't do anything with cloaked units
-	if #selectedUnits == 1 and unitIsCloaked(selectedUnits[1]) then
+	if #selectedUnits == 1 and Spring.GetUnitIsCloaked(selectedUnits[1]) then
 		return
 	end
 

@@ -23,13 +23,11 @@ local builtUnits = {} -- {[factoryID] = {[unitDefID] = {[unitID] = true, ...}, .
 local unitToFactoryID = {} -- {[unitID] = factoryID, ...}
 
 local possibleFactories = {}
-local factoryDefIDs = {}
-local metalcosts = {}
+local factoryDefIDs = Game.UnitInfo.Cache.isFactory
+local metalcosts = Game.UnitInfo.Cache.metalCost
 
 for unitDefID, uDef in pairs(UnitDefs) do
-    metalcosts[unitDefID] = uDef.metalCost
     if uDef.isFactory then
-        factoryDefIDs[unitDefID] = true
         for _, opt in pairs(uDef.buildOptions) do
             possibleFactories[opt] = possibleFactories[opt] or {}
             possibleFactories[opt][unitDefID] = true

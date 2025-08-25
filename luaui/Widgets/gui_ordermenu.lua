@@ -137,12 +137,7 @@ local isSpectating = Spring.GetSpectatingState()
 local cursorTextures = {}
 local actionHotkeys
 
-local isFactory = {}
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.isFactory then
-		isFactory[unitDefID] = true
-	end
-end
+local isFactory = Game.UnitInfo.Cache.isFactory
 
 local function convertColor(r, g, b)
 	return string.char(255, (r * 255), (g * 255), (b * 255))

@@ -41,33 +41,27 @@ local isPregame = Spring.GetGameFrame() == 0 and not Spring.GetSpectatingState()
 ------------------------------------------------------------
 local mexConstructors = {}
 local mexConstructorsDef = {}
-local mexBuildings = {}
+local mexExtraction = Game.UnitInfo.Cache.extractsMetal
 
 local geoConstructors = {}
 local geoConstructorsDef = {}
-local geoBuildings = {}
+local geoBuildings = Game.UnitInfo.Cache.needsGeothermal
+
+local techLevel = Game.UnitInfo.Cache.techLevel
+local isSpecialUpgrade = Game.UnitInfo.Cache.isSpecialUpgrade
+local extractionRating = Game.UnitInfo.Cache.extractionRating
 
 ------------------------------------------------------------
 -- populate unit tables
 ------------------------------------------------------------
 
 for uDefID, uDef in pairs(UnitDefs) do
-	if uDef.extractsMetal > 0 then
-		mexBuildings[uDefID] = uDef.extractsMetal
-	end
-	local customParams = uDef.customParams or {}
-	if customParams.geothermal then
-		geoBuildings[uDefID] = uDef.energyMake
-	end
-end
-
-for uDefID, uDef in pairs(UnitDefs) do
 	if uDef.buildOptions then
 		local maxExtractMetal = 0
 		local maxProduceEnergy = 0
 		for _, option in ipairs(uDef.buildOptions) do
-			if mexBuildings[option] then
-				maxExtractMetal = math.max(maxExtractMetal, mexBuildings[option])
+			if mexExtraction[option] then
+				maxExtractMetal = math.max(maxExtractMetal, mexExtraction[option])
 				if mexConstructorsDef[uDefID] then
 					mexConstructorsDef[uDefID].buildings = mexConstructorsDef[uDefID].buildings + 1
 					mexConstructorsDef[uDefID].building[mexConstructorsDef[uDefID].buildings] = option * -1
@@ -76,7 +70,7 @@ for uDefID, uDef in pairs(UnitDefs) do
 				end
 			end
 			if geoBuildings[option] then
-				maxProduceEnergy = math.max(maxProduceEnergy, geoBuildings[option])
+				maxProduceEnergy = math.max(maxProduceEnergy, extractionRating[option])
 				if geoConstructorsDef[uDefID] then
 					geoConstructorsDef[uDefID].buildings = geoConstructorsDef[uDefID].buildings + 1
 					geoConstructorsDef[uDefID].building[geoConstructorsDef[uDefID].buildings] = option * -1
@@ -97,7 +91,7 @@ end
 ---@param spot table
 local function spotHasExtractor(spot)
 	local units = Spring.GetUnitsInCylinder(spot.x, spot.z, Game_extractorRadius)
-	local type = spot.isMex and mexBuildings or geoBuildings
+	local type = spot.isMex and mexExtraction or geoBuildings
 	for j=1, #units do
 		if type[spGetUnitDefID(units[j])] then return units[j] end
 	end
@@ -118,7 +112,7 @@ local function spotHasExtractorQueued(spot, builders)
 			local id = command.id and -command.id or command[1]
 			local x = command.params and command.params[1] or command[2]
 			local z = command.params and command.params[3] or command[4]
-			if(mexBuildings[id] or geoBuildings[id]) then
+			if(mexExtraction[id] or geoBuildings[id]) then
 				local dist = math.distance2dSquared(spot.x, spot.z, x, z)
 				-- Save a sqrt by multiplying by 4
 				-- Note that this is calculating by diameter, and could be too aggressive on maps with closely spaced mexes
@@ -147,11 +141,10 @@ local function spotHasExtractorQueued(spot, builders)
 end
 
 
----Gets the naive best extractor, ignores special mexes (exploiter etc), just finds highest extraction amount
+---Gets the naive best extractor, based only on highest extraction amount
 ---@param units table selected units
 ---@param constructorIds table builder types to check
----@param extractors table valid extractors, useful to specify specific types or check only geos etc
-local function getBestExtractorFromBuilders(units, constructorIds, extractors)
+local function getBestExtractorFromBuilders(units, constructorIds)
 	local bestExtraction = 0
 	local bestExtractor
 	for i = 1, #units do
@@ -161,7 +154,7 @@ local function getBestExtractorFromBuilders(units, constructorIds, extractors)
 
 		if constructor then
 			local buildingID = -constructor.building[1]
-			local extractionAmount = extractors[buildingID]
+			local extractionAmount = extractionRating[buildingID] or 0
 			if(extractionAmount > bestExtraction) then
 				bestExtraction = extractionAmount
 				bestExtractor = buildingID
@@ -182,24 +175,21 @@ local function extractorCanBeUpgraded(currentExtractorUuid, newExtractorId)
 	end
 
 	local currentExtractorId = spGetUnitDefID(currentExtractorUuid)
-	local newExtractor = UnitDefs[newExtractorId]
-	local newExtractorStrength = mexBuildings[newExtractorId] or geoBuildings[newExtractorId]
-	local currentExtractorStrength = mexBuildings[currentExtractorId] or geoBuildings[currentExtractorId]
+	local newExtractorStrength = extractionRating[newExtractorId]
+	local currentExtractorStrength = extractionRating[currentExtractorId]
 
 	if not (newExtractorStrength and currentExtractorStrength) then
 		return false
 	end
 
-	local newExtractorIsSpecial = newExtractor.stealth or #newExtractor.weapons > 0
-
 	if(newExtractorStrength > currentExtractorStrength) then
 		return true
 	end
-	if(newExtractorStrength == currentExtractorStrength and newExtractorIsSpecial) then
+	if(newExtractorStrength == currentExtractorStrength) then
 		return true
 	end
-	if currentExtractorStrength == newExtractorStrength then
-		return false
+	if isSpecialUpgrade[newExtractorId] and techLevel[newExtractorId] == techLevel[currentExtractorId] then
+		return true
 	end
 
 	return false
@@ -220,7 +210,7 @@ local function extractorCanBeBuiltOnSpot(spot, extractorId)
 	for i = 1, #units do
 		local uid = units[i]
 		local uDefId = spGetUnitDefID(uid)
-		local isExtractor = spot.isMex and mexBuildings[uDefId] or geoBuildings[uDefId]
+		local isExtractor = spot.isMex and mexExtraction[uDefId] or geoBuildings[uDefId]
 		local canUpgrade = extractorCanBeUpgraded(uid, extractorId)
 		local isBeingBuilt, _ = spGetUnitIsBeingBuilt(uid)
 		if(isExtractor and (not canUpgrade or isBeingBuilt)) then
@@ -497,7 +487,7 @@ function widget:Initialize()
 	end
 
 	WG['resource_spot_builder'].GetMexBuildings = function()
-		return mexBuildings
+		return mexExtraction
 	end
 
 	WG['resource_spot_builder'].GetGeoConstructors = function()

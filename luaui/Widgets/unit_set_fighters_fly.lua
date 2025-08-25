@@ -23,12 +23,12 @@ end
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 local spGetTeamUnits = Spring.GetTeamUnits
 local spGetUnitDefID = Spring.GetUnitDefID
-local cmdFly = 145
+local cmdFly = CMD.IDLEMODE
 local myTeamID = Spring.GetMyTeamID()
 
 local isFighter = {}
 for udid, ud in pairs(UnitDefs) do
-    if ud.customParams.fighter or ud.customParams.drone then
+    if ud.isStrafeFighterAirUnit or ud.customParams.drone then
         isFighter[udid] = true
     end
 end

@@ -32,28 +32,11 @@ local builderLabs = {}
 local builderNanos = {}
 local builderCons = {}
 
-local unitIsBuilder = {}
-local unitIsCommander = {}
-local unitIsNano = {}
-local unitIsLab = {}
-local unitIsCons = {}
-for udefID, def in ipairs(UnitDefs) do
-	if def.isBuilder then
-		unitIsBuilder[udefID] = def.id
-		if def.customParams.iscommander then
-			unitIsCommander[udefID] = true
-		end
-		if not def.canMove and not def.isFactory then
-			unitIsNano[udefID] = true
-		end
-		if def.isFactory then
-			unitIsLab[udefID] = true
-		end
-		if def.canMove and def.canAssist and not def.isFactory then
-			unitIsCons[udefID] = true
-		end
-	end
-end
+local unitIsBuilder = Game.UnitInfo.Cache.isBuilder
+local unitIsCommander = Game.UnitInfo.Cache.isCommanderUnit
+local unitIsNano = Game.UnitInfo.Cache.isConstructionTurret
+local unitIsLab = Game.UnitInfo.Cache.isFactory
+local unitIsCons = Game.UnitInfo.Cache.isConstructionUnit
 
 local function toggleUnit(unitID, passive)
 	if passive then
