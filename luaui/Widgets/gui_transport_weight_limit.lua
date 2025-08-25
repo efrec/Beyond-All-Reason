@@ -35,7 +35,7 @@ local transDefID = nil
 
 local math_sqrt = math.sqrt
 
-local validTrans = Game.UnitInfo.Cache.isTransporterUnit
+local validTrans = Game.UnitInfo.Cache.isTransport
 local cantBeTransported = Game.UnitInfo.Cache.cantBeTransported
 local unitMass = Game.UnitInfo.Cache.mass
 local unitXsize = Game.UnitInfo.Cache.xsize
