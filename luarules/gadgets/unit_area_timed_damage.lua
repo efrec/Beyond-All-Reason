@@ -350,41 +350,7 @@ function gadget:Initialize()
         end
     end
 
-    unitDamageImmunity = {}
-    local areaDamageTypes = {}
-    for weaponDefID, params in pairs(timedDamageWeapons) do
-        if params.resistance == nil then
-            params.resistance = "none"
-        elseif params.resistance ~= "none" then
-            areaDamageTypes[params.resistance] = true
-        end
-    end
-    local immunities = { all = areaDamageTypes, none = {} }
-    for unitDefID, unitDef in ipairs(UnitDefs) do
-        local unitImmunity
-        if unitDef.canFly or unitDef.armorType == Game.armorTypes.indestructible then
-            unitImmunity = immunities.all
-        elseif unitDef.customParams.areadamageresistance == nil then
-            unitImmunity = immunities.none
-        else
-            local resistance = string.lower(unitDef.customParams.areadamageresistance)
-            if immunities[resistance] then
-                unitImmunity = immunities[resistance]
-            else
-                unitImmunity = {}
-                for damageType in pairs(areaDamageTypes) do
-                    if string.find(resistance, damageType, nil, false) then
-                        unitImmunity[damageType] = true
-                    end
-                end
-                if not next(unitImmunity) then
-                    unitImmunity = immunities.none
-                end
-                immunities[resistance] = unitImmunity
-            end
-        end
-        unitDamageImmunity[unitDefID] = unitImmunity
-    end
+    unitDamageImmunity = Game.UnitInfo.Cache.areaDamageResistance
 
     featDamageImmunity = {}
     for _, featureID in ipairs(Spring.GetAllFeatures()) do

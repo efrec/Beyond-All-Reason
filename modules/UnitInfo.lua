@@ -72,42 +72,6 @@ local function getSideCode(name)
 	return SIDES[name:sub(1, 3):lower()]
 end
 
-local function getStartUnitFn()
-	-- There Has To Be A Better Way
-	local config = Spring.GetGameRulesParam("validStartUnits")
-
-	if config == nil and Spring.GetMyTeamID then
-		config = Spring.GetTeamRulesParam(Spring.GetMyTeamID(), "validStartUnits")
-	end
-
-	if config == nil then
-		local configs = {}
-		for _, team in ipairs(Spring.GetTeamList() or {}) do
-			configs[#configs+1] = Spring.GetTeamRulesParam(team, "validStartUnits")
-		end
-		if next(configs) then
-			config = table.concat(configs, "|")
-		end
-	end
-
-	if config ~= nil then
-		local sideConfig = string.split(config, "|")
-		if sideConfig ~= nil and #sideConfig > 0 then
-			local unitDefToSideID = {}
-			for i, name in ipairs(sideConfig) do
-				local def = name and UnitDefNames[name]
-				if def ~= nil then
-					unitDefToSideID[def.id] = getSideCode(def.name) or i
-				end
-			end
-			return function(unitDef) return unitDefToSideID[unitDef.id] end
-		end
-	end
-
-	-- Fallback attempt. This should be an error condition, most likely.
-	return function(unitDef) return customBool(unitDef.customParams.iscommander) end
-end
-
 local function metalEquivalence(unitDef)
 	return unitDef.metalCost
 		+ unitDef.energyCost / METAL_TO_ENERGY
@@ -150,6 +114,106 @@ local function hasDamage(weaponDef)
 	else
 		return false
 	end
+end
+
+-- Classifier helper methods
+-- todo: It would be nice to have a better way to refresh e.g. build trees than this.
+
+local __isStartUnit = function() return true end
+local function getIsStartUnit()
+	-- There Has To Be A Better Way
+	local config = Spring.GetGameRulesParam("validStartUnits")
+
+	if config == nil and Spring.GetMyTeamID then
+		config = Spring.GetTeamRulesParam(Spring.GetMyTeamID(), "validStartUnits")
+	end
+
+	if config == nil then
+		local configs = {}
+		for _, team in ipairs(Spring.GetTeamList() or {}) do
+			configs[#configs+1] = Spring.GetTeamRulesParam(team, "validStartUnits")
+		end
+		if next(configs) then
+			config = table.concat(configs, "|")
+		end
+	end
+
+	if config ~= nil then
+		local sideConfig = string.split(config, "|")
+		if sideConfig ~= nil and #sideConfig > 0 then
+			local unitDefToSideID = {}
+			for i, name in ipairs(sideConfig) do
+				local def = name and UnitDefNames[name]
+				if def ~= nil then
+					unitDefToSideID[def.id] = getSideCode(def.name) or i
+				end
+			end
+			return function(unitDef) return unitDefToSideID[unitDef.id] end
+		end
+	end
+
+	-- Fallback attempt. This should be an error condition, most likely.
+	return function(unitDef) return customBool(unitDef.customParams.iscommander) end
+end
+
+local __areaDamageResistances = {}
+local function __areaDamageResistance()
+	local weaponList = {}
+	do
+		for weaponDefID = 0, #WeaponDefs do
+			local custom = WeaponDefs[weaponDefID].customParams
+			if custom.area_onhit_ceg then
+				weaponList[weaponDefID] = custom.area_onhit_resistance:lower()
+			end
+		end
+		for _, unitDef in ipairs(UnitDefs) do
+			if unitDef.customParams.area_ondeath_ceg then
+				local resistance = unitDef.customParams.area_ondeath_resistance:lower()
+				weaponList[WeaponDefNames[unitDef.deathExplosion].id] = resistance
+				weaponList[WeaponDefNames[unitDef.selfDExplosion].id] = resistance
+			end
+		end
+	end
+
+	local areaDamageTypes = {}
+	do
+		for _, resistance in pairs(weaponList) do
+			if resistance ~= "none" then
+				areaDamageTypes[resistance] = true
+			end
+		end
+	end
+
+	local unitImmunities = {}
+	do
+		local immunities = { all = areaDamageTypes, none = {} }
+		for unitDefID, unitDef in ipairs(UnitDefs) do
+			local unitImmunity
+			if unitDef.canFly or unitDef.armorType == Game.armorTypes.indestructible then
+				unitImmunity = immunities.all
+			elseif unitDef.customParams.areadamageresistance == nil then
+				unitImmunity = immunities.none
+			else
+				local resistance = unitDef.customParams.areadamageresistance:lower()
+				if immunities[resistance] then
+					unitImmunity = immunities[resistance]
+				else
+					unitImmunity = {}
+					for damageType in pairs(areaDamageTypes) do
+						if string.find(resistance, damageType, nil, false) then
+							unitImmunity[damageType] = true
+						end
+					end
+					if not next(unitImmunity) then
+						unitImmunity = immunities.none
+					end
+					immunities[resistance] = unitImmunity
+				end
+			end
+			unitImmunities[unitDefID] = unitImmunity
+		end
+	end
+	return unitImmunities
 end
 
 --------------------------------------------------------------------------------
@@ -294,11 +358,10 @@ local function isRestrictedUnit(unitDef)
 	return unitDef.maxThisUnit == 0 -- todo: other restriction methods?
 end
 
-local __isStartUnit = function() return true end
 local function isStartUnit(unitDef)
 	if unitDef.id == 1 then
 		-- Repopulate build tree and etc
-		__isStartUnit = getStartUnitFn()
+		__isStartUnit = getIsStartUnit()
 	end
 	__isStartUnit(unitDef)
 end
@@ -595,8 +658,10 @@ local function paralyzeMultiplier(unitDef)
 end
 
 local function areaDamageResistance(unitDef)
-	local resistance = unitDef.customParams.areadamageresistance
-	return resistance and string.lower(resistance)
+	if unitDef.id == 1 then
+		__areaDamageResistances = __areaDamageResistance()
+	end
+	return __areaDamageResistances[unitDef.id]
 end
 
 local function isJunoDamageTarget(unitDef)
