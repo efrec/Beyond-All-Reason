@@ -174,7 +174,6 @@ local function __areaDamageResistance()
 			end
 		end
 	end
-
 	local areaDamageTypes = {}
 	do
 		for _, resistance in pairs(weaponList) do
@@ -183,7 +182,6 @@ local function __areaDamageResistance()
 			end
 		end
 	end
-
 	local unitImmunities = {}
 	do
 		local immunities = { all = areaDamageTypes, none = {} }
@@ -347,11 +345,28 @@ local function footprintSize(unitDef)
 end
 
 local function needsGeothermal(unitDef)
-	return unitDef.needGeo or customBool(unitDef.customParams.geothermal)
+	return unitDef.needGeo
+		or customBool(unitDef.customParams.geothermal)
+end
+
+local function needsMetalSpot(unitDef)
+	return unitDef.extractsMetal > 0
+		or customNumber(unitDef.customParams.metal_extractor) == 0 -- just snaps to mexes ?
+end
+
+local function needsMapTidal(unitDef)
+	return unitDef.tidalGenerator > 0
+		or customNumber(unitDef.customParams.tidal_generator) == 0 -- just uses tide speed ?
+end
+
+local function needsMapWind(unitDef)
+	return unitDef.windGenerator > 0
+		or customNumber(unitDef.customParams.wind_generator) == 0 -- just faces into wind ?
 end
 
 local function needsWater(unitDef)
 	return unitDef.minWaterDepth >= 0
+		or (unitDef.moveDef and unitDef.moveDef.speedModClass == SPEEDMOD.Ship and unitDef.moveDef.depth > 0)
 end
 
 local function isRestrictedUnit(unitDef)
@@ -427,6 +442,10 @@ end
 local function isConstructionTurret(unitDef)
 	return unitDef.isBuilder and unitDef.movementClass == "NANO"
 		and unitDef.isImmobile and not unitDef.isFactory
+end
+
+local function isFactoryUnit(unitDef)
+	return unitDef.isFactory and unitDef.buildOptions[1] ~= nil
 end
 
 local function canBuild(unitDef)
@@ -790,7 +809,7 @@ do
 		elseif weaponDef.damages and hasWaterDamageValue(weaponDef.damages) then
 			return true
 		elseif custom.spark_basedamage or custom.spawns_name then
-			return true -- spark is crushing, spawns is... who knows
+			return true -- nothing is immune to crush damage
 		elseif custom.cluster_def then
 			local cluster = WeaponDefNames[custom.cluster_def]
 			return cluster and hasWaterDamageValue(cluster)
@@ -808,17 +827,25 @@ do
 		ship       = true,
 		underwater = true,
 	}
-	local function inWaterCategory(v)
-		return waterTargetCategory[v]
-	end
 	local function hasWaterTargetOnly(categories)
-		return table.filterTable(categories, inWaterCategory)[1] ~= nil
+		if next(categories) == nil then
+			return false
+		end
+		for category in pairs(categories) do
+			if not waterTargetCategory[category] then
+				return false
+			end
+		end
+		return true
 	end
 
 	needsMapWater = function(unitDef)
-		if unitDef.minWaterDepth > 0 then
+		if customBool(unitDef.customParams.enabled_on_no_sea_maps) then
+			return false
+		elseif needsWater(unitDef) then -- build placement check only
 			return true
 		end
+
 		for _, weapon in ipairs(unitDef.weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
 			if hasWaterDamage(weaponDef.damages) and (
@@ -1496,6 +1523,9 @@ UnitInfo.Classifiers = {
 	footprint                = footprint,
 	footprintSize            = footprintSize,
 	needsGeothermal          = needsGeothermal,
+	needsMetalSpot           = needsMetalSpot,
+	needsMapWind             = needsMapWind,
+	needsMapTidal            = needsMapTidal,
 	needsWater               = needsWater,
 	isRestrictedUnit         = isRestrictedUnit,
 	isStartUnit              = isStartUnit,
