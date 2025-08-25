@@ -23,8 +23,6 @@ local iconSequenceFrametime = 0.02	-- duration per frame
 local unitScope = {} -- table of teamid to table of stallable unitID : unitDefID
 local idleUnitList = {}
 
-local spGetUnitCommandCount = Spring.GetUnitCommandCount
-local spGetFactoryCommands = Spring.GetFactoryCommands
 local spGetUnitTeam = Spring.GetUnitTeam
 local spec = Spring.GetSpectatingState()
 local myTeamID = Spring.GetMyTeamID()
@@ -32,21 +30,13 @@ local spValidUnitID = Spring.ValidUnitID
 local spGetUnitIsDead = Spring.GetUnitIsDead
 local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
 
+local isIdleBuilder = Game.UnitInfo.Cache.isIdleBuilderUnit
 local unitConf = {}
-do
-	local canBuild = Game.UnitInfo.Cache.canBuild
-	local isCloakedEmpUnit = Game.UnitInfo.Cache.isCloakedEmpUnit
-	local isReplicatorUnit = Game.UnitInfo.Cache.isReplicatorUnit
-	local isUnusualUnit = Game.UnitInfo.Cache.isUnusualUnit
-
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		if not isUnusualUnit[unitDefID] then
-			if canBuild[unitDefID] and not isCloakedEmpUnit[unitDefID] and not isReplicatorUnit[unitDefID] then
-				local xsize, zsize = unitDef.xsize, unitDef.zsize
-				local scale = 3.3 * ( (xsize+2)^2 + (zsize+2)^2 )^0.5
-				unitConf[unitDefID] = {7.5 +(scale/2.2), unitDef.height-0.1, unitDef.isFactory}
-			end
-		end
+for unitDefID, unitDef in pairs(UnitDefs) do
+	if isIdleBuilder[unitDefID] then
+		local xsize, zsize = unitDef.xsize, unitDef.zsize
+		local scale = 3.3 * ( (xsize+2)^2 + (zsize+2)^2 )^0.5
+		unitConf[unitDefID] = { 7.5 +(scale/2.2), unitDef.height-0.1 }
 	end
 end
 
@@ -119,10 +109,9 @@ end
 
 local function updateIcons()
 	local gf = Spring.GetGameFrame()
-	local queue
 	for unitID, unitDefID in pairs(unitScope) do
-		queue = unitConf[unitDefID][3] and spGetFactoryCommands(unitID, 0) or spGetUnitCommandCount(unitID, 0)
-		if queue == 0 then
+		local test = isIdleBuilder[unitDefID]
+		if test ~= nil and test(unitID) then
 			if iconVBO.instanceIDtoIndex[unitID] == nil then -- not already being drawn
 				if spValidUnitID(unitID) and not spGetUnitIsDead(unitID) and not spGetUnitIsBeingBuilt(unitID) then
 					if not idleUnitList[unitID] then

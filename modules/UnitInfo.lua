@@ -1163,38 +1163,40 @@ end
 
 -- State functions -------------------------------------------------------------
 
-local function isIdleConstructor(unitID)
+local function __isIdleConstructor(unitID)
 	return Spring.GetUnitCommandCount(unitID) == 0
 end
 
-local function isIdleFactory(unitID)
+local function __isIdleFactory(unitID)
 	return Spring.GetFactoryCommandCount(unitID) == 0
 end
 
 local function isIdleBuilderUnit(unitDef)
-	if not canCreateUnits(unitDef) or isReplicatorUnit(unitDef) then
+	if not canBuild(unitDef) then
 		return
-	elseif unitDef.canCloak and unitDef.stealth then
-		return -- Infiltrator
+	elseif isCloakedEmpUnit(unitDef) or isReplicatorUnit(unitDef) then
+		return
 	elseif isUnusualUnit(unitDef) then
 		return
 	end
 
 	if unitDef.isFactory then
-		return isIdleFactory
-	elseif not unitDef.isImmobile then
-		return isIdleConstructor -- excludes turrets
+		return __isIdleFactory
+	else
+		-- We do not need to exclude construction turrets
+		-- because they receive idle commands (usually!)
+		return __isIdleConstructor
 	end
 end
 
-local function isIdleCombatant(unitID)
+local function __isIdleCombatant(unitID)
 	return Spring.GetUnitCommandCount(unitID) == 0
 		and Spring.GetUnitWeaponTarget(unitID, 1) == nil
 end
 
 local function isIdleCombatantUnit(unitDef)
 	if hasWeapon(unitDef) and not unitDef.isImmobile and not isUnusualUnit(unitDef) then
-		return isIdleCombatant
+		return __isIdleCombatant
 	end
 end
 
