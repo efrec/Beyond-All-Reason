@@ -1,13 +1,9 @@
 -------------------------------------------------------------- [UnitInfo.lua] --
--- Unit classification and property caching, handled in a centralized module. --
+--------------------------------------------------------------------------------
 
 if not UnitDefs or not Game then
 	return false
 end
-
----Provides definitions and classifiers for many unit properties and groupings.
----@module UnitInfo
-local UnitInfo = {}
 
 --------------------------------------------------------------------------------
 -- Module configuration --------------------------------------------------------
@@ -16,140 +12,6 @@ local UnitInfo = {}
 -- - `sparse` layout produces hash sets that treat `false` and zeroes as `nil`.
 -- - `sequential` layout produces dense arrays for faster direct memory access.
 local CACHE_TABLE_LAYOUT = "sparse" ---@type "sparse"|"sequential"
-
---------------------------------------------------------------------------------
--- Module cache ----------------------------------------------------------------
-
--- Strip trivial, false, and empty values to produce a sparse-er set.
--- Properties with e.g. meaningful zeroes should use `AddCacheValue`.
--- todo: This should be done after all values are determined, not per-value.
--- todo: Eg. if a set contains only nil's and false's, then remap the table.
-local function sparsify(value)
-	if value ~= nil then
-		if type(value) == "table" then
-			if not next(value) then
-				return
-			else
-				value = table.copy(value)
-			end
-		elseif type(value) == "string" then
-			-- behold:
-			if value == "" or value == "nil" then
-				return
-			elseif value == "true" then
-				return true
-			elseif value == "false" then
-				return false
-			end
-			local number = tonumber(value)
-			if number ~= nil then
-				value = number
-			end
-		end
-		if value ~= false and value ~= "false" and value ~= 0 and value ~= "0" then
-			return value
-		end
-	end
-end
-
--- Create sequential arrays for faster lookups via sequential addressing.
--- Properties that default to `true` on `nil` should use `AddCacheValue`.
--- todo: This also should be done as a whole-table layout, not per-value.
--- todo: Adding this note, since otherwise the WIP approach is confusing.
-local function solidify(value)
-	return value == nil and false or value
-end
-
-local tableCreate = {
-	sparse     = function() return table.new(0, 4) end,
-	sequential = function() return table.new(#UnitDefs, 0) end,
-}
-
-local tableLayout = {
-	sparse     = sparsify,
-	sequential = solidify,
-}
-
-local create = tableCreate[CACHE_TABLE_LAYOUT] or tableCreate.sparse
-local layout = tableLayout[CACHE_TABLE_LAYOUT] or tableLayout.sparse
-
--- The original module was monkey-patchable, but it was a pain to upkeep.
--- I use locals `cache` and `classifiers`, not `Cache` and `Classifiers`.
--- See "How I write Lua modules", from https://blog.separateconcerns.com.
-
-local cache = {}
-local classifiers = {}
-
-setmetatable(cache, {
-	-- Values that are not in the cache get cached automatically.
-	__index = function(self, key)
-		if type(key) == "string" then
-			local values = create()
-			if classifiers[key] then
-				local pred = classifiers[key]
-				for unitDefID, unitDef in ipairs(UnitDefs) do
-					values[unitDefID] = layout(pred(unitDef))
-				end
-			else
-				local lower = key:lower()
-				for unitDefID, unitDef in ipairs(UnitDefs) do
-					local value = unitDef[key]
-					if value == nil then
-						value = unitDef.customParams[lower]
-					end
-					values[unitDefID] = layout(value)
-				end
-			end
-			rawset(self, key, values)
-			return values
-		end
-	end
-})
-
----Add (or get) a shared table of <unitDefID, value> pairs to (and from) cache.
----@param name string
----@param predicate function|table
----@return table? values
----@return boolean? added
-local function CacheValue(name, predicate)
-	if rawget(cache, name) ~= nil then
-		return cache[name], false
-	elseif type(predicate) == "function" then
-		local values = {}
-		for unitDefID, unitDef in ipairs(UnitDefs) do
-			values[unitDefID] = predicate(unitDef)
-		end
-		cache[name] = values
-		return values, true
-	elseif type(predicate) == "table" then
-		cache[name] = predicate
-		return predicate, true
-	end
-end
-
----Set whether or not the individual cache tables are garbage collected.
----@param collected boolean
-local function SetModuleCacheMode(collected)
-	if collected then
-		for _, name in ipairs { "Cache", "Classifiers", "MoveScripts" } do
-			local subtable = UnitInfo[name]; -- load-bearing semicolon
-			(getmetatable(subtable) or setmetatable(subtable, {})).__mode = "kv"
-		end
-	else
-		for _, name in ipairs { "Cache", "Classifiers", "MoveScripts" } do
-			local subtable = UnitInfo[name]
-			local mt = getmetatable(subtable)
-			if table.count(mt) == 1 and mt.__mode then
-				setmetatable(subtable, nil) -- strip the metatable when we can
-			else
-				mt.__mode = ""
-			end
-		end
-	end
-end
-
--- Simple rule to follow: If you need it later, stash it into a local variable.
-SetModuleCacheMode(true)
 
 --------------------------------------------------------------------------------
 -- Module internals ------------------------------------------------------------
@@ -186,10 +48,6 @@ local function hasPositiveValue(key, value)
 	return type(value) == "number" and value > 0
 end
 
--- Lexical scope fixes:
-local hasWeapon                                                     -- isSpecialUpgrade
-local isSpamUnit, isUnusualUnit, isVisionBuilding, isJammerBuilding -- isJunoDamageTarget
-
 ---Coerce string-ified customParams to boolean
 ---@return boolean?
 local function customBool(value)
@@ -206,27 +64,46 @@ local function customNumber(value, default)
 	return value ~= nil and tonumber(value) or (default or 0)
 end
 
+-- Lexical scope fixes:
+local hasWeapon                                                     -- isSpecialUpgrade
+local isSpamUnit, isUnusualUnit, isVisionBuilding, isJammerBuilding -- isJunoDamageTarget
+
 local function getSideCode(name)
 	return SIDES[name:sub(1, 3):lower()]
 end
 
--- todo: helper for cases like this with build trees?
----@type function|nil
 local function getStartUnitFn()
-	local config = Spring.GetTeamRulesParam(myTeamID, "validStartUnits") or Spring.GetGameRulesParam("validStartUnits")
+	-- There Has To Be A Better Way
+	local config = Spring.GetGameRulesParam("validStartUnits")
+
+	if config == nil and Spring.GetMyTeamID then
+		config = Spring.GetTeamRulesParam(Spring.GetMyTeamID(), "validStartUnits")
+	end
+
+	if config == nil then
+		local configs = {}
+		for _, team in ipairs(Spring.GetTeamList() or {}) do
+			configs[#configs+1] = Spring.GetTeamRulesParam(team, "validStartUnits")
+		end
+		if next(configs) then
+			config = table.concat(configs, "|")
+		end
+	end
+
 	if config ~= nil then
 		local sideConfig = string.split(config, "|")
 		if sideConfig ~= nil and #sideConfig > 0 then
 			local unitDefToSideID = {}
 			for i, name in ipairs(sideConfig) do
-				local unitDef = name and UnitDefNames[name]
-				if unitDef ~= nil then
-					unitDefToSideID[UnitDefNames[name].id] = getSideCode(unitDef.name) or i
+				local def = name and UnitDefNames[name]
+				if def ~= nil then
+					unitDefToSideID[def.id] = getSideCode(def.name) or i
 				end
 			end
 			return function(unitDef) return unitDefToSideID[unitDef.id] end
 		end
 	end
+
 	-- Fallback attempt. This should be an error condition, most likely.
 	return function(unitDef) return customBool(unitDef.customParams.iscommander) end
 end
@@ -245,6 +122,7 @@ local function spamRating(unitDef)
 end
 
 ---Some units have "unused" weapon defs that serve other purposes, which we ignore.
+-- todo: overused, don't need to check this when looping unitDef.weapons, obviously
 local function equipsDef(unitDef, weaponDefID)
 	for _, weapon in ipairs(unitDef.weapons) do
 		if weapon.weaponDef == weaponDefID then
@@ -257,7 +135,7 @@ end
 ---Some weapons, like the Juno, are exceptional cases. Should this include them?
 local function hasDamage(weaponDef)
 	local custom = weaponDef.customParams
-	if custom.bogus then
+	if custom.bogus or weaponDef.shieldPower then
 		return false
 	elseif weaponDef.damages and table.any(weaponDef.damages, hasPositiveValue) then
 		return true
@@ -416,13 +294,13 @@ local function isRestrictedUnit(unitDef)
 	return unitDef.maxThisUnit == 0 -- todo: other restriction methods?
 end
 
+local __isStartUnit = function() return true end
 local function isStartUnit(unitDef)
-	if getStartUnitFn then
-		local fn = getStartUnitFn()
-		getStartUnitFn = nil
-		classifiers.isStartUnit = fn
-		return fn(unitDef)
+	if unitDef.id == 1 then
+		-- Repopulate build tree and etc
+		__isStartUnit = getStartUnitFn()
 	end
+	__isStartUnit(unitDef)
 end
 
 -- Tech and upgrades
@@ -479,7 +357,7 @@ local function isConstructionUnit(unitDef)
 	return not unitDef.isImmobile
 		and unitDef.isBuilder
 		and unitDef.canAssist
-		and next(unitDef.buildOptions)
+		and unitDef.buildOptions[1] ~= nil
 end
 
 local function isConstructionTurret(unitDef)
@@ -488,11 +366,14 @@ local function isConstructionTurret(unitDef)
 end
 
 local function canBuild(unitDef)
-	return unitDef.buildSpeed > 0 and (unitDef.canAssist or next(unitDef.buildOptions))
+	return unitDef.buildSpeed > 0
+		and (unitDef.canAssist or unitDef.buildOptions[1] ~= nil)
+		-- This was excluded often in code but seems unnecessary:
+		and not customBool(unitDef.customParams.isairbase)
 end
 
 local function canCreateUnits(unitDef)
-	return next(unitDef.buildOptions) or unitDef.canResurrect
+	return unitDef.buildOptions[1] ~= nil or unitDef.canResurrect
 end
 
 local function isReplicatorUnit(unitDef)
@@ -551,7 +432,7 @@ end
 hasWeapon = function(unitDef)
 	for _, weapon in ipairs(unitDef.weapons) do
 		local weaponDef = WeaponDefs[weapon.weaponDef]
-		if equipsDef(unitDef, weaponDef.id) and hasDamage(weaponDef) then
+		if hasDamage(weaponDef) then
 			return true
 		end
 	end
@@ -573,7 +454,7 @@ end
 local function hasAntiAirWeapon(unitDef)
 	for _, weapon in ipairs(unitDef.weapons) do
 		local weaponDef = WeaponDefs[weapon.weaponDef]
-		if equipsDef(unitDef, weaponDef.id) and hasDamage(weaponDef) then
+		if hasDamage(weaponDef) then
 			if weapon.onlyTargets and weapon.onlyTargets.vtol then
 				return true
 			end
@@ -586,7 +467,7 @@ local function hasBomberWeapon(unitDef)
 	-- NB: This does not test if the unit is an air unit.
 	for _, weapon in ipairs(unitDef.weapons) do
 		local weaponDef = WeaponDefs[weapon.weaponDef]
-		if equipsDef(unitDef, weaponDef.id) and hasDamage(weaponDef) and (
+		if hasDamage(weaponDef) and (
 				weaponDef.type == "AircraftBomb" or
 				(weaponDef.type == "TorpedoLauncher" and weaponDef.customParams.speceffect == "torpwaterpen") or
 				-- Some other thing with this profile:
@@ -605,7 +486,7 @@ end
 local function hasInterceptableWeapon(unitDef)
 	for i = 1, #unitDef.weapons do
 		local weaponDef = WeaponDefs[unitDef.weapons[i].weaponDef]
-		if weaponDef.targetable > 0 and equipsDef(unitDef, weaponDef.id) then
+		if weaponDef.targetable > 0 then
 			return true
 		end
 	end
@@ -615,7 +496,7 @@ end
 local function hasInterceptorWeapon(unitDef)
 	for i = 1, #unitDef.weapons do
 		local weaponDef = WeaponDefs[unitDef.weapons[i].weaponDef]
-		if weaponDef.interceptor and weaponDef.interceptor ~= 0 and equipsDef(unitDef, weaponDef.id) then
+		if weaponDef.interceptor and weaponDef.interceptor ~= 0 then
 			return true
 		end
 	end
@@ -625,7 +506,7 @@ end
 local function hasParalyzerWeapon(unitDef)
 	for i = 1, #unitDef.weapons do
 		local weaponDef = WeaponDefs[unitDef.weapons[i].weaponDef]
-		if weaponDef.paralyzer and hasDamage(weaponDef) and equipsDef(unitDef, weaponDef.id) then
+		if weaponDef.paralyzer and hasDamage(weaponDef) then
 			return true
 		end
 	end
@@ -773,7 +654,7 @@ local function isDefensiveStructureUnit(unitDef)
 	if unitDef.isImmobile then
 		for _, weapon in ipairs(unitDef.weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
-			if weaponDef.range > SELF_RANGE and equipsDef(unitDef, weaponDef.id) and hasDamage(weaponDef) then
+			if weaponDef.range > SELF_RANGE and hasDamage(weaponDef) then
 				return true
 			end
 		end
@@ -787,7 +668,7 @@ local function isLongRangeCannonUnit(unitDef)
 		for _, weapon in ipairs(unitDef.weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
 			if weaponDef.type == "Cannon" and weaponDef.range > longRange and
-				equipsDef(unitDef, weaponDef.id) and hasDamage(weaponDef)
+				hasDamage(weaponDef)
 			then
 				return true
 			end
@@ -801,6 +682,16 @@ isSpamUnit = function(unitDef)
 	return score > 0
 end
 
+local function isCloakedEmpUnit(unitDef)
+	if unitDef.canCloak and not hasWeapon(unitDef) then
+		local selfd = selfDExplosionWeapon(unitDef)
+		if selfd and selfd.paralyzer then
+			return true
+		end
+	end
+	return false
+end
+
 -- Domain
 
 local function needsMapLand(unitDef)
@@ -810,59 +701,69 @@ end
 local needsMapWater
 do
 	-- Units also require map water when they are combat units with:
-	-- - only weapons that can fire only while underwater
-	-- - only weapons that can target only units that are underwater
-	-- - only weapons that can target only categories restricted to water
-	-- - only weapons that can damage only water targets (ignoring this)
-	local customWaterWeapon = {
-		cannonwaterpen = true,
-		torpwaterpen   = true,
-	}
+	-- - only weapons that can target only units that are underwater (via TorpedoLauncher checks)
+	-- - only weapons that can target only categories restricted to water (via onlyTargets)
+	-- - only weapons that can fire only while underwater (via unit script, not checked)
+	-- - only weapons that can damage only water targets (via damages)
+
+	local waterArmorCategory = { "default", "standard", "lboats", "hvyboats", "subs", } -- canbeuw => standard
+	local function hasWaterDamageValue(damages)
+		for _, index in ipairs(waterArmorCategory) do
+			if damages[index] > 1 then
+				return true
+			end
+		end
+		return false
+	end
+
+	-- from hasDamage:
+	local function hasWaterDamage(weaponDef)
+		local custom = weaponDef.customParams
+		if custom.bogus or weaponDef.shieldPower then
+			return false
+		elseif weaponDef.damages and hasWaterDamageValue(weaponDef.damages) then
+			return true
+		elseif custom.spark_basedamage or custom.spawns_name then
+			return true -- spark is crushing, spawns is... who knows
+		elseif custom.cluster_def then
+			local cluster = WeaponDefNames[custom.cluster_def]
+			return cluster and hasWaterDamageValue(cluster)
+		elseif custom.dronename then
+			local drone = UnitDefNames[custom.dronename]
+			return drone and drone.weapons[1] and hasWaterDamageValue(drone.weapons[1])
+		else
+			return false
+		end
+	end
+
 	local waterTargetCategory = {
 		canbeuw    = true,
+		nothover   = true,
 		ship       = true,
 		underwater = true,
 	}
-	local function inWaterCategory(v) -- dumb
+	local function inWaterCategory(v)
 		return waterTargetCategory[v]
+	end
+	local function hasWaterTargetOnly(categories)
+		return table.filterTable(categories, inWaterCategory)[1] ~= nil
 	end
 
 	needsMapWater = function(unitDef)
 		if unitDef.minWaterDepth > 0 then
 			return true
-		else
-			for _, weapon in ipairs(unitDef.weapons) do
-				if equipsDef(unitDef, weapon.weaponDef) then
-					local weaponDef = WeaponDefs[weapon.weaponDef]
-					local waterWeaponOnly = false
-
-					-- Must fire from water.
-					if weaponDef.waterWeapon then
-						waterWeaponOnly = true
-					else
-						local effect = weaponDef.customParams.speceffect
-						if effect and customWaterWeapon[effect] then
-							waterWeaponOnly = true
-						end
-					end
-
-					-- May target out of water.
-					if weaponDef.submissile then
-						waterWeaponOnly = false
-					end
-
-					-- Must target water units.
-					if table.filterTable(weapon.onlyTargets, inWaterCategory)[1] then
-						waterWeaponOnly = true
-					end
-
-					if not waterWeaponOnly then
-						return false
-					end
-				end
-			end
-			return true
 		end
+		for _, weapon in ipairs(unitDef.weapons) do
+			local weaponDef = WeaponDefs[weapon.weaponDef]
+			if hasWaterDamage(weaponDef.damages) and (
+					hasWaterTargetOnly(weapon.onlyTargets)
+					or (weaponDef.type == "TorpedoLauncher" and weaponDef.fireSubmersed)
+				)
+			then
+				return false
+			end
+		end
+		return true
 	end
 end
 
@@ -1268,10 +1169,220 @@ local function unitScaleIcon(unitDef)
 end
 
 --------------------------------------------------------------------------------
+-- Module cache ----------------------------------------------------------------
+
+-- Strip trivial, false, and empty values to produce a sparse-er set.
+-- Properties with e.g. meaningful zeroes should use `AddCacheValue`.
+-- todo: This should be done after all values are determined, not per-value.
+-- todo: Eg. if a set contains only nil's and false's, then remap the table.
+local function sparsify(value)
+	if value ~= nil then
+		if type(value) == "table" then
+			if not next(value) then
+				return
+			else
+				value = table.copy(value)
+			end
+		elseif type(value) == "string" then
+			-- behold:
+			if value == "" or value == "nil" then
+				return
+			elseif value == "true" then
+				return true
+			elseif value == "false" then
+				return false
+			end
+			local number = tonumber(value)
+			if number ~= nil then
+				value = number
+			end
+		end
+		if value ~= false and value ~= "false" and value ~= 0 and value ~= "0" then
+			return value
+		end
+	end
+end
+
+-- Create sequential arrays for faster lookups via sequential addressing.
+-- Properties that default to `true` on `nil` should use `AddCacheValue`.
+-- todo: This also should be done as a whole-table layout, not per-value.
+-- todo: Adding this note, since otherwise the WIP approach is confusing.
+local function solidify(value)
+	return value == nil and false or value
+end
+
+local tableCreate = {
+	sparse     = function() return table.new(0, 4) end,
+	sequential = function() return table.new(#UnitDefs, 0) end,
+}
+
+local tableLayout = {
+	sparse     = sparsify,
+	sequential = solidify,
+}
+
+-- The original module was monkey-patchable, but it was a pain to upkeep.
+-- I use locals `cache` and `classifiers`, not `Cache` and `Classifiers`.
+-- See "How I write Lua modules", from https://blog.separateconcerns.com.
+
+-- We need a unified cache table to handle all property accesses with:
+-- 1. Lazy loading. Data is populated on first access and made available after.
+-- 2. Debounced refresh. Properties can be refreshed only at a given rate.
+-- 3. Fast access. Data is not protected from tampering in the name of speed.
+-- 4. Protected methods. Metamethods, however, are protected from tampering.
+
+local cache = {}
+local classifiers = {}
+local cacheDirty, cacheValue
+do
+	local bounce = 1 ---@type number Minimum time (s) between refreshes.
+
+	local cached = {} -- Private backing table containing cached values.
+	local update = {} -- Process time that cache table was last updated.
+	local canAdd = false -- Classifiers can pre-cache other classifiers.
+
+	local nDefs = #UnitDefs -- Changes to this value should refresh all.
+	local nPrev = #UnitDefs -- When > nDefs, remove upper table indices.
+
+	local os_sec = os.clock
+	local create = tableCreate[CACHE_TABLE_LAYOUT] or tableCreate.sparse
+	local layout = tableLayout[CACHE_TABLE_LAYOUT] or tableLayout.sparse
+
+	-- These may have been removed from some sandboxed environments
+	-- but still we should work around usercode metamethod shenans:
+	local rawget = rawget or function(tbl, key) return tbl[key] end
+	local rawset = rawset or function(tbl, key, v) tbl[key] = v end
+
+	local function init(key)
+		local tbl = rawget(cached, key)
+		if tbl == nil then
+			tbl = create()
+		elseif nDefs ~= nPrev then
+			-- `fetch` will set all keys within 1..nDefs:
+			for i = nDefs + 1, nPrev do rawset(tbl, i) end
+		end
+		return tbl
+	end
+
+	local function fetch(key)
+		local tbl = init(key)
+		local c = classifiers[key]
+		if c ~= nil then
+			canAdd = true
+			for unitDefID, unitDef in ipairs(UnitDefs) do
+				rawset(tbl, unitDefID, layout(c(unitDef)))
+			end
+			canAdd = false
+		else
+			local lower = key:lower()
+			for unitDefID, unitDef in ipairs(UnitDefs) do
+				local value = unitDef.customParams[lower]
+				if value == nil then
+					value = unitDef[key]
+				end
+				rawset(tbl, unitDefID, layout(value))
+			end
+		end
+		update[key] = os_sec() -- todo: move out of fetch
+		return tbl
+	end
+
+	local function refetch(key, seconds)
+		local last = update[key]
+		if last == nil or seconds - last > bounce then
+			if UnitDefs[nDefs] == nil or UnitDefs[nDefs + 1] ~= nil then
+				nPrev = nDefs
+				nDefs = #UnitDefs
+			end
+			fetch(key)
+		end
+	end
+
+	local function addCachedTable(self, key, value)
+		if canAdd and type(key) == "string" and type(value) == "table" then
+			rawset(cached, key, value)
+		end
+	end
+
+	local function getCachedTable(self, key)
+		if type(key) ~= "string" then
+			return
+		end
+		local values = rawget(cached, key)
+		if values == nil then
+			values = fetch(key)
+			rawset(cached, key, values)
+		end
+		return values
+	end
+
+	local function addClassifier(self, key, value)
+		if type(key) == "string" and type(value) == "function" then
+			rawset(self, key, value)
+		end
+	end
+
+	cache = setmetatable(cache, {
+		__newindex  = addCachedTable,
+		__index     = getCachedTable,
+		__metatable = false,
+		__mode      = "kv",
+	})
+
+	classifiers = setmetatable(classifiers, {
+		__newindex  = addClassifier,
+		__metatable = false,
+		__mode      = "kv",
+	})
+
+	---Request that `UnitInfo.Cache` refreshes its tables or a specific table.
+	-- The first refresh will occur immediately followed by a debounce period.
+	-- Cached tables continue to refresh until none are marked as being dirty. -- todo
+	cacheDirty = function(key)
+		if key == nil then
+			local sec = os_sec()
+			for key in pairs(cached) do refetch(key, sec) end
+		elseif type(key) == "string" and type(rawget(cached, key)) == "table" then
+			local sec = os_sec()
+			refetch(key, sec)
+		end
+	end
+
+	---Add a new cache key populated with an anonymous classifier or a table.
+	-- Existing values will not be overridden, nor will existing classifiers.
+	---@param key string
+	---@param predicate function|table
+	---@return table result
+	---@return boolean added
+	cacheValue = function(key, predicate)
+		local values = rawget(cached, key)
+
+		if type(values) == "table" then
+			return values, false
+		elseif classifiers[key] ~= nil then
+			return cache[key], false
+		end
+
+		if type(predicate) == "function" then
+			values = {}
+			for unitDefID, unitDef in ipairs(UnitDefs) do
+				values[unitDefID] = predicate(unitDef)
+			end
+			cached[key] = values
+			return values, true
+		else
+			cached[key] = predicate -- rejects non-tables
+			return cached[key], cached[key] == predicate -- so check
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
 -- Export module ---------------------------------------------------------------
 
-UnitInfo.CacheValue = CacheValue
-UnitInfo.SetModuleCacheMode = SetModuleCacheMode
+---Provides definitions and classifiers for many unit properties and groupings.
+---@module UnitInfo
+local UnitInfo = {}
 
 ---Cached unit properties, indexed by unitDefID.
 --
@@ -1283,6 +1394,9 @@ UnitInfo.SetModuleCacheMode = SetModuleCacheMode
 -- You also have access to all the named classifiers (see UnitInfo.Classifiers).
 ---@type table<string, table>
 UnitInfo.Cache = cache
+
+UnitInfo.CacheValue = cacheValue
+UnitInfo.CacheDirty = cacheDirty
 
 ---Functions for deriving unit properties from their UnitDef table.
 --
@@ -1377,6 +1491,7 @@ UnitInfo.Classifiers = {
 	isDefensiveStructureUnit = isDefensiveStructureUnit,
 	isLongRangeCannonUnit    = isLongRangeCannonUnit,
 	isSpamUnit               = isSpamUnit,
+	isCloakedEmpUnit         = isCloakedEmpUnit,
 
 	-- Domain
 	needsMapLand             = needsMapLand,
