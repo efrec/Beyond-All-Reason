@@ -1065,7 +1065,7 @@ local function isVirtualizedUnit(unitDef)
 end
 
 local function isAutonomousUnit(unitDef)
-	return customBool(unitDef.customParams.drone)
+	return (customBool(unitDef.customParams.drone) and not customBool(unitDef.customParams.manualdrones))
 		or (hasPhysicalInteraction(unitDef)
 			and not hasPlayerInteraction(unitDef)
 			and hasUnitAbility(unitDef)
