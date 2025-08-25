@@ -394,16 +394,17 @@ end
 
 local function isSpecialTech(unitDef)
 	return baseTechLevel(unitDef) ~= customNumber(unitDef.customParams.techlevel, 1)
+		-- todo: should be a customparam, but is not
+		or customNumber(unitDef.customParams.techupgrade) ~= nil
 end
 
 local function isSpecialUpgrade(unitDef)
 	-- For now, this includes only the special-tech extractors:
-	return (unitDef.extractsMetal > 0 or needsGeothermal(unitDef))
-		and (unitDef.stealth or hasWeapon(unitDef)
-		-- todo: should be a customparam, but is not
-		or (unitDef.customParams.attached_builder_def and UnitDefNames[unitDef.customParams.attached_builder_def]))
-		-- todo: should be a customparam, but is not
-		or customNumber(unitDef.customParams.techupgrade) ~= nil
+	return (unitDef.extractsMetal > 0 or needsGeothermal(unitDef)) and (
+			isSpecialTech(unitDef)
+			or unitDef.canCloak
+			or hasWeapon(unitDef)
+		)
 end
 
 local function extractionRating(unitDef)

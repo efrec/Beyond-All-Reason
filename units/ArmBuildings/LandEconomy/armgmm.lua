@@ -42,6 +42,7 @@ return {
 			removewait = true,
 			subfolder = "ArmBuildings/LandEconomy",
 			techlevel = 2,
+			techupgrade = 2,
 			unitgroup = "energy",
 			usebuildinggrounddecal = true,
 		},

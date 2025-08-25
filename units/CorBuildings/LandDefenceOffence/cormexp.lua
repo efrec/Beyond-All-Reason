@@ -46,6 +46,7 @@ return {
 			removewait = true,
 			subfolder = "CorBuildings/LandDefenceOffence",
 			techlevel = 2,
+			techupgrade = 2,
 			unitgroup = "metal",
 			usebuildinggrounddecal = true,
 		},

@@ -48,6 +48,7 @@ return {
 			subfolder = "ArmBuildings/LandEconomy",
 			unitgroup = "metal",
 			usebuildinggrounddecal = true,
+			techupgrade = 1,
 		},
 		featuredefs = {
 			dead = {

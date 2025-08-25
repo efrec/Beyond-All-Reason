@@ -51,6 +51,7 @@ return {
             removewait = true,
             subfolder = "CorBuildings/LandEconomy",
             techlevel = 2,
+			techupgrade = 2,
 			inheritxpratemultiplier = 1,
 			childreninheritxp = "DRONE",
 			parentsinheritxp = "DRONE",

@@ -47,7 +47,7 @@ local geoConstructors = {}
 local geoConstructorsDef = {}
 local geoBuildings = Game.UnitInfo.Cache.needsGeothermal
 
-local techLevel = Game.UnitInfo.Cache.techLevel
+local baseTechLevel = Game.UnitInfo.Cache.baseTechLevel -- e.g. T1.5 -> T1
 local isSpecialUpgrade = Game.UnitInfo.Cache.isSpecialUpgrade
 local extractionRating = Game.UnitInfo.Cache.extractionRating
 
@@ -182,13 +182,10 @@ local function extractorCanBeUpgraded(currentExtractorUuid, newExtractorId)
 		return false
 	end
 
-	if(newExtractorStrength > currentExtractorStrength) then
+	if(newExtractorStrength >= currentExtractorStrength) then
 		return true
 	end
-	if(newExtractorStrength == currentExtractorStrength) then
-		return true
-	end
-	if isSpecialUpgrade[newExtractorId] and techLevel[newExtractorId] == techLevel[currentExtractorId] then
+	if isSpecialUpgrade[newExtractorId] and baseTechLevel[newExtractorId] == baseTechLevel[currentExtractorId] then
 		return true
 	end
 

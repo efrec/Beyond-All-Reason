@@ -46,6 +46,7 @@ return {
 			subfolder = "CorBuildings/LandDefenceOffence",
 			unitgroup = "metal",
 			usebuildinggrounddecal = true,
+			techupgrade = 1,
 		},
 		featuredefs = {
 			dead = {
