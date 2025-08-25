@@ -185,7 +185,7 @@ local function extractorCanBeUpgraded(currentExtractorUuid, newExtractorId)
 	if(newExtractorStrength >= currentExtractorStrength) then
 		return true
 	end
-	if isSpecialUpgrade[newExtractorId] and baseTechLevel[newExtractorId] == baseTechLevel[currentExtractorId] then
+	if isSpecialUpgrade[newExtractorId] and isSpecialUpgrade[newExtractorId] >= baseTechLevel[currentExtractorId] then
 		return true
 	end
 
