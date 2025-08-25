@@ -68,6 +68,8 @@ if deathmode == "builders" then
 	isEndUnit = Game.UnitInfo.Cache.canCreateUnits
 elseif deathmode == "com" or deathmode == "own_com" then
 	isEndUnit = Game.UnitInfo.Cache.isCommanderUnit
+else
+	return false
 end
 
 local function commanderDeath(teamID, originX, originZ) -- optional: attackerUnitID, originX, originZ
