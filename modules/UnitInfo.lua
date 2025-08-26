@@ -67,6 +67,7 @@ end
 -- Lexical scope fixes:
 local hasWeapon                                                     -- isSpecialUpgrade
 local isSpamUnit, isUnusualUnit, isVisionBuilding, isJammerBuilding -- isJunoDamageTarget
+local isImmobileUnit                                                -- isConstructionTurret
 
 local function getSideCode(name)
 	return SIDES[name:sub(1, 3):lower()]
@@ -434,33 +435,31 @@ end
 ---Compare against isMobileBuilder
 local function isConstructionUnit(unitDef)
 	return not unitDef.isImmobile
-		and unitDef.isBuilder
-		and unitDef.canAssist
+		-- buildDistance defaults to 128 but is effective above 16:
+		and unitDef.canAssist and unitDef.buildDistance > FOOTPRINT
 		and unitDef.buildOptions[1] ~= nil
 end
 
+---Compare against isStaticBuilder
 local function isConstructionTurret(unitDef)
-	return unitDef.isBuilder and unitDef.movementClass == "NANO"
-		and unitDef.isImmobile and not unitDef.isFactory
+	return isImmobileUnit(unitDef) and not unitDef.isFactory
+		and unitDef.canAssist and unitDef.buildDistance > FOOTPRINT
+		and not customBool(unitDef.customParams.isairbase)
 end
 
-local function isFactoryUnit(unitDef)
-	return unitDef.isFactory and unitDef.buildOptions[1] ~= nil
+local function isReplicatorUnit(unitDef)
+	return unitDef.buildOptions[1] == unitDef.id and unitDef.buildOptions[2] == nil
 end
 
 local function canBuild(unitDef)
 	return unitDef.buildSpeed > 0
+		-- We generally consider build-assist as a build action:
 		and (unitDef.canAssist or unitDef.buildOptions[1] ~= nil)
-		-- This was excluded often in code but seems unnecessary:
 		and not customBool(unitDef.customParams.isairbase)
 end
 
 local function canCreateUnits(unitDef)
 	return unitDef.buildOptions[1] ~= nil or unitDef.canResurrect
-end
-
-local function isReplicatorUnit(unitDef)
-	return unitDef.buildOptions[1] == unitDef.id and #unitDef.buildOptions[2] == nil
 end
 
 -- todo: go back through and use more focused build lists
@@ -470,8 +469,7 @@ end
 
 -- todo: go back through and use more focused build lists
 local function workerBuildOptions(unitDef)
-	return isConstructionUnit(unitDef)
-		and unitDef.buildOptions
+	return isConstructionUnit(unitDef) and unitDef.buildOptions
 end
 
 -- Economic
@@ -879,7 +877,7 @@ end
 
 -- MoveCtrl and moveType
 
-local function isImmobileUnit(unitDef)
+isImmobileUnit = function(unitDef)
 	return unitDef.isImmobile
 		and (not unitDef.yardmap or unitDef.yardmap == "")
 		and not unitDef.isFactory -- Treat factories as structures regardless?
