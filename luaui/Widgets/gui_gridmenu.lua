@@ -304,18 +304,9 @@ local unitMetal_extractor = Game.UnitInfo.Cache.metal_extractor
 local unitTranslatedHumanName = Game.UnitInfo.Cache.translatedHumanName
 local unitTranslatedTooltip = Game.UnitInfo.Cache.translatedTooltip
 local iconTypes = {}
-
 local function refreshUnitDefs()
-	-- todo: some mechanism to refresh caches instead of rebuilding them
-	Game.UnitInfo.Cache.buildOptions = nil
-	Game.UnitInfo.Cache.metal_extractor = nil
-	Game.UnitInfo.Cache.translatedHumanName = nil
-	Game.UnitInfo.Cache.translatedTooltip = nil
-	unitBuildOptions = Game.UnitInfo.Cache.buildOptions
-	unitMetal_extractor = Game.UnitInfo.Cache.metal_extractor
-	unitTranslatedHumanName = Game.UnitInfo.Cache.translatedHumanName
-	unitTranslatedTooltip = Game.UnitInfo.Cache.translatedTooltip
-
+	Game.UnitInfo.CacheDirty("translatedHumanName")
+	Game.UnitInfo.CacheDirty("translatedTooltip")
 	iconTypes = {}
 	local orgIconTypes = VFS.Include("gamedata/icontypes.lua")
 	for udid, ud in pairs(UnitDefs) do

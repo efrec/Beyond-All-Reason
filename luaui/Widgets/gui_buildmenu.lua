@@ -143,18 +143,15 @@ local cellQuotas = {}
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
-local unitName = {}
-local unitBuildOptions = {}
-local unitMetal_extractor = {}
-local unitTranslatedHumanName = {}
-local unitTranslatedTooltip = {}
+local unitName = Game.UnitInfo.Cache.name
+local unitBuildOptions = Game.UnitInfo.Cache.buildOptions
+local unitMetal_extractor = Game.UnitInfo.Cache.metal_extractor
+local unitTranslatedHumanName = Game.UnitInfo.Cache.translatedHumanName
+local unitTranslatedTooltip = Game.UnitInfo.Cache.translatedTooltip
 local iconTypes = {}
 local function refreshUnitDefs()
-	unitName = Game.UnitInfo.Cache.name
-	unitBuildOptions = Game.UnitInfo.Cache.buildOptions
-	unitMetal_extractor = Game.UnitInfo.Cache.metal_extractor
-	unitTranslatedHumanName = Game.UnitInfo.Cache.translatedHumanName
-	unitTranslatedTooltip = Game.UnitInfo.Cache.translatedTooltip
+	Game.UnitInfo.CacheDirty("translatedHumanName")
+	Game.UnitInfo.CacheDirty("translatedTooltip")
 	iconTypes = {}
 	local orgIconTypes = VFS.Include("gamedata/icontypes.lua")
 	for udid, ud in pairs(UnitDefs) do
@@ -1189,7 +1186,8 @@ end
 local function isOnQuotaBuildMode(targetDefID)
 	for _, unitID in ipairs(spGetSelectedUnits()) do
 		local uDefID = spGetUnitDefID(unitID)
-		if units.isFactory[uDefID] and table.contains(unitBuildOptions[uDefID], targetDefID) then
+		local factoryOptions = units.isFactory[uDefID]
+		if factoryOptions and table.contains(factoryOptions, targetDefID) then
 			return WG.Quotas and WG.Quotas.isOnQuotaMode(unitID)
 		end
 	end
@@ -1201,7 +1199,8 @@ local function updateQuotaNumber(unitDefID, count)
 		local quotaChanged = false
 		for _, builderID in ipairs(Spring.GetSelectedUnits()) do
 			local uDefID = spGetUnitDefID(builderID)
-			if units.isFactory[uDefID] and table.contains(unitBuildOptions[uDefID], unitDefID) then
+			local factoryOptions = units.isFactory[uDefID]
+			if factoryOptions and table.contains(factoryOptions, unitDefID) then
 				local quotas = WG.Quotas.getQuotas()
 				quotas[builderID] = quotas[builderID] or {}
 				quotas[builderID][unitDefID] = quotas[builderID][unitDefID] or 0

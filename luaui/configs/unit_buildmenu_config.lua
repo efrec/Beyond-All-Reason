@@ -4,87 +4,38 @@
 ---
 
 
-local unitEnergyCost = {} ---@type table<number, number>
-local unitMetalCost = {} ---@type table<number, number>
-local unitGroup = {} ---@type table<number, number>
-local unitRestricted = {} ---@type table<number, true>
-local manualUnitRestricted = {} ---@type table<number, true>
-local isBuilder = {} ---@type table<number, true>
-local isFactory = {} ---@type table<number, true>
-local unitIconType = {} ---@type table<number, number>
-local isMex = {} ---@type table<number, true>
-local isWind = {} ---@type table<number, true>
-local isWaterUnit = {} ---@type table<number, true>
-local isGeothermal = {} ---@type table<number, true>
-local unitMaxWeaponRange = {} ---@type table<number, number>
+local unitEnergyCost      = Game.UnitInfo.Cache.energyCost ---@type table<number, number>
+local unitMetalCost       = Game.UnitInfo.Cache.metalCost ---@type table<number, number>
+local unitBuildOptions    = Game.UnitInfo.Cache.buildOptions ---@type table<number, table>
+local factoryBuildOptions = Game.UnitInfo.Cache.factoryBuildOptions ---@type table<number, table>
+local unitIconType        = Game.UnitInfo.Cache.iconType ---@type table<number, number>
+local unitGroup           = Game.UnitInfo.Cache.unitgroup ---@type table<number, string>
+local isMex               = Game.UnitInfo.Cache.needsMetalSpot ---@type table<number, true>
+local isGeothermal        = Game.UnitInfo.Cache.needsGeothermal ---@type table<number, true>
+local isWind              = Game.UnitInfo.Cache.needsMapWind ---@type table<number, true>
+local isWaterUnit         = Game.UnitInfo.Cache.needsMapWater ---@type table<number, true>
+local isRestrictedUnit    = Game.UnitInfo.Cache.isRestrictedUnit ---@type table<number, true>
 
-for unitDefID, unitDef in pairs(UnitDefs) do
-
-	unitGroup[unitDefID] = unitDef.customParams.unitgroup
-
-	if unitDef.name == 'armdl' or unitDef.name == 'cordl' or unitDef.name == 'armlance' or unitDef.name == 'cortitan' or unitDef.name == 'legatorpbomber'	-- or unitDef.name == 'armbeaver' or unitDef.name == 'cormuskrat'
-		or (unitDef.minWaterDepth > 0 or unitDef.modCategories['ship']) then
-		isWaterUnit[unitDefID] = true
-	end
-	if unitDef.name == 'armthovr' or unitDef.name == 'corintr' then
-		isWaterUnit[unitDefID] = nil
-	end
-	if unitDef.customParams.enabled_on_no_sea_maps then
-		isWaterUnit[unitDefID] = nil
-	end
-
-	if unitDef.needGeo then
-		isGeothermal[unitDefID] = true
-	end
-
-	if unitDef.maxWeaponRange > 16 then
-		unitMaxWeaponRange[unitDefID] = unitDef.maxWeaponRange
-	end
-
-	unitIconType[unitDefID] = unitDef.iconType
-	unitEnergyCost[unitDefID] = unitDef.energyCost
-	unitMetalCost[unitDefID] = unitDef.metalCost
-
-	if unitDef.maxThisUnit == 0 then
-		unitRestricted[unitDefID] = true
-		manualUnitRestricted[unitDefID] = true
-	end
-
-	if unitDef.buildSpeed > 0 and unitDef.buildOptions[1] then
-		isBuilder[unitDefID] = unitDef.buildOptions
-	end
-
-	if unitDef.isFactory and #unitDef.buildOptions > 0 then
-		isFactory[unitDefID] = true
-	end
-
-	if unitDef.extractsMetal > 0 then
-		isMex[unitDefID] = true
-	end
-
-	if unitDef.windGenerator > 0 then
-		isWind[unitDefID] = true
-	end
-end
+local isRestrictedGUI     = table.copy(isRestrictedUnit) ---@type table<number, true>
 
 ---@param disable boolean
 local function restrictWindUnits(disable)
-	for unitDefID,_ in pairs(isWind) do
-		unitRestricted[unitDefID] = manualUnitRestricted[unitDefID] or disable
+	for unitDefID in pairs(isWind) do
+		isRestrictedGUI[unitDefID] = isRestrictedUnit[unitDefID] or disable
 	end
 end
 
 ---@param disable boolean
 local function restrictGeothermalUnits(disable)
-	for unitDefID,_ in pairs(isGeothermal) do
-		unitRestricted[unitDefID] = manualUnitRestricted[unitDefID] or disable
+	for unitDefID in pairs(isGeothermal) do
+		isRestrictedGUI[unitDefID] = isRestrictedUnit[unitDefID] or disable
 	end
 end
 
 ---@param disable boolean
 local function restrictWaterUnits(disable)
-	for unitDefID,_ in pairs(isWaterUnit) do
-		unitRestricted[unitDefID] = manualUnitRestricted[unitDefID] or disable
+	for unitDefID in pairs(isWaterUnit) do
+		isRestrictedGUI[unitDefID] = isRestrictedUnit[unitDefID] or disable
 	end
 end
 
@@ -122,10 +73,8 @@ local unitOrder = {}
 local unitOrderManualOverrideTable = VFS.Include("luaui/configs/buildmenu_sorting.lua")
 
 -- Populate unitOrder with unit IDs.
-local count = 1
-for id, _ in pairs(UnitDefs) do
-	unitOrder[count] = id
-	count = count + 1
+for id in pairs(UnitDefs) do
+	unitOrder[id] = id
 end
 
 -- maxOrder is the largest order value found in unitOrderManualOverrideTable.
@@ -160,13 +109,12 @@ local units = {
 	unitEnergyCost = unitEnergyCost,
 	unitMetalCost = unitMetalCost,
 	unitGroup = unitGroup,
-	unitRestricted = unitRestricted,
+	unitRestricted = isRestrictedGUI,
 	unitIconType = unitIconType,
-	unitMaxWeaponRange = unitMaxWeaponRange,
 	---Set of unit IDs that are factories.
-	isFactory = isFactory,
+	isFactory = factoryBuildOptions,
 	---Set of unit IDs that have build options.
-	isBuilder = isBuilder,
+	isBuilder = unitBuildOptions,
 	---Set of unit IDs that require metal.
 	isMex = isMex,
 	---Set of unit IDs that require wind.

@@ -79,36 +79,10 @@ local idleList = {}
 
 local font, font2, buildmenuBottomPosition, dlist, dlistGuishader, backgroundRect, ordermenuPosY
 
-local unitHumanName = {}
-local isIdleBuilder = {}
+local unitHumanName = Game.UnitInfo.Cache.translatedHumanName
+local isIdleBuilder = Game.UnitInfo.Cache.isIdleBuilderUnit
 local function refreshUnitDefs()
-	unitHumanName = {}
-
-	local function isIdleFactory(unitID)
-		return spGetFactoryCommandCount(unitID) == 0
-	end
-
-	local function isIdleConstructionUnit(unitID)
-		return spGetUnitCommandCount(unitID) == 0
-	end
-
-	local ignored = Game.UnitInfo.Classifiers.isUnusualUnit
-	local isReplicator = Game.UnitInfo.Classifiers.isReplicatorUnit
-	local isSpyUnit = Game.UnitInfo.Cache.isCloakedEmpUnit
-
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		if not ignored[unitDefID] then
-			if (unitDef.canAssist or unitDef.canResurrect or unitDef.buildOptions[1]) and
-				not (isSpyUnit[unitDefID] or isReplicator[unitDefID] or unitDef.customParams.isairbase)
-			then
-				if unitDef.isFactory then
-					isIdleBuilder[unitDefID] = isIdleFactory
-				else
-					isIdleBuilder[unitDefID] = isIdleConstructionUnit
-				end
-			end
-		end
-	end
+	Game.UnitInfo.CacheDirty("translatedHumanName")
 end
 
 function widget:VisibleUnitsChanged(extVisibleUnits, extNumVisibleUnits)
