@@ -160,6 +160,8 @@ end
 -- Command options have extremely flexible equivalence, without type equality.
 -- So, there are a bunch of ways that we might need to convert between them:
 
+---@alias CommandOptionsAny CommandOptions|CreateCommandOptions|integer?
+
 ---@param code integer
 ---@return CommandOptions
 local function getOptions(code)
@@ -188,7 +190,7 @@ local optionNameCodes = {
 }
 
 ---The module should try to resolve type mismatches, however annoying to do:
----@param options CommandOptions|CreateCommandOptions|integer?
+---@param options CommandOptionsAny
 ---@return integer?
 local function resolveOptionCode(options)
 	if options == nil then
@@ -208,8 +210,8 @@ local function resolveOptionCode(options)
 end
 
 ---Command options have an expensive equality check due to blind type-check issues.
----@param options1 CommandOptions|CreateCommandOptions|integer? original (if temp)
----@param options2 CommandOptions|CreateCommandOptions|integer? copied (if temp)
+---@param options1 CommandOptionsAny original (if temp)
+---@param options2 CommandOptionsAny copied (if temp)
 ---@param isTemp boolean?
 ---@param ignoreMeta boolean?
 local function equalOption(options1, options2, isTemp, ignoreMeta)
@@ -243,7 +245,7 @@ local function isInternalBit(optionsBitSet)
 	return bit_and(optionsBitSet, OPT_INTERNAL) ~= 0
 end
 
----@param options CommandOptions|CreateCommandOptions|integer?
+---@param options CommandOptionsAny
 local function isInternal(options)
 	if options == nil then
 		return false
@@ -1149,9 +1151,9 @@ local flushOrders = Commands.FlushOrders
 -- This doesn't quite manage to check if a CMD_ATTACK is actually a temp order,
 -- truthfully, but it should work for almost all purposes.
 ---@param command CMD the current command
----@param options integer|CommandOptions?
+---@param options CommandOptionsAny
 ---@param cmdID CMD? a presumed non-temp command, like guard or fight
----@param cmdOpts integer|CommandOptions?
+---@param cmdOpts CommandOptionsAny
 Commands.IsInTempCommand = function(command, options, cmdID, cmdOpts)
 	if isInternal(options) then
 		return true -- Disregards additional command info.
@@ -1168,7 +1170,7 @@ local isInTempCommand = Commands.IsInTempCommand
 ---@param unitID integer
 ---@param cmdID CMD?
 ---@param cmdParams number[]|number?
----@param cmdOpts integer|CommandOptions?
+---@param cmdOpts CommandOptionsAny
 ---@return boolean
 Commands.IsInCommand = function(unitID, cmdID, cmdParams, cmdOpts)
 	local index = 1
@@ -1198,7 +1200,7 @@ local isInCommand = Commands.IsInCommand
 ---@param unitID integer
 ---@param command CMD
 ---@param params number[]|number?
----@param options CommandOptions|integer?
+---@param options CommandOptionsAny?
 Commands.TryGiveOrder = function(unitID, command, params, options)
 	return
 		spGiveOrderToUnit(unitID, command, params, options)
@@ -1211,7 +1213,7 @@ end
 ---@param unitID integer
 ---@param command CMD
 ---@param params number[]|number?
----@param options CommandOptions|integer?
+---@param options CommandOptionsAny?
 Commands.TryInsertOrder = function(unitID, command, params, options)
 	return spGiveOrderToUnit(unitID, command, params, options)
 		and isInCommand(unitID, resolveCommand(command, params))
