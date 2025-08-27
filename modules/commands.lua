@@ -465,7 +465,7 @@ local paramsPointIndex = setmetatable({
 	PointOrFront  = { [3] = 1, [6] = 1 },
 
 	UnloadTask    = { [4] = 1, [5] = 1 },
-	WorkerTask    = { [4] = 1, [5] = 2 },
+	WorkerTask    = { [4] = 1, [5] = 2 }, -- the ruiner
 }, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index position of an x coordinate.
