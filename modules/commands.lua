@@ -157,9 +157,12 @@ do
 	end
 end
 
--- Command options have extremely flexible equivalence, without type equality.
--- So, there are a bunch of ways that we might need to convert between them:
-
+-- Command options have extremely flexible equivalence with no type equality.
+--
+-- ```lua
+-- coded_options := integer[]|integer
+-- named_options := table<CommandOptionName, boolean>|table<CommandOptionName, true?>|CommandOptionName[]|CommandOptionName
+-- ```
 ---@alias CommandOptionsAny CommandOptions|CreateCommandOptions|integer?
 
 ---@param code integer
