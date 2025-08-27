@@ -439,7 +439,7 @@ local paramsObjectIndex = setmetatable({
 	ObjectOrArea      = { [1] = 1 },
 	ObjectOrFront     = { [1] = 1 },
 	ObjectOrRectangle = { [1] = 1 },
-	WorkerTask        = { [1] = 1, [5] = 1 },
+	WorkerTask        = { [1] = 1, [5] = 1 }, -- the ruiner
 }, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index position of a target object id.
@@ -528,7 +528,7 @@ local commandParamsRadiusIndex = setmetatable({}, metaNullParamsSet)
 ---@type table<PRMTYPE, ParamIndexMap>
 local paramsLeashIndex = setmetatable({
 	PointLeash = { [4] = 4 },
-	WorkerTask = { [5] = 5 },
+	WorkerTask = { [5] = 5 }, -- the ruiner
 }, metaNullParamsSet)
 
 ---Maps commands and their param counts to the index position of a target radius.
