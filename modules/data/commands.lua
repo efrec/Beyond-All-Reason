@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- Configuration data for engine commands consumed by the `commands.lua` module.
+-- Engine command configuration data for the `commands.lua` module -------------
 
 ---Maps every command to its accepted parameter counts.
 --
