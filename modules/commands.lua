@@ -16,10 +16,6 @@ if not Spring or not CMD or not Game or not GameCMD then
 	return
 end
 
----Functions and utilities for common tasks using RecoilEngine commands.
----@module Commands
-local Commands = {}
-
 --------------------------------------------------------------------------------
 -- Module internals ------------------------------------------------------------
 
@@ -690,9 +686,9 @@ end
 
 local loaded = false
 
----Loads the preconfigured engine command data into the
+---Loads the preconfigured engine command data into the Commands module tables.
 ---@return boolean loaded
-Commands.LoadConfigurationData = function()
+local function loadConfigurationData()
 	if loaded then
 		return true
 	end
@@ -820,7 +816,7 @@ local function parseNewCommand(newGameCMD)
 		return
 	end
 
-	local cmdTypeID = CMDTYPE[cmdTypeName]
+	local typeID = CMDTYPE[cmdTypeName]
 
 	-- The module never crashes from non-configured commands, so anything else is a warning.
 	-- However: Expect bugs from warnings. Introspection will be confused or broken by this.
@@ -837,13 +833,13 @@ local function parseNewCommand(newGameCMD)
 		Spring.Log("CMD", LOG.NOTICE, "Game command was already added: " .. tostring(cmdName))
 	end
 
-	if not newGameCMD.hidden and hiddenCmdType[cmdTypeID] then
+	if not newGameCMD.hidden and hiddenCmdType[typeID] then
 		Spring.Log("CMD", LOG.NOTICE, "Game command's type is hidden: " .. tostring(cmdTypeName))
 	end
 
 	return {
 		command     = cmdID,
-		cmdTypeID   = cmdTypeID,
+		cmdTypeID   = typeID,
 		params      = newGameCMD.params,
 		prmTypeName = newGameCMD.prmTypeName,
 
@@ -869,7 +865,7 @@ local cmdDescsConfigured = {}
 ---@todo: move to customcommands?
 ---@param newGameCMD CreateGameCMD
 ---@return CommandDescription?
-Commands.NewCommandDescription = function(newGameCMD)
+local function newCommandDescription(newGameCMD)
 	local command = parseNewCommand(newGameCMD)
 
 	if command == nil then
@@ -919,7 +915,7 @@ end
 ---Get a configured command's command description.
 ---@param command CMD
 ---@return CommandDescription?
-Commands.GetCommandDescription = function(command)
+local function getCommandDescription(command)
 	local cmdDesc = cmdDescsConfigured[command]
 
 	if cmdDesc == nil then
@@ -997,12 +993,12 @@ end
 --
 -- For example, get the Object and Point count(s), without the area radius:
 --
--- `Commands.GetCommandParamsSet(CMD.REPAIR, { "Object", "Point" }, "Area")`
+-- `getCommandParamsSet(CMD.REPAIR, { "Object", "Point" }, "Area")`
 ---@param command CMD
 ---@param include ParamGroupName[]|ParamGroupName
 ---@param exclude ParamGroupName[]|ParamGroupName
 ---@return ParamCountSet?
-Commands.FilterCommandParams = function(command, include, exclude)
+local function filterCommandParams(command, include, exclude)
 	local prmType = commandParamsType[command]
 
 	-- We have to check this exceptional case explicitly:
@@ -1018,21 +1014,20 @@ end
 --
 -- For example, to get Objects (id) and not Areas (xyzr) from given commands:
 --
--- `Commands.FilterCommandParamsList({ CMD.REPAIR, CMD.RECLAIM }, "Object", "Area")`
+-- `filterCommandParamsList({ CMD.REPAIR, CMD.RECLAIM }, "Object", "Area")`
 ---@param commands CMD[]|CMD
 ---@param include ParamGroupName[]|ParamGroupName
 ---@param exclude ParamGroupName[]|ParamGroupName
 ---@return table<CMD, ParamCountSet>? commandParams
-Commands.FilterCommandParamsList = function(commands, include, exclude)
+local function filterCommandParamsList(commands, include, exclude)
 	if type(commands) == "number" then
 		commands = getTempTbl(commands)
 	end
 
 	local commandParams = {}
-	local filter = Commands.FilterCommandParams
 
 	for _, command in ipairs(commands) do
-		commandParams[command] = filter(command, include, exclude)
+		commandParams[command] = filterCommandParams(command, include, exclude)
 	end
 
 	return commandParams
@@ -1050,7 +1045,7 @@ end
 ---@return number[]|number? commandParams
 ---@return integer commandOptionsBits
 ---@return integer insertIndex
-Commands.GetInsertedCommand = function(params)
+local function getInsertedCommand(params)
 	local innerParams
 
 	if params[5] == nil then
@@ -1066,15 +1061,13 @@ Commands.GetInsertedCommand = function(params)
 		params[1]
 end
 
-local getInsertedCommand = Commands.GetInsertedCommand
-
 ---Retrieve the command info from the params of a CMD_INSERT.
 ---@param params number[]
 ---@return CMD command
 ---@return number[]|number? commandParams
 ---@return CommandOptions commandOptions
 ---@return integer commandTag
-Commands.GetInsertedFullCommand = function(params)
+local function getInsertedFullCommand(params)
 	local innerParams
 
 	if params[5] == nil then
@@ -1093,8 +1086,6 @@ Commands.GetInsertedFullCommand = function(params)
 		params[1]
 end
 
-local getInsertedFullCommand = Commands.GetInsertedFullCommand
-
 ---Retrieve the actual command from an order, resolving any meta-commands passed.
 ---@param command CMD
 ---@param params number[]|number?
@@ -1102,7 +1093,7 @@ local getInsertedFullCommand = Commands.GetInsertedFullCommand
 ---@return number[]|number? commandParams
 ---@return integer? commandOptions
 ---@return integer? insertIndex
-Commands.ResolveCommand = function(command, params)
+local function resolveCommand(command, params)
 	if command == CMD_INSERT then
 		---@diagnostic disable-next-line: param-type-mismatch -- Should throw on nil.
 		return getInsertedCommand(params)
@@ -1111,8 +1102,6 @@ Commands.ResolveCommand = function(command, params)
 	end
 end
 
-local resolveCommand = Commands.ResolveCommand
-
 ---Retrieve the actual command from an order, resolving any meta-commands passed.
 ---@param command CMD
 ---@param params number[]
@@ -1120,7 +1109,7 @@ local resolveCommand = Commands.ResolveCommand
 ---@return number[]|number? commandParams
 ---@return CommandOptions? commandOptions
 ---@return integer? insertIndex
-Commands.ResolveFullCommand = function(command, params)
+local function resolveFullCommand(command, params)
 	if command == CMD_INSERT then
 		---@diagnostic disable-next-line: param-type-mismatch -- Should throw on nil.
 		return getInsertedFullCommand(params)
@@ -1133,12 +1122,10 @@ end
 --
 -- Removing orders via `CMD_REMOVE` uses a command, which will be gated behind a wait.
 ---@param unitID integer
-Commands.FlushOrders = function(unitID)
+local function flushOrders(unitID)
 	spGiveOrderToUnit(unitID, CMD_WAIT) -- toggle once
 	spGiveOrderToUnit(unitID, CMD_WAIT) -- toggle twice
 end
-
-local flushOrders = Commands.FlushOrders
 
 --------------------------------------------------------------------------------
 -- Command functions -----------------------------------------------------------
@@ -1157,7 +1144,7 @@ local flushOrders = Commands.FlushOrders
 ---@param options CommandOptionsAny
 ---@param cmdID CMD? a presumed non-temp command, like guard or fight
 ---@param cmdOpts CommandOptionsAny
-Commands.IsInTempCommand = function(command, options, cmdID, cmdOpts)
+local function isInTempCommand(command, options, cmdID, cmdOpts)
 	if isInternal(options) then
 		return true -- Disregards additional command info.
 	elseif cmdID == CMD_FIGHT then
@@ -1167,15 +1154,13 @@ Commands.IsInTempCommand = function(command, options, cmdID, cmdOpts)
 	end
 end
 
-local isInTempCommand = Commands.IsInTempCommand
-
 ---Check if the unit is executing a given command, including no command.
 ---@param unitID integer
 ---@param cmdID CMD?
 ---@param cmdParams number[]|number?
 ---@param cmdOpts CommandOptionsAny
 ---@return boolean
-Commands.IsInCommand = function(unitID, cmdID, cmdParams, cmdOpts)
+local function isInCommand(unitID, cmdID, cmdParams, cmdOpts)
 	local index = 1
 
 	while true do
@@ -1195,8 +1180,6 @@ Commands.IsInCommand = function(unitID, cmdID, cmdParams, cmdOpts)
 	end
 end
 
-local isInCommand = Commands.IsInCommand
-
 ---Issue an order and test if the command was accepted.
 --
 -- __Note:__ This checks only the front of the command queue.
@@ -1204,7 +1187,7 @@ local isInCommand = Commands.IsInCommand
 ---@param command CMD
 ---@param params number[]|number?
 ---@param options CommandOptionsAny?
-Commands.TryGiveOrder = function(unitID, command, params, options)
+local function tryGiveOrder(unitID, command, params, options)
 	return
 		spGiveOrderToUnit(unitID, command, params, options)
 		and isInCommand(unitID, command, params, options)
@@ -1217,7 +1200,7 @@ end
 ---@param command CMD
 ---@param params number[]|number?
 ---@param options CommandOptionsAny?
-Commands.TryInsertOrder = function(unitID, command, params, options)
+local function tryInsertOrder(unitID, command, params, options)
 	return spGiveOrderToUnit(unitID, command, params, options)
 		and isInCommand(unitID, resolveCommand(command, params))
 end
@@ -1226,7 +1209,7 @@ end
 ---@param unitID integer
 ---@param index integer? default = 1
 ---@return integer? guardedID
-Commands.GetGuardedID = function(unitID, index)
+local function getGuardedID(unitID, index)
 	if index == nil then
 		index = 1
 	end
@@ -1251,7 +1234,7 @@ end
 ---@return number? targetX
 ---@return number? targetY
 ---@return number? targetZ
-Commands.GetCommandPosition = function(command, params, ignoreObjects)
+local function getCommandPosition(command, params, ignoreObjects)
 	local pointIndex = commandParamsPointIndex[command][#params]
 
 	if pointIndex ~= nil then
@@ -1265,8 +1248,6 @@ Commands.GetCommandPosition = function(command, params, ignoreObjects)
 	end
 end
 
-local getCommandPosition = Commands.GetCommandPosition
-
 ---Gets the xyz coordinates of the start and end points of the command's line target, if any.
 --
 -- You may need to use the unit's current position to update the line, e.g. for CMD_FIGHT.
@@ -1278,7 +1259,7 @@ local getCommandPosition = Commands.GetCommandPosition
 ---@return number? endX
 ---@return number? endY
 ---@return number? endZ
-Commands.GetCommandLine = function(command, params)
+local function getCommandLine(command, params)
 	local lineIndex = commandParamsLineIndex[command][#params]
 
 	if lineIndex ~= nil then
@@ -1301,7 +1282,7 @@ end
 ---@return number? endX
 ---@return number? endY
 ---@return number? endZ
-Commands.GetCommandRectangle = function(command, params)
+local function getCommandRectangle(command, params)
 	local rectangleIndex = commandParamsRectangleIndex[command][#params]
 
 	if rectangleIndex ~= nil then
@@ -1319,7 +1300,7 @@ end
 ---@param command CMD
 ---@param params number[]
 ---@return number? areaRadius
-Commands.GetCommandAreaRadius = function(command, params)
+local function getCommandAreaRadius(command, params)
 	local radiusIndex = commandParamsRadiusIndex[command][#params]
 
 	if radiusIndex ~= nil then
@@ -1331,7 +1312,7 @@ end
 ---@param command CMD
 ---@param params number[]
 ---@return number? leashRadius
-Commands.GetCommandLeashRadius = function(command, params)
+local function getCommandLeashRadius(command, params)
 	local leashIndex = commandParamsLeashIndex[command][#params]
 
 	if leashIndex ~= nil then
@@ -1344,7 +1325,7 @@ end
 ---@param params number[]
 ---@return number? radius
 ---@return boolean? leashed
-Commands.GetCommandRadius = function(command, params)
+local function getCommandRadius(command, params)
 	local leashIndex = commandParamsLeashIndex[command][#params]
 
 	if leashIndex ~= nil then
@@ -1358,8 +1339,6 @@ Commands.GetCommandRadius = function(command, params)
 	end
 end
 
-local getCommandRadius = Commands.GetCommandRadius
-
 ---Gets the xyzw coordinates of a command's target, where w is an area or leash radius.
 ---@param command CMD
 ---@param params number[]
@@ -1368,12 +1347,10 @@ local getCommandRadius = Commands.GetCommandRadius
 ---@return number? targetZ
 ---@return number? radius [nil] := command/params has no radius
 ---@return boolean? leashed [true] := leash radius, not area radius [nil] := no radius
-Commands.GetCommandPositionAndRadius = function(command, params)
+local function getCommandPositionAndRadius(command, params)
 	local x, y, z = getCommandPosition(command, params)
 	return x, y, z, getCommandRadius(command, params)
 end
-
-local getCommandPositionAndRadius = Commands.GetCommandPositionAndRadius
 
 ---Get an estimated end position after completing a command.
 --
@@ -1389,7 +1366,7 @@ local getCommandPositionAndRadius = Commands.GetCommandPositionAndRadius
 ---@return number? goalX
 ---@return number? goalY
 ---@return number? goalZ
-Commands.GetCommandMoveGoal = function(command, params, x, y, z, range, any)
+local function getCommandMoveGoal(command, params, x, y, z, range, any)
 	if any or moveCommands[command] then
 		-- Move goals with an area-radius have to cover the entire area (potentially)
 		-- vs a leash-radius which only requires reaching the nearest point (usually)
@@ -1438,8 +1415,6 @@ Commands.GetCommandMoveGoal = function(command, params, x, y, z, range, any)
 	return x, y, z -- NB: May be unmodified.
 end
 
-local getCommandMoveGoal = Commands.GetCommandMoveGoal
-
 ---Get an estimated end position after completing a command.
 --
 -- Not all commands have move goals, and fewer have explicit goals. To get any
@@ -1452,7 +1427,7 @@ local getCommandMoveGoal = Commands.GetCommandMoveGoal
 ---@param any boolean? whether to include non-move commands (default = false)
 ---@return number? goalX
 ---@return number? goalZ
-Commands.GetCommandMoveGoal2D = function(command, params, x, z, range, any)
+local function getCommandMoveGoal2D(command, params, x, z, range, any)
 	if any or moveCommands[command] then
 		-- Move goals with an area-radius have to cover the entire area (potentially)
 		-- vs a leash-radius which only requires reaching the nearest point (usually)
@@ -1498,14 +1473,12 @@ Commands.GetCommandMoveGoal2D = function(command, params, x, z, range, any)
 	return x, z -- NB: May be unmodified.
 end
 
-local getCommandMoveGoal2D = Commands.GetCommandMoveGoal2D
-
 --------------------------------------------------------------------------------
 -- Command queue functions -----------------------------------------------------
 
 ---Clear a unit's command queue, without triggering the sfx for its `CMD_STOP`.
 ---@param unitID integer
-Commands.RemoveAllCommands = function(unitID)
+local function removeAllCommands(unitID)
 	local queue = Spring.GetUnitCommands(unitID, -1)
 	local count = 0
 	local cmdID = {}
@@ -1517,8 +1490,6 @@ Commands.RemoveAllCommands = function(unitID)
 
 	spGiveOrderToUnit(unitID, CMD_REMOVE, cmdID, OPT_ALT)
 end
-
-local removeAllCommands = Commands.RemoveAllCommands
 
 local function removeBuildCommands(unitID, commands)
 	local buildDefID = {}
@@ -1547,7 +1518,7 @@ end
 -- Supports `CMD.ANY`, `CMD.BUILD`, and (trivially) `CMD.NIL`.
 ---@param unitID integer
 ---@param commands CMD[]|integer[]
-Commands.RemoveCommandList = function(unitID, commands)
+local function removeCommandList(unitID, commands)
 	for i = #commands, -1, 1 do
 		local command = commands[i]
 
@@ -1575,7 +1546,7 @@ end
 ---@param current boolean? default = true
 ---@param count integer? default = 1
 ---@see WG.pregame-build
-Commands.SkipCommand = function(unitID, current, count)
+local function skipCommand(unitID, current, count)
 	if count == nil then
 		count = 1
 	end
@@ -1592,6 +1563,8 @@ Commands.SkipCommand = function(unitID, current, count)
 
 	spGiveOrderToUnit(unitID, CMD_REMOVE, tags)
 end
+
+local skipCommandPregame
 
 -- `SkipCommand` has to handle the pregame build phase, as well.
 -- Probably though, this should be an override used in commandq.
@@ -1637,7 +1610,7 @@ if pregame and WG then
 	---@see WG.pregame-build
 	---@param current boolean? default = true
 	---@param count integer? default = 1
-	Commands.SkipCommandPregame = function(current, count)
+	skipCommandPregame = function(current, count)
 		if pregame then
 			return doSkipCommandPregame(current, count)
 		else
@@ -1650,7 +1623,7 @@ end
 -- command queue is more easily inspected and validated against other tests. Probably.
 ---@param unitID integer
 ---@return boolean changed Whether any commands were modified or removed
-Commands.NormalizeQueue = function(unitID)
+local function normalizeQueue(unitID)
 	local hasTerminal = false -- Commands that never terminate therefore terminate their queues.
 	local isInPatrol = false -- Except patrol routes, which must be consecutive; no fancy TIMEWAITs.
 
@@ -1694,7 +1667,7 @@ end
 ---@param count integer?
 ---@return xyz[] coords
 ---@return integer count
-Commands.GetUnitPositionQueue = function(unitID, all, count)
+local function getUnitPositionQueue(unitID, all, count)
 	local moves = {}
 	local num = 0
 
@@ -1726,7 +1699,7 @@ end
 ---@return number x
 ---@return number y
 ---@return number z
-Commands.GetUnitEndPosition = function(unitID, all)
+local function getUnitEndPosition(unitID, all)
 	local index = -1
 	local command, _, _, p1, p2, p3, p4, p5, p6 = spGetUnitCurrentCommand(unitID, index)
 
@@ -1756,7 +1729,7 @@ end
 ---@param count integer?
 ---@return table coords <x, y, z, radius> where a negative radius is a leash radius
 ---@return integer count
-Commands.GetUnitMoveGoalQueue = function(unitID, all, count)
+local function getUnitMoveGoalQueue(unitID, all, count)
 	local moves = {}
 	local num = 0
 
@@ -1795,7 +1768,7 @@ end
 ---@return number x
 ---@return number y
 ---@return number z
-Commands.GetUnitEndMoveGoal = function(unitID, range, all)
+local function getUnitEndMoveGoal(unitID, range, all)
 	local x, y, z = spGetUnitPosition(unitID)
 
 	for _, command in ipairs(Spring.GetUnitCommands(unitID, -1)) do
@@ -1817,7 +1790,7 @@ end
 ---@param all boolean? whether to include non-move commands (default = false)
 ---@return number x
 ---@return number z
-Commands.GetUnitEndMoveGoal2D = function(unitID, range, all)
+local function getUnitEndMoveGoal2D(unitID, range, all)
 	local x, z = spGetUnitPosition(unitID)
 
 	for _, command in ipairs(Spring.GetUnitCommands(unitID, -1)) do
@@ -1837,18 +1810,16 @@ local FACTORY_QUEUE_100 = FACTORY_QUEUE_5 + FACTORY_QUEUE_20
 
 ---@param factoryID integer
 ---@return Command buildOrder
-Commands.GetNextBuildOrder = function(factoryID)
+local function getNextBuildOrder(factoryID)
 	return Spring.GetFactoryCommands(factoryID, 1)[1]
 end
-
-local getNextBuildOrder = Commands.GetNextBuildOrder
 
 ---Decrease the given build order by a fixed amount as efficiently as possible.
 ---@param factoryID integer
 ---@param buildDefID integer
 ---@param count integer? the number of orders to remove (default = 1)
 ---@param flush boolean? forces updates through CMD_WAIT (default = true)
-Commands.RemoveBuildQueue = function(factoryID, buildDefID, count, flush)
+local function removeBuildQueue(factoryID, buildDefID, count, flush)
 	if count == nil then
 		count = 1
 	end
@@ -1875,12 +1846,10 @@ Commands.RemoveBuildQueue = function(factoryID, buildDefID, count, flush)
 	if flush ~= false then flushOrders(factoryID) end
 end
 
-local removeBuildQueue = Commands.RemoveBuildQueue
-
 ---Empty out a factory's build queue.
 ---@param factoryID integer
 ---@param current boolean? whether to clear the current order (default = true)
-Commands.ClearBuildQueue = function(factoryID, current)
+local function clearBuildQueue(factoryID, current)
 	local queue = Spring.GetRealBuildQueue(factoryID)
 
 	-- Caused by wrong return type annotation from GetRealBuildQueue:
@@ -1933,7 +1902,7 @@ end
 ---@param options CommandOptions
 ---@param copyOnChange boolean? copies the `options` table only if it is altered
 ---@return CommandOptions
-Commands.RemoveEnqueueOptions = function(options, copyOnChange)
+local function removeEnqueueOptions(options, copyOnChange)
 	if not options.meta and (not options.alt) ~= (not options.shift) then
 		if copyOnChange then options = table.copy(options) end
 		options.alt = nil
@@ -1949,7 +1918,7 @@ end
 ---@param options CommandOptions
 ---@param copyOnChange boolean? copies the `options` table only if it is altered
 ---@return CommandOptions
-Commands.RemoveInsertOptions = function(options, copyOnChange)
+local function removeInsertOptions(options, copyOnChange)
 	if options.meta then
 		if copyOnChange then options = table.copy(options) end
 		options.meta = nil
@@ -1964,7 +1933,7 @@ end
 ---@param options CommandOptions
 ---@param copy boolean?
 ---@return CommandOptions
-Commands.ResetCommandOptions = function(options, copy)
+local function resetCommandOptions(options, copy)
 	if copy then options = table.copy(options) end
 
 	options.meta = nil
@@ -1987,7 +1956,7 @@ local STATE_DISABLED = "0"
 ---@param unitID integer
 ---@param command CMD
 ---@return CommandDescription?
-Commands.GetUnitCommandDescription = function(unitID, command)
+local function getUnitCommandDescription(unitID, command)
 	local index = spFindUnitCmdDesc(unitID, command)
 
 	if index ~= nil then
@@ -1995,13 +1964,11 @@ Commands.GetUnitCommandDescription = function(unitID, command)
 	end
 end
 
-local getUnitCommandDescription = Commands.GetUnitCommandDescription
-
 ---Determine whether an order is visible to the player (e.g. in ordermenu).
 ---@param unitID integer
 ---@param command CMD
 ---@return boolean? [nil] := both non-hidden and no matching command description
-Commands.GetUnitCommandIsHidden = function(unitID, command)
+local function getUnitCommandIsHidden(unitID, command)
 	local description = getUnitCommandDescription(unitID, command)
 
 	if description ~= nil then
@@ -2016,7 +1983,7 @@ end
 ---@param unitID integer
 ---@param command CMD
 ---@return boolean? [nil] := both non-queueing and no matching command description
-Commands.GetUnitCommandIsQueueing = function(unitID, command)
+local function getUnitCommandIsQueueing(unitID, command)
 	local description = getUnitCommandDescription(unitID, command)
 
 	if description ~= nil then
@@ -2031,7 +1998,7 @@ end
 ---@param unitID integer
 ---@param command CMD
 ---@return string|false params [false] := unit does not have command description
-Commands.GetUnitState = function(unitID, command)
+local function getUnitState(unitID, command)
 	local description = getUnitCommandDescription(unitID, command)
 
 	if description ~= nil then
@@ -2045,7 +2012,7 @@ end
 ---Determine whether the unit has a stateful command and if it is enabled/on/etc.
 ---@param unitID integer
 ---@param command CMD
-Commands.GetUnitStateEnabled = function(unitID, command)
+local function getUnitStateEnabled(unitID, command)
 	local description = getUnitCommandDescription(unitID, command)
 
 	if description ~= nil then
@@ -2058,5 +2025,71 @@ end
 
 --------------------------------------------------------------------------------
 -- Export module ---------------------------------------------------------------
+
+---Functions and utilities for common tasks using RecoilEngine commands.
+---@module Commands
+local Commands = {
+	-- Interfacing
+	loadConfigurationData       = loadConfigurationData,
+	parseNewCommand             = parseNewCommand,
+	newCommandDescription       = newCommandDescription,
+	getCommandDescription       = getCommandDescription,
+	filterParamIndexMap         = filterParamIndexMap,
+	filterCommandParams         = filterCommandParams,
+	filterCommandParamsList     = filterCommandParamsList,
+
+	-- Orders
+	getInsertedCommand          = getInsertedCommand,
+	getInsertedFullCommand      = getInsertedFullCommand,
+	resolveCommand              = resolveCommand,
+	resolveFullCommand          = resolveFullCommand,
+	flushOrders                 = flushOrders,
+
+	-- Commands
+	isInTempCommand             = isInTempCommand,
+	isInCommand                 = isInCommand,
+	tryGiveOrder                = tryGiveOrder,
+	tryInsertOrder              = tryInsertOrder,
+	getGuardedID                = getGuardedID,
+	getCommandPosition          = getCommandPosition,
+	getCommandLine              = getCommandLine,
+	getCommandRectangle         = getCommandRectangle,
+	getCommandAreaRadius        = getCommandAreaRadius,
+	getCommandLeashRadius       = getCommandLeashRadius,
+	getCommandRadius            = getCommandRadius,
+	getCommandPositionAndRadius = getCommandPositionAndRadius,
+	getCommandMoveGoal          = getCommandMoveGoal,
+	getCommandMoveGoal2D        = getCommandMoveGoal2D,
+
+	-- Command queues
+	removeAllCommands           = removeAllCommands,
+	removeBuildCommands         = removeBuildCommands,
+	removeCommandList           = removeCommandList,
+	skipCommand                 = skipCommand,
+	skipCommandPregame          = skipCommandPregame,
+	normalizeQueue              = normalizeQueue,
+	getUnitPositionQueue        = getUnitPositionQueue,
+	getUnitEndPosition          = getUnitEndPosition,
+	getUnitMoveGoalQueue        = getUnitMoveGoalQueue,
+	getUnitEndMoveGoal          = getUnitEndMoveGoal,
+	getUnitEndMoveGoal2D        = getUnitEndMoveGoal2D,
+
+	-- Factory queues
+	getNextBuildOrder           = getNextBuildOrder,
+	removeBuildQueue            = removeBuildQueue,
+	clearBuildQueue             = clearBuildQueue,
+
+	-- Command options
+	removeEnqueueOptions        = removeEnqueueOptions,
+	removeInsertOptions         = removeInsertOptions,
+	resetCommandOptions         = resetCommandOptions,
+
+	-- Unit abilities and states
+	getUnitCommandDescription   = getUnitCommandDescription,
+	getUnitCommandIsHidden      = getUnitCommandIsHidden,
+	getUnitCommandIsQueueing    = getUnitCommandIsQueueing,
+	getUnitState                = getUnitState,
+	getUnitStateEnabled         = getUnitStateEnabled,
+}
 
 return Commands
