@@ -1341,18 +1341,12 @@ end
 --  AllowCommand subscription
 --
 
-local bit_and = math.bit_and
 local CMD_ANY = CMD.ANY
 local CMD_NIL = CMD.NIL
 local CMD_BUILD = CMD.BUILD
 local CMD_INSERT = CMD.INSERT
-local OPT_INTERNAL = CMD.OPT_INTERNAL
-local OPT_ALT = CMD.OPT_ALT
-local OPT_CTRL = CMD.OPT_CTRL
-local OPT_META = CMD.OPT_META
-local OPT_RIGHT = CMD.OPT_RIGHT
-local OPT_SHIFT = CMD.OPT_SHIFT
 local allowCommandList = {[CMD_ANY] = {}}
+local getInsertedCommand = Game.CustomCommands.GetInsertedCommand
 
 function gadgetHandler:ReorderAllowCommands(gadget, f)
 	if not gadget.AllowCommand then return true end
@@ -1487,41 +1481,12 @@ function gadgetHandler:CommandFallback(unitID, unitDefID, unitTeam,
 	return true  -- remove the command
 end
 
----@param cmdParams number[]
----@return integer index if options.alt, command tag, else queue position
----@return CMD innerCommand
----@return CommandOptions innerOptions
-local function getInsertedCommand(cmdParams)
-	local index, innerCommand, innerOptionBits = cmdParams[1], cmdParams[2], cmdParams[3]
-
-	-- Update in-place, and assume n >= 3:
-	local n = #cmdParams
-	for i = 1, n - 3 do
-		cmdParams[i] = cmdParams[i + 3]
-	end
-	cmdParams[n    ] = nil
-	cmdParams[n - 1] = nil
-	cmdParams[n - 2] = nil
-
-	local innerOptions = {
-		coded    = innerOptionBits,
-		internal = 0 ~= bit_and(innerOptionBits, OPT_INTERNAL),
-		alt      = 0 ~= bit_and(innerOptionBits, OPT_ALT),
-		ctrl     = 0 ~= bit_and(innerOptionBits, OPT_CTRL),
-		meta     = 0 ~= bit_and(innerOptionBits, OPT_META),
-		right    = 0 ~= bit_and(innerOptionBits, OPT_RIGHT),
-		shift    = 0 ~= bit_and(innerOptionBits, OPT_SHIFT),
-	}
-
-	---@diagnostic disable-next-line:return-type-mismatch -- OK: CMD/number
-	return index, innerCommand, innerOptions
-end
-
 function gadgetHandler:AllowCommand(unitID, unitDefID, unitTeam,
 									cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
-	local fromInsert -- Stores the outer command's options during inserts.
+	local fromInsert
 	if cmdID == CMD_INSERT then
-		fromInsert, cmdTag, cmdID, cmdOptions = cmdOptions, getInsertedCommand(cmdParams)
+		fromInsert = cmdOptions
+		cmdTag, cmdID, cmdOptions = getInsertedCommand(cmdParams)
 	end
 
 	local cmdKey = cmdID or CMD_NIL

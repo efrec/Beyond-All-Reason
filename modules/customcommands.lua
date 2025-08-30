@@ -76,10 +76,51 @@ local getCommandCode = function(cmdID)
 	return CMD[cmdID] or gameCommands[cmdID]
 end
 
-local CMD_INSERT = CMD.INSERT
+-- Command processing ----------------------------------------------------------
+
+local bit_and = math.bit_and
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
----Efficiently repack a command's `cmdParams` table and send it in a `CMD_INSERT`.
+local CMD_INSERT = CMD.INSERT
+local OPT_INTERNAL = CMD.OPT_INTERNAL
+local OPT_ALT = CMD.OPT_ALT
+local OPT_CTRL = CMD.OPT_CTRL
+local OPT_META = CMD.OPT_META
+local OPT_RIGHT = CMD.OPT_RIGHT
+local OPT_SHIFT = CMD.OPT_SHIFT
+
+---Unpack the inner command from the params of a `CMD_INSERT`.
+---@param cmdParams number[]
+---@return integer index if options.alt, command tag, else queue position
+---@return CMD innerCommand
+---@return CommandOptions innerOptions
+local function getInsertedCommand(cmdParams)
+	local index, innerCommand, innerOptionBits = cmdParams[1], cmdParams[2], cmdParams[3]
+
+	-- Update in-place, and assume n >= 3:
+	local n = #cmdParams
+	for i = 1, n - 3 do
+		cmdParams[i] = cmdParams[i + 3]
+	end
+	cmdParams[n    ] = nil
+	cmdParams[n - 1] = nil
+	cmdParams[n - 2] = nil
+
+	local innerOptions = {
+		coded    = innerOptionBits,
+		internal = 0 ~= bit_and(innerOptionBits, OPT_INTERNAL),
+		alt      = 0 ~= bit_and(innerOptionBits, OPT_ALT),
+		ctrl     = 0 ~= bit_and(innerOptionBits, OPT_CTRL),
+		meta     = 0 ~= bit_and(innerOptionBits, OPT_META),
+		right    = 0 ~= bit_and(innerOptionBits, OPT_RIGHT),
+		shift    = 0 ~= bit_and(innerOptionBits, OPT_SHIFT),
+	}
+
+	---@diagnostic disable-next-line:return-type-mismatch -- OK: CMD/number
+	return index, innerCommand, innerOptions
+end
+
+---Efficiently repack a command's `cmdParams` table in-place to use with `CMD_INSERT`.
 ---@param unitID integer
 ---@param cmdID integer|CMD
 ---@param cmdParams number[]|CMD[]
@@ -92,7 +133,7 @@ local function giveInsertOrderToUnit(unitID, cmdID, cmdParams, cmdOptions, cmdTa
 	spGiveOrderToUnit(unitID, CMD_INSERT, cmdParams, fromInsert.coded)
 end
 
----Resend a command, repacking its `cmdParams` table if it was an inserted command.
+---Resend a modified command, repacking its `cmdParams` table if it was an inserted command.
 ---@param unitID integer
 ---@param cmdID integer|CMD
 ---@param cmdParams number[]|CMD[]
@@ -111,6 +152,7 @@ return {
 	GameCMD = gameCommands,
 	ImportCommandsToObject = importCommandsToObject,
 	GetCommandCode = getCommandCode,
+	GetInsertedCommand = getInsertedCommand,
 	GiveInsertOrderToUnit = giveInsertOrderToUnit,
 	ReissueOrder = reissueOrder,
 }
