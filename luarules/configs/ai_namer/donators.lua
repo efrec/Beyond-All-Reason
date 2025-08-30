@@ -1,6 +1,7 @@
 local DonatorAINames = {
     -- Supporters ($40+ Donation & Personal Request)
     "Aknaroth",
+	"BamBamRVW",
     "BiFuriousGeorge",
     "BoT0x",
     "Canyoudigit84",
@@ -93,6 +94,8 @@ local DonatorAINames = {
 	"Hallucynation",
 	"Buzzwellman",
 	"guilty_sock",
+	"MrDeadKingz",
+	"MonkeyLord"
 }
 
 return DonatorAINames
