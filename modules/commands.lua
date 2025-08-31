@@ -5,6 +5,8 @@ if not Spring or not CMD then
 	return
 end
 
+---@alias CommandID CMD|integer|number
+
 ---Commands typically have up to six parameters,
 ---but can be inserted, which adds three params.
 ---@alias CommandParamsCount 0|1|2|3|4|5|6|7|8|9
@@ -228,7 +230,7 @@ end
 
 ---Retrieve the command info from the params of a CMD_INSERT.
 ---@param params number[]|number
----@return CMD command
+---@return CommandID command
 ---@return number[]|number? commandParams
 ---@return integer commandOptionsBits
 ---@return integer insertIndex
@@ -250,7 +252,7 @@ end
 
 ---Retrieve the command info from the params of a CMD_INSERT.
 ---@param params number[]
----@return CMD command
+---@return CommandID command
 ---@return number[]|number? commandParams
 ---@return CommandOptions commandOptions
 ---@return integer commandTag
@@ -274,9 +276,9 @@ local function getInsertedFullCommand(params)
 end
 
 ---Retrieve the actual command from an order, resolving any meta-commands passed.
----@param command CMD
+---@param command CommandID
 ---@param params number[]|number?
----@return CMD? command
+---@return CommandID? command
 ---@return number[]|number? commandParams
 ---@return integer? commandOptions
 ---@return integer? insertIndex
@@ -290,11 +292,11 @@ local function resolveCommand(command, params)
 end
 
 ---Retrieve the actual command from an order, resolving any meta-commands passed.
----@param command CMD
+---@param command CommandID
 ---@param params number[]
 ---@param options CommandOptions?
 ---@param tag integer?
----@return CMD command
+---@return CommandID command
 ---@return number[]|number commandParams
 ---@return CommandOptions? commandOptions
 ---@return integer? insertIndex
@@ -320,9 +322,9 @@ end
 --
 -- This doesn't quite manage to check if a CMD_ATTACK is actually a temp order,
 -- truthfully, but it should work for almost all purposes.
----@param command CMD the current command
+---@param command CommandID the current command
 ---@param options integer|CommandOptions?
----@param cmdID CMD? a presumed non-temp command, like guard or fight
+---@param cmdID CommandID? a presumed non-temp command, like guard or fight
 ---@param cmdOpts integer|CommandOptions?
 local function isInTempCommand(command, options, cmdID, cmdOpts)
 	if isInternal(options) then
@@ -336,7 +338,7 @@ end
 
 ---Check if the unit is executing a given command, including no command.
 ---@param unitID integer
----@param cmdID CMD?
+---@param cmdID CommandID?
 ---@param cmdParams number[]|number?
 ---@param cmdOpts integer|CommandOptions?
 ---@return boolean
@@ -362,7 +364,7 @@ end
 --
 -- __Note:__ This checks only the front of the command queue.
 ---@param unitID integer
----@param command CMD
+---@param command CommandID
 ---@param params number[]|number?
 ---@param options CommandOptions|integer?
 local function tryGiveOrder(unitID, command, params, options)
@@ -375,7 +377,7 @@ end
 --
 -- __Note:__ This checks only the front of the command queue.
 ---@param unitID integer
----@param command CMD
+---@param command CommandID
 ---@param params number[]|number?
 ---@param options CommandOptions|integer?
 local function tryInsertOrder(unitID, command, params, options)
