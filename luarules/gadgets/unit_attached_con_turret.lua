@@ -72,6 +72,8 @@ local commandParamForward = setmetatable({
 --------------------------------------------------------------------------------
 -- Global values ---------------------------------------------------------------
 
+local remove = table.remove
+
 local CallAsTeam = CallAsTeam
 
 local spGetFeatureDefID = Spring.GetFeatureDefID
@@ -91,6 +93,7 @@ local spGetUnitSeparation = Spring.GetUnitSeparation
 local spGetUnitsInCylinder = Spring.GetUnitsInCylinder
 local spGetUnitTeam = Spring.GetUnitTeam
 
+local spAreTeamsAllied = Spring.AreTeamsAllied
 local spCallCOBScript = Spring.CallCOBScript
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
@@ -217,6 +220,7 @@ local function attachToUnit(baseID, baseDefID, baseTeam)
 	local turretDefID = baseToTurretDefID[baseDefID]
 	local ux, uy, uz = spGetUnitPosition(baseID)
 	local facing = Spring.GetUnitBuildFacing(baseID)
+	---@diagnostic disable-next-line: param-type-mismatch -- OK to ignore nil
 	local turretID = Spring.CreateUnit(turretDefID, ux, uy, uz, facing, baseTeam)
 	if turretID and GG.addPairedUnit(baseID, turretID, baseDefAttachIndex[baseDefID]) then
 		baseToTurretID[baseID] = turretID
@@ -246,12 +250,12 @@ local function getCommandInfo(unitID, index)
 	return command, p, paramsType, options
 end
 
-local getReadHandle
+local getCallOptions
 do
 	local callAsTeamOptions = { read = 0 }
-	---@param teamID number|integer
+	---@param teamID number|integer?
 	---@return CallAsTeamOptions
-	getReadHandle = function(teamID)
+	getCallOptions = function(teamID)
 		callAsTeamOptions.read = teamID
 		return callAsTeamOptions
 	end
@@ -279,7 +283,8 @@ end
 -- Process commands ------------------------------------------------------------
 
 ---OK: CMD/integer are mismatched, and our docs do not support conditional nil.
----@diagnostic disable: param-type-mismatch, return-type-mismatch, missing-return
+---@diagnostic disable: param-type-mismatch, return-type-mismatch
+---@diagnostic disable: missing-return, redundant-return-value
 
 ---@param paramsType table<CommandParamsCount, true>
 ---@param params number[]
@@ -343,10 +348,9 @@ end
 ---@param abilities table
 ---@param buildRadius number
 ---@return number? targetX non-nil when an order is found
+---@return number targetY
 ---@return number targetZ
----@return CMD command
----@return number[] params
-local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
+local function tryExecuteFight(baseID, turretID, teamID, abilities, buildRadius)
 	local badTargets = { [baseID] = true, [turretID] = true }
 	local searchRadius = buildRadius + unitDefRadiusMax
 	local ux, _, uz = spGetUnitPosition(turretID)
@@ -356,9 +360,17 @@ local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
 	local canFundAllies = moveState >= MOVESTATE_ASSIST + 1
 
 	local allyUnits = spGetUnitsInCylinder(ux, uz, searchRadius, FILTER_ALLY_UNITS)
+	local enemyUnits = spGetUnitsInCylinder(ux, uz, searchRadius, FILTER_ENEMY_UNITS)
+
+	for i = #enemyUnits, 1, -1 do
+		local unitTeam = spGetUnitTeam(enemyUnits[i])
+		if unitTeam ~= nil and spAreTeamsAllied(teamID, unitTeam) and spAreTeamsAllied(unitTeam, teamID) then
+			allyUnits[#allyUnits+1] = remove(enemyUnits, i) -- in alliance under ceasefire
+		end
+	end
+
 	local bruised = {}
 	local unbuilt = {}
-
 	if abilities[CMD_REPAIR] then
 		for _, unitID in ipairs(allyUnits) do
 			if not badTargets[unitID] and isUnitInBuildRadius(turretID, unitID) then
@@ -368,8 +380,7 @@ local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
 						if health ~= nil and health < healthMax then
 							if health <= healthMax * 0.95 - 20 then
 								if tryGiveOrder(turretID, CMD_REPAIR, unitID) then
-									local x, _, z = spGetUnitPosition(unitID)
-									return x - ux, z - uz, CMD_REPAIR, unitID
+									return spGetUnitPosition(unitID)
 								end
 							else
 								bruised[#bruised + 1] = unitID
@@ -383,19 +394,16 @@ local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
 		end
 	end
 
-	local enemyUnits = spGetUnitsInCylinder(ux, uz, searchRadius, FILTER_ENEMY_UNITS)
-	local capturable = {}
-
 	local features = spGetFeaturesInCylinder(ux, uz, searchRadius)
-	local resurrectable = {}
 
+	local capturable = {}
+	local resurrectable = {}
 	if abilities[CMD_RECLAIM] then
 		for _, unitID in ipairs(enemyUnits) do
 			if isUnitInBuildRadius(turretID, unitID) then
 				local unitDefID = spGetUnitDefID(unitID)
 				if reclaimableDefID[unitDefID] and tryGiveOrder(turretID, CMD_RECLAIM, unitID) then
-					local x, _, z = spGetUnitPosition(unitID)
-					return x - ux, z - uz, CMD_RECLAIM, unitID
+					return spGetUnitPosition(unitID)
 				end
 
 				if canSpendFunds and capturableDefID[unitDefID] then
@@ -408,8 +416,7 @@ local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
 			if isFeatureInBuildRadius(turretID, featureID, buildRadius) then
 				local featureDefID = spGetFeatureDefID(featureID)
 				if combatReclaimDefID[featureDefID] and tryGiveOrder(turretID, CMD_RECLAIM, unitID) then
-					local x, _, z = spGetFeaturePosition(featureID)
-					return x - ux, z - uz, CMD_RECLAIM, featureID + FEATURE_BASE_INDEX
+					return spGetFeaturePosition(featureID)
 				end
 
 				if canSpendFunds and resurrectableDefID[featureDefID] then
@@ -422,8 +429,7 @@ local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
 	if abilities[CMD_REPAIR] then
 		for _, unitID in ipairs(bruised) do
 			if tryGiveOrder(turretID, CMD_REPAIR, unitID) then
-				local x, _, z = spGetUnitPosition(unitID)
-				return x - ux, z - uz, CMD_REPAIR, unitID
+				return spGetUnitPosition(unitID)
 			end
 		end
 	end
@@ -441,8 +447,7 @@ local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
 
 			for _, unitID in ipairs(capturable) do
 				if tryGiveOrder(turretID, CMD_CAPTURE, unitID) then
-					local x, _, z = spGetUnitPosition(unitID)
-					return x - ux, z - uz, CMD_CAPTURE, unitID
+					return spGetUnitPosition(unitID)
 				end
 			end
 		end
@@ -460,7 +465,6 @@ local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
 			for _, featureID in ipairs(resurrectable) do
 				if tryGiveOrder(turretID, CMD_RESURRECT, featureID) then
 					local x, _, z = spGetFeaturePosition(featureID)
-					return x - ux, z - uz, CMD_RESURRECT, featureID
 				end
 			end
 		end
@@ -478,12 +482,10 @@ local function tryExecuteFight(baseID, turretID, abilities, buildRadius)
 			end
 		end
 
-		local teamID = Spring.GetUnitTeam(baseID)
 		for _, unitID in ipairs(unbuilt) do
 			if canFundAllies or teamID == spGetUnitTeam(unitID) then
 				if tryGiveOrder(turretID, CMD_REPAIR, unitID) then
-					local x, _, z = spGetUnitPosition(unitID)
-					return x - ux, z - uz, CMD_REPAIR, unitID
+					return spGetUnitPosition(unitID)
 				end
 			end
 		end
@@ -496,7 +498,7 @@ end
 ---then forward any command to the base, if it is not busy.
 ---@param baseID integer
 ---@param turretID integer
-local function updateTurretOrders(baseID, turretID)
+local function updateTurretOrders(baseID, turretID, teamID)
 	local abilities = turretAbilities[turretID]
 	local buildRadius = turretBuildRadius[turretID]
 
@@ -515,27 +517,28 @@ local function updateTurretOrders(baseID, turretID)
 	end
 
 	command, params, paramsType, options = getCommandInfo(turretID)
-	local dx, dz
 	if paramsType == PRM_WAIT then
 		return
 	elseif command ~= nil then
-		dx, dz = tryOrderDirection(paramsType, params, turretID, buildRadius)
-		if dx ~= nil then
+		local dx, dz = tryOrderDirection(paramsType, params, turretID, buildRadius)
+		if dx and dz then
 			applyTurretOrder(turretID, dx, dz)
 			return
 		end
 	end
 	local turretCommand = command
 
-	dx, dz, command, params = tryExecuteFight(baseID, turretID, abilities, buildRadius)
-	if dx ~= nil then
-		applyTurretOrder(turretID, dx, dz, baseID)
+	local x, y, z = tryExecuteFight(baseID, turretID, teamID, abilities, buildRadius)
+	if x and z then
+		local ux, uy, uz = spGetUnitPosition(turretID)
+		applyTurretOrder(turretID, x - ux, z - uz, baseID) -- notify base
 	elseif turretCommand ~= nil then
 		spGiveOrderToUnit(turretID, CMD_REMOVE, turretCommand, OPT_ALT)
 	end
 end
 
----@diagnostic enable: param-type-mismatch, return-type-mismatch, missing-return
+---@diagnostic enable: param-type-mismatch, return-type-mismatch
+---@diagnostic enable: missing-return, redundant-return-value
 
 --------------------------------------------------------------------------------
 -- Engine call-ins -------------------------------------------------------------
@@ -567,8 +570,8 @@ function gadget:GameFrame(gameFrame)
 		for baseID, turretID in pairs(baseToTurretID) do
 			if not getUnitIsSuspended(turretID) then
 				local unitTeam = spGetUnitTeam(baseID)
-				local teamRead = getReadHandle(unitTeam)
-				CallAsTeam(teamRead, updateTurretOrders, baseID, turretID)
+				local teamRead = getCallOptions(unitTeam)
+				CallAsTeam(teamRead, updateTurretOrders, baseID, turretID, unitTeam)
 			end
 		end
 	end
@@ -601,7 +604,7 @@ function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOp
 		else
 			-- To avoid checking build options, they are not passed to the turret.
 			-- When the build frame is already placed, though, issue a CMD_REPAIR.
-			local buildFrames = CallAsTeam(getReadHandle(unitTeam),
+			local buildFrames = CallAsTeam(getCallOptions(unitTeam),
 				spGetUnitsInCylinder, cmdParams[1], cmdParams[3], Game.squareSize, FILTER_ALLY_UNITS)
 
 			for _, assistID in ipairs(buildFrames) do
