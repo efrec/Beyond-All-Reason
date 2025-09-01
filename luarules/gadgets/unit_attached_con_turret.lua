@@ -109,6 +109,8 @@ local spGiveOrderToUnit = Spring.GiveOrderToUnit
 local countParams = Game.Commands.CountParams
 local resolveCommand = Game.Commands.ResolveCommand
 local tryGiveOrder = Game.Commands.TryGiveOrder
+local isInternalBit = Game.Commands.IsInternalBit
+local getGuardedID = Game.Commands.GetGuardedID
 
 local CMD_GUARD = CMD.GUARD
 local CMD_CAPTURE = CMD.CAPTURE
@@ -117,7 +119,6 @@ local CMD_REMOVE = CMD.REMOVE
 local CMD_REPAIR = CMD.REPAIR
 local CMD_RESURRECT = CMD.RESURRECT
 local OPT_ALT = CMD.OPT_ALT
-local OPT_INTERNAL = CMD.OPT_INTERNAL
 local MOVESTATE_ASSIST = CMD.MOVESTATE_MANEUVER
 
 local SQUARE_SIZE = Game.squareSize
@@ -409,7 +410,6 @@ end
 ---@return number? displacementX
 ---@return number displacementZ
 local function tryExecuteFight(baseID, turretID, teamID, abilities, buildRadius)
-	local badTargets = { [baseID] = true, [turretID] = true }
 	local searchRadius = buildRadius + unitDefRadiusMax
 	local ux, _, uz = spGetUnitPosition(turretID)
 
@@ -420,6 +420,12 @@ local function tryExecuteFight(baseID, turretID, teamID, abilities, buildRadius)
 	local allyUnits = spGetUnitsInCylinder(ux, uz, searchRadius, FILTER_ALLY_UNITS)
 	local enemyUnits = spGetUnitsInCylinder(ux, uz, searchRadius, FILTER_ENEMY_UNITS)
 
+	for i = #allyUnits, 1, -1 do
+		local unitID = allyUnits[i]
+		if unitID == baseID or unitID == turretID then
+			remove(allyUnits, i)
+		end
+	end
 	for i = #enemyUnits, 1, -1 do
 		if areCeasefired(teamID, unitID) then
 			allyUnits[#allyUnits+1] = remove(enemyUnits, i)
@@ -430,7 +436,7 @@ local function tryExecuteFight(baseID, turretID, teamID, abilities, buildRadius)
 	local unbuilt = {}
 	if abilities[CMD_REPAIR] then
 		for _, unitID in ipairs(allyUnits) do
-			if not badTargets[unitID] and isUnitInBuildRadius(turretID, unitID) then
+			if isUnitInBuildRadius(turretID, unitID) then
 				if not spGetUnitIsBeingBuilt(unitID) then
 					if repairableDefID[spGetUnitDefID(unitID)] then
 						local health, healthMax = spGetUnitHealth(unitID)
@@ -531,7 +537,7 @@ local function tryExecuteFight(baseID, turretID, teamID, abilities, buildRadius)
 		if not abilities[CMD_REPAIR] then
 			-- The `unbuilt` table was not populated earlier. Do so now:
 			for _, unitID in ipairs(allyUnits) do
-				if not badTargets[unitID] and spGetUnitIsBeingBuilt(unitID) then
+				if spGetUnitIsBeingBuilt(unitID) then
 					if isUnitInBuildRadius(turretID, unitID) then
 						unbuilt[#unbuilt + 1] = unitID
 					end
@@ -565,10 +571,7 @@ local function updateTurretOrders(baseID, turretID, teamID)
 	if paramsType == PRM_WAIT then
 		return
 	elseif command then
-		if command == CMD_GUARD or (
-			math.bit_and(options, OPT_INTERNAL) == OPT_INTERNAL and
-			spGetUnitCurrentCommand(baseID, 2) == CMD_GUARD
-		) then
+		if command == CMD_GUARD or (isInternalBit(options) and getGuardedID(unitID, 2)) then
 			return
 		elseif paramsType ~= nil and paramsType[#params] then
 			spGiveOrderToUnit(turretID, command, params)
