@@ -69,6 +69,17 @@ end
 --------------------------------------------------------------------------------
 -- Basic command utilities -----------------------------------------------------
 
+---Safely count nil and non-table values of commandParams.
+---@param params number|number[]?
+---@return integer
+local function countParams(params)
+	if type(params) == "table" then
+		return #params
+	else
+		return params == nil and 0 or 1
+	end
+end
+
 ---@param params number|number[]?
 ---@param p1 number?
 ---@param p2 number?
@@ -483,6 +494,7 @@ end
 ---@module Commands
 local Commands = {
 	-- Basic utilities
+	CountParams            = countParams,
 	EqualParams            = equalParams,
 	GetOptions             = getOptions,
 	GetOptionCode          = getOptionCode,

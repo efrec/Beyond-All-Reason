@@ -106,6 +106,7 @@ local spAreTeamsAllied = Spring.AreTeamsAllied
 local spCallCOBScript = Spring.CallCOBScript
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 
+local countParams = Game.Commands.CountParams
 local resolveCommand = Game.Commands.ResolveCommand
 local tryGiveOrder = Game.Commands.TryGiveOrder
 
@@ -665,7 +666,7 @@ function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOp
 		cmdID, cmdParams = resolveCommand(cmdID, cmdParams)
 
 		if cmdID >= 0 then
-			if commandParamForward[cmdID][#cmdParams] then
+			if commandParamForward[cmdID][countParams(cmdParams)] then
 				spGiveOrderToUnit(turretID, cmdID, cmdParams, cmdOpts)
 			end
 		else

@@ -24,8 +24,9 @@ local resourceUpdateRate = 0.25 ---@type number in seconds
 
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
 local spGetUnitCommandCount = Spring.GetUnitCommandCount
-local resetCommandOptions = Game.Commands.ResetCommandOptions
+local countParams = Game.Commands.CountParams
 local resolveCommand = Game.Commands.ResolveFullCommand
+local resetCommandOptions = Game.Commands.ResetCommandOptions
 
 local CMD_STOP = CMD.STOP
 
@@ -201,12 +202,14 @@ local function virtualize(unitID)
 end
 
 local function allowPairedUnitCommand(command, params, pairedID)
-	local index = commandParamTarget[command][#params]
+	local index = commandParamTarget[command][countParams(params)]
 	return index == nil or params[index] ~= pairedID
 end
 
 local function allowAttachedUnitCommand(unitID, command, params, cmdOptions, insertIndex)
-	if commandParamAllow[command][#params] == nil then
+	local nParams = countParams(params)
+
+	if commandParamAllow[command][nParams] == nil then
 		return false
 	end
 
@@ -218,7 +221,7 @@ local function allowAttachedUnitCommand(unitID, command, params, cmdOptions, ins
 			return false
 		elseif cmdOptions.meta or inserted then
 			-- Orders inserted at the front of the queue => regular orders.
-			if #params ~= 0 then
+			if nParams ~= 0 then
 				-- Some commands with no params have to pass their options.
 				-- Otherwise, we must remove any options that will enqueue.
 				cmdOptions = resetCommandOptions(cmdOptions)
