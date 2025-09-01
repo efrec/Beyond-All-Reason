@@ -54,6 +54,8 @@ return {
 			subfolder = "CorVehicles/T2",
 			techlevel = 2,
 			unitgroup = "buildert2",
+			attached_con_turret = "corvacct",
+			attached_piece_index = 3,
 		},
 		featuredefs = {
 			dead = {
