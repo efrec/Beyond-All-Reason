@@ -247,21 +247,28 @@ end
 local function areCeasefired(teamID, unitID)
 	---@diagnostic disable-next-line -- I'm tired boss
 	local unitTeam = spGetUnitTeam(unitID) ---@type integer
-	local ceasefire = ceasefires[teamID]
 
-	if ceasefire then
-		local inCeasefire = ceasefire[unitTeam]
-		if inCeasefire ~= nil then
-			return inCeasefire
+	local teamCeasefire = ceasefires[teamID]
+	if teamCeasefire then
+		local inTeamCeasefire = teamCeasefire[unitTeam]
+		if inTeamCeasefire ~= nil then
+			return inTeamCeasefire
 		end
+	else
+		teamCeasefire = {}
+		ceasefires[teamID] = teamCeasefire
 	end
 
-	local inCeasefire = spAreTeamsAllied(teamID, unitTeam) and spAreTeamsAllied(unitTeam, teamID)
-	if ceasefire == nil then
-		ceasefire = {}
-		ceasefires[teamID] = ceasefire
+	local unitCeasefire = ceasefires[unitTeam]
+	if unitCeasefire == nil then
+		unitCeasefire = {}
+		ceasefires[unitTeam] = unitCeasefire
 	end
-	ceasefire[unitTeam] = inCeasefire
+
+	-- NB: Ceasefires can be one-directional; we require bidirectional agreement.
+	local inCeasefire = spAreTeamsAllied(teamID, unitTeam) and spAreTeamsAllied(unitTeam, teamID)
+	teamCeasefire[unitTeam] = inCeasefire
+	unitCeasefire[teamID] = inCeasefire
 	return inCeasefire
 end
 
