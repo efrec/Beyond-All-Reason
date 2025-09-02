@@ -1481,8 +1481,8 @@ local UnitInfo = {}
 --
 -- Depending on current module settings, these form either hash sets or arrays.
 --
--- You can access any UnitDef property by name. When a property is not found,
--- the name is cast to lowercase, and the customParams are searched instead.
+-- You can access any UnitDef property by name. To allow overriding the default
+-- unit properties via customParams, we search these values first (lowercased).
 --
 -- You also have access to all the named classifiers (see UnitInfo.Classifiers).
 ---@type table<string, table>
