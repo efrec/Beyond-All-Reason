@@ -75,13 +75,13 @@ local spSpawnCEG             = Spring.SpawnCEG
 local gameSpeed              = Game.gameSpeed
 
 --------------------------------------------------------------------------------
--- Local variables -------------------------------------------------------------
+-- Initializaiton --------------------------------------------------------------
 
 local frameInterval = math.round(Game.gameSpeed * damageInterval)
 local frameCegShift = math.round(Game.gameSpeed * damageInterval * 0.5)
 
 local timedDamageWeapons = {}
-local unitDamageImmunity = {}
+local unitDamageImmunity = Game.UnitInfo.Cache.areaDamageResistance
 local featDamageImmunity = {}
 
 local aliveExplosions = {}
@@ -92,14 +92,6 @@ local unitDamageTaken = {}
 local featDamageTaken = {}
 local unitDamageReset = {}
 local featDamageReset = {}
-
-local regexArea, regexRepeat = '%-area%-', '%-repeat'
-local regexDigits = "%d+"
-local regexCegRadius = regexArea..regexDigits..regexRepeat
-local regexCegToRadius = regexArea.."("..regexDigits..")"..regexRepeat
-
---------------------------------------------------------------------------------
--- Local functions -------------------------------------------------------------
 
 local function getExplosionParams(def, prefix)
     local params = {
@@ -117,6 +109,11 @@ local function getExplosionParams(def, prefix)
     params.resistance = string.lower(params.resistance)
     return params
 end
+
+local regexArea, regexRepeat = '%-area%-', '%-repeat'
+local regexDigits = "%d+"
+local regexCegRadius = regexArea..regexDigits..regexRepeat
+local regexCegToRadius = regexArea.."("..regexDigits..")"..regexRepeat
 
 local function getNearestCEG(params)
     local ceg, range = params.ceg, params.range
@@ -144,6 +141,51 @@ local function getNearestCEG(params)
         return ceg, sizeBest
     end
 end
+
+for weaponDefID = 0, #WeaponDefs do
+	local weaponDef = WeaponDefs[weaponDefID]
+	if weaponDef.customParams and weaponDef.customParams[prefixes.weapon.."ceg"] then
+		timedDamageWeapons[weaponDefID] = getExplosionParams(weaponDef, prefixes.weapon)
+	end
+end
+for unitDefID, unitDef in ipairs(UnitDefs) do
+	if unitDef.customParams[prefixes.unit.."ceg"] then
+		local params = getExplosionParams(unitDef, prefixes.unit)
+		timedDamageWeapons[WeaponDefNames[unitDef.deathExplosion].id] = params
+		timedDamageWeapons[WeaponDefNames[unitDef.selfDExplosion].id] = params
+	end
+end
+
+-- This simplifies writing tweakdefs to modify area_on[x]_range for balance,
+-- e.g. setting all ranges to 80% their original amount will work correctly.
+for weaponDefID, params in pairs(timedDamageWeapons) do
+	if string.find(params.ceg, regexCegRadius, nil, false) then
+		local ceg, range = getNearestCEG(params)
+		local name = WeaponDefs[weaponDefID].name
+		if ceg and range then
+			if params.ceg ~= ceg or params.range ~= range then
+				params.ceg = ceg
+				params.range = range
+				Spring.Log(gadget:GetInfo().name, LOG.INFO, 'Set '..name..' to range, ceg = '..range..', '..ceg)
+			end
+		else
+			timedDamageWeapons[weaponDefID] = nil
+			Spring.Log(gadget:GetInfo().name, LOG.WARN, 'Removed '..name..' from area timed damage weapons.')
+		end
+	end
+end
+
+featDamageImmunity = {}
+for _, featureID in ipairs(Spring.GetAllFeatures()) do
+	local featureDefID = Spring.GetFeatureDefID(featureID)
+	local featureDef = FeatureDefs[featureDefID]
+	if featureDef.indestructible or featureDef.geoThermal then
+		featDamageImmunity[featureID] = true
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Local functions -------------------------------------------------------------
 
 ---The ordering of areas, if left arbitrary, penalizes high-damage areas.
 ---This gives a faster insert when ordering areas from low to high damage
@@ -316,51 +358,6 @@ end
 -- Gadget callins --------------------------------------------------------------
 
 function gadget:Initialize()
-    timedDamageWeapons = {}
-    for weaponDefID = 0, #WeaponDefs do
-        local weaponDef = WeaponDefs[weaponDefID]
-        if weaponDef.customParams and weaponDef.customParams[prefixes.weapon.."ceg"] then
-            timedDamageWeapons[weaponDefID] = getExplosionParams(weaponDef, prefixes.weapon)
-        end
-    end
-    for unitDefID, unitDef in ipairs(UnitDefs) do
-        if unitDef.customParams[prefixes.unit.."ceg"] then
-            local params = getExplosionParams(unitDef, prefixes.unit)
-            timedDamageWeapons[WeaponDefNames[unitDef.deathExplosion].id] = params
-            timedDamageWeapons[WeaponDefNames[unitDef.selfDExplosion].id] = params
-        end
-    end
-
-    -- This simplifies writing tweakdefs to modify area_on[x]_range for balance,
-    -- e.g. setting all ranges to 80% their original amount will work correctly.
-    for weaponDefID, params in pairs(timedDamageWeapons) do
-        if string.find(params.ceg, regexCegRadius, nil, false) then
-            local ceg, range = getNearestCEG(params)
-            local name = WeaponDefs[weaponDefID].name
-            if ceg and range then
-                if params.ceg ~= ceg or params.range ~= range then
-                    params.ceg = ceg
-                    params.range = range
-                    Spring.Log(gadget:GetInfo().name, LOG.INFO, 'Set '..name..' to range, ceg = '..range..', '..ceg)
-                end
-            else
-                timedDamageWeapons[weaponDefID] = nil
-                Spring.Log(gadget:GetInfo().name, LOG.WARN, 'Removed '..name..' from area timed damage weapons.')
-            end
-        end
-    end
-
-    unitDamageImmunity = Game.UnitInfo.Cache.areaDamageResistance
-
-    featDamageImmunity = {}
-    for _, featureID in ipairs(Spring.GetAllFeatures()) do
-        local featureDefID = Spring.GetFeatureDefID(featureID)
-        local featureDef = FeatureDefs[featureDefID]
-        if featureDef.indestructible or featureDef.geoThermal then
-            featDamageImmunity[featureID] = true
-        end
-    end
-
     if next(timedDamageWeapons) then
         for weaponDefID in pairs(timedDamageWeapons) do
             Script.SetWatchExplosion(weaponDefID, true)
