@@ -88,11 +88,7 @@ end
 ---@param p5 number?
 ---@param p6 number?
 local function equalParams(params, p1, p2, p3, p4, p5, p6)
-	if params == nil then
-		return p1 == nil
-	elseif type(params) == "number" then
-		return p1 == params
-	else
+	if type(params) == "table" then
 		return
 			params[1] == p1 and
 			params[2] == p2 and
@@ -100,6 +96,8 @@ local function equalParams(params, p1, p2, p3, p4, p5, p6)
 			params[4] == p4 and
 			params[5] == p5 and
 			params[6] == p6
+	else
+		return p2 == nil and p1 == params
 	end
 end
 
