@@ -1431,6 +1431,7 @@ do
 	---Request that `UnitInfo.Cache` refreshes its tables or a specific table.
 	-- The first refresh will occur immediately followed by a debounce period.
 	-- Cached tables continue to refresh until none are marked as being dirty. -- todo
+	---@param key string|nil where `nil` marks all dirty
 	cacheDirty = function(key)
 		if key == nil then
 			local sec = os_sec()
