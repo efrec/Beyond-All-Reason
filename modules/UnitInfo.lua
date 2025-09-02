@@ -120,100 +120,99 @@ end
 -- Classifier helper methods
 -- todo: It would be nice to have a better way to refresh e.g. build trees than this.
 
-local __isStartUnit = function() return true end
-local function getIsStartUnit()
-	-- There Has To Be A Better Way
-	local config = Spring.GetGameRulesParam("validStartUnits")
+local __isStartUnit = setmetatable({}, {
+	__call = function(self)
+		local config = Spring.GetGameRulesParam("validStartUnits")
 
-	if config == nil and Spring.GetMyTeamID then
-		config = Spring.GetTeamRulesParam(Spring.GetMyTeamID(), "validStartUnits")
-	end
-
-	if config == nil then
-		local configs = {}
-		for _, team in ipairs(Spring.GetTeamList() or {}) do
-			configs[#configs+1] = Spring.GetTeamRulesParam(team, "validStartUnits")
+		if config == nil and Spring.GetMyTeamID then
+			config = Spring.GetTeamRulesParam(Spring.GetMyTeamID(), "validStartUnits")
 		end
-		if next(configs) then
-			config = table.concat(configs, "|")
-		end
-	end
 
-	if config ~= nil then
-		local sideConfig = string.split(config, "|")
-		if sideConfig ~= nil and #sideConfig > 0 then
-			local unitDefToSideID = {}
-			for i, name in ipairs(sideConfig) do
-				local def = name and UnitDefNames[name]
-				if def ~= nil then
-					unitDefToSideID[def.id] = getSideCode(def.name) or i
+		if config == nil then
+			local configs = {}
+			for _, team in ipairs(Spring.GetTeamList() or {}) do
+				configs[#configs+1] = Spring.GetTeamRulesParam(team, "validStartUnits")
+			end
+			if next(configs) then
+				config = table.concat(configs, "|")
+			end
+		end
+
+		if config ~= nil then
+			local sideConfig = string.split(config, "|")
+			if sideConfig ~= nil and #sideConfig > 0 then
+				for i, name in ipairs(sideConfig) do
+					local def = name and UnitDefNames[name]
+					if def ~= nil then
+						self[def.id] = getSideCode(def.name) or i
+					end
 				end
 			end
-			return function(unitDef) return unitDefToSideID[unitDef.id] end
+		else
+			Spring.Log("UnitInfo", LOG.ERROR, "No valid starting units found.")
+			for unitDefID, unitDef in ipairs(UnitDefs) do
+				self[unitDefID] = customBool(unitDef.customParams.iscommander)
+			end
 		end
 	end
+})
 
-	-- Fallback attempt. This should be an error condition, most likely.
-	return function(unitDef) return customBool(unitDef.customParams.iscommander) end
-end
-
-local __areaDamageResistances = {}
-local function __areaDamageResistance()
-	local weaponList = {}
-	do
-		for weaponDefID = 0, #WeaponDefs do
-			local custom = WeaponDefs[weaponDefID].customParams
-			if custom.area_onhit_ceg then
-				weaponList[weaponDefID] = custom.area_onhit_resistance:lower()
+local __areaDamageResistance = setmetatable({}, {
+	__call = function (self)
+		local weaponList = {}
+		do
+			for weaponDefID = 0, #WeaponDefs do
+				local custom = WeaponDefs[weaponDefID].customParams
+				if custom.area_onhit_ceg then
+					weaponList[weaponDefID] = custom.area_onhit_resistance:lower()
+				end
+			end
+			for _, unitDef in ipairs(UnitDefs) do
+				if unitDef.customParams.area_ondeath_ceg then
+					local resistance = unitDef.customParams.area_ondeath_resistance:lower()
+					weaponList[WeaponDefNames[unitDef.deathExplosion].id] = resistance
+					weaponList[WeaponDefNames[unitDef.selfDExplosion].id] = resistance
+				end
 			end
 		end
-		for _, unitDef in ipairs(UnitDefs) do
-			if unitDef.customParams.area_ondeath_ceg then
-				local resistance = unitDef.customParams.area_ondeath_resistance:lower()
-				weaponList[WeaponDefNames[unitDef.deathExplosion].id] = resistance
-				weaponList[WeaponDefNames[unitDef.selfDExplosion].id] = resistance
+		local areaDamageTypes = {}
+		do
+			for _, resistance in pairs(weaponList) do
+				if resistance ~= "none" then
+					areaDamageTypes[resistance] = true
+				end
 			end
 		end
-	end
-	local areaDamageTypes = {}
-	do
-		for _, resistance in pairs(weaponList) do
-			if resistance ~= "none" then
-				areaDamageTypes[resistance] = true
-			end
-		end
-	end
-	local unitImmunities = {}
-	do
-		local immunities = { all = areaDamageTypes, none = {} }
-		for unitDefID, unitDef in ipairs(UnitDefs) do
-			local unitImmunity
-			if unitDef.canFly or unitDef.armorType == Game.armorTypes.indestructible then
-				unitImmunity = immunities.all
-			elseif unitDef.customParams.areadamageresistance == nil then
-				unitImmunity = immunities.none
-			else
-				local resistance = unitDef.customParams.areadamageresistance:lower()
-				if immunities[resistance] then
-					unitImmunity = immunities[resistance]
+		do
+			local immunities = { all = areaDamageTypes, none = {} }
+			for unitDefID, unitDef in ipairs(UnitDefs) do
+				local unitImmunity
+				if unitDef.canFly or unitDef.armorType == Game.armorTypes.indestructible then
+					unitImmunity = immunities.all
+				elseif unitDef.customParams.areadamageresistance == nil then
+					unitImmunity = immunities.none
 				else
-					unitImmunity = {}
-					for damageType in pairs(areaDamageTypes) do
-						if string.find(resistance, damageType, nil, false) then
-							unitImmunity[damageType] = true
+					local resistance = unitDef.customParams.areadamageresistance:lower()
+					if immunities[resistance] then
+						unitImmunity = immunities[resistance]
+					else
+						unitImmunity = {}
+						for damageType in pairs(areaDamageTypes) do
+							if string.find(resistance, damageType, nil, false) then
+								unitImmunity[damageType] = true
+							end
 						end
+						if not next(unitImmunity) then
+							unitImmunity = immunities.none
+						end
+						immunities[resistance] = unitImmunity
 					end
-					if not next(unitImmunity) then
-						unitImmunity = immunities.none
-					end
-					immunities[resistance] = unitImmunity
 				end
+				self[unitDefID] = unitImmunity
 			end
-			unitImmunities[unitDefID] = unitImmunity
 		end
 	end
-	return unitImmunities
-end
+})
 
 --------------------------------------------------------------------------------
 -- Unit classification ---------------------------------------------------------
@@ -376,8 +375,7 @@ end
 
 local function isStartUnit(unitDef)
 	if unitDef.id == 1 then
-		-- Repopulate build tree and etc
-		__isStartUnit = getIsStartUnit()
+		__isStartUnit()
 	end
 	__isStartUnit(unitDef)
 end
@@ -677,9 +675,9 @@ end
 
 local function areaDamageResistance(unitDef)
 	if unitDef.id == 1 then
-		__areaDamageResistances = __areaDamageResistance()
+		__areaDamageResistance()
 	end
-	return __areaDamageResistances[unitDef.id]
+	return __areaDamageResistance[unitDef.id]
 end
 
 local function isJunoDamageTarget(unitDef)
