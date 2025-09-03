@@ -777,7 +777,7 @@ end
 -- Domain
 
 local function needsMapLand(unitDef)
-	return not unitDef.canFly and unitDef.minWaterDepth < 0
+	return not unitDef.canFly and unitDef.minWaterDepth <= 0
 end
 
 local needsMapWater
