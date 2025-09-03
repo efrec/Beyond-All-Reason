@@ -432,7 +432,7 @@ end
 
 local function isSpecialUpgrade(unitDef)
 	local upgradeLevel = customNumber(unitDef.customParams.techupgrade, 0)
-	if upgradeLevel == 0 or upgradeLevel >= baseTechLevel(unitDef) then
+	if upgradeLevel >= baseTechLevel(unitDef) then
 		return upgradeLevel
 	elseif customBool(unitDef.customParams.techupgrade) then
 		return math.huge
