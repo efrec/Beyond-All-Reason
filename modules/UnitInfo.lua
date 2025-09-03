@@ -122,6 +122,7 @@ end
 
 local __isStartUnit = setmetatable({}, {
 	__call = function(self)
+		---@type string|number|nil
 		local config = Spring.GetGameRulesParam("validStartUnits")
 
 		if config == nil and Spring.GetMyTeamID then
@@ -129,21 +130,22 @@ local __isStartUnit = setmetatable({}, {
 		end
 
 		if config == nil then
-			local configs = {}
-			for _, team in ipairs(Spring.GetTeamList() or {}) do
-				configs[#configs+1] = Spring.GetTeamRulesParam(team, "validStartUnits")
+			local teams = {}
+			for _, team in ipairs(Spring.GetTeamList()) do
+				teams[#teams+1] = Spring.GetTeamRulesParam(team, "validStartUnits")
 			end
-			if next(configs) then
-				config = table.concat(configs, "|")
+			if next(teams) then
+				config = table.concat(teams, "|")
 			end
 		end
 
-		if config ~= nil then
-			local sideConfig = string.split(config, "|")
-			if sideConfig ~= nil and #sideConfig > 0 then
+		if config then
+			local sideConfig = (tostring(config)):split("|")
+			if sideConfig then
 				for i, name in ipairs(sideConfig) do
-					local def = name and UnitDefNames[name]
-					if def ~= nil then
+					local def = UnitDefNames[name]
+					if def then
+						-- OK but not ideal to return sideNumber:
 						self[def.id] = getSideCode(def.name) or i
 					end
 				end
