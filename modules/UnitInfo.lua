@@ -162,56 +162,55 @@ local __isStartUnit = setmetatable({}, {
 local __areaDamageResistance = setmetatable({}, {
 	__call = function (self)
 		local weaponList = {}
-		do
-			for weaponDefID = 0, #WeaponDefs do
-				local custom = WeaponDefs[weaponDefID].customParams
-				if custom.area_onhit_ceg then
-					weaponList[weaponDefID] = custom.area_onhit_resistance:lower()
-				end
-			end
-			for _, unitDef in ipairs(UnitDefs) do
-				if unitDef.customParams.area_ondeath_ceg then
-					local resistance = unitDef.customParams.area_ondeath_resistance:lower()
-					weaponList[WeaponDefNames[unitDef.deathExplosion].id] = resistance
-					weaponList[WeaponDefNames[unitDef.selfDExplosion].id] = resistance
-				end
+		for weaponDefID = 0, #WeaponDefs do
+			local custom = WeaponDefs[weaponDefID].customParams
+			if custom.area_onhit_ceg then
+				weaponList[weaponDefID] = custom.area_onhit_resistance:lower()
 			end
 		end
+		for _, unitDef in ipairs(UnitDefs) do
+			if unitDef.customParams.area_ondeath_ceg then
+				local resistance = unitDef.customParams.area_ondeath_resistance:lower()
+				weaponList[WeaponDefNames[unitDef.deathExplosion].id] = resistance
+				weaponList[WeaponDefNames[unitDef.selfDExplosion].id] = resistance
+			end
+		end
+
 		local areaDamageTypes = {}
-		do
-			for _, resistance in pairs(weaponList) do
-				if resistance ~= "none" then
-					areaDamageTypes[resistance] = true
-				end
+		for _, resistance in pairs(weaponList) do
+			if resistance ~= "none" then
+				areaDamageTypes[resistance] = true
 			end
 		end
-		do
-			local immunities = { all = areaDamageTypes, none = {} }
-			for unitDefID, unitDef in ipairs(UnitDefs) do
-				local unitImmunity
-				if unitDef.canFly or unitDef.armorType == Game.armorTypes.indestructible then
-					unitImmunity = immunities.all
-				elseif unitDef.customParams.areadamageresistance == nil then
-					unitImmunity = immunities.none
+
+		-- Maintain the minimal set of area damage immunities.
+		local immunities = { all = areaDamageTypes, none = {} }
+
+		for unitDefID, unitDef in ipairs(UnitDefs) do
+			local unitImmunity
+			if unitDef.canFly or unitDef.armorType == Game.armorTypes.indestructible then
+				unitImmunity = immunities.all
+			elseif unitDef.customParams.areadamageresistance == nil then
+				unitImmunity = immunities.none
+			else
+				local resistance = unitDef.customParams.areadamageresistance:lower()
+				if immunities[resistance] then
+					unitImmunity = immunities[resistance]
 				else
-					local resistance = unitDef.customParams.areadamageresistance:lower()
-					if immunities[resistance] then
-						unitImmunity = immunities[resistance]
-					else
-						unitImmunity = {}
-						for damageType in pairs(areaDamageTypes) do
-							if string.find(resistance, damageType, nil, false) then
-								unitImmunity[damageType] = true
-							end
+					unitImmunity = {}
+					for damageType in pairs(areaDamageTypes) do
+						-- Resistances are matched by simple substring:
+						if string.find(resistance, damageType, nil, false) then
+							unitImmunity[damageType] = true
 						end
-						if not next(unitImmunity) then
-							unitImmunity = immunities.none
-						end
-						immunities[resistance] = unitImmunity
 					end
+					if not next(unitImmunity) then
+						unitImmunity = immunities.none
+					end
+					immunities[resistance] = unitImmunity
 				end
-				self[unitDefID] = unitImmunity
 			end
+			self[unitDefID] = unitImmunity
 		end
 	end
 })
