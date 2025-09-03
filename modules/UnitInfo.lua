@@ -378,7 +378,7 @@ local function isStartUnit(unitDef)
 	if unitDef.id == 1 then
 		__isStartUnit()
 	end
-	__isStartUnit(unitDef)
+	return __isStartUnit[unitDef.id]
 end
 
 -- Tech and upgrades
