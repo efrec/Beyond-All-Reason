@@ -333,16 +333,33 @@ local function dimension(unitDef)
 		unitDef.xsize * FOOTPRINT,
 		unitDef.height,
 		unitDef.zsize * FOOTPRINT,
-		unitDef.radius
+		unitDef.radius,
+		--
+		xsize  = unitDef.xsize * FOOTPRINT,
+		height = unitDef.height,
+		zsize  = unitDef.zsize * FOOTPRINT,
+		radius = unitDef.radius,
 	}
 end
 
 local function footprint(unitDef)
-	return { unitDef.xsize, unitDef.zsize }
+	return {
+		unitDef.xsize,
+		unitDef.zsize,
+		--
+		xsize = unitDef.xsize,
+		zsize = unitDef.zsize,
+}
 end
 
 local function footprintSize(unitDef)
-	return { unitDef.xsize * FOOTPRINT, unitDef.zsize * FOOTPRINT }
+	return {
+		unitDef.xsize * FOOTPRINT,
+		unitDef.zsize * FOOTPRINT,
+		--
+		xsize = unitDef.xsize * FOOTPRINT,
+		zsize = unitDef.zsize * FOOTPRINT,
+	}
 end
 
 local function needsGeothermal(unitDef)
@@ -475,7 +492,15 @@ end
 
 local function unitCosts(unitDef)
 	local metal, energy, build = unitDef.metalCost, unitDef.energyCost, unitDef.buildTime
-	return { metal, energy, build, metal = metal, energy = energy, build = build }
+	return {
+		metal,
+		energy,
+		build,
+		--
+		metal = metal,
+		energy = energy,
+		build = build
+	}
 end
 
 local function metalCostTotal(unitDef)
@@ -503,7 +528,13 @@ end
 local function storageAmounts(unitDef)
 	if unitDef.metalStorage > 0 or unitDef.energyStorage > 0 then
 		local metal, energy = unitDef.metalStorage, unitDef.energyStorage
-		return { metal, energy, metal = metal, energy = energy }
+		return {
+			metal,
+			energy,
+			--
+			metal = metal,
+			energy = energy
+		}
 	end
 end
 
@@ -1247,10 +1278,9 @@ end
 ---Has to be oriented to match the unit heading (in case of xsize ~= zsize).
 local function unitScaleFootprint(unitDef)
 	if unitDef.isImmobile then
-		return {
-			FOOTPRINT * (unitDef.xsize * 1.025 + 1.5) * 0.5,
-			FOOTPRINT * (unitDef.zsize * 1.025 + 1.5) * 0.5,
-		}
+		local x = FOOTPRINT * (unitDef.xsize * 1.025 + 1.5) * 0.5
+		local z = FOOTPRINT * (unitDef.zsize * 1.025 + 1.5) * 0.5
+		return { x, z, x = x, z = z }
 	end
 end
 
