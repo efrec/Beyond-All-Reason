@@ -366,7 +366,7 @@ local function needsMapWind(unitDef)
 end
 
 local function needsWater(unitDef)
-	return unitDef.minWaterDepth >= 0
+	return unitDef.minWaterDepth > 0
 		or (unitDef.moveDef and unitDef.moveDef.speedModClass == SPEEDMOD.Ship and unitDef.moveDef.depth > 0)
 end
 
@@ -859,7 +859,7 @@ end
 
 local function isLandUnit(unitDef)
 	-- todo: Should this be so exclusive? Are amphibious units not land units?
-	return unitDef.minWaterDepth < 0 and not unitDef.canFly and not unitDef.canSubmerge
+	return unitDef.minWaterDepth <= 0 and not unitDef.canFly and not unitDef.canSubmerge
 end
 
 local function isWaterUnit(unitDef)
