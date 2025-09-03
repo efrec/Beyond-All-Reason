@@ -352,17 +352,17 @@ end
 
 local function needsMetalSpot(unitDef)
 	return unitDef.extractsMetal > 0
-		or customNumber(unitDef.customParams.metal_extractor) == 0 -- just snaps to mexes ?
+		or customNumber(unitDef.customParams.metal_extractor) ~= 0 -- just snaps to mexes ?
 end
 
 local function needsMapTidal(unitDef)
 	return unitDef.tidalGenerator > 0
-		or customNumber(unitDef.customParams.tidal_generator) == 0 -- just uses tide speed ?
+		or customNumber(unitDef.customParams.tidal_generator) ~= 0 -- just uses tide speed ?
 end
 
 local function needsMapWind(unitDef)
 	return unitDef.windGenerator > 0
-		or customNumber(unitDef.customParams.wind_generator) == 0 -- just faces into wind ?
+		or customNumber(unitDef.customParams.wind_generator) ~= 0 -- just faces into wind ?
 end
 
 local function needsWater(unitDef)
