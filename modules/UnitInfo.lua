@@ -120,6 +120,7 @@ end
 -- Classifier helper methods
 -- todo: It would be nice to have a better way to refresh e.g. build trees than this.
 
+-- See `isStartUnit`
 local __isStartUnit = setmetatable({}, {
 	__call = function(self)
 		---@type string|number|nil
@@ -159,6 +160,7 @@ local __isStartUnit = setmetatable({}, {
 	end
 })
 
+-- See `areaDamageResistance`
 local __areaDamageResistance = setmetatable({}, {
 	__call = function (self)
 		local weaponList = {}
