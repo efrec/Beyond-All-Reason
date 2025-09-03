@@ -87,7 +87,7 @@ local function spamRating(unitDef)
 end
 
 ---Some units have "unused" weapon defs that serve other purposes, which we ignore.
--- todo: overused, don't need to check this when looping unitDef.weapons, obviously
+-- Use this for looping WeaponDefs, but not when looping through `unitDef.weapons`.
 local function equipsDef(unitDef, weaponDefID)
 	for _, weapon in ipairs(unitDef.weapons) do
 		if weapon.weaponDef == weaponDefID then
