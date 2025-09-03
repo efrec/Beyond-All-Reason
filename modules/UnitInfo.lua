@@ -431,13 +431,13 @@ local function isSpecialTech(unitDef)
 end
 
 local function isSpecialUpgrade(unitDef)
-	if customBool(unitDef.customParams.techupgrade) then
-		return math.huge -- up to any tech level
+	local upgradeLevel = customNumber(unitDef.customParams.techupgrade, 0)
+	if upgradeLevel == 0 or upgradeLevel >= baseTechLevel(unitDef) then
+		return upgradeLevel
+	elseif customBool(unitDef.customParams.techupgrade) then
+		return math.huge
 	else
-		local upgradeLevel = customNumber(unitDef.customParams.techupgrade, 0)
-		if upgradeLevel >= baseTechLevel(unitDef) then
-			return upgradeLevel
-		end
+		return 0
 	end
 end
 
