@@ -1464,7 +1464,7 @@ do
 	cacheDirty = function(key)
 		if key == nil then
 			local sec = os_sec()
-			for key in pairs(cached) do refetch(key, sec) end
+			for k in pairs(cached) do refetch(k, sec) end
 		elseif type(key) == "string" and type(rawget(cached, key)) == "table" then
 			local sec = os_sec()
 			refetch(key, sec)
