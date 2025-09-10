@@ -31,18 +31,18 @@ local minBulkReflect = 64000				-- smallest unit bulk that causes reflection as 
 
 -- CustomParams setup ----------------------------------------------------------
 --
-	-- weapon = {
-	-- 	type := "Cannon" | "EMGCannon"
-	-- 	customparams = {
-	-- 		cluster_def    := <string> | nil (see defaults)
-	-- 		cluster_number := <number> | nil (see defaults)
-	-- 	},
-	-- },
-    --
-    -- <cluster_def> = {
-	-- 	weaponvelocity := <number> -- Will be ignored in favor of range if possible.
-	-- 	range          := <number> -- Preferred over and replaces weaponvelocity.
-	-- }
+--   weapon = {
+--       type := "Cannon" | "EMGCannon"
+--       customparams = {
+--           cluster_def    := <string> | nil (see defaults)
+--           cluster_number := <number> | nil (see defaults)
+--       },
+--   },
+--  
+--   <cluster_def> = {
+--       weaponvelocity := <number> -- Will be ignored in favor of range if possible.
+--       range          := <number> -- Preferred over and replaces weaponvelocity.
+--   }
 
 --------------------------------------------------------------------------------
 -- Localize --------------------------------------------------------------------
@@ -79,8 +79,8 @@ end
 defaultSpawnTtl = defaultSpawnTtl * gameSpeed
 
 local spawnableTypes = {
-	Cannon          = true  ,
-	EMGCannon       = true  ,
+	Cannon    = true,
+	EMGCannon = true,
 }
 
 local clusterWeaponDefs = {}
