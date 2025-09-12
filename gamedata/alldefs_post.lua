@@ -41,6 +41,13 @@ end
 -- DEFS POST PROCESSING
 -------------------------
 
+-- Strip out def "data" subtables.
+DATA = {
+	UnitDefs    = {},
+	WeaponDefs  = {},
+	FeatureDefs = {},
+}
+
 --[[ Sanitize to whole frames (plus leeways because float arithmetic is bonkers).
      The engine uses full frames for actual reload times, but forwards the raw
      value to LuaUI (so for example calculated DPS is incorrect without sanitisation). ]]
@@ -2014,6 +2021,12 @@ function UnitDef_Post(name, uDef)
 		end
 	end
 
+	-- Extract other data fields
+
+	if uDef.data then
+		DATA.UnitDefs[name] = uDef.data
+		uDef.data = nil
+	end
 end
 
 local function ProcessSoundDefaults(wd)
@@ -2379,6 +2392,13 @@ function WeaponDef_Post(name, wDef)
 			end
 		end
 	end
+
+	-- Extract other data fields
+
+	if wDef.data then
+		DATA.WeaponDefs[name] = wDef.data
+		wDef.data = nil
+	end
 end
 
 -- process effects
@@ -2411,3 +2431,38 @@ function ModOptions_Post (UnitDefs, WeaponDefs)
 		wDef.explosionScar = false
 	end
 end
+
+--------------------------
+-- Load misc config data
+-------------------------
+
+DEFS.iconDefs = {} -- for icontype
+DEFS.lightDefs = { unitLights = {}, weaponLights = {} } -- for deferredlights
+DEFS.soundDefs = {} -- for guisoundeffects
+
+for name, data in pairs(DATA.UnitDefs) do
+	if data.armordef and DEFS.armorDefs[data.armordef] then
+		local armorSet = DEFS.armorDefs[data.armordef]
+		armorSet[#armorSet + 1] = name
+	end
+
+	if data.icontype then
+		DEFS.iconDefs[name] = data.icontype
+	end
+
+	if data.deferredlights then
+		DEFS.lightDefs.unitLights[name] = data.deferredlights
+	end
+
+	if data.soundeffects then
+		DEFS.soundDefs[name] = data.soundeffects
+	end
+end
+
+for name, data in pairs(DATA.WeaponDefs) do
+	if data.deferredlights then
+		DEFS.lightDefs.unitLights[name] = data.deferredlights
+	end
+end
+
+DEFS = nil
