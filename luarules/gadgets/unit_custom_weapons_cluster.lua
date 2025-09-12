@@ -26,8 +26,9 @@ local defaultSpawnTtl = 5					-- detonate projectiles after time = ttl, by defau
 
 local minSpawnNumber = 3					-- minimum number of spawned projectiles
 local maxSpawnNumber = 24					-- protect game performance against stupid ideas
-local minUnitBounces = "armpw"				-- smallest unit (name) that bounces projectiles at all
-local minBulkReflect = 64000				-- smallest unit bulk that causes reflection as if terrain
+local minUnitBounces = "armpw"				-- smallest unit (name) that "bounces" projectiles at all
+local minBulkReflect = 20000				-- smallest unit bulk that "reflects" as if terrain
+local waterDepthCoef = 0.1                  -- reduce "separation" from ground in water by a multiple
 
 -- CustomParams setup ----------------------------------------------------------
 --
@@ -50,8 +51,8 @@ local minBulkReflect = 64000				-- smallest unit bulk that causes reflection as 
 local DirectionsUtil = VFS.Include("LuaRules/Gadgets/Include/DirectionsUtil.lua")
 
 local max   = math.max
-local min   = math.min
 local rand  = math.random
+local diag  = math.diag
 local sqrt  = math.sqrt
 local cos   = math.cos
 local sin   = math.sin
@@ -85,7 +86,7 @@ local spawnableTypes = {
 
 local clusterWeaponDefs = {}
 
-for unitDefName, unitDef in pairs(UnitDefNames) do
+for unitDefID, unitDef in ipairs(UnitDefs) do
 	for _, weapon in pairs(unitDef.weapons) do
 		local weaponDefID, weaponDef = weapon.weaponDef, WeaponDefs[weapon.weaponDef]
 		local clusterDefName = weaponDef.customParams.cluster_def
@@ -136,25 +137,63 @@ for weaponDefID in pairs(removeIDs) do
 	clusterWeaponDefs[weaponDefID] = nil
 end
 
-local unitBulks = {} -- How sturdy the unit is. Projectiles scatter less with lower bulk values.
+local unitBulks = {} -- Projectiles scatter away more against higher bulk values.
 
-for unitDefID, unitDef in pairs(UnitDefs) do
-	local bulkiness = (
-		unitDef.health ^ 0.5 +                               -- HP is log2-ish but that feels too tryhard
-		unitDef.metalCost ^ 0.5 *                            -- Steel (metal) is heavier than feathers (energy)
-		unitDef.xsize * unitDef.zsize * unitDef.radius ^ 0.5 -- We see 'bigger' as 'more solid' not 'less dense'
-	) / minBulkReflect                                       -- Scaled against some large-ish bulk rating
+local bulkMin = UnitDefs[minUnitBounces].id and unitBulks[UnitDefs[minUnitBounces].id] or 0.1
 
-	if unitDef.armorType == Game.armorTypes.wall or unitDef.armorType == Game.armorTypes.indestructable then
-		bulkiness = bulkiness * 2
-	elseif unitDef.customParams.neutral_when_closed then
-		bulkiness = bulkiness * 1.5
+local function getUnitVolume(unitDef)
+	local cv = unitDef.collisionVolume
+	local volume = cv.scaleX * cv.scaleY * cv.scaleZ
+	if cv.type == "sphere" or cv.type == "ellipsoid" then
+		-- (4/3)πr => (1/6)πABC
+		return volume * math.pi / 6
+	elseif cv.type == "cylinder" then
+		-- πr²h => (1/4)πABc
+		return volume * math.pi / 4
 	end
-
-	unitBulks[unitDefID] = min(bulkiness, 1) ^ 0.39 -- Scale bulks to [0,1] and curve them upward towards 1.
+	return volume
 end
 
-local bulkMin = unitBulks[UnitDefNames[minUnitBounces].id] or 0.1
+local useCrushingMass = {
+	wall           = true,
+	indestructable = true,
+}
+
+local function getUnitBulk(unitDef)
+	local volume = getUnitVolume(unitDef)
+
+	-- NB: Mass is absolutely useless. Do not use mass.
+	local fromHealth = sqrt(unitDef.health) -- [1, 1 000 000] => [1, 1000] approx
+	local fromMetal = sqrt(unitDef.metalCost) -- [0, 100 000] => [0, 333] approx
+	local fromVolume = sqrt(volume / unitDef.height) -- [1, ??????] => [1, 20000] approx
+
+	if useCrushingMass[unitDef.armorType] and unitDef.moveDef then
+		fromMetal = max(fromMetal, sqrt(unitDef.moveDef.crushStrength))
+	end
+
+	local bulkiness = (fromHealth + fromMetal + fromVolume) + sqrt(fromHealth * fromMetal)
+	bulkiness = math.clamp(bulkiness, 0, minBulkReflect) / minBulkReflect -- Scale to [0, 1].
+	bulkiness = bulkiness ^ 0.57 -- Curve bulks upward, toward 1, to be much more noticeable.
+
+	if unitDef.customParams.decoyfor then
+		local decoyDef = UnitDefNames[unitDef.customParams.decoyfor]
+		if decoyDef then
+			local decoyBulk = getUnitBulk(decoyDef)
+			bulkiness = (bulkiness + decoyBulk) * 0.5 -- cheat slightly
+		end
+	end
+
+	return bulkiness
+end
+
+for unitDefID, unitDef in pairs(UnitDefs) do
+	local bulk = 0
+	if not (unitDef.customParams.decoration or unitDef.customParams.virtualunit) then
+		bulk = tonumber(unitDef.customParams.bulk_rating) or getUnitBulk(unitDef)
+	end
+	unitBulks[unitDefID] = bulk
+end
+
 for unitDefID in pairs(UnitDefs) do
 	if unitBulks[unitDefID] < bulkMin then
 		unitBulks[unitDefID] = nil
@@ -195,8 +234,11 @@ local function getSurfaceDeflection(x, y, z)
 		local shiftX = x - dx * shift -- Next surface x, z
 		local shiftZ = z - dz * shift
 		elevation = max(elevation, spGetGroundHeight(shiftX, shiftZ))
-		separation = y - elevation
 		dx, dy, dz = spGetGroundNormal(shiftX, shiftZ, true)
+		if elevation < 0 then
+			elevation = elevation * waterDepthCoef
+		end
+		separation = y - elevation
 	end
 
 	separation = 1.3 / sqrt(max(1, separation))
@@ -237,27 +279,32 @@ local function spawnClusterProjectiles(data, attackerID, x, y, z)
 	local projectileCount = data.number
 	local projectileSpeed = data.weaponSpeed
 
-	spawnCache.owner = attackerID or -1
-	spawnCache.ttl = data.weaponTtl
-	local speed = spawnCache.speed
-	local position = spawnCache.pos
+	local params = spawnCache
+	params.owner = attackerID or -1
+	params.ttl = data.weaponTtl
+	local speed = params.speed
+	local position = params.pos
 
 	local directionVectors = directions[projectileCount]
 	local deflectX, deflectY, deflectZ = getSurfaceDeflection(x, y, z)
-	local randomness = 1 / sqrt(projectileCount - 2)
+	local randomness = 1 / sqrt(projectileCount - 2) + 0.1
 
 	for i = 0, projectileCount - 1 do
 		local velocityX = directionVectors[3 * i + 1] + deflectX
 		local velocityY = directionVectors[3 * i + 2] + deflectY
 		local velocityZ = directionVectors[3 * i + 3] + deflectZ
+		local velocityW
 
-		velocityX = velocityX + (rand() - 0.5) * randomness * 2
-		velocityY = velocityY + (rand() - 0.5) * randomness * 2
-		velocityZ = velocityZ + (rand() - 0.5) * randomness * 2
+		repeat
+			velocityX = velocityX + (rand() - 0.5) * randomness * 2
+			velocityY = velocityY + (rand() - 0.5) * randomness * 2
+			velocityZ = velocityZ + (rand() - 0.5) * randomness * 2
+			velocityW = diag(velocityX, velocityY, velocityZ)
+		until velocityW ~= 0 -- prevent div-zero
 
-		-- Higher projectile counts will have less variation in projectile speed.
-		local normalization = (1 + rand() * randomness) / (1 + randomness)
-		normalization = normalization * projectileSpeed / sqrt(velocityX*velocityX + velocityY*velocityY + velocityZ*velocityZ)
+		local randomization = (1 + rand() * randomness) / (1 + randomness)
+		local normalization = (projectileSpeed / velocityW) * randomization
+
 		velocityX = velocityX * normalization
 		velocityY = velocityY * normalization
 		velocityZ = velocityZ * normalization
@@ -270,7 +317,7 @@ local function spawnClusterProjectiles(data, attackerID, x, y, z)
 		position[2] = y + velocityY * gameSpeed / 2
 		position[3] = z + velocityZ * gameSpeed / 2
 
-		spSpawnProjectile(clusterDefID, spawnCache)
+		spSpawnProjectile(clusterDefID, params)
 	end
 end
 
