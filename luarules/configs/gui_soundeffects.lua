@@ -733,11 +733,6 @@ GUIUnitSoundEffects = {
 		BaseSoundMovementType = "arm-bot-tiny-ok",
 		BaseSoundWeaponType = "laser-tiny",
 	},
-	armpw = {
-		BaseSoundSelectType = "arm-bot-tiny-sel",
-		BaseSoundMovementType = "arm-bot-tiny-ok",
-		BaseSoundWeaponType = "fastemgalt-small",
-	},
 	armham = {
 		BaseSoundSelectType = "arm-bot-small-sel",
 		BaseSoundMovementType = "arm-bot-small-ok",
@@ -3491,6 +3486,40 @@ for _, udef in pairs(UnitDefs) do
 	end
 end
 table.mergeInPlace(GUIUnitSoundEffects, scavCopies)
+
+-- Load data from unit files.
+for name, data in pairs(DATA.UnitDefs) do
+	if data.soundDefs then
+		if GUIUnitSoundEffects[name] then
+			local configs = GUIUnitSoundEffects[name]
+			for k, v in pairs(data) do
+				if configs[k] == nil then
+					-- Merge:
+					configs[k] = v
+				else
+					-- Combine into array:
+					local config = configs[k]
+					if type(config) ~= "table" then
+						config = { config }
+					else
+						config = config
+					end
+					local values
+					if type(v) ~= "table" then
+						values = { v }
+					else
+						values = v
+					end
+					for _, v2 in ipairs(values) do
+						if table.getKeyOf(config, v2) == nil then
+							config[#config + 1] = v2
+						end
+					end
+				end
+			end
+		end
+	end
+end
 
 for _, udef in pairs(UnitDefs) do
 	if (not GUIUnitSoundEffects[udef.name]) and string.find(udef.name, "raptor") then
