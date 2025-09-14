@@ -35,62 +35,6 @@ local exampleLight = {
 local unitLights = {
 
 
-	['armpw'] = {
-		headlightpw = { -- this is the lightname
-			lightType = 'cone',
-			pieceName = 'head', -- invalid ones will attach to the worldpos of the unit
-			lightConfig = { posx = 0, posy = 2, posz = 1, radius = 50,
-							dirx = 0, diry = -0.07, dirz = 1, theta = 0.29,
-							r = 1, g = 1, b = 0.89, a = 0.55,
-							modelfactor = -0.5, specular = -1.5, scattering = 1.8, lensflare = 1,
-							lifetime = 0, sustain = 0, selfshadowing = 1},
-		},
-		eyes = {
-			lightType = 'point',
-			pieceName = 'head',
-			lightConfig = { posx = 0, posy = 2.0, posz = 8.3, radius = 5,
-							color2r = 0.6, color2g = 0.5, color2b = 0.4, colortime = 30,
-							r = 1.2, g = 1, b = 0.25, a = 0.8,
-							modelfactor = 0.8, specular = 0.3, scattering = 0.2, lensflare = 0,
-							lifetime = 0, sustain = 0, selfshadowing = 0},
-		},
-		arm1 = {
-			lightType = 'point',
-			pieceName = 'lgun',
-			lightConfig = { posx = 0, posy = 0, posz = 3.5, radius = 2,
-							color2r = 1, color2g = 1, color2b = 0.25, colortime = 0,
-							r = 1.2, g = 1, b = 0.25, a = 1,
-							modelfactor = 0.8, specular = 0.6, scattering = 0.3, lensflare = 0,
-							lifetime = 0, sustain = 0, selfshadowing = 0},
-		},
-		arm2 = {
-			lightType = 'point',
-			pieceName = 'rgun',
-			lightConfig = { posx = 0, posy = 0, posz = 3.5, radius = 2,
-							color2r = 1, color2g = 1, color2b = 0.25, colortime = 0,
-							r = 1.2, g = 1, b = 0.25, a = 1,
-							modelfactor = 0.8, specular = 0.6, scattering = 0.3, lensflare = 0,
-							lifetime = 0, sustain = 0, selfshadowing = 0},
-		},
-		backpack1 = {
-			lightType = 'point',
-			pieceName = 'head',
-			lightConfig = { posx = 4, posy = 3.5, posz = -8, radius = 3.5,
-							color2r = 1, color2g = 1, color2b = 1, colortime = 0,
-							r = -1, g = 1, b = 1, a = 2.5,
-							modelfactor = 0.2, specular = 0.3, scattering = 0.2, lensflare = 0,
-							lifetime = 0, sustain = 0, selfshadowing = 0},
-		},
-		backpack2 = {
-			lightType = 'point',
-			pieceName = 'head',
-			lightConfig = { posx = -4, posy = 3.5, posz = -8, radius = 3.5,
-							color2r = 1, color2g = 1, color2b = 1, colortime = 0,
-							r = -1, g = 1, b = 1, a = 2.5,
-							modelfactor = 0.2, specular = 0.3, scattering = 0.2, lensflare = 0,
-							lifetime = 0, sustain = 0, selfshadowing = 0},
-		},
-	},
 	['armwar'] = {
 		arm1 = {
 			lightType = 'point',
@@ -37294,22 +37238,52 @@ local unitLights = {
 	}
 }
 
+-- These become unit event lights:
+local weaponLights = {}
 
-unitLights['armtorps'] = unitLights['armmls']
---unitLights['coruwgeo'] = unitLights['corgeo']
---unitLights['coruwageo'] = unitLights['corageo']
---unitLights['armuwgeo'] = unitLights['armgeo']
---unitLights['armuwageo'] = unitLights['armageo']
-unitLights['armshltxuw'] = unitLights['armshltx']
-unitLights['corgantuw'] = unitLights['corgant']
-unitLights['armdecom'] = unitLights['armcom']
-unitLights['cordecom'] = unitLights['corcom']
-unitLights['armcomcon'] = unitLights['armcom']
-unitLights['corcomcon'] = unitLights['corcom']
-unitLights['armdf'] = table.copy(unitLights['armfus'])
-unitLights['armuwfus'] = table.copy(unitLights['armfus'])
-unitLights['armckfus'] = table.copy(unitLights['armfus'])
-unitLights['legdecom'] = unitLights['legcom']
+-- Pull from DEFS before trying to copy duplicates.
+-- Hardcoded values above supercede values in DEFS.
+
+local function getLightsData(name, lights)
+	local configs, data
+	if lights.unitLights then
+		configs = unitLights
+		data = lights.unitLights
+	elseif lights.weaponLights then
+		configs = weaponLights
+		data = lights.weaponLights
+	else
+		return
+	end
+	configs[name] = table.merge(data, configs[name] or {})
+end
+
+for name, lights in pairs(DEFS.lightDefs) do
+	getLightsData(name, lights)
+	DEFS.lightDefs[name] = nil
+end
+DEFS.lightDefs = nil -- consume input configs
+
+-- Duplicate lights across units.
+
+for unitName, copyFrom in pairs {
+	armtorps   = "armmls",
+	armshltxuw = "armshltx",
+	corgantuw  = "corgant",
+	armdecom   = "armcom",
+	cordecom   = "corcom",
+	armcomcon  = "armcom",
+	corcomcon  = "corcom",
+	armdf      = "armfus",
+	armuwfus   = "armfus",
+	armckfus   = "armfus",
+	legdecom   = "legcom",
+} do
+	-- Handle options and tweaks that may remove some units:
+	if UnitDefNames[unitName] and unitLights[copyFrom] then
+		unitLights[unitName] = table.copy(unitLights[copyFrom])
+	end
+end
 
 local unitEventLightsNames = {
 	------------------------------------ Put lights that are slaved to ProjectileCreated here! ---------------------------------
