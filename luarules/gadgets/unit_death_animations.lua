@@ -22,7 +22,6 @@ local units = {
 	corstorm = true,
 	corsumo = true,
 	armraz = true,
-	armpw = true,
 	armck = true,
 	armrectr = true,
 	armrock = true,
@@ -39,7 +38,7 @@ for name,v in pairs(unitsCopy) do
 end
 local hasDeathAnim = {}
 for udid, ud in pairs(UnitDefs) do
-	if units[ud.name] then
+	if units[ud.name] or ud.customParams.hasdeathanimation then
 		hasDeathAnim[udid] = true
 	end
 	-- almost all raptors have dying anims
