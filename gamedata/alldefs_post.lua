@@ -2461,8 +2461,6 @@ end
 
 for name, data in pairs(DATA.WeaponDefs) do
 	if data.deferredlights then
-		DEFS.lightDefs.unitLights[name] = data.deferredlights
+		DEFS.lightDefs.weaponLights[name] = data.deferredlights
 	end
 end
-
-DEFS = nil
