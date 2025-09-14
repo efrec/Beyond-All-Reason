@@ -21,7 +21,6 @@ local stompable = {
 	corfav = true,
 	armflea = true,
 	corak = true,
-	armpw = true,
 	leggob = true
 }
 local stompableCopy = table.copy(stompable)
@@ -30,7 +29,7 @@ for name,v in pairs(stompableCopy) do
 end
 local stompableDefs = {}
 for udid, ud in pairs(UnitDefs) do
-	if stompable[ud.name] then
+	if stompable[ud.name] or ud.customParams.stompable then
 		stompableDefs[udid] = v
 	end
 end
