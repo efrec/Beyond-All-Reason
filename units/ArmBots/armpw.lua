@@ -46,7 +46,6 @@ return {
 		},
 		data = {
 			armordef = "standard",
-			movedef  = "BOT3",
 			rename   = "armada_pawn",
 			icontype = {
 				bitmap = "icons/bot_t1_raid_0.7.png",
