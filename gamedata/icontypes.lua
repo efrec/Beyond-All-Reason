@@ -703,10 +703,6 @@ local icontypes = {
 		bitmap = "icons/ship_t3_pt.png",
 		size = 2.29999995
 	},
-	armpw = {
-		bitmap = "icons/bot_t1_raid_0.7.png",
-		size = 0.73499995
-	},
 	armpwt4 = {
 		bitmap = "icons/armpwt4.png",
 		size = 2.30999994
@@ -1970,7 +1966,7 @@ local icontypes = {
 	corsiegebreaker = {
 		bitmap = "icons/vehicle_t2_tank_laser.png",
 		size = 1.46999991
-  },
+	},
 	corsentinel = {
 		bitmap = "icons/ship_t2_dronecarry.png",
 		size = 1.83749986
@@ -3691,5 +3687,10 @@ for name, params in pairs(icontypes) do
 		newIcontypes[name..'_scav'].bitmap = params.bitmap:gsub('/', '/inverted/')
 	end
 end
+
+for name, data in pairs(DEFS.iconDefs) do
+	icontypes[name] = table.merge(data, icontypes[name] or {})
+end
+DEFS.iconDefs = nil
 
 return newIcontypes
