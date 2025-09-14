@@ -148,7 +148,6 @@ local armorDefs = {
 		"armmstor",
 		"armpb",
 		"armplat",
-		"armpw",
 		"armrectr",
 		"armrl",
 		"armrock",
@@ -746,5 +745,17 @@ for category, names in pairs(armorDefs) do
 end
 
 table.mergeInPlace(armorDefs, scavArmorDefs)
+
+for name, data in pairs(DEFS.armorDefs) do
+	local found = false
+	for defName, def in pairs(armorDefs) do
+		if table.getKeyOf(def, name) then
+			found = true
+		end
+	end
+	if not found and armorDefs[data] then
+		table.insert(armorDefs[data], name)
+	end
+end
 
 return armorDefs
