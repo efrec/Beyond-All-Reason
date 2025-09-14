@@ -21,7 +21,6 @@ local convertedUnitsNames = {
 	-- value is reaimtime in frames, engine default is 15
 	['armfav'] = 3,
 	['armbeamer'] = 3,
-	['armpw'] = 2,
 	['armpwt4'] = 2,
 	['armflea'] = 2,
 	['armrock'] = 2,
@@ -173,9 +172,17 @@ for name, params in pairs(spamUnitsTeamsNames) do
 end
 spamUnitsTeamsNames = nil
 
+for unitDefID, unitDef in pairs(UnitDefs) do
+	if unitDef.customParams.continuousaim_frames then
+		convertedUnits[unitDefID] = tonumber(unitDef.customParams.continuousaim_frames)
+	end
+	if unitDef.customParams.continuousaim_isspam then
+		spamUnitsTeams[unitDefID] = {}
+	end
+end
+
 
 local spamUnitsTeamsReaimTimes = {} --{unitDefID = {teamID = currentReAimTime,...}}
-
 
 -- for every spamThreshold'th spammable unit type built by this team, increase reaimtime by 1 for that team
 local spamThreshold = 100
