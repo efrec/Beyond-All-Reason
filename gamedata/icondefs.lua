@@ -1,4 +1,4 @@
-local icontypes = {
+local iconDefs = {
 	armaak = {
 		bitmap = "icons/bot_amph_t2_aa.png",
 		size = 1.41999996
@@ -2607,7 +2607,7 @@ local icontypes = {
 		bitmap = "icons/ship_pship.png",
 		size = 1.25999999
 	},
-		legmohocon = {
+	legmohocon = {
 		bitmap = "icons/mex_t2_con.png",
 		size = 1.20749986
 	},
@@ -2627,8 +2627,8 @@ local icontypes = {
 		bitmap = "icons/factory_hover.png",
 		size = 1.52250004
 	},
-	legjam ={
-		bitmap ="icons/jammer.png",
+	legjam = {
+		bitmap = "icons/jammer.png",
 		size = 0.94499993
 	},
 	leginc = {
@@ -3660,15 +3660,8 @@ local icontypes = {
 		bitmap = "icons/blank.png",
 		size = 1.04999995
 	},
-	leghrk = {
-		bitmap = "icons/kbot_t2_barrage.png",
-		size = 1.6
-	},
-	legfdrag = {
-		bitmap = "icons/wall_0.4.png",
-		size = 0.41999999
-	},
 
+	-- General cases
 	blank = {
 		bitmap = "icons/blank.png",
 		size = 1,
@@ -3679,13 +3672,14 @@ local icontypes = {
 	},
 }
 
-local newIcontypes = {}
-for name, params in pairs(icontypes) do
-	newIcontypes[name] = params
-	newIcontypes[name..'_scav'] = { size = params.size or 1 }
-	if params.bitmap then
-		newIcontypes[name..'_scav'].bitmap = params.bitmap:gsub('/', '/inverted/')
-	end
+Spring.Echo(iconDefs) -- ! Get sorted result. Remove later.
+
+-- todo: Scavengers should be generated units and not use this kind of logic at all.
+for name, params in pairs(iconDefs) do
+	iconDefs[name .. "_scav"] = {
+		size   = params.size or 1,
+		bitmap = params.bitmap and params.bitmap:gsub("icons/", "icons/inverted/") or nil,
+	}
 end
 
-return newIcontypes
+return iconDefs

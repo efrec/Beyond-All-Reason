@@ -104,4 +104,6 @@ for name, def in pairs(FeatureDefs) do
 		Spring.Log("featuredefs_post.lua", LOG.WARNING, "Removing feature def", name, "for having invalid model that would crash the engine", def.object)
 		FeatureDefs[name] = nil
 	end
+
+	def.data = nil
 end

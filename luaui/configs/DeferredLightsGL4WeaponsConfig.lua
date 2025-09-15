@@ -19,6 +19,7 @@
 -- note that Y offset will be very different for points and for beams!
 -- (c) Beherith (mysterme@gmail.com)
 
+---@type Light
 local exampleLight = {
 	lightType = 'point', -- or cone or beam
 	pieceName = nil, -- optional

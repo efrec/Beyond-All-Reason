@@ -295,6 +295,12 @@ local function postProcessScavengerUnitDefs()
 	end
 end
 
+local function sanitizeUnitDefs()
+	for name, unitDef in pairs(UnitDefs) do
+		unitDef.data = nil
+	end
+end
+
 --------------------------------------------------------------
 -- UnitDef processing
 --------------------------------------------------------------

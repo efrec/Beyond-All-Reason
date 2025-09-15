@@ -81,6 +81,10 @@ for name, weaponDef in pairs(WeaponDefs) do
 	end
 end
 
+-- finalize data removal
+for name, weaponDef in pairs(WeaponDefs) do
+	weaponDef.data = nil
+end
 
 -- apply mod options that need _post
 ModOptions_Post(UnitDefs, WeaponDefs)

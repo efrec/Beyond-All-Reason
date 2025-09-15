@@ -56,6 +56,10 @@ if (System == nil) then
 		WeaponDefs      = WeaponDefs,
 		WeaponDefNames  = WeaponDefNames,
 
+		IconDefs  = DEFS.iconDefs,
+		LightDefs = DEFS.lightDefs,
+		SoundDefs = DEFS.soundDefs,
+
 		--
 		--  Standard libraries
 		--

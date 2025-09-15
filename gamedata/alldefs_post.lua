@@ -2025,7 +2025,6 @@ function UnitDef_Post(name, uDef)
 
 	if uDef.data then
 		DATA.UnitDefs[name] = uDef.data
-		uDef.data = nil
 	end
 end
 
@@ -2397,7 +2396,6 @@ function WeaponDef_Post(name, wDef)
 
 	if wDef.data then
 		DATA.WeaponDefs[name] = wDef.data
-		wDef.data = nil
 	end
 end
 
@@ -2436,16 +2434,31 @@ end
 -- Load misc config data
 -------------------------
 
+-- todo: Consider game-level Defs tables equal to the engine-level ones.
+-- todo: As much as possible, process them in exactly the same way.
 DEFS.iconDefs = {} -- for icontype
 DEFS.lightDefs = { unitLights = {}, weaponLights = {} } -- for deferredlights
 DEFS.soundDefs = {} -- for guisoundeffects
 
 for name, data in pairs(DATA.UnitDefs) do
+	-- Values in the base Defs tables are hardcoded. Do not override them.
 	if data.armordef and DEFS.armorDefs[data.armordef] then
-		local armorSet = DEFS.armorDefs[data.armordef]
-		armorSet[#armorSet + 1] = name
+		local found = false
+		for _, def in pairs(DEFS.armorDefs) do
+			if table.getKeyOf(def, name) then
+				found = true
+				break
+			end
+		end
+		if not found then
+			local armorSet = DEFS.armorDefs[data.armordef]
+			armorSet[#armorSet + 1] = name
+		end
 	end
 
+	-- Values used by game code are processed later by their respective code.
+	-- todo: This makes data flow awkward. We should have loaded icontypes.lua already,
+	-- todo: and be adding to that table now, just like we do with the base def tables.
 	if data.icontype then
 		DEFS.iconDefs[name] = data.icontype
 	end
