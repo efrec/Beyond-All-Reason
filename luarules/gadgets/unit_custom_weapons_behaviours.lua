@@ -341,7 +341,7 @@ local function toFrameRange(value)
 		return
 	end
 	local average = value * Game.gameSpeed
-	local rate = 0.4
+	local rate = 1/3
 	local frameMin = math.max(math.floor(average * rate + 0.5), 1)
 	local frameMax = math.min(math.floor(average / rate + 0.5), 200 * Game.gameSpeed)
 	return { frameMin, frameMax }
@@ -352,7 +352,6 @@ weaponCustomParamKeys.fragment = {
 	fragment_speed = toInverseFrameRate, -- Speed imparted between fragmented projectiles.
 }
 
----Get a random vector oriented perpendicular to the input.
 local function randomPerturbation(vx, vy, vz, length)
 	if vx == 0 and vy == 0 and vz == 0 then
 		return 0, -length, 0 -- In our use case, prefer to descend.
@@ -366,9 +365,8 @@ local function randomPerturbation(vx, vy, vz, length)
 		ux, uy, uz = -vz, 0, vx
 	end
 
-	local normSq = ux * ux + uy * uy + uz * uz
-	local inverse = 1 / math_sqrt(normSq)
-	ux, uy, uz = ux * inverse, uy * inverse, uz * inverse
+	local inverseNorm = 1 / math_sqrt(ux * ux + uy * uy + uz * uz)
+	ux, uy, uz = ux * inverseNorm, uy * inverseNorm, uz * inverseNorm
 
 	-- Get a vector perpendicular to both other vectors.
 	local rx = uy * vz - uz * vy
@@ -380,8 +378,23 @@ local function randomPerturbation(vx, vy, vz, length)
 	if norm < 1e-7 then
 		return 0, -length, 0 -- In our use case, prefer to descend.
 	else
-		local scale = length / norm
-		return rx * scale, ry * scale, rz * scale
+		local nx, ny, nz = rx / norm, ry / norm, rz / norm
+
+		local angle = math_random() * 2 * math_pi
+
+		-- Rodrigues' rotation formula
+		local kx, ky, kz = vx, vy, vz
+		local klen = math_sqrt(kx * kx + ky * ky + kz * kz)
+		kx, ky, kz = kx / klen, ky / klen, kz / klen
+
+		local cosA = math_cos(angle)
+		local sinA = math_sin(angle)
+
+		local rxr = nx * cosA + (ky * nz - kz * ny) * sinA + kx * (kx * nx + ky * ny + kz * nz) * (1 - cosA)
+		local ryr = ny * cosA + (kz * nx - kx * nz) * sinA + ky * (kx * nx + ky * ny + kz * nz) * (1 - cosA)
+		local rzr = nz * cosA + (kx * ny - ky * nx) * sinA + kz * (kx * nx + ky * ny + kz * nz) * (1 - cosA)
+
+		return rxr * length, ryr * length, rzr * length
 	end
 end
 
@@ -389,16 +402,21 @@ local function fragment(params, projectileID)
 	local weaponID, spawnParams = getProjectileArgs(params, projectileID)
 	spDeleteProjectile(projectileID)
 
+	spawnParams.gravity = -Game.gravity / (Game.gameSpeed ^ 2) * 1.5
+
+	-- todo: decrease damage on split
+
 	local v = spawnParams.speed
 	local vx, vy, vz = v[1], v[2], v[3]
 	local px, py, pz = randomPerturbation(vx, vy, vz, params.fragment_speed)
-
-	for sign = -1, 1, 2 do
-		v[1] = vx + px * sign
-		v[2] = vy + py * sign
-		v[3] = vz + pz * sign
-		spSpawnProjectile(weaponID, spawnParams)
-	end
+	v[1] = vx + px
+	v[2] = vy + py
+	v[3] = vz + pz
+	spSpawnProjectile(weaponID, spawnParams)
+	v[1] = vx - px
+	v[2] = vy - py
+	v[3] = vz - pz
+	spSpawnProjectile(weaponID, spawnParams)
 end
 
 local function waitFrames(projectileID)
@@ -416,7 +434,6 @@ specialEffectFunction.fragment = function(params, projectileID)
 		math_random(unpack(params.fragment_rate)),
 		params
 	}
-	Spring.Echo("fragment", projectilesData[projectileID])
 	projectiles[projectileID] = waitFrames
 end
 
