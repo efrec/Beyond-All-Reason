@@ -135,8 +135,8 @@ return {
 				weaponvelocity = 900,
 				customparams = {
 					speceffect = "fragment",
-					fragment_rate = 1,
-					fragment_speed = 0.2,
+					fragment_rate = 7,
+					fragment_speed = 6,
 				},
 				damage = {
 					default = 600,

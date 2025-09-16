@@ -341,8 +341,9 @@ local function toFrameRange(value)
 		return
 	end
 	local average = value * Game.gameSpeed
-	local frameMin = math.floor(average * 0.5 + 0.5)
-	local frameMax = math.floor(average * 2.0 + 0.5)
+	local rate = 0.4
+	local frameMin = math.max(math.floor(average * rate + 0.5), 1)
+	local frameMax = math.min(math.floor(average / rate + 0.5), 200 * Game.gameSpeed)
 	return { frameMin, frameMax }
 end
 
@@ -386,6 +387,7 @@ end
 
 local function fragment(params, projectileID)
 	local weaponID, spawnParams = getProjectileArgs(params, projectileID)
+	spDeleteProjectile(projectileID)
 
 	local v = spawnParams.speed
 	local vx, vy, vz = v[1], v[2], v[3]
@@ -400,20 +402,22 @@ local function fragment(params, projectileID)
 end
 
 local function waitFrames(projectileID)
-	local frames = projectilesData[projectileID][1]
+	local data = projectilesData[projectileID]
+	local frames = data[1]
 	if frames ~= 0 then
-		projectilesData[projectileID] = frames - 1
+		data[1] = frames - 1
 	else
-		fragment(projectilesData[projectileID][2], projectileID)
+		fragment(data[2], projectileID)
 	end
 end
 
 specialEffectFunction.fragment = function(params, projectileID)
-	projectiles[projectileID] = waitFrames
 	projectilesData[projectileID] = {
 		math_random(unpack(params.fragment_rate)),
 		params
 	}
+	Spring.Echo("fragment", projectilesData[projectileID])
+	projectiles[projectileID] = waitFrames
 end
 
 -- Water penetration (cannon)
