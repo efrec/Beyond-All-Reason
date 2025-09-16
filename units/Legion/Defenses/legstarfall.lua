@@ -105,9 +105,9 @@ return {
 				avoidfeature = false,
 				avoidfriendly = false,
 				avoidground = false,
-				burst = 61,
-				burstrate = 0.01,
-				sprayangle = 500,
+				burst = 4,
+				burstrate = 0.1,
+				sprayangle = 80,
 				highTrajectory = 1,
 				cegtag = "starfire",
 				collidefriendly = false,
@@ -133,9 +133,11 @@ return {
 				weapontimer = 14,
 				weapontype = "Cannon",
 				weaponvelocity = 900,
-				--customparams = {
-				--	stockpilelimit = 1,
-				--},
+				customparams = {
+					speceffect = "fragment",
+					fragment_rate = 1,
+					fragment_speed = 0.2,
+				},
 				damage = {
 					default = 600,
 					shields = 240,

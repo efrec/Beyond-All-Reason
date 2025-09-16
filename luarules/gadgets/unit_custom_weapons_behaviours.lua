@@ -56,7 +56,10 @@ local weaponCustomParamKeys = {} -- [effect] = { [key] = conversion function }
 
 local weaponDefEffect = {}
 
+---As { id = effect }, where effect must have a self-call method if it is a table
+---@type table<integer, table|function>
 local projectiles = {}
+---@type table<integer, any>
 local projectilesData = {}
 
 --------------------------------------------------------------------------------
@@ -113,6 +116,16 @@ local function toPositiveNumber(value)
 	return value and math.max(0, value) or nil
 end
 
+local function toFrameRate(value)
+	value = tonumber(value)
+	return value and math.floor(value * Game.gameSpeed + 0.5) or nil
+end
+
+local function toInverseFrameRate(value)
+	value = tonumber(value)
+	return value and math.floor(value / Game.gameSpeed + 0.5) or nil
+end
+
 --- Weapon behaviors -----------------------------------------------------------
 
 local function isProjectileFalling(projectileID)
@@ -139,7 +152,7 @@ do
 	---@return ProjectileParams projectileParams
 	---@return number parentSpeed
 	getProjectileArgs = function(params, projectileID)
-		local weaponDefID = params.speceffect_def
+		local weaponDefID = params.speceffect_def or Spring.GetProjectileDefID(projectileID)
 
 		local projectileParams = projectileParams
 
@@ -316,6 +329,91 @@ specialEffectFunction.split = function(params, projectileID)
 		split(params, projectileID)
 		return true
 	end
+end
+
+-- Fragment
+-- Fragments into multiple smaller projectiles over time, almost as though disintegrating.
+-- The total amount of damage is preserved across all the newly spawned sub-projectiles.
+
+local function toFrameRange(value)
+	value = tonumber(value)
+	if value == nil then
+		return
+	end
+	local average = value * Game.gameSpeed
+	local frameMin = math.floor(average * 0.5 + 0.5)
+	local frameMax = math.floor(average * 2.0 + 0.5)
+	return { frameMin, frameMax }
+end
+
+weaponCustomParamKeys.fragment = {
+	fragment_rate  = toFrameRange, -- Average time to fragment (in seconds => frames).
+	fragment_speed = toInverseFrameRate, -- Speed imparted between fragmented projectiles.
+}
+
+---Get a random vector oriented perpendicular to the input.
+local function randomPerturbation(vx, vy, vz, length)
+	if vx == 0 and vy == 0 and vz == 0 then
+		return 0, -length, 0 -- In our use case, prefer to descend.
+	end
+
+	-- Condition an arbitrary vector for numerical stability
+	local ux, uy, uz
+	if vx * vx < vy * vy then
+		ux, uy, uz = 0, -vz, vy
+	else
+		ux, uy, uz = -vz, 0, vx
+	end
+
+	local normSq = ux * ux + uy * uy + uz * uz
+	local inverse = 1 / math_sqrt(normSq)
+	ux, uy, uz = ux * inverse, uy * inverse, uz * inverse
+
+	-- Get a vector perpendicular to both other vectors.
+	local rx = uy * vz - uz * vy
+	local ry = uz * vx - ux * vz
+	local rz = ux * vy - uy * vx
+
+	local norm = math_sqrt(rx * rx + ry * ry + rz * rz)
+
+	if norm < 1e-7 then
+		return 0, -length, 0 -- In our use case, prefer to descend.
+	else
+		local scale = length / norm
+		return rx * scale, ry * scale, rz * scale
+	end
+end
+
+local function fragment(params, projectileID)
+	local weaponID, spawnParams = getProjectileArgs(params, projectileID)
+
+	local v = spawnParams.speed
+	local vx, vy, vz = v[1], v[2], v[3]
+	local px, py, pz = randomPerturbation(vx, vy, vz, params.fragment_speed)
+
+	for sign = -1, 1, 2 do
+		v[1] = vx + px * sign
+		v[2] = vy + py * sign
+		v[3] = vz + pz * sign
+		spSpawnProjectile(weaponID, spawnParams)
+	end
+end
+
+local function waitFrames(projectileID)
+	local frames = projectilesData[projectileID][1]
+	if frames ~= 0 then
+		projectilesData[projectileID] = frames - 1
+	else
+		fragment(projectilesData[projectileID][2], projectileID)
+	end
+end
+
+specialEffectFunction.fragment = function(params, projectileID)
+	projectiles[projectileID] = waitFrames
+	projectilesData[projectileID] = {
+		math_random(unpack(params.fragment_rate)),
+		params
+	}
 end
 
 -- Water penetration (cannon)
