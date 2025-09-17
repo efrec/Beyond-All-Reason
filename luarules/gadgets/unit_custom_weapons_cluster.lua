@@ -33,7 +33,7 @@ local waterDepthCoef = 0.1                  -- reduce "separation" from ground i
 -- CustomParams setup ----------------------------------------------------------
 --
 --   weapon = {
---       type := "Cannon" | "EMGCannon"
+--       type := "Cannon"
 --       customparams = {
 --           cluster_def    := <string> | nil (see defaults)
 --           cluster_number := <number> | nil (see defaults)
@@ -80,8 +80,7 @@ end
 defaultSpawnTtl = defaultSpawnTtl * gameSpeed
 
 local spawnableTypes = {
-	Cannon    = true,
-	EMGCannon = true,
+	Cannon = true,
 }
 
 local clusterWeaponDefs = {}
