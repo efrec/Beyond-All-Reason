@@ -68,14 +68,15 @@ local spSpawnProjectile       = Spring.SpawnProjectile
 
 local gameSpeed  = Game.gameSpeed
 local mapGravity = Game.gravity / (gameSpeed * gameSpeed) * -1
+
+--------------------------------------------------------------------------------
+-- Initialize ------------------------------------------------------------------
+
 local maxUnitRadius = 0
 
 for _, unitDef in pairs(UnitDefs) do
 	maxUnitRadius = max(maxUnitRadius, unitDef.radius)
 end
-
---------------------------------------------------------------------------------
--- Initialize ------------------------------------------------------------------
 
 defaultSpawnTtl = defaultSpawnTtl * gameSpeed
 
@@ -220,18 +221,17 @@ DirectionsUtil.ProvisionDirections(maxDataNum)
 local function getSurfaceDeflection(x, y, z)
 	-- Deflection from deep water, shallow water, and solid terrain.
 	local elevation = spGetGroundHeight(x, z)
-	local separation
-	local dx, dy, dz
+	local separation -- distance to "solid" surface
+	local dx, dy, dz -- direction of response
 	local slope
 
 	separation = y - elevation
 	dx, dy, dz, slope = spGetGroundNormal(x, z, true)
 
 	if slope > 0.1 or slope * separation > 10 then
-		separation = separation * cos(slope)
-		local shift = separation * sin(slope) / sqrt(dx*dx + dz*dz)
-		local shiftX = x - dx * shift -- Next surface x, z
-		local shiftZ = z - dz * shift
+		local shiftXZ = separation * cos(slope) * sin(slope) / diag(dx, dz)
+		local shiftX = x - dx * shiftXZ -- Next surface x, z
+		local shiftZ = z - dz * shiftXZ
 		elevation = max(elevation, spGetGroundHeight(shiftX, shiftZ))
 		dx, dy, dz = spGetGroundNormal(shiftX, shiftZ, true)
 		if elevation < 0 then
@@ -240,7 +240,9 @@ local function getSurfaceDeflection(x, y, z)
 		separation = y - elevation
 	end
 
-	separation = 1.3 / sqrt(max(1, separation))
+	-- Terrain can have a concave contour, so we need this extra ~30%.
+	-- Unit max bulk is 1.0 which is fine, since colliders are convex.
+	separation = 1.3 / diag(max(1, separation))
 	dx = dx * separation
 	dy = dy * separation
 	dz = dz * separation
@@ -253,10 +255,10 @@ local function getSurfaceDeflection(x, y, z)
 		bounce = unitBulks[spGetUnitDefID(unitID)]
 		if bounce then
 			_,_,_,unitX,unitY,unitZ = spGetUnitPosition(unitID, true)
-			radius         = spGetUnitRadius(unitID)
+			radius = spGetUnitRadius(unitID)
 			if unitY + radius > 0 then
 				unitX, unitY, unitZ = x - unitX, y - unitY, z - unitZ
-				separation = sqrt(unitX*unitX + unitY*unitY + unitZ*unitZ) / radius
+				separation = diag(unitX, unitY, unitZ) / radius
 				if separation < 1.24 then
 					bounce = bounce / max(1, separation)
 					local theta_z = atan2(unitX, unitZ)
