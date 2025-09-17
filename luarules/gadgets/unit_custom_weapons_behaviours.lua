@@ -352,6 +352,11 @@ weaponCustomParamKeys.fragment = {
 	fragment_speed = toInverseFrameRate, -- Speed imparted between fragmented projectiles.
 }
 
+local function normalize(vx, vy, vz)
+	local scale = 1 / math_sqrt(vx * vx + vy * vy + vz * vz)
+	return vx * scale, vy * scale, vz * scale
+end
+
 local function randomPerturbation(vx, vy, vz, length)
 	if vx == 0 and vy == 0 and vz == 0 then
 		return 0, -length, 0 -- In our use case, prefer to descend.
@@ -364,38 +369,24 @@ local function randomPerturbation(vx, vy, vz, length)
 	else
 		ux, uy, uz = -vz, 0, vx
 	end
+	ux, uy, uz = normalize(ux, uy, uz)
+	vx, vy, vz = normalize(vx, vy, vz)
 
-	local inverseNorm = 1 / math_sqrt(ux * ux + uy * uy + uz * uz)
-	ux, uy, uz = ux * inverseNorm, uy * inverseNorm, uz * inverseNorm
+	-- Get a vector w perpendicular to both vectors u and v.
+	local wx = uy * vz - uz * vy
+	local wy = uz * vx - ux * vz
+	local wz = ux * vy - uy * vx
 
-	-- Get a vector perpendicular to both other vectors.
-	local rx = uy * vz - uz * vy
-	local ry = uz * vx - ux * vz
-	local rz = ux * vy - uy * vx
+	local angle = math_random() * 2 * math_pi
+	local cosA = math_cos(angle)
+	local sinA = math_sin(angle)
 
-	local norm = math_sqrt(rx * rx + ry * ry + rz * rz)
+	-- Rodrigues' rotation formula
+	local rxr = wx * cosA + (vy * wz - vz * wy) * sinA + vx * (vx * wx + vy * wy + vz * wz) * (1 - cosA)
+	local ryr = wy * cosA + (vz * wx - vx * wz) * sinA + vy * (vx * wx + vy * wy + vz * wz) * (1 - cosA)
+	local rzr = wz * cosA + (vx * wy - vy * wx) * sinA + vz * (vx * wx + vy * wy + vz * wz) * (1 - cosA)
 
-	if norm < 1e-7 then
-		return 0, -length, 0 -- In our use case, prefer to descend.
-	else
-		local nx, ny, nz = rx / norm, ry / norm, rz / norm
-
-		local angle = math_random() * 2 * math_pi
-
-		-- Rodrigues' rotation formula
-		local kx, ky, kz = vx, vy, vz
-		local klen = math_sqrt(kx * kx + ky * ky + kz * kz)
-		kx, ky, kz = kx / klen, ky / klen, kz / klen
-
-		local cosA = math_cos(angle)
-		local sinA = math_sin(angle)
-
-		local rxr = nx * cosA + (ky * nz - kz * ny) * sinA + kx * (kx * nx + ky * ny + kz * nz) * (1 - cosA)
-		local ryr = ny * cosA + (kz * nx - kx * nz) * sinA + ky * (kx * nx + ky * ny + kz * nz) * (1 - cosA)
-		local rzr = nz * cosA + (kx * ny - ky * nx) * sinA + kz * (kx * nx + ky * ny + kz * nz) * (1 - cosA)
-
-		return rxr * length, ryr * length, rzr * length
-	end
+	return rxr * length, ryr * length, rzr * length
 end
 
 local function fragment(params, projectileID)
