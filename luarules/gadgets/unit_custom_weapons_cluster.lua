@@ -218,6 +218,23 @@ DirectionsUtil.ProvisionDirections(maxDataNum)
 --------------------------------------------------------------------------------
 -- Functions -------------------------------------------------------------------
 
+local dirUp = 0.5 * math.pi
+
+local function getWaterDeflection(dx, dy, dz, elevation)
+	elevation = elevation * waterDepthCoef
+	if dx == 0 and dz == 0 then
+		return dx, 1, dz, elevation
+	else
+		-- Mix direction vector toward up by fraction%.
+		local dxz = diag(dx, dz)
+		local theta = atan2(dy, dxz)
+		local fraction = min(1, elevation * -0.5)
+		theta = theta + fraction * (dirUp - theta)
+		local scaleXZ = cos(theta) / dxz
+		return dx * scaleXZ, sin(theta), dz * scaleXZ, elevation
+	end
+end
+
 ---Deflection from solid terrain and unit collider surfaces plus water by depth.
 local function getSurfaceDeflection(x, y, z)
 	local elevation = spGetGroundHeight(x, z)
@@ -228,16 +245,19 @@ local function getSurfaceDeflection(x, y, z)
 	separation = y - elevation
 	dx, dy, dz, slope = spGetGroundNormal(x, z, true)
 
+	-- On sloped terrain, the nearest point on the surface is up the slope.
 	if slope > 0.1 or slope * separation > 10 then
 		local shiftXZ = separation * cos(slope) * sin(slope) / diag(dx, dz)
 		local shiftX = x - dx * shiftXZ -- Next surface x, z
 		local shiftZ = z - dz * shiftXZ
 		elevation = max(elevation, spGetGroundHeight(shiftX, shiftZ))
 		dx, dy, dz = spGetGroundNormal(shiftX, shiftZ, true)
-		if elevation < 0 then
-			elevation = elevation * waterDepthCoef
-		end
 		separation = y - elevation
+	end
+
+	if elevation < 0 then
+		-- Treat underwater surfaces like they are closer and flatter.
+		dx, dy, dz, elevation = getWaterDeflection(dx, dy, dz, elevation)
 	end
 
 	-- Terrain can have a concave contour, so we need this extra ~30%.
