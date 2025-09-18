@@ -218,8 +218,8 @@ DirectionsUtil.ProvisionDirections(maxDataNum)
 --------------------------------------------------------------------------------
 -- Functions -------------------------------------------------------------------
 
+---Deflection from solid terrain and unit collider surfaces plus water by depth.
 local function getSurfaceDeflection(x, y, z)
-	-- Deflection from deep water, shallow water, and solid terrain.
 	local elevation = spGetGroundHeight(x, z)
 	local separation -- distance to "solid" surface
 	local dx, dy, dz -- direction of response
@@ -259,7 +259,9 @@ local function getSurfaceDeflection(x, y, z)
 			if unitY + radius > 0 then
 				unitX, unitY, unitZ = x - unitX, y - unitY, z - unitZ
 				separation = diag(unitX, unitY, unitZ) / radius
-				if separation < 1.24 then
+				-- Even assuming that the explosion is near to the collider,
+				-- past some N x radius, we would not expect any deflection:
+				if separation < 1.3 then
 					bounce = bounce / max(1, separation)
 					local theta_z = atan2(unitX, unitZ)
 					local phi_y = atan2(unitY, sqrt(unitX*unitX + unitZ*unitZ))
