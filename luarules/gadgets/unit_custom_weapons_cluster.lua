@@ -303,7 +303,7 @@ local function getSurfaceDeflection(x, y, z)
 				if separation < 1.3 then
 					bounce = bounce / max(1, separation)
 					local theta_z = atan2(unitX, unitZ)
-					local phi_y = atan2(unitY, sqrt(unitX*unitX + unitZ*unitZ))
+					local phi_y = atan2(unitY, diag(unitX, unitZ))
 					local cosy = cos(phi_y)
 					dx = dx + bounce * sin(theta_z) * cosy
 					dy = dy + bounce * sin(phi_y)
