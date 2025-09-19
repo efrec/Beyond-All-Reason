@@ -139,7 +139,7 @@ end
 
 local unitBulks = {} -- Projectiles scatter away more against higher bulk values.
 
-local bulkMin = UnitDefs[minUnitBounces].id and unitBulks[UnitDefs[minUnitBounces].id] or 0.1
+local bulkMin = UnitDefs[minUnitBounces] and unitBulks[UnitDefs[minUnitBounces].id] or 0.1
 
 local function getUnitVolume(unitDef)
 	local cv = unitDef.collisionVolume
@@ -159,6 +159,8 @@ local useCrushingMass = {
 	indestructable = true,
 }
 
+local bulkDepth = 0
+
 local function getUnitBulk(unitDef)
 	local volume = getUnitVolume(unitDef)
 
@@ -172,13 +174,19 @@ local function getUnitBulk(unitDef)
 	end
 
 	local bulkiness = (fromHealth + fromMetal + fromVolume) + sqrt(fromHealth * fromMetal)
-	bulkiness = math.clamp(bulkiness, 0, minBulkReflect) / minBulkReflect -- Scale to [0, 1].
+	bulkiness = math.clamp(bulkiness / minBulkReflect, 0, 1) -- Scaled vs. 100% terrain-like.
 	bulkiness = bulkiness ^ 0.57 -- Curve bulks upward, toward 1, to be much more noticeable.
 
 	if unitDef.customParams.decoyfor then
 		local decoyDef = UnitDefNames[unitDef.customParams.decoyfor]
 		if decoyDef then
-			local decoyBulk = getUnitBulk(decoyDef)
+			bulkDepth = bulkDepth + 1
+			if bulkDepth > 4 then
+				Spring.Echo("weapons_cluster", "bulkDepth exceeded", unitDef.name)
+				return 0
+			end
+			local decoyBulk = unitBulks[decoyDef.id] or getUnitBulk(decoyDef)
+			bulkDepth = bulkDepth - 1
 			bulkiness = (bulkiness + decoyBulk) * 0.5 -- cheat slightly
 		end
 	end
@@ -189,7 +197,7 @@ end
 for unitDefID, unitDef in pairs(UnitDefs) do
 	local bulk = 0
 	if not (unitDef.customParams.decoration or unitDef.customParams.virtualunit) then
-		bulk = tonumber(unitDef.customParams.bulk_rating) or getUnitBulk(unitDef)
+		bulk = tonumber(unitDef.customParams.bulk_rating) or unitBulks[unitDefID] or getUnitBulk(unitDef)
 	end
 	unitBulks[unitDefID] = bulk
 end
