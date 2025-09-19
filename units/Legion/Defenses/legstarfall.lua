@@ -101,7 +101,7 @@ return {
 		weapondefs = {
 			starfire = {
 				accuracy = 0,
-				areaofeffect = 256,
+				areaofeffect = 3000, -- D:
 				avoidfeature = false,
 				avoidfriendly = false,
 				avoidground = false,
@@ -135,14 +135,14 @@ return {
 				weaponvelocity = 900,
 				customparams = {
 					speceffect = "fragment",
-					fragment_ceg = "barrelshot-small",
+					fragment_ceg = "barrelshot-tiny",
 					fragment_rate = 3,
 					fragment_speed = 900 * 0.02,
 				},
 				damage = {
-					default = 600,
-					shields = 240,
-					subs = 50,
+					default = 9150,
+					shields = 3660,
+					subs = 762,
 				},
 			},
 		},
