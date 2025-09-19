@@ -142,16 +142,23 @@ local unitBulks = {} -- Projectiles scatter away more against higher bulk values
 local bulkMin = UnitDefs[minUnitBounces] and unitBulks[UnitDefs[minUnitBounces].id] or 0.1
 
 local function getUnitVolume(unitDef)
+	local mo = unitDef.model
+	local dx = mo.maxx - mo.minx
+	local dy = mo.mayy - mo.miny
+	local dz = mo.mazz - mo.minz
+	local volume = dx * dy * dz
+
 	local cv = unitDef.collisionVolume
-	local volume = cv.scaleX * cv.scaleY * cv.scaleZ
+
 	if cv.type == "sphere" or cv.type == "ellipsoid" then
 		-- (4/3)πr => (1/6)πABC
 		return volume * math.pi / 6
 	elseif cv.type == "cylinder" then
 		-- πr²h => (1/4)πABc
 		return volume * math.pi / 4
+	else
+		return volume
 	end
-	return volume
 end
 
 local useCrushingMass = {
