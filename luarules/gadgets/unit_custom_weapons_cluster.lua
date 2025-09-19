@@ -172,12 +172,15 @@ local bulkDepth = 1
 local function getUnitBulk(unitDef)
 	-- Even with lower mass/metal, people see "bigger" as "more solid". Ape brain:
 	local volume = getUnitVolume(unitDef)
-	local height = max(unitDef.height, 1) -- But height does not increase sturdiness.
+
+	-- Height contributes less bulk, but tall units don't benefit as much from ground deflection.
+	-- Lower units, like Bulls, basically gain ground deflection on top of their unit deflection.
+	local height = math.clamp(unitDef.height, 1, 30) -- So set a height cap.
 
 	-- NB: Mass is absolutely useless. Do not use mass.
-	local fromHealth = sqrt(unitDef.health) -- [1, 1 000 000] => [1, 1000] approx
-	local fromMetal = sqrt(unitDef.metalCost) -- [0, 100 000] => [0, 333] approx
-	local fromVolume = sqrt(volume / height) -- [0, ??? ???] => [1, 20000] approx
+	local fromHealth = sqrt(unitDef.health) -- [1, 1000000] => [1, 1000] approx
+	local fromMetal = sqrt(unitDef.metalCost) -- [0, 50000] => [0, 333] approx
+	local fromVolume = sqrt(volume / height) -- [0, 20000] => [1, 1000] approx
 
 	if useCrushingMass[unitDef.armorType] and unitDef.moveDef then
 		fromMetal = max(fromMetal, sqrt(unitDef.moveDef.crushStrength))
