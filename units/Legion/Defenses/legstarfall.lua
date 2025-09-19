@@ -107,7 +107,7 @@ return {
 				avoidground = false,
 				burst = 4,
 				burstrate = 0.1,
-				cegtag = "starfire",
+				cegtag = "fragment_trail",
 				collidefriendly = false,
 				craterboost = 0.1,
 				cratermult = 0.1,
@@ -135,6 +135,7 @@ return {
 				weaponvelocity = 900,
 				customparams = {
 					speceffect = "fragment",
+					fragment_ceg = "barrelshot-small",
 					fragment_rate = 3,
 					fragment_speed = 900 * 0.02,
 				},

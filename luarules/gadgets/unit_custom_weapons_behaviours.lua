@@ -341,13 +341,14 @@ local function toFrameRange(value)
 		return
 	end
 	local average = value * Game.gameSpeed
-	local rate = 1/3
+	local rate = 1/4
 	local frameMin = math.max(math.floor(average * rate + 0.5), 1)
 	local frameMax = math.min(math.floor(average / rate + 0.5), 200 * Game.gameSpeed)
 	return { frameMin, frameMax }
 end
 
 weaponCustomParamKeys.fragment = {
+	fragment_ceg   = tostring, -- Explosion effect triggered when projectiles fragment.
 	fragment_rate  = toFrameRange, -- Average time to fragment (in seconds => frames).
 	fragment_speed = toInverseFrameRate, -- Speed imparted between fragmented projectiles.
 }
@@ -393,12 +394,13 @@ local function fragment(params, projectileID)
 	local weaponID, spawnParams = getProjectileArgs(params, projectileID)
 	spDeleteProjectile(projectileID)
 
-	spawnParams.gravity = -Game.gravity / (Game.gameSpeed ^ 2) * 1.5
+	spawnParams.gravity = -Game.gravity / (Game.gameSpeed ^ 2) * 1.1667
 
 	-- todo: decrease damage on split
 
 	local v = spawnParams.speed
 	local vx, vy, vz = v[1], v[2], v[3]
+	local dx, dy, dz = vx, vy, vz
 	local px, py, pz = randomPerturbation(vx, vy, vz, params.fragment_speed)
 	v[1] = vx + px
 	v[2] = vy + py
@@ -408,6 +410,9 @@ local function fragment(params, projectileID)
 	v[2] = vy - py
 	v[3] = vz - pz
 	spSpawnProjectile(weaponID, spawnParams)
+
+	local sx, sy, sz = unpack(spawnParams.pos)
+	-- spSpawnCEG(params.fragment_ceg, sx, sy, sz, dx, dy, dz)
 end
 
 local function waitFrames(projectileID)
