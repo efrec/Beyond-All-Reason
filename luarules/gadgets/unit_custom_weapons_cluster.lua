@@ -159,7 +159,7 @@ local useCrushingMass = {
 	indestructable = true,
 }
 
-local bulkDepth = 0
+local bulkDepth = 1
 
 local function getUnitBulk(unitDef)
 	local volume = getUnitVolume(unitDef)
@@ -180,11 +180,11 @@ local function getUnitBulk(unitDef)
 	if unitDef.customParams.decoyfor then
 		local decoyDef = UnitDefNames[unitDef.customParams.decoyfor]
 		if decoyDef then
-			bulkDepth = bulkDepth + 1
-			if bulkDepth > 4 then
+			if bulkDepth + 1 > 4 then
 				Spring.Echo("weapons_cluster", "bulkDepth exceeded", unitDef.name)
 				return 0
 			end
+			bulkDepth = bulkDepth + 1
 			local decoyBulk = unitBulks[decoyDef.id] or getUnitBulk(decoyDef)
 			bulkDepth = bulkDepth - 1
 			bulkiness = (bulkiness + decoyBulk) * 0.5 -- cheat slightly
@@ -230,16 +230,18 @@ local dirUp = 0.5 * math.pi
 
 local function getWaterDeflection(dx, dy, dz, elevation)
 	elevation = elevation * waterDepthCoef
+	local magnitude = diag(dx, dy, dz)
 	if dx == 0 and dz == 0 then
-		return dx, 1, dz, elevation
+		return 0, magnitude, 0, elevation
 	else
 		-- Mix direction vector toward up by fraction%.
 		local dxz = diag(dx, dz)
 		local theta = atan2(dy, dxz)
-		local fraction = min(1, elevation * -0.5)
+		local fraction = math.min(1, elevation * -0.5)
+		Spring.Echo("weapons_cluster", fraction)
 		theta = theta + fraction * (dirUp - theta)
 		local scaleXZ = cos(theta) / dxz
-		return dx * scaleXZ, sin(theta), dz * scaleXZ, elevation
+		return dx * scaleXZ, sin(theta) * (magnitude + fraction) * 0.5, dz * scaleXZ, elevation
 	end
 end
 
