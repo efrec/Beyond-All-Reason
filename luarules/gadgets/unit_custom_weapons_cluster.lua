@@ -305,10 +305,18 @@ local function getSurfaceDeflection(x, y, z)
 	return dx, dy, dz
 end
 
-local function spawnClusterProjectiles(data, attackerID, x, y, z)
+local function inheritMomentum(projectileID)
+	local vx, vy, vz, vw = Spring.GetProjectileVelocity(projectileID)
+	-- Apply major loss from scattering (~50%) and reduce hyperspeeds (1 is convenient).
+	local scale = 0.5 / max(vw, 1)
+	return vx * scale, vy * scale, vz * scale
+end
+
+local function spawnClusterProjectiles(data, x, y, z, attackerID, projectileID)
 	local clusterDefID = data.weaponID
 	local projectileCount = data.number
 	local projectileSpeed = data.weaponSpeed
+	local randomness = 1 / sqrt(projectileCount - 2) + 0.1
 
 	local params = spawnCache
 	params.owner = attackerID or -1
@@ -316,14 +324,18 @@ local function spawnClusterProjectiles(data, attackerID, x, y, z)
 	local speed = params.speed
 	local position = params.pos
 
-	local directionVectors = directions[projectileCount]
 	local deflectX, deflectY, deflectZ = getSurfaceDeflection(x, y, z)
-	local randomness = 1 / sqrt(projectileCount - 2) + 0.1
+	local inheritX, inheritY, inheritZ = inheritMomentum(projectileID)
+	local startX = deflectX + inheritX
+	local startY = deflectY + inheritY
+	local startZ = deflectZ + inheritZ
+
+	local directionVectors = directions[projectileCount]
 
 	for i = 0, projectileCount - 1 do
-		local velocityX = directionVectors[3 * i + 1] + deflectX
-		local velocityY = directionVectors[3 * i + 2] + deflectY
-		local velocityZ = directionVectors[3 * i + 3] + deflectZ
+		local velocityX = directionVectors[3 * i + 1] + startX
+		local velocityY = directionVectors[3 * i + 2] + startY
+		local velocityZ = directionVectors[3 * i + 3] + startZ
 		local velocityW
 
 		repeat
@@ -370,6 +382,6 @@ end
 function gadget:Explosion(weaponDefID, x, y, z, attackerID, projectileID)
 	local weaponData = clusterWeaponDefs[weaponDefID]
 	if weaponData then
-		spawnClusterProjectiles(weaponData, attackerID, x, y, z)
+		spawnClusterProjectiles(weaponData, x, y, z, attackerID, projectileID)
 	end
 end
