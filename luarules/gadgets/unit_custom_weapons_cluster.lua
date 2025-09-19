@@ -179,7 +179,7 @@ local function getUnitBulk(unitDef)
 
 	-- NB: Mass is absolutely useless. Do not use mass.
 	local fromHealth = sqrt(unitDef.health) -- [1, 1000000] => [1, 1000] approx
-	local fromMetal = sqrt(unitDef.metalCost) -- [0, 50000] => [0, 333] approx
+	local fromMetal = sqrt(unitDef.metalCost) -- [0, 50000] => [0, 250] approx
 	local fromVolume = sqrt(volume / height) -- [0, 20000] => [1, 1000] approx
 
 	if useCrushingMass[unitDef.armorType] and unitDef.moveDef then
