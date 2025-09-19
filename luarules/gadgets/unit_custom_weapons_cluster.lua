@@ -24,11 +24,11 @@ local defaultSpawnTtl = 5					-- detonate projectiles after time = ttl, by defau
 
 -- General settings ------------------------------------------------------------
 
-local minSpawnNumber = 3					-- minimum number of spawned projectiles
-local maxSpawnNumber = 24					-- protect game performance against stupid ideas
-local minUnitBounces = "armpw"				-- smallest unit (name) that "bounces" projectiles at all
-local minBulkReflect = 20000				-- smallest unit bulk that "reflects" as if terrain
-local waterDepthCoef = 0.1                  -- reduce "separation" from ground in water by a multiple
+local minSpawnNumber = 3         -- minimum number of spawned projectiles
+local maxSpawnNumber = 24        -- protect game performance against stupid ideas
+local minUnitBounces = "armpw"   -- smallest unit (name) that "bounces" projectiles at all
+local minBulkReflect = 500       -- smallest unit bulk that "reflects" as if terrain
+local waterDepthCoef = 0.1       -- reduce "separation" from ground in water by a multiple
 
 -- CustomParams setup ----------------------------------------------------------
 --
@@ -310,7 +310,7 @@ local function getSurfaceDeflection(x, y, z)
 				separation = diag(unitX, unitY, unitZ) / radius
 				-- Even assuming that the explosion is near to the collider,
 				-- past some N x radius, we would not expect any deflection:
-				if separation < 1.3 then
+				if separation < 2 then
 					bounce = bounce / max(1, separation)
 					local theta_z = atan2(unitX, unitZ)
 					local phi_y = atan2(unitY, diag(unitX, unitZ))
