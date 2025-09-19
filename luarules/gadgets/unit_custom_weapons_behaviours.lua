@@ -390,29 +390,36 @@ local function randomPerturbation(vx, vy, vz, length)
 	return rxr * length, ryr * length, rzr * length
 end
 
+local function spawnFragment(weaponID, spawnParams, damage, radius)
+	local projID = spSpawnProjectile(weaponID, spawnParams)
+	Spring.SetProjectileDamages(projID, 0, damage)
+	Spring.SetProjectileDamages(projID, "damageAreaOfEffect", radius)
+end
+
 local function fragment(params, projectileID)
 	local weaponID, spawnParams = getProjectileArgs(params, projectileID)
+	local damage = Spring.GetProjectileDamages(projectileID, 0) * 0.5
+	local radius = Spring.GetProjectileDamages(projectileID, "damageAreaOfEffect") * 0.5 + 8
+	local dx, dy, dz = Spring.GetProjectileDirection(projectileID)
 	spDeleteProjectile(projectileID)
 
+	-- We need to enhance gravity a bit to prevent rogue overshooting:
 	spawnParams.gravity = -Game.gravity / (Game.gameSpeed ^ 2) * 1.1667
-
-	-- todo: decrease damage on split
 
 	local v = spawnParams.speed
 	local vx, vy, vz = v[1], v[2], v[3]
-	local dx, dy, dz = vx, vy, vz
 	local px, py, pz = randomPerturbation(vx, vy, vz, params.fragment_speed)
 	v[1] = vx + px
 	v[2] = vy + py
 	v[3] = vz + pz
-	spSpawnProjectile(weaponID, spawnParams)
+	spawnFragment(weaponID, spawnParams, damage, radius)
 	v[1] = vx - px
 	v[2] = vy - py
 	v[3] = vz - pz
-	spSpawnProjectile(weaponID, spawnParams)
+	spawnFragment(weaponID, spawnParams, damage, radius)
 
 	local sx, sy, sz = unpack(spawnParams.pos)
-	-- spSpawnCEG(params.fragment_ceg, sx, sy, sz, dx, dy, dz)
+	spSpawnCEG(params.fragment_ceg, sx, sy, sz, dx, dy, dz)
 end
 
 local function waitFrames(projectileID)
