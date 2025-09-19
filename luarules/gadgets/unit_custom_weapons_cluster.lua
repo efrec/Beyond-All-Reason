@@ -51,6 +51,7 @@ local waterDepthCoef = 0.1                  -- reduce "separation" from ground i
 local DirectionsUtil = VFS.Include("LuaRules/Gadgets/Include/DirectionsUtil.lua")
 
 local max   = math.max
+local min   = math.min
 local rand  = math.random
 local diag  = math.diag
 local sqrt  = math.sqrt
@@ -144,8 +145,8 @@ local bulkMin = UnitDefs[minUnitBounces] and unitBulks[UnitDefs[minUnitBounces].
 local function getUnitVolume(unitDef)
 	local mo = unitDef.model
 	local dx = mo.maxx - mo.minx
-	local dy = mo.mayy - mo.miny
-	local dz = mo.mazz - mo.minz
+	local dy = mo.maxy - mo.miny
+	local dz = mo.maxz - mo.minz
 	local volume = dx * dy * dz
 
 	local cv = unitDef.collisionVolume
@@ -235,22 +236,30 @@ DirectionsUtil.ProvisionDirections(maxDataNum)
 --------------------------------------------------------------------------------
 -- Functions -------------------------------------------------------------------
 
-local dirUp = 0.5 * math.pi
+-- Treat water as the dominant term, with a max deflection, past a given depth.
+local waterDepthDeflects = 1 / waterDepthCoef
+local waterFullDeflection = 0.85 -- 1 - vertical response loss
 
-local function getWaterDeflection(dx, dy, dz, elevation)
-	elevation = elevation * waterDepthCoef
-	local magnitude = diag(dx, dy, dz)
-	if dx == 0 and dz == 0 then
-		return 0, magnitude, 0, elevation
+---Water is generally incompressible so acts like solid terrain of lower density
+-- when it takes hard impacts or impulses. We take a fast estimate of its added
+-- bulk to the solid terrain below and shift the surface direction toward level.
+---@param slope number in radians? in what? is this [0, 1]?
+---@param elevation number in elmos, always negative
+---@return number percentX
+---@return number percentY
+---@return number percentZ
+---@return number depth
+local function getWaterDeflection(slope, elevation)
+	elevation = max(elevation * waterDepthCoef, waterDepthDeflects)
+	local waterDeflectFraction = min(1, elevation / waterDepthDeflects)
+
+	if slope == 1 and waterDeflectFraction == 1 then
+		return 0, waterFullDeflection, 0, elevation
 	else
-		-- Mix direction vector toward up by fraction%.
-		local dxz = diag(dx, dz)
-		local theta = atan2(dy, dxz)
-		local fraction = math.min(1, elevation * -0.5)
-		Spring.Echo("weapons_cluster", fraction)
-		theta = theta + fraction * (dirUp - theta)
-		local scaleXZ = cos(theta) / dxz
-		return dx * scaleXZ, sin(theta) * (magnitude + fraction) * 0.5, dz * scaleXZ, elevation
+		slope = slope * (1 - waterDeflectFraction)
+		local dy = waterFullDeflection * (1 - slope)
+		local dxz = 1 - slope
+		return dxz, dy, dxz, elevation
 	end
 end
 
@@ -270,13 +279,14 @@ local function getSurfaceDeflection(x, y, z)
 		local shiftX = x - dx * shiftXZ -- Next surface x, z
 		local shiftZ = z - dz * shiftXZ
 		elevation = max(elevation, spGetGroundHeight(shiftX, shiftZ))
-		dx, dy, dz = spGetGroundNormal(shiftX, shiftZ, true)
+		dx, dy, dz, slope = spGetGroundNormal(shiftX, shiftZ, true)
 		separation = y - elevation
 	end
 
 	if elevation < 0 then
-		-- Treat underwater surfaces like they are closer and flatter.
-		dx, dy, dz, elevation = getWaterDeflection(dx, dy, dz, elevation)
+		local px, py, pz, depth = getWaterDeflection(slope, elevation)
+		dx, dy, dz = dx * px, dy * py, dz * pz
+		separation = y - depth
 	end
 
 	-- Terrain can have a concave contour, so we need this extra ~30%.
