@@ -16,7 +16,7 @@ local CACHE_TABLE_LAYOUT = "sparse" ---@type "sparse"|"sequential"
 --------------------------------------------------------------------------------
 -- Module internals ------------------------------------------------------------
 
-local SIDES = VFS.Include("sides_enum.lua") or {}
+local SIDES = VFS.Include("gamedata/sides_enum.lua") or {}
 
 for key, value in pairs(SIDES) do
 	SIDES[value] = key
