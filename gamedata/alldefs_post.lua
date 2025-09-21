@@ -174,23 +174,23 @@ function UnitDef_Post(name, uDef)
 	do
 		-- Prevent contradictory customparams
 
-		if uDef.customParams.decoration and uDef.customParams.objectify then
-			uDef.customParams.objectify = nil
+		if uDef.customparams.decoration and uDef.customparams.objectify then
+			uDef.customparams.objectify = nil
 		end
 
 		local isCritter = name:sub(1, 7) == "critter"
 		local isRaptor = name:find("^raptor_")
 		local isScavenger = name:find("^scav") or name:find("_scav$")
 		if isCritter then
-			uDef.customParams.iscritter = true
+			uDef.customparams.iscritter = true
 			uDef.customparams.israptor = nil
 			uDef.customparams.isscavenger = nil
 		elseif isRaptor then
-			uDef.customParams.iscritter = true
+			uDef.customparams.iscritter = true
 			uDef.customparams.israptor = nil
 			uDef.customparams.isscavenger = nil
 		elseif isScavenger then
-			uDef.customParams.iscritter = true
+			uDef.customparams.iscritter = true
 			uDef.customparams.israptor = nil
 			uDef.customparams.isscavenger = nil
 			if name:find("_scav$") then
