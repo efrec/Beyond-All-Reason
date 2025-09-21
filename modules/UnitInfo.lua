@@ -415,7 +415,7 @@ local function isRestrictedUnit(unitDef)
 end
 
 local function isStartUnit(unitDef)
-	if unitDef.id == 1 then
+	if unitDef.id == 1 and __isStartUnit[1] == nil then
 		__isStartUnit()
 	end
 	return __isStartUnit[unitDef.id]
@@ -729,7 +729,7 @@ local function paralyzeMultiplier(unitDef)
 end
 
 local function areaDamageResistance(unitDef)
-	if unitDef.id == 1 then
+	if unitDef.id == 1 and __areaDamageResistance[1] == nil then
 		__areaDamageResistance()
 	end
 	return __areaDamageResistance[unitDef.id]
@@ -1399,6 +1399,7 @@ do
 	local rawset = rawset or function(tbl, key, v) tbl[key] = v end
 
 	local function init(key)
+		-- NB: Use raw methods to avoid metamethods for tree-type data.
 		local tbl = rawget(cached, key)
 		if tbl == nil then
 			tbl = create()
@@ -1425,6 +1426,7 @@ do
 				if value == nil then
 					value = unitDef[key]
 				end
+				-- `layout` may accept `nil`, so always set:
 				rawset(tbl, unitDefID, layout(value))
 			end
 		end
@@ -1438,6 +1440,11 @@ do
 			if UnitDefs[nDefs] == nil or UnitDefs[nDefs + 1] ~= nil then
 				nPrev = nDefs
 				nDefs = #UnitDefs
+			end
+			local tbl = rawget(cached, key)
+			if type(tbl) == "table" then
+				-- todo: tree-type data e.g. isStartUnit has annoying requirements like this:
+				rawset(tbl, 1, nil)
 			end
 			fetch(key)
 		end
@@ -1471,13 +1478,13 @@ do
 		__newindex  = addCachedTable,
 		__index     = getCachedTable,
 		__metatable = false,
-		__mode      = "kv",
+		__mode      = "kv", -- slower; table gets checked by GC
 	})
 
 	classifiers = setmetatable(classifiers, {
 		__newindex  = addClassifier,
 		__metatable = false,
-		__mode      = "kv",
+		__mode      = "kv", -- slower; table gets checked by GC
 	})
 
 	---Request that `UnitInfo.Cache` refreshes its tables or a specific table.
@@ -1487,7 +1494,9 @@ do
 	cacheDirty = function(key)
 		if key == nil then
 			local sec = os_sec()
-			for k in pairs(cached) do refetch(k, sec) end
+			for k in pairs(cached) do
+				refetch(k, sec)
+			end
 		elseif type(key) == "string" and type(rawget(cached, key)) == "table" then
 			local sec = os_sec()
 			refetch(key, sec)
