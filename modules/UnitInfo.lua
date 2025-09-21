@@ -48,6 +48,21 @@ local function hasPositiveValue(key, value)
 	return type(value) == "number" and value > 0
 end
 
+local temp = {}
+
+local function hasKey(tbl, keys)
+	if type(keys) ~= "table" then
+		temp[1] = keys
+		keys = temp
+	end
+	for _, key in ipairs(keys) do
+		if tbl[key] ~= nil then
+			return true
+		end
+	end
+	return false
+end
+
 ---Coerce string-ified customParams to boolean
 ---@return boolean?
 local function customBool(value)
@@ -97,6 +112,12 @@ local function equipsDef(unitDef, weaponDefID)
 	return false
 end
 
+local weaponDamageCustomParams = {
+	"spark_basedamage",
+	"spawns_name",
+	-- todo: un-hardcode the juno
+}
+
 ---Some weapons, like the Juno, are exceptional cases. Should this include them?
 local function hasDamage(weaponDef)
 	local custom = weaponDef.customParams
@@ -104,7 +125,7 @@ local function hasDamage(weaponDef)
 		return false
 	elseif weaponDef.damages and table.any(weaponDef.damages, hasPositiveValue) then
 		return true
-	elseif custom.spark_basedamage or custom.spawns_name then
+	elseif hasKey(custom, weaponDamageCustomParams) then
 		return true
 	elseif custom.cluster_def then
 		local cluster = WeaponDefNames[custom.cluster_def]
