@@ -1426,8 +1426,13 @@ do
 				if value == nil then
 					value = unitDef[key]
 				end
-				-- `layout` may accept `nil`, so always set:
-				rawset(tbl, unitDefID, layout(value))
+				value = layout(value)
+				if value ~= nil then
+					rawset(tbl, unitDefID, value)
+				else
+					-- rawset complains about `nil` so:
+					tbl[unitDefID] = nil
+				end
 			end
 		end
 		update[key] = os_sec() -- todo: move out of fetch
