@@ -26,6 +26,7 @@ local mapX = Game.mapSizeX
 local mapZ = Game.mapSizeZ
 local allMobileUnits = {}
 local spGetUnitPosition = Spring.GetUnitPosition
+local spGetUnitVelocity = Spring.GetUnitVelocity
 local spGetUnitTeam = Spring.GetUnitTeam
 local spGetUnitDefID = Spring.GetUnitDefID
 local spValidUnitID = Spring.ValidUnitID
@@ -133,8 +134,8 @@ local function inBombingRun(unitID, unitDefID)
 	local weapons = isStrafeBomber[unitDefID]
 
 	if weapons ~= nil then
-		local ux, uy, uz = Spring.GetUnitPosition(unitID)
-		local vx, vy, vz, speed = Spring.GetUnitVelocity(unitID)
+		local ux, uy, uz = spGetUnitPosition(unitID)
+		local vx, vy, vz, speed = spGetUnitVelocity(unitID)
 
 		for _, weapon in ipairs(weapons) do
 			local tx, ty, tz = getTargetPosition(unitID, weapon)
