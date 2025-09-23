@@ -20,6 +20,7 @@ end
 local rangeLimit = 1800
 local rangeLimitGaia = 20000
 
+local math_diag = math.diag
 local gaiaTeamID = Spring.GetGaiaTeamID()
 local mapX = Game.mapSizeX
 local mapZ = Game.mapSizeZ
@@ -108,10 +109,11 @@ end
 
 local TARGET_UNIT = 1
 local TARGET_GROUND = 2
-local BOMBER_STRAFE_RADIUS = 240 -- "I made it tf up"
+local BOMBER_STRAFE_ANGLE = math.rad(30) -- from 90 degrees; so this is 90 - 30
+local BOMBER_STRAFE_FRAMES = 0.7 * Game.gameSpeed
 
 local function getTargetPosition(unitID, weaponNumber)
-	local targetType, target = Spring.GetUnitWeaponTarget(unitID, weapon)
+	local targetType, target = Spring.GetUnitWeaponTarget(unitID, weaponNumber)
 	if targetType == TARGET_UNIT then
 		return Spring.GetUnitPosition(target)
 	elseif targetType == TARGET_GROUND then
@@ -119,15 +121,24 @@ local function getTargetPosition(unitID, weaponNumber)
 	end
 end
 
+local function onStrafePath(ux, uy, uz, tx, ty, tz, vx, vy, vz, speed)
+	local dx, dy, dz = tx - ux, ty - uy, tz - uz
+	local dotProduct = dx * vx + dy * vy + dz * vz
+	return dotProduct > 0 -- exit asap
+		and math_diag(ux, uy, uz, tx, ty, tz) <= speed * BOMBER_STRAFE_FRAMES
+		and dotProduct / math_diag(dx, dy, dz) / math_diag(vx, vy, vz) > BOMBER_STRAFE_ANGLE
+end
+
 local function inBombingRun(unitID, unitDefID)
 	local weapons = isStrafeBomber[unitDefID]
 
 	if weapons ~= nil then
 		local ux, uy, uz = Spring.GetUnitPosition(unitID)
+		local vx, vy, vz, speed = Spring.GetUnitVelocity(unitID)
 
 		for _, weapon in ipairs(weapons) do
 			local tx, ty, tz = getTargetPosition(unitID, weapon)
-			if tx ~= nil and math.diag(ux, uy, uz, tx, ty, tz) <= BOMBER_STRAFE_RADIUS then
+			if tx ~= nil and onStrafePath(ux, uy, uz, tx, ty, tz, vx, vy, vz, speed) then
 				return true
 			end
 		end
