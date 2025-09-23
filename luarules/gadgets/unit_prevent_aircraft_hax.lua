@@ -30,6 +30,7 @@ local spGetUnitVelocity = Spring.GetUnitVelocity
 local spGetUnitTeam = Spring.GetUnitTeam
 local spGetUnitDefID = Spring.GetUnitDefID
 local spValidUnitID = Spring.ValidUnitID
+local spGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
 local spIsPosInMap = Spring.IsPosInMap
 local CMD_STOP = CMD.STOP
 local CMD_GUARD = CMD.GUARD
@@ -114,9 +115,9 @@ local BOMBER_STRAFE_ANGLE = math.rad(30) -- from 90 degrees; so this is 90 - 30
 local BOMBER_STRAFE_FRAMES = 0.7 * Game.gameSpeed
 
 local function getTargetPosition(unitID, weaponNumber)
-	local targetType, target = Spring.GetUnitWeaponTarget(unitID, weaponNumber)
+	local targetType, target = spGetUnitWeaponTarget(unitID, weaponNumber)
 	if targetType == TARGET_UNIT then
-		return Spring.GetUnitPosition(target)
+		return spGetUnitPosition(target)
 	elseif targetType == TARGET_GROUND then
 		return target[1], target[2], target[3]
 	end
@@ -132,27 +133,26 @@ end
 
 local function inBombingRun(unitID, unitDefID)
 	local weapons = isStrafeBomber[unitDefID]
-
-	if weapons ~= nil then
-		local ux, uy, uz = spGetUnitPosition(unitID)
-		local vx, vy, vz, speed = spGetUnitVelocity(unitID)
-
-		for _, weapon in ipairs(weapons) do
-			local tx, ty, tz = getTargetPosition(unitID, weapon)
-			if tx ~= nil and onStrafePath(ux, uy, uz, tx, ty, tz, vx, vy, vz, speed) then
-				return true
-			end
+	local ux, uy, uz = spGetUnitPosition(unitID)
+	local vx, vy, vz, speed = spGetUnitVelocity(unitID)
+	for _, weapon in ipairs(weapons) do
+		local tx, ty, tz = getTargetPosition(unitID, weapon)
+		if tx ~= nil and onStrafePath(ux, uy, uz, tx, ty, tz, vx, vy, vz, speed) then
+			return true
 		end
 	end
-
 	return false
 end
 
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, fromSynced, fromLua)
-	if cmdID == CMD_STOP and isMobileUnit[unitDefID] then
-		return isInsideMap(unitID) and
-			not inBombingRun(unitID, unitDefID)
-	elseif cmdID == CMD_GUARD then
+	if cmdID == CMD_STOP then
+		if isMobileUnit[unitDefID] and isInsideMap(unitID) then
+			if fromSynced or not isStrafeBomber[unitDefID] or not inBombingRun(unitID, unitDefID) then
+				return true
+			end
+		end
+		return false
+	else
 		-- To guard out of map both units must be builders
 		local guardeeID = cmdParams[1]
 		if guardeeID and spValidUnitID(guardeeID) and not isInsideMap(guardeeID) then
@@ -161,6 +161,6 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpt
 				return false
 			end
 		end
+		return true
 	end
-	return true
 end
