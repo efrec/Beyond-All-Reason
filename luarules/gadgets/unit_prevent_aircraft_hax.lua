@@ -110,6 +110,15 @@ local TARGET_UNIT = 1
 local TARGET_GROUND = 2
 local BOMBER_STRAFE_RADIUS = 240 -- "I made it tf up"
 
+local function getTargetPosition(unitID, weaponNumber)
+	local targetType, target = Spring.GetUnitWeaponTarget(unitID, weapon)
+	if targetType == TARGET_UNIT then
+		return Spring.GetUnitPosition(target)
+	elseif targetType == TARGET_GROUND then
+		return target[1], target[2], target[3]
+	end
+end
+
 local function inBombingRun(unitID, unitDefID)
 	local weapons = isStrafeBomber[unitDefID]
 
@@ -117,18 +126,8 @@ local function inBombingRun(unitID, unitDefID)
 		local ux, uy, uz = Spring.GetUnitPosition(unitID)
 
 		for _, weapon in ipairs(weapons) do
-			local targetType, target = Spring.GetUnitWeaponTarget(unitID, weapon)
-
-			local tx, ty, tz
-			if targetType == TARGET_UNIT then
-				tx, ty, tz = Spring.GetUnitPosition(target)
-			elseif targetType == TARGET_GROUND then
-				tx, ty, tz = target[1], target[2], target[3]
-			else
-				return false
-			end
-
-			if math.diag(ux, uy, uz, tx, ty, tz) <= BOMBER_STRAFE_RADIUS then
+			local tx, ty, tz = getTargetPosition(unitID, weapon)
+			if tx ~= nil and math.diag(ux, uy, uz, tx, ty, tz) <= BOMBER_STRAFE_RADIUS then
 				return true
 			end
 		end
