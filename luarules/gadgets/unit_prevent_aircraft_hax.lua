@@ -4,7 +4,7 @@ local gadget = gadget ---@type Gadget
 function gadget:GetInfo()
 	return {
 		name = "Prevent outside-of-map hax",
-		desc = "Prevent mobile unit outside-of-map hax (unless its gaia)",
+		desc = "Prevent mobile unit outside-of-map hax (unless Gaia) and bomber Stop micro-tech",
 		author = "Beherith",
 		date = "3 27 2011",
 		license = "GNU GPL, v2 or later",
@@ -33,10 +33,24 @@ local CMD_STOP = CMD.STOP
 local CMD_GUARD = CMD.GUARD
 
 local isMobileUnit = {}
+local isStrafeBomber = {}
 local isBuilder = {}
+
 for unitDefID, udef in pairs(UnitDefs) do
 	if not (udef.isBuilding or udef.speed == 0) then
 		isMobileUnit[unitDefID] = true
+		if udef.isStrafingAirUnit then
+			local weapons = {}
+			for index, weapon in ipairs(udef.weapons) do
+				local weaponType = WeaponDefs[weapon.weaponDef].type
+				if weapon.onlyTargets.surface or weaponType == "AircraftBomb" or weaponType == "TorpedoLauncher" then
+					weapons[#weapons+1] = index
+				end
+			end
+			if next(weapons) then
+				isStrafeBomber[unitDefID] = weapons
+			end
+		end
 	end
 	if udef.isBuilder and (udef.buildSpeed and udef.buildSpeed > 0) and (udef.buildDistance and udef.buildDistance > 0) then
 		isBuilder[unitDefID] = true
@@ -92,9 +106,41 @@ local function isInsideMap(unitID)
 	return spIsPosInMap(x, z)
 end
 
+local TARGET_UNIT = 1
+local TARGET_GROUND = 2
+local BOMBER_STRAFE_RADIUS = 240 -- "I made it tf up"
+
+local function inBombingRun(unitID, unitDefID)
+	local weapons = isStrafeBomber[unitDefID]
+
+	if weapons ~= nil then
+		local ux, uy, uz = Spring.GetUnitPosition(unitID)
+
+		for _, weapon in ipairs(weapons) do
+			local targetType, target = Spring.GetUnitWeaponTarget(unitID, weapon)
+
+			local tx, ty, tz
+			if targetType == TARGET_UNIT then
+				tx, ty, tz = Spring.GetUnitPosition(target)
+			elseif targetType == TARGET_GROUND then
+				tx, ty, tz = target[1], target[2], target[3]
+			else
+				return false
+			end
+
+			if math.diag(ux, uy, uz, tx, ty, tz) <= BOMBER_STRAFE_RADIUS then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, fromSynced, fromLua)
 	if cmdID == CMD_STOP and isMobileUnit[unitDefID] then
-		return isInsideMap(unitID)
+		return isInsideMap(unitID) and
+			not inBombingRun(unitID, unitDefID)
 	elseif cmdID == CMD_GUARD then
 		-- To guard out of map both units must be builders
 		local guardeeID = cmdParams[1]
