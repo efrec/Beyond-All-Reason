@@ -36,7 +36,7 @@ local CMD_STOP = CMD.STOP
 local CMD_GUARD = CMD.GUARD
 
 local isMobileUnit = {}
-local isStrafeBomber = {}
+local strafeWeapons = {}
 local isBuilder = {}
 
 for unitDefID, udef in pairs(UnitDefs) do
@@ -51,7 +51,7 @@ for unitDefID, udef in pairs(UnitDefs) do
 				end
 			end
 			if next(weapons) then
-				isStrafeBomber[unitDefID] = weapons
+				strafeWeapons[unitDefID] = weapons
 			end
 		end
 	end
@@ -131,8 +131,7 @@ local function onStrafePath(ux, uy, uz, tx, ty, tz, vx, vy, vz, speed)
 		and dotProduct / math_diag(dx, dy, dz) / math_diag(vx, vy, vz) > BOMBER_STRAFE_ANGLE
 end
 
-local function inBombingRun(unitID, unitDefID)
-	local weapons = isStrafeBomber[unitDefID]
+local function inBombingRun(unitID, weapons)
 	local ux, uy, uz = spGetUnitPosition(unitID)
 	local vx, vy, vz, speed = spGetUnitVelocity(unitID)
 	for _, weapon in ipairs(weapons) do
@@ -147,7 +146,7 @@ end
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, fromSynced, fromLua)
 	if cmdID == CMD_STOP then
 		if isMobileUnit[unitDefID] and isInsideMap(unitID) then
-			if fromSynced or not isStrafeBomber[unitDefID] or not inBombingRun(unitID, unitDefID) then
+			if fromSynced or not strafeWeapons[unitDefID] or not inBombingRun(unitID, strafeWeapons[unitDefID]) then
 				return true
 			end
 		end
