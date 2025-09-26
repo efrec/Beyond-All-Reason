@@ -595,6 +595,7 @@ end
 
 function gadget:GameFrame(gameFrame)
 	if gameFrame % updateInterval == updateOffset then
+		teamsAreAllied = {}
 		for baseID, turretID in pairs(baseToTurretID) do
 			if not getUnitIsSuspended(turretID) then
 				local unitTeam = spGetUnitTeam(baseID)
