@@ -619,6 +619,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 end
 
 function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOpts, cmdTag, playerID, fromSynced, fromLua)
+	-- cmdTag 0 captures almost all cases we need. GameFrame handles any others.
 	if cmdTag == 0 and baseToTurretID[unitID] ~= nil then
 		-- Forward to the turret. Issues with paired units targeting one another
 		-- (and so on) are handled separately in unit_attached_virtual_pair.lua.
@@ -644,6 +645,8 @@ function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOp
 		end
 	end
 end
+
+-- todo: We may want to avoid suppressing build power from the base unit in cases other than the corvac.
 
 function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, featureDefID, part)
 	return baseToTurretID[builderID] == nil
