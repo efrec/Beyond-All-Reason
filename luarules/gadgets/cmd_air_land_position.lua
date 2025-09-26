@@ -23,6 +23,7 @@ end
 -- todo: disarm/rearm bombers depending on their moveType data
 -- todo: orchestrate a lot of moderate-complexity unit behaviors until they work
 
+--------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
 ---When to convert implicit land orders to explicit ones.
@@ -37,6 +38,7 @@ local landWhenInCommand = {
 local BOMBING_ANGLE = math.rad(30) ---@type number in radians | declining from 90 degrees
 local BOMBING_FRAMES = 0.7 * Game.gameSpeed ---@type number in frames | non-integer is OK
 
+--------------------------------------------------------------------------------
 -- Globals ---------------------------------------------------------------------
 
 local math_diag = math.diag
@@ -58,6 +60,7 @@ local CMD_STOP = CMD.STOP
 local CMD_IDLEMODE = CMD.IDLEMODE
 local IDLEMODE_LAND = 0
 
+--------------------------------------------------------------------------------
 -- Initialize ------------------------------------------------------------------
 
 ---@type CommandDescription
@@ -102,6 +105,7 @@ do
 	end
 end
 
+--------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
 local function shouldLandOnGround(unitID, unitDefID)
@@ -208,6 +212,7 @@ local function landAtPosition(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmd
 	return true -- not implemented
 end
 
+--------------------------------------------------------------------------------
 -- Engine callins --------------------------------------------------------------
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
@@ -228,7 +233,8 @@ function gadget:GameFrame(frame)
 end
 
 function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag, fromSynced, fromLua)
-	return not isStrafeBomber[unitDefID] or not inBombingRun(unitID, unitDefID)
+	return not isStrafeBomber[unitDefID]
+		or not inBombingRun(unitID, unitDefID)
 end
 
 function gadget:CommandFallback(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag)
