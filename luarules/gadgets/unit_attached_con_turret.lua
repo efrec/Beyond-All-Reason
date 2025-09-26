@@ -138,6 +138,8 @@ local baseToTurretID = {}
 local turretAbilities = {}
 local turretBuildRadius = {}
 
+local teamsAreAllied = {}
+
 local function parseBaseUnitDef(unitDef)
 	local turretDef = UnitDefNames[unitDef.customParams.attached_con_turret]
 	local abilities
@@ -229,6 +231,32 @@ local function attachToUnit(baseID, baseDefID, baseTeam)
 		return true
 	else
 		Spring.DestroyUnit(baseID)
+	end
+end
+
+local function isAlliedUnit(teamID, unitID)
+	local teamsAreAllied = teamsAreAllied
+	local alliances = teamsAreAllied[teamID]
+	if alliances == nil then
+		alliances = {}
+		teamsAreAllied[teamID] = alliances
+	else
+		local unitTeam = spGetUnitTeam(unitID)
+		local isAllied = alliances[unitTeam]
+
+		if isAllied == nil then
+			isAllied = spAreTeamsAllied(teamID, unitTeam)
+				and spAreTeamsAllied(unitTeam, teamID)
+			alliances[unitTeam] = isAllied
+			local mirror = teamsAreAllied[unitTeam]
+			if mirror == nil then
+				mirror = {}
+				teamsAreAllied[unitTeam] = mirror
+			end
+			mirror[teamID] = isAllied
+		end
+
+		return isAllied
 	end
 end
 
@@ -362,10 +390,10 @@ local function tryExecuteFight(baseID, turretID, teamID, abilities, buildRadius)
 	local allyUnits = spGetUnitsInCylinder(ux, uz, searchRadius, FILTER_ALLY_UNITS)
 	local enemyUnits = spGetUnitsInCylinder(ux, uz, searchRadius, FILTER_ENEMY_UNITS)
 
+	-- Test for alliances under ceasefire.
 	for i = #enemyUnits, 1, -1 do
-		local unitTeam = spGetUnitTeam(enemyUnits[i])
-		if unitTeam ~= nil and spAreTeamsAllied(teamID, unitTeam) and spAreTeamsAllied(unitTeam, teamID) then
-			allyUnits[#allyUnits+1] = remove(enemyUnits, i) -- in alliance under ceasefire
+		if isAlliedUnit(teamID, enemyUnits[i]) then
+			allyUnits[#allyUnits+1] = remove(enemyUnits, i)
 		end
 	end
 
