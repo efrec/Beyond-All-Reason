@@ -1,9 +1,48 @@
 -- Unit categories
 
+local commanders = {
+	corcom = true,
+	armcom = true,
+	legcom = true,
+}
+
+local labHover = {
+	armhp = true, armfhp = true,
+	corhp = true, corfhp = true,
+	leghp = true, legfhp = true,
+}
+
+local labTier2 = {
+	armaap = true, armasy = true, armalab = true, armavp = true,
+	coraap = true, corasy = true, coralab = true, coravp = true,
+}
+
+local conTier2 = {
+	armch = true, armack = true, armacv = true, armaca = true, armacsub = true,
+	corch = true, corack = true, coracv = true, coraca = true, coracsub = true,
+	legch = true, legack = true, legacv = true, legaca = true,
+}
+
 local conTier3 = {
 	armhaca = true, armhack = true, armhacv = true, armhacs = true,
 	corhaca = true, corhack = true, corhacv = true, corhacs = true,
 	leghaca = true, leghack = true, leghacv = true,
+}
+
+local transportHeavy = {
+	legatrans = true,
+}
+
+local jammerMobileT3 = {
+	armaser = true, armjam = true,
+	corspec = true, coreter = true,
+	legajamk = true, legavjam = true,
+}
+
+local pinpointers = {
+	armtarg = true, armfatf = true,
+	cortarg = true, corfatf = true,
+	legtarg = true,
 }
 
 local lolmechs = {
@@ -14,11 +53,32 @@ local lolmechs = {
 	legelrpcmech = true,
 }
 
+local extractorT2 = {
+	armmoho = true, armuwmme = true,
+	cormoho = true, coruwmme = true,
+	legmoho = true,
+}
+
+local isNowTier2 = {
+	armch = true, armsh = true, armanac = true, armah = true, armmh = true, armcsa = true, armsaber = true, armsb = true, armseap = true, armsfig = true, armsehak = true, armhvytrans = true,
+	corch = true, corsh = true, corsnap = true, corah = true, cormh = true, corhal = true, corcsa = true, corcut = true, corsb = true, corseap = true, corsfig = true, corhunt = true, corhvytrans = true,
+}
+
+local isNowTier3 = {
+	armsnipe = true, armfboy = true, armaser = true, armdecom = true, armscab = true, armbull = true, armmerl = true, armmanni = true, armyork = true, armjam = true, armserp = true, armbats = true, armepoch = true, armantiship = true, armaas = true, armhawk = true, armpnix = true, armlance = true, armawac = true, armdfly = true, armliche = true, armblade = true, armbrawl = true, armstil = true,
+	corsumo = true, cordecom = true, corsktl = true, corspec = true, corgol = true, corvroc = true, cortrem = true, corsent = true, coreter = true, corparrow = true, corssub = true, corbats = true, corblackhy = true, corarch = true, corantiship = true, corape = true, corhurc = true, cortitan = true, corvamp = true, corseah = true, corawac = true, corcrwh = true,
+}
+
 ---Convert a unitDef into its tech-split counterpart.
 ---@param name string
 ---@param unitDef table
 ---@return table
 local function techsplitTweaks(name, unitDef)
+	------------------------------
+	-- Land Split
+
+	-- T2 Labs
+
 	if name == "coralab" then
 		unitDef.buildoptions = {
 			"corack",
@@ -78,7 +138,11 @@ local function techsplitTweaks(name, unitDef)
 			"corvrad",
 			"corban"
 		}
-	elseif name == "armck" then
+	end
+
+	-- Land Cons
+
+	if name == "armck" then
 		unitDef.buildoptions = {
 			"armsolar",
 			"armwin",
@@ -396,7 +460,7 @@ local function techsplitTweaks(name, unitDef)
 	end
 
 	------------------------------
-	-- Armada and Cortex Air Split
+	-- Air Split
 
 	-- Air Labs
 
@@ -855,66 +919,51 @@ local function techsplitTweaks(name, unitDef)
 		unitDef.customparams.buildinggrounddecalsizez = 18
 	end
 
-	-- Remove lolmech from T3 cons
 	if conTier3[name] then
 		table.removeIf(unitDef.buildoptions, function(v) return lolmechs[v] end)
+	elseif commanders[name] then
+		table.removeIf(unitDef.buildoptions, function (v) return labHover[v] end)
 	end
 
-	-- Remove hovers from com
-	if name == "corcom" or name == "armcom" or name == "legcom" then
-		unitDef.buildoptions[26] = ""
-		unitDef.buildoptions[27] = ""
-	end
-
-	if name == "armaap" or name == "armasy" or name == "armalab" or name == "armavp"
-	or name == "coraap" or name == "corasy" or name == "coralab" or name == "coravp" then
+	if labTier2[name] then
 		-- T2 labs are priced as t1.5 but require more BP
+		-- ! Multiple changes to the same stats on the units?
 		unitDef.metalcost = unitDef.metalcost - 1300
 		unitDef.energycost = unitDef.energycost - 5000
 		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.015) * 100
-	elseif name == "armack" or name == "armacv" or name == "armaca" or name == "armacsub"
-		or name == "corack" or name == "coracv" or name == "coraca" or name == "coracsub"
-		or name == "legack" or name == "legacv" or name == "legaca" then
-		-- T2 cons are priced as t1.5
-		unitDef.metalcost = unitDef.metalcost - 200
-		unitDef.energycost = unitDef.energycost - 2000
-		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.008) * 100
-	elseif name == "armch" or name == "corch" or name == "legch" then
-		-- Hover cons are priced as t2
+	elseif isNowTier2[name] and (name == "armch" or name == "corch" or name == "legch") then
+		-- Hover cons are priced as t2 (they are, literally, t2)
 		unitDef.metalcost = unitDef.metalcost * 2
 		unitDef.energycost = unitDef.energycost * 2
 		unitDef.buildtime = unitDef.buildtime * 2
 		unitDef.customparams.techlevel = 2
+	elseif conTier2[name] then
+		-- T2 cons are priced as t1.5 (excludes hovers, see above)
+		unitDef.metalcost = unitDef.metalcost - 200
+		unitDef.energycost = unitDef.energycost - 2000
+		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.008) * 100
 	end
 
 	----------------------------------------------
 	-- T2 mexes upkeep increased, health decreased
 
-	if name == "armmoho" or name == "cormoho" or name == "armuwmme" or name == "coruwmme"
-		or name == "legmoho"
-	then
+	if extractorT2[name] then
 		unitDef.energyupkeep = 40
 		unitDef.health = unitDef.health - 1200
 	elseif name == "cormexp" then
 		unitDef.energyupkeep = 40
 	end
 
-	-------------------------------
 	-- T3 mobile jammers have radar
 
-	if name == "armaser" or name == "corspec" or name == "legajamk"
-		or name == "armjam" or name == "coreter" or name == "legavjam"
-	then
+	if jammerMobileT3[name] then
 		unitDef.metalcost = unitDef.metalcost + 100
 		unitDef.energycost = unitDef.energycost + 1250
 		unitDef.buildtime = unitDef.buildtime + 3800
 		unitDef.radardistance = 2500
 		unitDef.sightdistance = 1000
-	elseif name == "armantiship" or name == "corantiship" then
-		unitDef.radardistancejam = 450
 	end
 
-	----------------------------
 	-- T2 ship jammers get radar
 
 	if name == "armsjam" or name == "corsjam" then
@@ -923,37 +972,24 @@ local function techsplitTweaks(name, unitDef)
 		unitDef.buildtime = unitDef.buildtime + 3000
 		unitDef.radarDistance = 2200
 		unitDef.sightdistance = 900
+	elseif name == "armantiship" or name == "corantiship" then
+		-- And somewhat vice-versa
+		unitDef.radardistancejam = 450
 	end
 
-	-----------------------------------
 	-- Pinpointers are T3 radar/jammers
 
-	if name == "armtarg" or name == "cortarg" or name == "legtarg"
-		or name == "armfatf" or name == "corfatf"
-	then
+	if pinpointers[name] then
 		unitDef.radardistance = 5000
 		unitDef.sightdistance = 1200
 		unitDef.radardistancejam = 900
 	end
 
-	-----------------------------
 	-- Correct Tier for Announcer
 
-	if name == "armch" or name == "armsh" or name == "armanac" or name == "armah" or name == "armmh"
-		or name == "armcsa" or name == "armsaber" or name == "armsb" or name == "armseap" or name == "armsfig" or name == "armsehak" or name == "armhvytrans"
-		or name == "corch" or name == "corsh" or name == "corsnap" or name == "corah" or name == "cormh" or name == "corhal"
-		or name == "corcsa" or name == "corcut" or name == "corsb" or name == "corseap" or name == "corsfig" or name == "corhunt" or name == "corhvytrans"
-	then
+	if isNowTier2[name] then
 		unitDef.customparams.techlevel = 2
-	elseif name == "armsnipe" or name == "armfboy" or name == "armaser" or name == "armdecom" or name == "armscab"
-		or name == "armbull" or name == "armmerl" or name == "armmanni" or name == "armyork" or name == "armjam"
-		or name == "armserp" or name == "armbats" or name == "armepoch" or name == "armantiship" or name == "armaas"
-		or name == "armhawk" or name == "armpnix" or name == "armlance" or name == "armawac" or name == "armdfly" or name == "armliche" or name == "armblade" or name == "armbrawl" or name == "armstil"
-		or name == "corsumo" or name == "cordecom" or name == "corsktl" or name == "corspec"
-		or name == "corgol" or name == "corvroc" or name == "cortrem" or name == "corsent" or name == "coreter" or name == "corparrow"
-		or name == "corssub" or name == "corbats" or name == "corblackhy" or name == "corarch" or name == "corantiship"
-		or name == "corape" or name == "corhurc" or name == "cortitan" or name == "corvamp" or name == "corseah" or name == "corawac" or name == "corcrwh"
-	then
+	elseif isNowTier3[name] then
 		unitDef.customparams.techlevel = 3
 	end
 
@@ -1038,11 +1074,14 @@ local function techsplitTweaks(name, unitDef)
 		}
 	end
 
+	----------------------------------------------
+	-- Tech Split Balance
+
 	-- Seaplane Platforms removed, become T2 air labs.
 	-- T2 air labs have sea variants
 	-- Made by hover cons and enhanced ship cons
 	-- Enhanced ships given seaplanes instead of static AA
-	-- Tech Split Balance
+
 	if name == "corthud" then
 		unitDef.speed = 54
 		unitDef.weapondefs.arm_ham.range = 300
@@ -1283,7 +1322,8 @@ local function techsplitTweaks(name, unitDef)
 		}
 	end
 
-	--Tech Split Hotfixes 3
+	----------------------------------------------
+	-- Tech Split Hotfixes 3
 
 	if name == "armhack" or name == "armhacv" or name == "armhaca" then
 		table.insert(unitDef.buildoptions, "armnanotc")
@@ -1434,14 +1474,12 @@ local function techsplitTweaks(name, unitDef)
 			"legatrans",
 		}
 	elseif name == "legap" then
-		unitDef.buildoptions[7] = ""
-	elseif name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp"
-	then
+		table.removeIf(unitDef.buildoptions, function(v) return transportHeavy[v] end)
+	elseif name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp" then
 		unitDef.metalcost = unitDef.metalcost - 1300
 		unitDef.energycost = unitDef.energycost - 5000
 		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.015) * 100
-	elseif name == "legch"
-	then
+	elseif name == "legch" then
 		unitDef.metalcost = unitDef.metalcost * 2
 		unitDef.energycost = unitDef.energycost * 2
 		unitDef.buildtime = unitDef.buildtime * 2
@@ -1722,6 +1760,7 @@ local function techsplitTweaks(name, unitDef)
 		}
 	end
 
+	----------------------------------------------
 	-- Legion Unit Tweaks
 
 	if name == "legapopupdef" then
