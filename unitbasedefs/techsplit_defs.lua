@@ -647,9 +647,9 @@ local function techsplitTweaks(name, unitDef)
 	if name == "armhasy" or name == "corhasy" then
 		unitDef.metalcost = unitDef.metalcost - 1200
 	elseif name == "armsy" then
-		unitDef.buildoptions[8] = "armbeaver"
+		table.removeAll(unitDef.buildoptions, "armbeaver")
 	elseif name == "corsy" then
-		unitDef.buildoptions[8] = "cormuskrat"
+		table.removeAll(unitDef.buildoptions, "cormuskrat")
 	elseif name == "armasy" then
 		unitDef.metalcost = unitDef.metalcost + 400
 		unitDef.buildoptions = {
