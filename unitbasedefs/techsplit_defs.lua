@@ -14,8 +14,13 @@ local lolmechs = {
 	legelrpcmech = true,
 }
 
+---Convert a unitDef into its tech-split counterpart.
+---@param name string
+---@param unitDef table
+---@return table
+local function techsplitTweaks(name, unitDef)
 	if name == "coralab" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"corack",
 			"coraak",
 			"cormort",
@@ -30,7 +35,7 @@ local lolmechs = {
 			"corroach",
 		}
 	elseif name == "armalab" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armack",
 			"armfido",
 			"armaak",
@@ -45,7 +50,7 @@ local lolmechs = {
 			"armspy",
 		}
 	elseif name == "armavp" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armacv",
 			"armch",
 			"armcroc",
@@ -59,7 +64,7 @@ local lolmechs = {
 			"armgremlin"
 		}
 	elseif name == "coravp" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"corch",
 			"coracv",
 			"corsala",
@@ -74,7 +79,7 @@ local lolmechs = {
 			"corban"
 		}
 	elseif name == "armck" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armsolar",
 			"armwin",
 			"armmex",
@@ -105,7 +110,7 @@ local lolmechs = {
 			"armguard"
 		}
 	elseif name == "corck" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"corsolar",
 			"corwin",
 			"cormstor",
@@ -135,7 +140,7 @@ local lolmechs = {
 			"corpun"
 		}
 	elseif name == "armack" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armadvsol",
 			"armmoho",
 			"armbeamer",
@@ -167,7 +172,7 @@ local lolmechs = {
 			"armamd",
 		}
 	elseif name == "corack" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"coradvsol",
 			"cormoho",
 			"corvipe",
@@ -196,7 +201,7 @@ local lolmechs = {
 			"corfmd",
 		}
 	elseif name == "armcv" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armsolar",
 			"armwin",
 			"armmex",
@@ -227,7 +232,7 @@ local lolmechs = {
 			"armguard"
 		}
 	elseif name == "armbeaver" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armsolar",
 			"armwin",
 			"armmex",
@@ -264,7 +269,7 @@ local lolmechs = {
 			"armguard"
 		}
 	elseif name == "corcv" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"corsolar",
 			"corwin",
 			"cormstor",
@@ -294,7 +299,7 @@ local lolmechs = {
 			"corpun"
 		}
 	elseif name == "cormuskrat" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"corsolar",
 			"corwin",
 			"cormstor",
@@ -328,7 +333,7 @@ local lolmechs = {
 			"corpun"
 		}
 	elseif name == "armacv" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armadvsol",
 			"armmoho",
 			"armbeamer",
@@ -360,7 +365,7 @@ local lolmechs = {
 			"armamd",
 		}
 	elseif name == "coracv" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"coradvsol",
 			"cormoho",
 			"corvipe",
@@ -396,14 +401,14 @@ local lolmechs = {
 	-- Air Labs
 
 	if name == "armaap" then
-		uDef.buildpic = "ARMHAAP.DDS"
-		uDef.objectname = "Units/ARMAAPLAT.s3o"
-		uDef.script = "Units/techsplit/ARMHAAP.cob"
-		uDef.customparams.buildinggrounddecaltype = "decals/armamsub_aoplane.dds"
-		uDef.customparams.buildinggrounddecalsizex = 13
-		uDef.customparams.buildinggrounddecalsizey = 13
-		uDef.featuredefs.dead["object"] = "Units/armaaplat_dead.s3o"
-		uDef.buildoptions = {
+		unitDef.buildpic = "ARMHAAP.DDS"
+		unitDef.objectname = "Units/ARMAAPLAT.s3o"
+		unitDef.script = "Units/techsplit/ARMHAAP.cob"
+		unitDef.customparams.buildinggrounddecaltype = "decals/armamsub_aoplane.dds"
+		unitDef.customparams.buildinggrounddecalsizex = 13
+		unitDef.customparams.buildinggrounddecalsizey = 13
+		unitDef.featuredefs.dead["object"] = "Units/armaaplat_dead.s3o"
+		unitDef.buildoptions = {
 			"armaca",
 			"armseap",
 			"armsb",
@@ -412,7 +417,7 @@ local lolmechs = {
 			"armsaber",
 			"armhvytrans"
 		}
-		uDef.sfxtypes = {
+		unitDef.sfxtypes = {
 			explosiongenerators = {
 				"custom:radarpulse_t1_slow",
 			},
@@ -422,7 +427,7 @@ local lolmechs = {
 				"deathceg4",
 			},
 		}
-		uDef.sounds = {
+		unitDef.sounds = {
 			build = "seaplok1",
 			canceldestruct = "cancel2",
 			underattack = "warning1",
@@ -440,10 +445,10 @@ local lolmechs = {
 			},
 		}
 	elseif name == "coraap" then
-		uDef.buildpic = "CORHAAP.DDS"
-		uDef.objectname = "Units/CORAAPLAT.s3o"
-		uDef.script = "Units/CORHAAP.cob"
-		uDef.buildoptions = {
+		unitDef.buildpic = "CORHAAP.DDS"
+		unitDef.objectname = "Units/CORAAPLAT.s3o"
+		unitDef.script = "Units/CORHAAP.cob"
+		unitDef.buildoptions = {
 			"coraca",
 			"corhunt",
 			"corcut",
@@ -452,18 +457,18 @@ local lolmechs = {
 			"corsfig",
 			"corhvytrans",
 		}
-		uDef.featuredefs.dead["object"] = "Units/coraaplat_dead.s3o"
-		uDef.customparams.buildinggrounddecaltype = "decals/coraap_aoplane.dds"
-		uDef.customparams.buildinggrounddecalsizex = 6
-		uDef.customparams.buildinggrounddecalsizey = 6
-		uDef.customparams.sfxtypes = {
+		unitDef.featuredefs.dead["object"] = "Units/coraaplat_dead.s3o"
+		unitDef.customparams.buildinggrounddecaltype = "decals/coraap_aoplane.dds"
+		unitDef.customparams.buildinggrounddecalsizex = 6
+		unitDef.customparams.buildinggrounddecalsizey = 6
+		unitDef.customparams.sfxtypes = {
 			pieceexplosiongenerators = {
 				"deathceg2",
 				"deathceg3",
 				"deathceg4",
 			},
 		}
-		uDef.customparams.sounds = {
+		unitDef.customparams.sounds = {
 			build = "seaplok2",
 			canceldestruct = "cancel2",
 			underattack = "warning1",
@@ -481,7 +486,7 @@ local lolmechs = {
 			},
 		}
 	elseif name == "armap" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armca",
 			"armpeep",
 			"armfig",
@@ -490,7 +495,7 @@ local lolmechs = {
 			"armkam",
 		}
 	elseif name == "corap" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"corca",
 			"corfink",
 			"corveng",
@@ -503,7 +508,7 @@ local lolmechs = {
 	-- Air Cons
 
 	if name == "armca" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armsolar",
 			"armwin",
 			"armmstor",
@@ -535,7 +540,7 @@ local lolmechs = {
 			"armnanotc",
 		}
 	elseif name == "corca" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"corsolar",
 			"corwin",
 			"cormstor",
@@ -566,10 +571,10 @@ local lolmechs = {
 			"cornanotc",
 		}
 	elseif name == "armaca" then
-		uDef.buildpic = "ARMCSA.DDS"
-		uDef.objectname = "Units/ARMCSA.s3o"
-		uDef.script = "units/ARMCSA.cob"
-		uDef.buildoptions = {
+		unitDef.buildpic = "ARMCSA.DDS"
+		unitDef.objectname = "Units/ARMCSA.s3o"
+		unitDef.script = "units/ARMCSA.cob"
+		unitDef.buildoptions = {
 			"armadvsol",
 			"armmoho",
 			"armbeamer",
@@ -601,10 +606,10 @@ local lolmechs = {
 			"armamd",
 		}
 	elseif name == "coraca" then
-		uDef.buildpic = "CORCSA.DDS"
-		uDef.objectname = "Units/CORCSA.s3o"
-		uDef.script = "units/CORCSA.cob"
-		uDef.buildoptions = {
+		unitDef.buildpic = "CORCSA.DDS"
+		unitDef.objectname = "Units/CORCSA.s3o"
+		unitDef.script = "units/CORCSA.cob"
+		unitDef.buildoptions = {
 			"coradvsol",
 			"cormoho",
 			"corvipe",
@@ -640,14 +645,14 @@ local lolmechs = {
 	-- Sea Labs
 
 	if name == "armhasy" or name == "corhasy" then
-		uDef.metalcost = uDef.metalcost - 1200
+		unitDef.metalcost = unitDef.metalcost - 1200
 	elseif name == "armsy" then
-		uDef.buildoptions[8] = "armbeaver"
+		unitDef.buildoptions[8] = "armbeaver"
 	elseif name == "corsy" then
-		uDef.buildoptions[8] = "cormuskrat"
+		unitDef.buildoptions[8] = "cormuskrat"
 	elseif name == "armasy" then
-		uDef.metalcost = uDef.metalcost + 400
-		uDef.buildoptions = {
+		unitDef.metalcost = unitDef.metalcost + 400
+		unitDef.buildoptions = {
 			"armacsub",
 			"armmship",
 			"armcrus",
@@ -662,8 +667,8 @@ local lolmechs = {
 			"armsjam"
 		}
 	elseif name == "corasy" then
-		uDef.metalcost = uDef.metalcost + 400
-		uDef.buildoptions = {
+		unitDef.metalcost = unitDef.metalcost + 400
+		unitDef.buildoptions = {
 			"coracsub",
 			"corcrus",
 			"corshark",
@@ -677,11 +682,12 @@ local lolmechs = {
 			"cormh",
 			"corsjam",
 		}
+	end
 
+	-- Sea Cons
 
-		-- Sea Cons
-	elseif name == "armcs" then
-		uDef.buildoptions = {
+	if name == "armcs" then
+		unitDef.buildoptions = {
 			"armmex",
 			"armvp",
 			"armap",
@@ -709,7 +715,7 @@ local lolmechs = {
 			"armguard",
 		}
 	elseif name == "corcs" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"cormex",
 			"corvp",
 			"corap",
@@ -737,7 +743,7 @@ local lolmechs = {
 			"corpun"
 		}
 	elseif name == "armacsub" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armtide",
 			"armuwageo",
 			"armveil",
@@ -769,7 +775,7 @@ local lolmechs = {
 			"armamd",
 		}
 	elseif name == "coracsub" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"cortide",
 			"coruwmme",
 			"corshroud",
@@ -804,48 +810,49 @@ local lolmechs = {
 	end
 
 	-- T3 Gantries
+
 	if name == "armshltx" then
-		uDef.footprintx = 15
-		uDef.footprintz = 15
-		uDef.collisionvolumescales = "225 150 205"
-		uDef.yardmap =
+		unitDef.footprintx = 15
+		unitDef.footprintz = 15
+		unitDef.collisionvolumescales = "225 150 205"
+		unitDef.yardmap =
 		"ooooooooooooooo ooooooooooooooo ooooooooooooooo ooooooooooooooo ooooooooooooooo ooooooooooooooo ooooooooooooooo eeeeeeeeeeeeeee eeeeeeeeeeeeeee eeeeeeeeeeeeeee eeeeeeeeeeeeeee eeeeeeeeeeeeeee eeeeeeeeeeeeeee eeeeeeeeeeeeeee eeeeeeeeeeeeeee"
-		uDef.objectname = "Units/ARMSHLTXBIG.s3o"
-		uDef.script = "Units/techsplit/ARMSHLTXBIG.cob"
-		uDef.featuredefs.armshlt_dead.object = "Units/armshltxbig_dead.s3o"
-		uDef.featuredefs.armshlt_dead.footprintx = 11
-		uDef.featuredefs.armshlt_dead.footprintz = 11
-		uDef.featuredefs.armshlt_dead.collisionvolumescales = "155 95 180"
-		uDef.customparams.buildinggrounddecalsizex = 18
-		uDef.customparams.buildinggrounddecalsizez = 18
+		unitDef.objectname = "Units/ARMSHLTXBIG.s3o"
+		unitDef.script = "Units/techsplit/ARMSHLTXBIG.cob"
+		unitDef.featuredefs.armshlt_dead.object = "Units/armshltxbig_dead.s3o"
+		unitDef.featuredefs.armshlt_dead.footprintx = 11
+		unitDef.featuredefs.armshlt_dead.footprintz = 11
+		unitDef.featuredefs.armshlt_dead.collisionvolumescales = "155 95 180"
+		unitDef.customparams.buildinggrounddecalsizex = 18
+		unitDef.customparams.buildinggrounddecalsizez = 18
 	elseif name == "corgant" then
-		uDef.footprintx = 15
-		uDef.footprintz = 15
-		uDef.collisionvolumescales = "245 131 245"
-		uDef.yardmap =
+		unitDef.footprintx = 15
+		unitDef.footprintz = 15
+		unitDef.collisionvolumescales = "245 131 245"
+		unitDef.yardmap =
 		"oooooooooooooo ooooooooooooooo ooooooooooooooo ooooooooooooooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo"
-		uDef.objectname = "Units/CORGANTBIG.s3o"
-		uDef.script = "Units/techsplit/CORGANTBIG.cob"
-		uDef.featuredefs.dead.object = "Units/corgant_dead.s3o"
-		uDef.featuredefs.dead.footprintx = 15
-		uDef.featuredefs.dead.footprintz = 15
-		uDef.featuredefs.dead.collisionvolumescales = "238 105 238"
-		uDef.customparams.buildinggrounddecalsizex = 18
-		uDef.customparams.buildinggrounddecalsizez = 18
+		unitDef.objectname = "Units/CORGANTBIG.s3o"
+		unitDef.script = "Units/techsplit/CORGANTBIG.cob"
+		unitDef.featuredefs.dead.object = "Units/corgant_dead.s3o"
+		unitDef.featuredefs.dead.footprintx = 15
+		unitDef.featuredefs.dead.footprintz = 15
+		unitDef.featuredefs.dead.collisionvolumescales = "238 105 238"
+		unitDef.customparams.buildinggrounddecalsizex = 18
+		unitDef.customparams.buildinggrounddecalsizez = 18
 	elseif name == "leggant" then
-		uDef.footprintx = 15
-		uDef.footprintz = 15
-		uDef.collisionvolumescales = "245 135 245"
-		uDef.yardmap =
+		unitDef.footprintx = 15
+		unitDef.footprintz = 15
+		unitDef.collisionvolumescales = "245 135 245"
+		unitDef.yardmap =
 		"oooooooooooooo ooooooooooooooo ooooooooooooooo ooooooooooooooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo oooeeeeeeeeeooo yooeeeeeeeeeooy"
-		uDef.objectname = "Units/LEGGANTBIG.s3o"
-		uDef.script = "Units/techsplit/LEGGANTBIG.cob"
-		uDef.featuredefs.dead.object = "Units/leggant_dead.s3o"
-		uDef.featuredefs.dead.footprintx = 15
-		uDef.featuredefs.dead.footprintz = 15
-		uDef.featuredefs.dead.collisionvolumescales = "145 90 160"
-		uDef.customparams.buildinggrounddecalsizex = 18
-		uDef.customparams.buildinggrounddecalsizez = 18
+		unitDef.objectname = "Units/LEGGANTBIG.s3o"
+		unitDef.script = "Units/techsplit/LEGGANTBIG.cob"
+		unitDef.featuredefs.dead.object = "Units/leggant_dead.s3o"
+		unitDef.featuredefs.dead.footprintx = 15
+		unitDef.featuredefs.dead.footprintz = 15
+		unitDef.featuredefs.dead.collisionvolumescales = "145 90 160"
+		unitDef.customparams.buildinggrounddecalsizex = 18
+		unitDef.customparams.buildinggrounddecalsizez = 18
 	end
 
 	-- Remove lolmech from T3 cons
@@ -853,49 +860,44 @@ local lolmechs = {
 		table.removeIf(unitDef.buildoptions, function(v) return lolmechs[v] end)
 	end
 
-	-- remove hovers from com
+	-- Remove hovers from com
 	if name == "corcom" or name == "armcom" or name == "legcom" then
-		uDef.buildoptions[26] = ""
-		uDef.buildoptions[27] = ""
+		unitDef.buildoptions[26] = ""
+		unitDef.buildoptions[27] = ""
+	end
 
+	if name == "armaap" or name == "armasy" or name == "armalab" or name == "armavp"
+	or name == "coraap" or name == "corasy" or name == "coralab" or name == "coravp" then
 		-- T2 labs are priced as t1.5 but require more BP
-	elseif name == "armaap" or name == "armasy" or name == "armalab" or name == "armavp"
-		or name == "coraap" or name == "corasy" or name == "coralab" or name == "coravp"
-	then
-		uDef.metalcost = uDef.metalcost - 1300
-		uDef.energycost = uDef.energycost - 5000
-		uDef.buildtime = math.ceil(uDef.buildtime * 0.015) * 100
-
-		-- T2 cons are priced as t1.5
+		unitDef.metalcost = unitDef.metalcost - 1300
+		unitDef.energycost = unitDef.energycost - 5000
+		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.015) * 100
 	elseif name == "armack" or name == "armacv" or name == "armaca" or name == "armacsub"
 		or name == "corack" or name == "coracv" or name == "coraca" or name == "coracsub"
-		or name == "legack" or name == "legacv" or name == "legaca"
-	then
-		uDef.metalcost = uDef.metalcost - 200
-		uDef.energycost = uDef.energycost - 2000
-		uDef.buildtime = math.ceil(uDef.buildtime * 0.008) * 100
-
+		or name == "legack" or name == "legacv" or name == "legaca" then
+		-- T2 cons are priced as t1.5
+		unitDef.metalcost = unitDef.metalcost - 200
+		unitDef.energycost = unitDef.energycost - 2000
+		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.008) * 100
+	elseif name == "armch" or name == "corch" or name == "legch" then
 		-- Hover cons are priced as t2
-	elseif name == "armch" or name == "corch" or name == "legch"
-	then
-		uDef.metalcost = uDef.metalcost * 2
-		uDef.energycost = uDef.energycost * 2
-		uDef.buildtime = uDef.buildtime * 2
-		uDef.customparams.techlevel = 2
+		unitDef.metalcost = unitDef.metalcost * 2
+		unitDef.energycost = unitDef.energycost * 2
+		unitDef.buildtime = unitDef.buildtime * 2
+		unitDef.customparams.techlevel = 2
 	end
 
 	----------------------------------------------
 	-- T2 mexes upkeep increased, health decreased
+
 	if name == "armmoho" or name == "cormoho" or name == "armuwmme" or name == "coruwmme"
 		or name == "legmoho"
 	then
-		uDef.energyupkeep = 40
-		uDef.health = uDef.health - 1200
+		unitDef.energyupkeep = 40
+		unitDef.health = unitDef.health - 1200
 	elseif name == "cormexp" then
-		uDef.energyupkeep = 40
+		unitDef.energyupkeep = 40
 	end
-
-
 
 	-------------------------------
 	-- T3 mobile jammers have radar
@@ -903,24 +905,24 @@ local lolmechs = {
 	if name == "armaser" or name == "corspec" or name == "legajamk"
 		or name == "armjam" or name == "coreter" or name == "legavjam"
 	then
-		uDef.metalcost = uDef.metalcost + 100
-		uDef.energycost = uDef.energycost + 1250
-		uDef.buildtime = uDef.buildtime + 3800
-		uDef.radardistance = 2500
-		uDef.sightdistance = 1000
+		unitDef.metalcost = unitDef.metalcost + 100
+		unitDef.energycost = unitDef.energycost + 1250
+		unitDef.buildtime = unitDef.buildtime + 3800
+		unitDef.radardistance = 2500
+		unitDef.sightdistance = 1000
 	elseif name == "armantiship" or name == "corantiship" then
-		uDef.radardistancejam = 450
+		unitDef.radardistancejam = 450
 	end
 
 	----------------------------
 	-- T2 ship jammers get radar
 
 	if name == "armsjam" or name == "corsjam" then
-		uDef.metalcost = uDef.metalcost + 90
-		uDef.energycost = uDef.energycost + 1050
-		uDef.buildtime = uDef.buildtime + 3000
-		uDef.radarDistance = 2200
-		uDef.sightdistance = 900
+		unitDef.metalcost = unitDef.metalcost + 90
+		unitDef.energycost = unitDef.energycost + 1050
+		unitDef.buildtime = unitDef.buildtime + 3000
+		unitDef.radarDistance = 2200
+		unitDef.sightdistance = 900
 	end
 
 	-----------------------------------
@@ -929,9 +931,9 @@ local lolmechs = {
 	if name == "armtarg" or name == "cortarg" or name == "legtarg"
 		or name == "armfatf" or name == "corfatf"
 	then
-		uDef.radardistance = 5000
-		uDef.sightdistance = 1200
-		uDef.radardistancejam = 900
+		unitDef.radardistance = 5000
+		unitDef.sightdistance = 1200
+		unitDef.radardistancejam = 900
 	end
 
 	-----------------------------
@@ -942,7 +944,7 @@ local lolmechs = {
 		or name == "corch" or name == "corsh" or name == "corsnap" or name == "corah" or name == "cormh" or name == "corhal"
 		or name == "corcsa" or name == "corcut" or name == "corsb" or name == "corseap" or name == "corsfig" or name == "corhunt" or name == "corhvytrans"
 	then
-		uDef.customparams.techlevel = 2
+		unitDef.customparams.techlevel = 2
 	elseif name == "armsnipe" or name == "armfboy" or name == "armaser" or name == "armdecom" or name == "armscab"
 		or name == "armbull" or name == "armmerl" or name == "armmanni" or name == "armyork" or name == "armjam"
 		or name == "armserp" or name == "armbats" or name == "armepoch" or name == "armantiship" or name == "armaas"
@@ -952,15 +954,14 @@ local lolmechs = {
 		or name == "corssub" or name == "corbats" or name == "corblackhy" or name == "corarch" or name == "corantiship"
 		or name == "corape" or name == "corhurc" or name == "cortitan" or name == "corvamp" or name == "corseah" or name == "corawac" or name == "corcrwh"
 	then
-		uDef.customparams.techlevel = 3
+		unitDef.customparams.techlevel = 3
 	end
-
 
 	-----------------------------------------
 	-- Hovers, Sea Planes and Amphibious Labs
 
 	if name == "armch" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"armadvsol",
 			"armmoho",
 			"armbeamer",
@@ -1000,7 +1001,7 @@ local lolmechs = {
 			"armamd",
 		}
 	elseif name == "corch" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"coradvsol",
 			"cormoho",
 			"corvipe",
@@ -1036,140 +1037,141 @@ local lolmechs = {
 			"corfmd",
 		}
 	end
+
 	-- Seaplane Platforms removed, become T2 air labs.
 	-- T2 air labs have sea variants
 	-- Made by hover cons and enhanced ship cons
 	-- Enhanced ships given seaplanes instead of static AA
 	-- Tech Split Balance
 	if name == "corthud" then
-		uDef.speed = 54
-		uDef.weapondefs.arm_ham.range = 300
-		uDef.weapondefs.arm_ham.predictboost = 0.8
-		uDef.weapondefs.arm_ham.damage = {
+		unitDef.speed = 54
+		unitDef.weapondefs.arm_ham.range = 300
+		unitDef.weapondefs.arm_ham.predictboost = 0.8
+		unitDef.weapondefs.arm_ham.damage = {
 			default = 150,
 			subs = 50,
 			vtol = 15,
 		}
-		uDef.weapondefs.arm_ham.reloadtime = 1.73
-		uDef.weapondefs.arm_ham.areaofeffect = 51
+		unitDef.weapondefs.arm_ham.reloadtime = 1.73
+		unitDef.weapondefs.arm_ham.areaofeffect = 51
 	elseif name == "armwar" then
-		uDef.speed = 56
-		uDef.weapondefs.armwar_laser.range = 290
+		unitDef.speed = 56
+		unitDef.weapondefs.armwar_laser.range = 290
 	elseif name == "corstorm" then
-		uDef.speed = 42
-		uDef.weapondefs.cor_bot_rocket.accuracy = 150
-		uDef.weapondefs.cor_bot_rocket.range = 600
-		uDef.weapondefs.cor_bot_rocket.reloadtime = 5.5
-		uDef.weapondefs.cor_bot_rocket.damage.default = 198
-		uDef.health = 250
+		unitDef.speed = 42
+		unitDef.weapondefs.cor_bot_rocket.accuracy = 150
+		unitDef.weapondefs.cor_bot_rocket.range = 600
+		unitDef.weapondefs.cor_bot_rocket.reloadtime = 5.5
+		unitDef.weapondefs.cor_bot_rocket.damage.default = 198
+		unitDef.health = 250
 	elseif name == "armrock" then
-		uDef.health = 240
-		uDef.speed = 48
-		uDef.weapondefs.arm_bot_rocket.reloadtime = 5.4
-		uDef.weapondefs.arm_bot_rocket.range = 575
-		uDef.weapondefs.arm_bot_rocket.damage.default = 190
+		unitDef.health = 240
+		unitDef.speed = 48
+		unitDef.weapondefs.arm_bot_rocket.reloadtime = 5.4
+		unitDef.weapondefs.arm_bot_rocket.range = 575
+		unitDef.weapondefs.arm_bot_rocket.damage.default = 190
 	elseif name == "armhlt" then
-		uDef.health = 4640
-		uDef.metalcost = 535
-		uDef.energycost = 5700
-		uDef.buildtime = 13700
-		uDef.weapondefs.arm_laserh1.range = 750
-		uDef.weapondefs.arm_laserh1.reloadtime = 2.9
-		uDef.weapondefs.arm_laserh1.damage = {
+		unitDef.health = 4640
+		unitDef.metalcost = 535
+		unitDef.energycost = 5700
+		unitDef.buildtime = 13700
+		unitDef.weapondefs.arm_laserh1.range = 750
+		unitDef.weapondefs.arm_laserh1.reloadtime = 2.9
+		unitDef.weapondefs.arm_laserh1.damage = {
 			commanders = 801,
 			default = 534,
 			vtol = 48,
 		}
 	elseif name == "armfhlt" then
-		uDef.health = 7600
-		uDef.metalcost = 570
-		uDef.energycost = 7520
-		uDef.buildtime = 11700
-		uDef.weapondefs.armfhlt_laser.range = 750
-		uDef.weapondefs.armfhlt_laser.reloadtime = 1.45
-		uDef.weapondefs.armfhlt_laser.damage = {
+		unitDef.health = 7600
+		unitDef.metalcost = 570
+		unitDef.energycost = 7520
+		unitDef.buildtime = 11700
+		unitDef.weapondefs.armfhlt_laser.range = 750
+		unitDef.weapondefs.armfhlt_laser.reloadtime = 1.45
+		unitDef.weapondefs.armfhlt_laser.damage = {
 			commanders = 414,
 			default = 290,
 			vtol = 71,
 		}
 	elseif name == "corhlt" then
-		uDef.health = 4640
-		uDef.metalcost = 580
-		uDef.energycost = 5700
-		uDef.buildtime = 13800
-		uDef.weapondefs.cor_laserh1.range = 750
-		uDef.weapondefs.cor_laserh1.reloadtime = 1.8
-		uDef.weapondefs.cor_laserh1.damage = {
+		unitDef.health = 4640
+		unitDef.metalcost = 580
+		unitDef.energycost = 5700
+		unitDef.buildtime = 13800
+		unitDef.weapondefs.cor_laserh1.range = 750
+		unitDef.weapondefs.cor_laserh1.reloadtime = 1.8
+		unitDef.weapondefs.cor_laserh1.damage = {
 			commanders = 540,
 			default = 360,
 			vtol = 41,
 		}
 	elseif name == "corfhlt" then
-		uDef.health = 7340
-		uDef.metalcost = 580
-		uDef.energycost = 7520
-		uDef.buildtime = 13800
-		uDef.weapondefs.corfhlt_laser.range = 750
-		uDef.weapondefs.corfhlt_laser.reloadtime = 1.5
-		uDef.weapondefs.corfhlt_laser.damage = {
+		unitDef.health = 7340
+		unitDef.metalcost = 580
+		unitDef.energycost = 7520
+		unitDef.buildtime = 13800
+		unitDef.weapondefs.corfhlt_laser.range = 750
+		unitDef.weapondefs.corfhlt_laser.reloadtime = 1.5
+		unitDef.weapondefs.corfhlt_laser.damage = {
 			commanders = 482,
 			default = 319,
 			vtol = 61,
 		}
 	elseif name == "armart" then
-		uDef.speed = 65
-		uDef.turnrate = 210
-		uDef.maxacc = 0.018
-		uDef.maxdec = 0.081
-		uDef.weapondefs.tawf113_weapon.accuracy = 150
-		uDef.weapondefs.tawf113_weapon.range = 830
-		uDef.weapondefs.tawf113_weapon.damage = {
+		unitDef.speed = 65
+		unitDef.turnrate = 210
+		unitDef.maxacc = 0.018
+		unitDef.maxdec = 0.081
+		unitDef.weapondefs.tawf113_weapon.accuracy = 150
+		unitDef.weapondefs.tawf113_weapon.range = 830
+		unitDef.weapondefs.tawf113_weapon.damage = {
 			default = 182,
 			subs = 61,
 			vtol = 20,
 		}
-		uDef.weapons[1].maxangledif = 120
+		unitDef.weapons[1].maxangledif = 120
 	elseif name == "corwolv" then
-		uDef.speed = 62
-		uDef.turnrate = 250
-		uDef.maxacc = 0.015
-		uDef.maxdec = 0.0675
-		uDef.weapondefs.corwolv_gun.accuracy = 150
-		uDef.weapondefs.corwolv_gun.range = 850
-		uDef.weapondefs.corwolv_gun.damage = {
+		unitDef.speed = 62
+		unitDef.turnrate = 250
+		unitDef.maxacc = 0.015
+		unitDef.maxdec = 0.0675
+		unitDef.weapondefs.corwolv_gun.accuracy = 150
+		unitDef.weapondefs.corwolv_gun.range = 850
+		unitDef.weapondefs.corwolv_gun.damage = {
 			default = 375,
 			subs = 95,
 			vtol = 38,
 		}
-		uDef.weapons[1].maxangledif = 120
+		unitDef.weapons[1].maxangledif = 120
 	elseif name == "armmart" then
-		uDef.metalcost = 400
-		uDef.energycost = 5500
-		uDef.buildtime = 7500
-		uDef.speed = 47
-		uDef.turnrate = 120
-		uDef.maxacc = 0.005
-		uDef.health = 750
-		uDef.weapondefs.arm_artillery.accuracy = 75
-		uDef.weapondefs.arm_artillery.areaofeffect = 60
-		uDef.weapondefs.arm_artillery.hightrajectory = 1
-		uDef.weapondefs.arm_artillery.range = 1050
-		uDef.weapondefs.arm_artillery.reloadtime = 3.05
-		uDef.weapondefs.arm_artillery.weaponvelocity = 500
-		uDef.weapondefs.arm_artillery.damage = {
+		unitDef.metalcost = 400
+		unitDef.energycost = 5500
+		unitDef.buildtime = 7500
+		unitDef.speed = 47
+		unitDef.turnrate = 120
+		unitDef.maxacc = 0.005
+		unitDef.health = 750
+		unitDef.weapondefs.arm_artillery.accuracy = 75
+		unitDef.weapondefs.arm_artillery.areaofeffect = 60
+		unitDef.weapondefs.arm_artillery.hightrajectory = 1
+		unitDef.weapondefs.arm_artillery.range = 1050
+		unitDef.weapondefs.arm_artillery.reloadtime = 3.05
+		unitDef.weapondefs.arm_artillery.weaponvelocity = 500
+		unitDef.weapondefs.arm_artillery.damage = {
 			default = 488,
 			subs = 163,
 			vtol = 49,
 		}
-		uDef.weapons[1].maxangledif = 120
+		unitDef.weapons[1].maxangledif = 120
 	elseif name == "cormart" then
-		uDef.metalcost = 600
-		uDef.energycost = 6600
-		uDef.buildtime = 6500
-		uDef.speed = 45
-		uDef.turnrate = 100
-		uDef.maxacc = 0.005
-		uDef.weapondefs.cor_artillery = {
+		unitDef.metalcost = 600
+		unitDef.energycost = 6600
+		unitDef.buildtime = 6500
+		unitDef.speed = 45
+		unitDef.turnrate = 100
+		unitDef.maxacc = 0.005
+		unitDef.weapondefs.cor_artillery = {
 			accuracy = 75,
 			areaofeffect = 75,
 			avoidfeature = false,
@@ -1198,85 +1200,85 @@ local lolmechs = {
 				vtol = 120,
 			},
 		}
-		uDef.weapons[1].maxangledif = 120
+		unitDef.weapons[1].maxangledif = 120
 	elseif name == "armfido" then
-		uDef.speed = 74
-		uDef.weapondefs.bfido.range = 500
-		uDef.weapondefs.bfido.weaponvelocity = 400
+		unitDef.speed = 74
+		unitDef.weapondefs.bfido.range = 500
+		unitDef.weapondefs.bfido.weaponvelocity = 400
 	elseif name == "cormort" then
-		uDef.metalcost = 400
-		uDef.health = 800
-		uDef.speed = 47
-		uDef.weapondefs.cor_mort.range = 650
-		uDef.weapondefs.cor_mort.damage = {
+		unitDef.metalcost = 400
+		unitDef.health = 800
+		unitDef.speed = 47
+		unitDef.weapondefs.cor_mort.range = 650
+		unitDef.weapondefs.cor_mort.damage = {
 			default = 250,
 			subs = 83,
 			vtol = 25,
 		}
-		uDef.weapondefs.cor_mort.reloadtime = 3
-		uDef.weapondefs.cor_mort.areaofeffect = 64
+		unitDef.weapondefs.cor_mort.reloadtime = 3
+		unitDef.weapondefs.cor_mort.areaofeffect = 64
 	elseif name == "corhrk" then
-		uDef.turnrate = 600
-		uDef.weapondefs.corhrk_rocket.range = 900
-		uDef.weapondefs.corhrk_rocket.weaponvelocity = 600
-		uDef.weapondefs.corhrk_rocket.flighttime = 22
-		uDef.weapondefs.corhrk_rocket.reloadtime = 8
-		uDef.weapondefs.corhrk_rocket.turnrate = 30000
-		uDef.weapondefs.corhrk_rocket.weapontimer = 4
-		uDef.weapondefs.corhrk_rocket.damage = {
+		unitDef.turnrate = 600
+		unitDef.weapondefs.corhrk_rocket.range = 900
+		unitDef.weapondefs.corhrk_rocket.weaponvelocity = 600
+		unitDef.weapondefs.corhrk_rocket.flighttime = 22
+		unitDef.weapondefs.corhrk_rocket.reloadtime = 8
+		unitDef.weapondefs.corhrk_rocket.turnrate = 30000
+		unitDef.weapondefs.corhrk_rocket.weapontimer = 4
+		unitDef.weapondefs.corhrk_rocket.damage = {
 			default = 1200,
 			subs = 400,
 			vtol = 120,
 		}
-		uDef.weapondefs.corhrk_rocket.areaofeffect = 128
-		uDef.weapons[1].maxangledif = 120
-		uDef.weapons[1].maindir = "0 0 1"
+		unitDef.weapondefs.corhrk_rocket.areaofeffect = 128
+		unitDef.weapons[1].maxangledif = 120
+		unitDef.weapons[1].maindir = "0 0 1"
 	elseif name == "armsptk" then
-		uDef.metalcost = 500
-		uDef.speed = 43
-		uDef.health = 450
-		uDef.turnrate = 600
-		uDef.weapondefs.adv_rocket.range = 775
-		uDef.weapondefs.adv_rocket.trajectoryheight = 1
-		uDef.weapondefs.adv_rocket.customparams.overrange_distance = 800
-		uDef.weapondefs.adv_rocket.weapontimer = 8
-		uDef.weapondefs.adv_rocket.flighttime = 4
-		uDef.weapons[1].maxangledif = 120
-		uDef.weapons[1].maindir = "0 0 1"
+		unitDef.metalcost = 500
+		unitDef.speed = 43
+		unitDef.health = 450
+		unitDef.turnrate = 600
+		unitDef.weapondefs.adv_rocket.range = 775
+		unitDef.weapondefs.adv_rocket.trajectoryheight = 1
+		unitDef.weapondefs.adv_rocket.customparams.overrange_distance = 800
+		unitDef.weapondefs.adv_rocket.weapontimer = 8
+		unitDef.weapondefs.adv_rocket.flighttime = 4
+		unitDef.weapons[1].maxangledif = 120
+		unitDef.weapons[1].maindir = "0 0 1"
 	elseif name == "corshiva" then
-		uDef.speed = 55
-		uDef.weapondefs.shiva_gun.range = 475
-		uDef.weapondefs.shiva_gun.areaofeffect = 180
-		uDef.weapondefs.shiva_gun.weaponvelocity = 372
-		uDef.weapondefs.shiva_rocket.areaofeffect = 96
-		uDef.weapondefs.shiva_rocket.range = 900
-		uDef.weapondefs.shiva_rocket.reloadtime = 14
-		uDef.weapondefs.shiva_rocket.damage.default = 1500
+		unitDef.speed = 55
+		unitDef.weapondefs.shiva_gun.range = 475
+		unitDef.weapondefs.shiva_gun.areaofeffect = 180
+		unitDef.weapondefs.shiva_gun.weaponvelocity = 372
+		unitDef.weapondefs.shiva_rocket.areaofeffect = 96
+		unitDef.weapondefs.shiva_rocket.range = 900
+		unitDef.weapondefs.shiva_rocket.reloadtime = 14
+		unitDef.weapondefs.shiva_rocket.damage.default = 1500
 	elseif name == "armmar" then
-		uDef.health = 3920
-		uDef.weapondefs.armmech_cannon.areaofeffect = 48
-		uDef.weapondefs.armmech_cannon.range = 275
-		uDef.weapondefs.armmech_cannon.reloadtime = 1.25
-		uDef.weapondefs.armmech_cannon.damage = {
+		unitDef.health = 3920
+		unitDef.weapondefs.armmech_cannon.areaofeffect = 48
+		unitDef.weapondefs.armmech_cannon.range = 275
+		unitDef.weapondefs.armmech_cannon.reloadtime = 1.25
+		unitDef.weapondefs.armmech_cannon.damage = {
 			default = 525,
 			vtol = 134,
 		}
 	elseif name == "corban" then
-		uDef.speed = 69
-		uDef.turnrate = 500
-		uDef.weapondefs.banisher.areaofeffect = 180
-		uDef.weapondefs.banisher.weaponvelocity = 864
-		uDef.weapondefs.banisher.range = 450
+		unitDef.speed = 69
+		unitDef.turnrate = 500
+		unitDef.weapondefs.banisher.areaofeffect = 180
+		unitDef.weapondefs.banisher.weaponvelocity = 864
+		unitDef.weapondefs.banisher.range = 450
 	elseif name == "armcroc" then
-		uDef.health = 5250
-		uDef.turnrate = 270
-		uDef.weapondefs.arm_triton.reloadtime = 1.5
-		uDef.weapondefs.arm_triton.damage = {
+		unitDef.health = 5250
+		unitDef.turnrate = 270
+		unitDef.weapondefs.arm_triton.reloadtime = 1.5
+		unitDef.weapondefs.arm_triton.damage = {
 			default = 250,
 			subs = 111,
 			vtol = 44
 		}
-		uDef.weapons[2] = {
+		unitDef.weapons[2] = {
 			def = "",
 		}
 	end
@@ -1284,120 +1286,116 @@ local lolmechs = {
 	--Tech Split Hotfixes 3
 
 	if name == "armhack" or name == "armhacv" or name == "armhaca" then
-		uDef.buildoptions[40] = "armnanotc"
+		unitDef.buildoptions[40] = "armnanotc"
 	elseif name == "armhacs" then
-		uDef.buildoptions[41] = "armnanotcplat"
+		unitDef.buildoptions[41] = "armnanotcplat"
 	elseif name == "corhack" or name == "corhacv" or name == "corhaca" then
-		uDef.buildoptions[40] = "cornanotc"
+		unitDef.buildoptions[40] = "cornanotc"
 	elseif name == "corhacs" then
-		uDef.buildoptions[41] = "cornanotcplat"
+		unitDef.buildoptions[41] = "cornanotcplat"
 	elseif name == "correap" then
-		uDef.speed = 74
-		uDef.turnrate = 250
-		uDef.weapondefs.cor_reap.areaofeffect = 92
-		uDef.weapondefs.cor_reap.damage = {
+		unitDef.speed = 74
+		unitDef.turnrate = 250
+		unitDef.weapondefs.cor_reap.areaofeffect = 92
+		unitDef.weapondefs.cor_reap.damage = {
 			default = 150,
 			vtol = 48,
 		}
-		uDef.weapondefs.cor_reap.range = 305
+		unitDef.weapondefs.cor_reap.range = 305
 	elseif name == "armbull" then
-		uDef.health = 6000
-		uDef.metalcost = 1100
-		uDef.weapondefs.arm_bull.range = 400
-		uDef.weapondefs.arm_bull.damage = {
+		unitDef.health = 6000
+		unitDef.metalcost = 1100
+		unitDef.weapondefs.arm_bull.range = 400
+		unitDef.weapondefs.arm_bull.damage = {
 			default = 600,
 			subs = 222,
 			vtol = 67
 		}
-		uDef.weapondefs.arm_bull.reloadtime = 2
-		uDef.weapondefs.arm_bull.areaofeffect = 96
+		unitDef.weapondefs.arm_bull.reloadtime = 2
+		unitDef.weapondefs.arm_bull.areaofeffect = 96
 	elseif name == "corsumo" then
-		uDef.weapondefs.corsumo_weapon.range = 750
-		uDef.weapondefs.corsumo_weapon.damage = {
+		unitDef.weapondefs.corsumo_weapon.range = 750
+		unitDef.weapondefs.corsumo_weapon.damage = {
 			commanders = 350,
 			default = 700,
 			vtol = 165,
 		}
-		uDef.weapondefs.corsumo_weapon.reloadtime = 1
+		unitDef.weapondefs.corsumo_weapon.reloadtime = 1
 	elseif name == "corgol" then
-		uDef.speed = 37
-		uDef.weapondefs.cor_gol.damage = {
+		unitDef.speed = 37
+		unitDef.weapondefs.cor_gol.damage = {
 			default = 1600,
 			subs = 356,
 			vtol = 98,
 		}
-		uDef.weapondefs.cor_gol.reloadtime = 4
-		uDef.weapondefs.cor_gol.range = 700
+		unitDef.weapondefs.cor_gol.reloadtime = 4
+		unitDef.weapondefs.cor_gol.range = 700
 	elseif name == "armguard" then
-		uDef.health = 6000
-		uDef.metalcost = 800
-		uDef.energycost = 8000
-		uDef.buildtime = 16000
-		uDef.weapondefs.plasma.areaofeffect = 150
-		uDef.weapondefs.plasma.range = 1000
-		uDef.weapondefs.plasma.reloadtime = 2.3
-		uDef.weapondefs.plasma.weaponvelocity = 550
-		uDef.weapondefs.plasma.damage = {
+		unitDef.health = 6000
+		unitDef.metalcost = 800
+		unitDef.energycost = 8000
+		unitDef.buildtime = 16000
+		unitDef.weapondefs.plasma.areaofeffect = 150
+		unitDef.weapondefs.plasma.range = 1000
+		unitDef.weapondefs.plasma.reloadtime = 2.3
+		unitDef.weapondefs.plasma.weaponvelocity = 550
+		unitDef.weapondefs.plasma.damage = {
 			default = 140,
 			subs = 70,
 			vtol = 42,
 		}
-		uDef.weapondefs.plasma_high.areaofeffect = 150
-		uDef.weapondefs.plasma_high.range = 1000
-		uDef.weapondefs.plasma_high.reloadtime = 2.3
-		uDef.weapondefs.plasma_high.weaponvelocity = 700
-		uDef.weapondefs.plasma_high.damage = {
+		unitDef.weapondefs.plasma_high.areaofeffect = 150
+		unitDef.weapondefs.plasma_high.range = 1000
+		unitDef.weapondefs.plasma_high.reloadtime = 2.3
+		unitDef.weapondefs.plasma_high.weaponvelocity = 700
+		unitDef.weapondefs.plasma_high.damage = {
 			default = 140,
 			subs = 70,
 			vtol = 42,
 		}
 	elseif name == "corpun" then
-		uDef.health = 6400
-		uDef.metalcost = 870
-		uDef.energycost = 8700
-		uDef.buildtime = 16400
-		uDef.weapondefs.plasma.areaofeffect = 180
-		uDef.weapondefs.plasma.range = 1020
-		uDef.weapondefs.plasma.reloadtime = 2.3
-		uDef.weapondefs.plasma.weaponvelocity = 550
-		uDef.weapondefs.plasma.damage = {
+		unitDef.health = 6400
+		unitDef.metalcost = 870
+		unitDef.energycost = 8700
+		unitDef.buildtime = 16400
+		unitDef.weapondefs.plasma.areaofeffect = 180
+		unitDef.weapondefs.plasma.range = 1020
+		unitDef.weapondefs.plasma.reloadtime = 2.3
+		unitDef.weapondefs.plasma.weaponvelocity = 550
+		unitDef.weapondefs.plasma.damage = {
 			default = 163,
 			lboats = 163,
 			subs = 21,
 			vtol = 22,
 		}
-		uDef.weapondefs.plasma_high.areaofeffect = 180
-		uDef.weapondefs.plasma_high.range = 1020
-		uDef.weapondefs.plasma_high.reloadtime = 2.3
-		uDef.weapondefs.plasma_high.weaponvelocity = 700
-		uDef.weapondefs.plasma_high.damage = {
+		unitDef.weapondefs.plasma_high.areaofeffect = 180
+		unitDef.weapondefs.plasma_high.range = 1020
+		unitDef.weapondefs.plasma_high.reloadtime = 2.3
+		unitDef.weapondefs.plasma_high.weaponvelocity = 700
+		unitDef.weapondefs.plasma_high.damage = {
 			default = 163,
 			lboats = 163,
 			subs = 21,
 			vtol = 22,
 		}
 	elseif name == "armpb" then
-		uDef.health = 3360
-		uDef.weapondefs.armpb_weapon.range = 500
-		uDef.weapondefs.armpb_weapon.reloadtime = 1.2
+		unitDef.health = 3360
+		unitDef.weapondefs.armpb_weapon.range = 500
+		unitDef.weapondefs.armpb_weapon.reloadtime = 1.2
 	elseif name == "corvipe" then
-		uDef.health = 3600
-		uDef.weapondefs.vipersabot.areaofeffect = 96
-		uDef.weapondefs.vipersabot.edgeeffectiveness = 0.8
-		uDef.weapondefs.vipersabot.range = 480
-		uDef.weapondefs.vipersabot.reloadtime = 3
+		unitDef.health = 3600
+		unitDef.weapondefs.vipersabot.areaofeffect = 96
+		unitDef.weapondefs.vipersabot.edgeeffectiveness = 0.8
+		unitDef.weapondefs.vipersabot.range = 480
+		unitDef.weapondefs.vipersabot.reloadtime = 3
 	end
-
-
 
 
 	-- Legion Update
 
-
-
-	--T2 labs
+	-- T2 labs
 	if name == "legalab" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legack",
 			"legadvaabot",
 			"legstr",
@@ -1411,7 +1409,7 @@ local lolmechs = {
 			"legaradk",
 		}
 	elseif name == "legavp" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legacv",
 			"legch",
 			"legavrad",
@@ -1426,7 +1424,7 @@ local lolmechs = {
 			"legah"
 		}
 	elseif name == "legaap" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legaca",
 			"corhunt",
 			"corcut",
@@ -1436,26 +1434,24 @@ local lolmechs = {
 			"legatrans",
 		}
 	elseif name == "legap" then
-		uDef.buildoptions[7] = ""
+		unitDef.buildoptions[7] = ""
 	elseif name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp"
 	then
-		uDef.metalcost = uDef.metalcost - 1300
-		uDef.energycost = uDef.energycost - 5000
-		uDef.buildtime = math.ceil(uDef.buildtime * 0.015) * 100
+		unitDef.metalcost = unitDef.metalcost - 1300
+		unitDef.energycost = unitDef.energycost - 5000
+		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.015) * 100
 	elseif name == "legch"
 	then
-		uDef.metalcost = uDef.metalcost * 2
-		uDef.energycost = uDef.energycost * 2
-		uDef.buildtime = uDef.buildtime * 2
-		uDef.customparams.techlevel = 2
+		unitDef.metalcost = unitDef.metalcost * 2
+		unitDef.energycost = unitDef.energycost * 2
+		unitDef.buildtime = unitDef.buildtime * 2
+		unitDef.customparams.techlevel = 2
 	end
-
 
 	-- T1 Cons
 
-
 	if name == "legck" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legsolar",
 			"legwin",
 			"leggeo",
@@ -1486,7 +1482,7 @@ local lolmechs = {
 			"legjuno",
 		}
 	elseif name == "legca" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legsolar",
 			"legwin",
 			"leggeo",
@@ -1517,7 +1513,7 @@ local lolmechs = {
 			"legjuno",
 		}
 	elseif name == "legcv" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legsolar",
 			"legwin",
 			"leggeo",
@@ -1548,7 +1544,7 @@ local lolmechs = {
 			"legjuno",
 		}
 	elseif name == "legotter" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legsolar",
 			"legwin",
 			"leggeo",
@@ -1583,11 +1579,12 @@ local lolmechs = {
 			"legjuno",
 		}
 	end
+
 	--------------------------
 	-- Legion Air Placeholders
 
 	if name == "legch" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legadvsol",
 			"legmoho",
 			"legapopupdef",
@@ -1622,7 +1619,7 @@ local lolmechs = {
 			"legabm",
 		}
 	elseif name == "legacv" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legadvsol",
 			"legmoho",
 			"legapopupdef",
@@ -1655,7 +1652,7 @@ local lolmechs = {
 			"legctl",
 		}
 	elseif name == "legack" then
-		uDef.buildoptions = {
+		unitDef.buildoptions = {
 			"legadvsol",
 			"legmoho",
 			"legapopupdef",
@@ -1688,10 +1685,10 @@ local lolmechs = {
 			"legctl",
 		}
 	elseif name == "legaca" then
-		uDef.buildpic = "CORCSA.DDS"
-		uDef.objectname = "Units/CORCSA.s3o"
-		uDef.script = "Units/CORCSA.cob"
-		uDef.buildoptions = {
+		unitDef.buildpic = "CORCSA.DDS"
+		unitDef.objectname = "Units/CORCSA.s3o"
+		unitDef.script = "Units/CORCSA.cob"
+		unitDef.buildoptions = {
 			"legadvsol",
 			"legmoho",
 			"legapopupdef",
@@ -1728,14 +1725,14 @@ local lolmechs = {
 	-- Legion Unit Tweaks
 
 	if name == "legapopupdef" then
-		uDef.weapondefs.advanced_riot_cannon.range = 480
-		uDef.weapondefs.advanced_riot_cannon.reloadtime = 1.5
-		uDef.weapondefs.standard_minigun.range = 400
+		unitDef.weapondefs.advanced_riot_cannon.range = 480
+		unitDef.weapondefs.advanced_riot_cannon.reloadtime = 1.5
+		unitDef.weapondefs.standard_minigun.range = 400
 	elseif name == "legmg" then
-		uDef.weapondefs.armmg_weapon.range = 650
+		unitDef.weapondefs.armmg_weapon.range = 650
 	end
 
-	return uDef
+	return unitDef
 end
 
 return {
