@@ -1509,374 +1509,374 @@ local function techsplitTweaks(name, uDef)
 
 
 
--- Legion Update
+	-- Legion Update
 
 
 
---T2 labs
-if name == "legalab" then
-    uDef.buildoptions = {
-        [1] = "legack",
-        [2] = "legadvaabot",
-        [3] = "legstr",
-        [4] = "legshot",
-        [5] = "leginfestor",
-        [6] = "legamph",
-        [7] = "legsnapper",
-        [8] = "legbart",
-        [9] = "leghrk",
-        [10] = "legaspy",
-        [11] = "legaradk",
-    }
-end
+	--T2 labs
+	if name == "legalab" then
+		uDef.buildoptions = {
+			[1] = "legack",
+			[2] = "legadvaabot",
+			[3] = "legstr",
+			[4] = "legshot",
+			[5] = "leginfestor",
+			[6] = "legamph",
+			[7] = "legsnapper",
+			[8] = "legbart",
+			[9] = "leghrk",
+			[10] = "legaspy",
+			[11] = "legaradk",
+		}
+	end
 
-if name == "legavp" then
-    uDef.buildoptions = {
-        [1] = "legacv",
-        [2] = "legch",
-        [3] = "legavrad",
-        [4] = "legsh",
-        [5] = "legmrv",
-        [6] = "legfloat",
-        [7] = "legaskirmtank",
-        [8] = "legamcluster",
-        [9] = "legvcarry",
-        [10] = "legner",
-        [11] = "legmh",
-        [12] = "legah"
-    }
-end
+	if name == "legavp" then
+		uDef.buildoptions = {
+			[1] = "legacv",
+			[2] = "legch",
+			[3] = "legavrad",
+			[4] = "legsh",
+			[5] = "legmrv",
+			[6] = "legfloat",
+			[7] = "legaskirmtank",
+			[8] = "legamcluster",
+			[9] = "legvcarry",
+			[10] = "legner",
+			[11] = "legmh",
+			[12] = "legah"
+		}
+	end
 
--- Placeholder: Legion T2 air is cor seaplanes
-if name == "legaap" then
-    uDef.buildoptions = {
-        [1] = "legaca",
-        [2] = "corhunt",
-        [3] = "corcut",
-        [4] = "corsb",
-        [5] = "corseap",
-        [6] = "corsfig",
-        [7] = "legatrans",
-    }
-end
+	-- Placeholder: Legion T2 air is cor seaplanes
+	if name == "legaap" then
+		uDef.buildoptions = {
+			[1] = "legaca",
+			[2] = "corhunt",
+			[3] = "corcut",
+			[4] = "corsb",
+			[5] = "corseap",
+			[6] = "corsfig",
+			[7] = "legatrans",
+		}
+	end
 
-if name == "legap" then
-    uDef.buildoptions[7] = ""
-end
+	if name == "legap" then
+		uDef.buildoptions[7] = ""
+	end
 
-if name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp"
-then
-        uDef.metalcost = uDef.metalcost - 1300
-        uDef.energycost = uDef.energycost - 5000
-        uDef.buildtime = math.ceil(uDef.buildtime * 0.015) * 100
-end
+	if name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp"
+	then
+			uDef.metalcost = uDef.metalcost - 1300
+			uDef.energycost = uDef.energycost - 5000
+			uDef.buildtime = math.ceil(uDef.buildtime * 0.015) * 100
+	end
 
-if name == "legch"
-then
-    uDef.metalcost = uDef.metalcost * 2
-    uDef.energycost = uDef.energycost * 2
-    uDef.buildtime = uDef.buildtime * 2
-    uDef.customparams.techlevel = 2
-end
-
-
--- T1 Cons
+	if name == "legch"
+	then
+		uDef.metalcost = uDef.metalcost * 2
+		uDef.energycost = uDef.energycost * 2
+		uDef.buildtime = uDef.buildtime * 2
+		uDef.customparams.techlevel = 2
+	end
 
 
-if name == "legck" then
-    uDef.buildoptions = {
-        [1]  = "legsolar",
-        [2]  = "legwin",
-        [3]  = "leggeo",
-        [4]  = "legmstor",
-        [5]  = "legestor",
-        [6]  = "legmex",
-        [7]  = "legeconv",
-        [9]  = "leglab",
-        [10] = "legalab",
-        [11] = "legvp",
-        [12] = "legap",
-        [13] = "legnanotc",
-        [14] = "legeyes",
-        [15] = "legrad",
-        [16] = "legdrag",
-        [17] = "leglht",
-        [18] = "legrl",
-        [19] = "legctl",
-        [20] = "legjam",
-        [21] = "corsy",
-        [22] = "legadvsol",
-        [23] = "legmext15",
-        [24] = "legcluster",
-        [25] = "legrhapsis",
-        [26] = "legmg",
-        [27] = "legdtr",
-        [28] = "leghive",
-        [29] = "legjuno",
-    }
-end
+	-- T1 Cons
 
-if name == "legca" then
-    uDef.buildoptions = {
-        [1]  = "legsolar",
-        [2]  = "legwin",
-        [3]  = "leggeo",
-        [4]  = "legmstor",
-        [5]  = "legestor",
-        [6]  = "legmex",
-        [7]  = "legeconv",
-        [9]  = "leglab",
-        [10] = "legaap",
-        [11] = "legvp",
-        [12] = "legap",
-        [13] = "legnanotc",
-        [14] = "legeyes",
-        [15] = "legrad",
-        [16] = "legdrag",
-        [17] = "leglht",
-        [18] = "legrl",
-        [19] = "legctl",
-        [20] = "legjam",
-        [21] = "corsy",
-        [22] = "legadvsol",
-        [23] = "legmext15",
-        [24] = "legcluster",
-        [25] = "legrhapsis",
-        [26] = "legmg",
-        [27] = "legdtr",
-        [28] = "leghive",
-        [29] = "legjuno",
-    }
-end
 
-if name == "legcv" then
-    uDef.buildoptions = {
-        [1]  = "legsolar",
-        [2]  = "legwin",
-        [3]  = "leggeo",
-        [4]  = "legmstor",
-        [5]  = "legestor",
-        [6]  = "legmex",
-        [7]  = "legeconv",
-        [9]  = "leglab",
-        [10] = "legavp",
-        [11] = "legvp",
-        [12] = "legap",
-        [13] = "legnanotc",
-        [14] = "legeyes",
-        [15] = "legrad",
-        [16] = "legdrag",
-        [17] = "leglht",
-        [18] = "legrl",
-        [19] = "legctl",
-        [20] = "legjam",
-        [21] = "corsy",
-        [22] = "legadvsol",
-        [23] = "legmext15",
-        [24] = "legcluster",
-        [25] = "legrhapsis",
-        [26] = "legmg",
-        [27] = "legdtr",
-        [28] = "leghive",
-        [29] = "legjuno",
-    }
-end
+	if name == "legck" then
+		uDef.buildoptions = {
+			[1]  = "legsolar",
+			[2]  = "legwin",
+			[3]  = "leggeo",
+			[4]  = "legmstor",
+			[5]  = "legestor",
+			[6]  = "legmex",
+			[7]  = "legeconv",
+			[9]  = "leglab",
+			[10] = "legalab",
+			[11] = "legvp",
+			[12] = "legap",
+			[13] = "legnanotc",
+			[14] = "legeyes",
+			[15] = "legrad",
+			[16] = "legdrag",
+			[17] = "leglht",
+			[18] = "legrl",
+			[19] = "legctl",
+			[20] = "legjam",
+			[21] = "corsy",
+			[22] = "legadvsol",
+			[23] = "legmext15",
+			[24] = "legcluster",
+			[25] = "legrhapsis",
+			[26] = "legmg",
+			[27] = "legdtr",
+			[28] = "leghive",
+			[29] = "legjuno",
+		}
+	end
 
-if name == "legotter" then 
-    uDef.buildoptions = {
-        [1]  = "legsolar",
-        [2]  = "legwin",
-        [3]  = "leggeo",
-        [4]  = "legmstor",
-        [5]  = "legestor",
-        [6]  = "legmex",
-        [7]  = "legeconv",
-        [9]  = "leglab",
-        [10] = "legavp",
-        [11] = "legvp",
-        [12] = "legap",
-        [13] = "legnanotc",
-        [14] = "legeyes",
-        [15] = "legrad",
-        [16] = "legdrag",
-        [17] = "leglht",
-        [18] = "legrl",
-        [19] = "legctl",
-        [20] = "legjam",
-        [21] = "corsy",
-        [22] = "legadvsol",
-        [23] = "legmext15",
-        [24] = "legcluster",
-        [25] = "legrhapsis",
-        [26] = "legmg",
-        [27] = "legdtr",
-        [28] = "leghive",
-        [29] = "legtide",
-        [30] = "legtl",
-        [31] = "legfrad", 
-        [32] = "corasy",
-        [33] = "legjuno",
-    }
-end
---------------------------
--- Legion Air Placeholders
+	if name == "legca" then
+		uDef.buildoptions = {
+			[1]  = "legsolar",
+			[2]  = "legwin",
+			[3]  = "leggeo",
+			[4]  = "legmstor",
+			[5]  = "legestor",
+			[6]  = "legmex",
+			[7]  = "legeconv",
+			[9]  = "leglab",
+			[10] = "legaap",
+			[11] = "legvp",
+			[12] = "legap",
+			[13] = "legnanotc",
+			[14] = "legeyes",
+			[15] = "legrad",
+			[16] = "legdrag",
+			[17] = "leglht",
+			[18] = "legrl",
+			[19] = "legctl",
+			[20] = "legjam",
+			[21] = "corsy",
+			[22] = "legadvsol",
+			[23] = "legmext15",
+			[24] = "legcluster",
+			[25] = "legrhapsis",
+			[26] = "legmg",
+			[27] = "legdtr",
+			[28] = "leghive",
+			[29] = "legjuno",
+		}
+	end
 
-if name == "legch" then 
-    uDef.buildoptions = {
-        [1] = "legadvsol",
-        [2] = "legmoho",
-        [3] = "legapopupdef",
-        [4] = "legmg",
-        [5] = "legrhapsis",
-        [6] = "leglupara",
-        [7] = "legjuno",
-        [8] = "leghive",
-        [9] = "legfus",
-        [10] = "legarad",
-        [11] = "legajam",
-        [12] = "legsd",
-        [13] = "leglab",
-        [14] = "legavp",
-        [15] = "leghavp",
-        [16] = "legcluster",
-        [17] = "legeconv",
-        [18] = "legageo",
-        [19] = "legrampart",
-        [20] = "legmstor",
-        [21] = "legestor",
-        [22] = "legcluster",
-        [24] = "legmg",
-        [25] = "legctl",
-        [26] = "legvp",
-        [27] = "legap",
-        [28] = "corsy",
-        [29] = "legnanotc",
-        [30] = "coruwmme",
-        [31] = "legtl",
-        [32] = "corasy",
-        [33] = "legabm",
-    }
-end
+	if name == "legcv" then
+		uDef.buildoptions = {
+			[1]  = "legsolar",
+			[2]  = "legwin",
+			[3]  = "leggeo",
+			[4]  = "legmstor",
+			[5]  = "legestor",
+			[6]  = "legmex",
+			[7]  = "legeconv",
+			[9]  = "leglab",
+			[10] = "legavp",
+			[11] = "legvp",
+			[12] = "legap",
+			[13] = "legnanotc",
+			[14] = "legeyes",
+			[15] = "legrad",
+			[16] = "legdrag",
+			[17] = "leglht",
+			[18] = "legrl",
+			[19] = "legctl",
+			[20] = "legjam",
+			[21] = "corsy",
+			[22] = "legadvsol",
+			[23] = "legmext15",
+			[24] = "legcluster",
+			[25] = "legrhapsis",
+			[26] = "legmg",
+			[27] = "legdtr",
+			[28] = "leghive",
+			[29] = "legjuno",
+		}
+	end
 
-if name == "legacv" then
-    uDef.buildoptions = {
-        [1] = "legadvsol",
-        [2] = "legmoho",
-        [3] = "legapopupdef",
-        [4] = "legmg",
-        [5] = "legrhapsis",
-        [6] = "leglupara",
-        [7] = "legjuno",
-        [8] = "leghive",
-        [9] = "legfus",
-        [10] = "legarad",
-        [11] = "legajam",
-        [12] = "legsd",
-        [13] = "leglab",
-        [14] = "legavp",
-        [15] = "leghavp",
-        [16] = "legcluster",
-        [17] = "legeconv",
-        [18] = "legageo",
-        [19] = "legrampart",
-        [20] = "legmstor",
-        [21] = "legestor",
-        [22] = "legcluster",
-        [24] = "legmg",
-        [25] = "legdl",
-        [26] = "legvp",
-        [27] = "legap",
-        [28] = "corsy",
-        [29] = "legnanotc",
-        [30] = "legabm",
-        [31] = "legctl",
-    }
-end
+	if name == "legotter" then 
+		uDef.buildoptions = {
+			[1]  = "legsolar",
+			[2]  = "legwin",
+			[3]  = "leggeo",
+			[4]  = "legmstor",
+			[5]  = "legestor",
+			[6]  = "legmex",
+			[7]  = "legeconv",
+			[9]  = "leglab",
+			[10] = "legavp",
+			[11] = "legvp",
+			[12] = "legap",
+			[13] = "legnanotc",
+			[14] = "legeyes",
+			[15] = "legrad",
+			[16] = "legdrag",
+			[17] = "leglht",
+			[18] = "legrl",
+			[19] = "legctl",
+			[20] = "legjam",
+			[21] = "corsy",
+			[22] = "legadvsol",
+			[23] = "legmext15",
+			[24] = "legcluster",
+			[25] = "legrhapsis",
+			[26] = "legmg",
+			[27] = "legdtr",
+			[28] = "leghive",
+			[29] = "legtide",
+			[30] = "legtl",
+			[31] = "legfrad", 
+			[32] = "corasy",
+			[33] = "legjuno",
+		}
+	end
+	--------------------------
+	-- Legion Air Placeholders
 
-if name == "legack" then
-    uDef.buildoptions = {
-        [1] = "legadvsol",
-        [2] = "legmoho",
-        [3] = "legapopupdef",
-        [4] = "legmg",
-        [5] = "legrhapsis",
-        [6] = "leglupara",
-        [7] = "legjuno",
-        [8] = "leghive",
-        [9] = "legfus",
-        [10] = "legarad",
-        [11] = "legajam",
-        [12] = "legsd",
-        [13] = "leglab",
-        [14] = "legalab",
-        [15] = "leghalab",
-        [16] = "legcluster",
-        [17] = "legeconv",
-        [18] = "legageo",
-        [19] = "legrampart",
-        [20] = "legmstor",
-        [21] = "legestor",
-        [22] = "legcluster",
-        [24] = "legmg",
-        [25] = "legdl",
-        [26] = "legvp",
-        [27] = "legap",
-        [28] = "corsy",
-        [29] = "legnanotc",
-        [30] = "legabm",
-        [31] = "legctl",
-    }
-end
+	if name == "legch" then 
+		uDef.buildoptions = {
+			[1] = "legadvsol",
+			[2] = "legmoho",
+			[3] = "legapopupdef",
+			[4] = "legmg",
+			[5] = "legrhapsis",
+			[6] = "leglupara",
+			[7] = "legjuno",
+			[8] = "leghive",
+			[9] = "legfus",
+			[10] = "legarad",
+			[11] = "legajam",
+			[12] = "legsd",
+			[13] = "leglab",
+			[14] = "legavp",
+			[15] = "leghavp",
+			[16] = "legcluster",
+			[17] = "legeconv",
+			[18] = "legageo",
+			[19] = "legrampart",
+			[20] = "legmstor",
+			[21] = "legestor",
+			[22] = "legcluster",
+			[24] = "legmg",
+			[25] = "legctl",
+			[26] = "legvp",
+			[27] = "legap",
+			[28] = "corsy",
+			[29] = "legnanotc",
+			[30] = "coruwmme",
+			[31] = "legtl",
+			[32] = "corasy",
+			[33] = "legabm",
+		}
+	end
 
-if name == "legaca" then 
-    uDef.buildpic = "CORCSA.DDS"
-    uDef.objectname = "Units/CORCSA.s3o"
-    uDef.script = "Units/CORCSA.cob"
-    uDef.buildoptions = {
-        [1] = "legadvsol",
-        [2] = "legmoho",
-        [3] = "legapopupdef",
-        [4] = "legmg",
-        [5] = "legrhapsis",
-        [6] = "leglupara",
-        [7] = "legjuno",
-        [8] = "leghive",
-        [9] = "legfus",
-        [10] = "legarad",
-        [11] = "legajam",
-        [12] = "legsd",
-        [13] = "leglab",
-        [14] = "legaap",
-        [15] = "leghaap",
-        [16] = "legcluster",
-        [17] = "legeconv",
-        [18] = "legageo",
-        [19] = "legrampart",
-        [20] = "legmstor",
-        [21] = "legestor",
-        [22] = "legcluster",
-        [24] = "legmg",
-        [25] = "legdl",
-        [26] = "legvp",
-        [27] = "legap",
-        [28] = "corsy",
-        [29] = "legnanotc",
-        [30] = "legabm",
-        [31] = "legctl",
-    }
-end 
+	if name == "legacv" then
+		uDef.buildoptions = {
+			[1] = "legadvsol",
+			[2] = "legmoho",
+			[3] = "legapopupdef",
+			[4] = "legmg",
+			[5] = "legrhapsis",
+			[6] = "leglupara",
+			[7] = "legjuno",
+			[8] = "leghive",
+			[9] = "legfus",
+			[10] = "legarad",
+			[11] = "legajam",
+			[12] = "legsd",
+			[13] = "leglab",
+			[14] = "legavp",
+			[15] = "leghavp",
+			[16] = "legcluster",
+			[17] = "legeconv",
+			[18] = "legageo",
+			[19] = "legrampart",
+			[20] = "legmstor",
+			[21] = "legestor",
+			[22] = "legcluster",
+			[24] = "legmg",
+			[25] = "legdl",
+			[26] = "legvp",
+			[27] = "legap",
+			[28] = "corsy",
+			[29] = "legnanotc",
+			[30] = "legabm",
+			[31] = "legctl",
+		}
+	end
 
--- Legion Unit Tweaks
+	if name == "legack" then
+		uDef.buildoptions = {
+			[1] = "legadvsol",
+			[2] = "legmoho",
+			[3] = "legapopupdef",
+			[4] = "legmg",
+			[5] = "legrhapsis",
+			[6] = "leglupara",
+			[7] = "legjuno",
+			[8] = "leghive",
+			[9] = "legfus",
+			[10] = "legarad",
+			[11] = "legajam",
+			[12] = "legsd",
+			[13] = "leglab",
+			[14] = "legalab",
+			[15] = "leghalab",
+			[16] = "legcluster",
+			[17] = "legeconv",
+			[18] = "legageo",
+			[19] = "legrampart",
+			[20] = "legmstor",
+			[21] = "legestor",
+			[22] = "legcluster",
+			[24] = "legmg",
+			[25] = "legdl",
+			[26] = "legvp",
+			[27] = "legap",
+			[28] = "corsy",
+			[29] = "legnanotc",
+			[30] = "legabm",
+			[31] = "legctl",
+		}
+	end
 
-if name == "legapopupdef" then
-    uDef.weapondefs.advanced_riot_cannon.range = 480
-    uDef.weapondefs.advanced_riot_cannon.reloadtime = 1.5
-    uDef.weapondefs.standard_minigun.range = 400
-end
+	if name == "legaca" then 
+		uDef.buildpic = "CORCSA.DDS"
+		uDef.objectname = "Units/CORCSA.s3o"
+		uDef.script = "Units/CORCSA.cob"
+		uDef.buildoptions = {
+			[1] = "legadvsol",
+			[2] = "legmoho",
+			[3] = "legapopupdef",
+			[4] = "legmg",
+			[5] = "legrhapsis",
+			[6] = "leglupara",
+			[7] = "legjuno",
+			[8] = "leghive",
+			[9] = "legfus",
+			[10] = "legarad",
+			[11] = "legajam",
+			[12] = "legsd",
+			[13] = "leglab",
+			[14] = "legaap",
+			[15] = "leghaap",
+			[16] = "legcluster",
+			[17] = "legeconv",
+			[18] = "legageo",
+			[19] = "legrampart",
+			[20] = "legmstor",
+			[21] = "legestor",
+			[22] = "legcluster",
+			[24] = "legmg",
+			[25] = "legdl",
+			[26] = "legvp",
+			[27] = "legap",
+			[28] = "corsy",
+			[29] = "legnanotc",
+			[30] = "legabm",
+			[31] = "legctl",
+		}
+	end 
 
-if name == "legmg" then
-    uDef.weapondefs.armmg_weapon.range = 650
-end
+	-- Legion Unit Tweaks
+
+	if name == "legapopupdef" then
+		uDef.weapondefs.advanced_riot_cannon.range = 480
+		uDef.weapondefs.advanced_riot_cannon.reloadtime = 1.5
+		uDef.weapondefs.standard_minigun.range = 400
+	end
+
+	if name == "legmg" then
+		uDef.weapondefs.armmg_weapon.range = 650
+	end
 
     return uDef
 end
