@@ -3,30 +3,22 @@ local function techsplit_balanceTweaks(name, uDef)
 		uDef.speed = 54
 		uDef.weapondefs.arm_ham.range = 300
 		uDef.weapondefs.arm_ham.predictboost = 0.8
-	end
-
-	if name == "armwar" then
+	elseif name == "armwar" then
 		uDef.speed = 60
 		uDef.weapondefs.armwar_laser.range = 280
-	end
-
-	if name == "corstorm" then
+	elseif name == "corstorm" then
 		uDef.speed = 45
 		uDef.weapondefs.cor_bot_rocket.range = 600
 		uDef.weapondefs.cor_bot_rocket.reloadtime = 4.8
 		uDef.weapondefs.cor_bot_rocket.damage.default = 198
 		uDef.health = 385
-	end
-
-	if name == "armrock" then
+	elseif name == "armrock" then
 		uDef.speed = 50
 		uDef.weapondefs.arm_bot_rocket.range = 575
 		uDef.weapondefs.arm_bot_rocket.reloadtime = 4.6
 		uDef.weapondefs.arm_bot_rocket.damage.default = 190
 		uDef.health = 390
-	end
-
-	if name == "armhlt" then
+	elseif name == "armhlt" then
 		uDef.health = 4640
 		uDef.metalcost = 535
 		uDef.energycost = 5700
@@ -38,9 +30,7 @@ local function techsplit_balanceTweaks(name, uDef)
 			default = 534,
 			vtol = 48,
 		}
-	end
-
-	if name == "corhlt" then
+	elseif name == "corhlt" then
 		uDef.health = 4640
 		uDef.metalcost = 580
 		uDef.energycost = 5700
@@ -52,9 +42,7 @@ local function techsplit_balanceTweaks(name, uDef)
 			default = 360,
 			vtol = 41,
 		}
-	end
-
-	if name == "armart" then
+	elseif name == "armart" then
 		uDef.speed = 65
 		uDef.turnrate = 210
 		uDef.maxacc = 0.018
@@ -67,9 +55,7 @@ local function techsplit_balanceTweaks(name, uDef)
 			vtol = 20,
 		}
 		uDef.weapons[1].maxangledif = 30
-	end
-
-	if name == "corwolv" then
+	elseif name == "corwolv" then
 		uDef.speed = 62
 		uDef.turnrate = 250
 		uDef.maxacc = 0.015
@@ -82,9 +68,7 @@ local function techsplit_balanceTweaks(name, uDef)
 			vtol = 38,
 		}
 		uDef.weapons[1].maxangledif = 30
-	end
-
-	if name == "armmart" then
+	elseif name == "armmart" then
 		uDef.metalcost = 400
 		uDef.energycost = 5500
 		uDef.buildtime = 7500
@@ -103,9 +87,7 @@ local function techsplit_balanceTweaks(name, uDef)
 			vtol = 49,
 		}
 		uDef.weapons[1].maxangledif = 30
-	end
-
-	if name == "cormart" then
+	elseif name == "cormart" then
 		uDef.metalcost = 600
 		uDef.energycost = 6600
 		uDef.buildtime = 6500
@@ -142,22 +124,16 @@ local function techsplit_balanceTweaks(name, uDef)
 			},
 		}
 		uDef.weapons[1].maxangledif = 30
-	end
-
-	if name == "armfido" then
+	elseif name == "armfido" then
 		uDef.speed = 74
 		uDef.weapondefs.bfido.range = 500
 		uDef.weapondefs.bfido.weaponvelocity = 400
-	end
-
-	if name == "cormort" then
+	elseif name == "cormort" then
 		uDef.health = 800
 		uDef.metalcost = 325
 		uDef.speed = 51
 		uDef.weapondefs.cor_mort.range = 650
-	end
-
-	if name == "corhrk" then
+	elseif name == "corhrk" then
 		uDef.turnrate = 600
 		uDef.weapondefs.corhrk_rocket.range = 900
 		uDef.weapondefs.corhrk_rocket.weaponvelocity = 600
@@ -167,9 +143,7 @@ local function techsplit_balanceTweaks(name, uDef)
 		uDef.weapondefs.corhrk_rocket.weapontimer = 4
 		uDef.weapons[1].maxangledif = 60
 		uDef.weapons[1].maindir = "0 0 1"
-	end
-
-	if name == "armsptk" then
+	elseif name == "armsptk" then
 		uDef.metalcost = 500
 		uDef.speed = 43
 		uDef.health = 450
@@ -181,9 +155,7 @@ local function techsplit_balanceTweaks(name, uDef)
 		uDef.weapondefs.adv_rocket.flighttime = 4
 		uDef.weapons[1].maxangledif = 45
 		uDef.weapons[1].maindir = "0 0 1"
-	end
-
-	if name == "corshiva" then
+	elseif name == "corshiva" then
 		uDef.speed = 55
 		uDef.weapondefs.shiva_gun.range = 475
 		uDef.weapondefs.shiva_gun.areaofeffect = 180
@@ -192,9 +164,7 @@ local function techsplit_balanceTweaks(name, uDef)
 		uDef.weapondefs.shiva_rocket.range = 900
 		uDef.weapondefs.shiva_rocket.reloadtime = 14
 		uDef.weapondefs.shiva_rocket.damage.default = 1500
-	end
-
-	if name == "armmar" then
+	elseif name == "armmar" then
 		uDef.health = 3920
 		uDef.weapondefs.armmech_cannon.areaofeffect = 48
 		uDef.weapondefs.armmech_cannon.range = 275
@@ -203,16 +173,12 @@ local function techsplit_balanceTweaks(name, uDef)
 			default = 525,
 			vtol = 134,
 		}
-	end
-
-	if name == "corban" then
+	elseif name == "corban" then
 		uDef.speed = 69
 		uDef.turnrate = 500
 		uDef.weapondefs.banisher.areaofeffect = 180
 		uDef.weapondefs.banisher.range = 400
-	end
-
-	if name == "armcroc" then
+	elseif name == "armcroc" then
 		uDef.turnrate = 270
 		uDef.weapondefs.arm_triton.reloadtime = 1.5
 		uDef.weapondefs.arm_triton.damage = {
@@ -223,9 +189,7 @@ local function techsplit_balanceTweaks(name, uDef)
 		uDef.weapons[2] = {
 			def = "",
 		}
-	end
-
-	if name == "correap" then
+	elseif name == "correap" then
 		uDef.speed = 76
 		uDef.turnrate = 250
 		uDef.weapondefs.cor_reap.areaofeffect = 92
@@ -234,9 +198,7 @@ local function techsplit_balanceTweaks(name, uDef)
 			vtol = 48,
 		}
 		uDef.weapondefs.cor_reap.range = 305
-	end
-
-	if name == "armbull" then
+	elseif name == "armbull" then
 		uDef.health = 6000
 		uDef.metalcost = 1100
 		uDef.weapondefs.arm_bull.range = 400
@@ -247,18 +209,14 @@ local function techsplit_balanceTweaks(name, uDef)
 		}
 		uDef.weapondefs.arm_bull.reloadtime = 2
 		uDef.weapondefs.arm_bull.areaofeffect = 96
-	end
-
-	if name == "corsumo" then
+	elseif name == "corsumo" then
 		uDef.weapondefs.corsumo_weapon.range = 750
 		uDef.weapondefs.corsumo_weapon.damage = {
 			default = 700,
 			vtol = 165,
 		}
 		uDef.weapondefs.corsumo_weapon.reloadtime = 1
-	end
-
-	if name == "corgol" then
+	elseif name == "corgol" then
 		uDef.speed = 37
 		uDef.weapondefs.cor_gol.damage = {
 			default = 1600,
@@ -267,9 +225,7 @@ local function techsplit_balanceTweaks(name, uDef)
 		}
 		uDef.weapondefs.cor_gol.reloadtime = 4
 		uDef.weapondefs.cor_gol.range = 700
-	end
-
-	if name == "armguard" then
+	elseif name == "armguard" then
 		uDef.health = 6000
 		uDef.metalcost = 800
 		uDef.energycost = 8000
@@ -292,9 +248,7 @@ local function techsplit_balanceTweaks(name, uDef)
 			subs = 70,
 			vtol = 42,
 		}
-	end
-
-	if name == "corpun" then
+	elseif name == "corpun" then
 		uDef.health = 6400
 		uDef.metalcost = 870
 		uDef.energycost = 8700
