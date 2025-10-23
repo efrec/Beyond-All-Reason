@@ -1,4 +1,19 @@
-local function techsplitTweaks(name, uDef)
+-- Unit categories
+
+local conTier3 = {
+	armhaca = true, armhack = true, armhacv = true, armhacs = true,
+	corhaca = true, corhack = true, corhacv = true, corhacs = true,
+	leghaca = true, leghack = true, leghacv = true,
+}
+
+local lolmechs = {
+	armbanth = true,
+	corjugg = true,
+	corkorg = true,
+	legeheatraymech = true,
+	legelrpcmech = true,
+}
+
 	if name == "coralab" then
 		uDef.buildoptions = {
 			"corack",
@@ -834,19 +849,8 @@ local function techsplitTweaks(name, uDef)
 	end
 
 	-- Remove lolmech from T3 cons
-	if name == "armhaca" or name == "armhack" or name == "armhacv" then
-		uDef.buildoptions[24] = ""
-	elseif name == "armhacs" then
-		uDef.buildoptions[13] = ""
-	elseif name == "corhaca" or name == "corhack" or name == "corhacv" then
-		uDef.buildoptions[25] = ""
-		uDef.buildoptions[26] = ""
-	elseif name == "corhacs" then
-		uDef.buildoptions[15] = ""
-		uDef.buildoptions[16] = ""
-	elseif name == "leghaca" or name == "leghack" or name == "leghacv" then
-		uDef.buildoptions[33] = ""
-		uDef.buildoptions[34] = ""
+	if conTier3[name] then
+		table.removeIf(unitDef.buildoptions, function(v) return lolmechs[v] end)
 	end
 
 	-- remove hovers from com
