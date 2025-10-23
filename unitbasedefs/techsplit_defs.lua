@@ -14,9 +14,7 @@ local function techsplitTweaks(name, uDef)
             [11] = "corvoyr",
             [12] = "corroach",
         }
-    end
-
-    if name == "armalab" then
+    elseif name == "armalab" then
         uDef.buildoptions = {
             [1] = "armack",
             [2] = "armfido",
@@ -31,9 +29,7 @@ local function techsplitTweaks(name, uDef)
             [11] = "armsptk",
             [12] = "armspy",
         }
-    end
-
-    if name == "armavp" then
+    elseif name == "armavp" then
         uDef.buildoptions = {
             [1] = "armacv",
             [2] = "armch",
@@ -47,9 +43,7 @@ local function techsplitTweaks(name, uDef)
             [10] = "armsh",
             [11] = "armgremlin"
         }
-    end
-
-    if name == "coravp" then
+    elseif name == "coravp" then
         uDef.buildoptions = {
             [1] = "corch",
             [2] = "coracv",
@@ -64,9 +58,7 @@ local function techsplitTweaks(name, uDef)
             [11] = "corvrad",
             [12] = "corban"
         }
-    end
-
-    if name == "armck" then
+    elseif name == "armck" then
         uDef.buildoptions = {
             [1] = "armsolar",
             [2] = "armwin",
@@ -97,9 +89,7 @@ local function techsplitTweaks(name, uDef)
             [29] = "armadvsol",
             [30] = "armguard"
         }
-    end
-
-    if name == "corck" then
+    elseif name == "corck" then
         uDef.buildoptions = {
             [1] = "corsolar",
             [2] = "corwin",
@@ -129,9 +119,7 @@ local function techsplitTweaks(name, uDef)
             [29] = "coradvsol",
             [30] = "corpun"
         }
-    end
-
-    if name == "armack" then
+    elseif name == "armack" then
         uDef.buildoptions = {
             [1] = "armadvsol",
             [2] = "armmoho",
@@ -163,9 +151,7 @@ local function techsplitTweaks(name, uDef)
             [28] = "armnanotc",
             [29] = "armamd",
         }
-    end
-
-    if name == "corack" then
+    elseif name == "corack" then
         uDef.buildoptions = {
             [1] = "coradvsol",
             [2] = "cormoho",
@@ -194,9 +180,7 @@ local function techsplitTweaks(name, uDef)
             [25] = "cornanotc",
             [26] = "corfmd",
         }
-    end
-
-    if name == "armcv" then
+    elseif name == "armcv" then
         uDef.buildoptions = {
             [1] = "armsolar",
             [2] = "armwin",
@@ -227,9 +211,7 @@ local function techsplitTweaks(name, uDef)
             [29] = "armadvsol",
             [30] = "armguard"
         }
-    end
-
-    if name == "armbeaver" then
+    elseif name == "armbeaver" then
         uDef.buildoptions = {
             [1] = "armsolar",
             [2] = "armwin",
@@ -266,9 +248,7 @@ local function techsplitTweaks(name, uDef)
             [33] = "armadvsol",
             [34] = "armguard"
         }
-    end
-
-    if name == "corcv" then
+    elseif name == "corcv" then
         uDef.buildoptions = {
             [1] = "corsolar",
             [2] = "corwin",
@@ -298,9 +278,7 @@ local function techsplitTweaks(name, uDef)
             [29] = "coradvsol",
             [30] = "corpun"
         }
-    end
-
-    if name == "cormuskrat" then
+    elseif name == "cormuskrat" then
         uDef.buildoptions = {
             [1] = "corsolar",
             [2] = "corwin",
@@ -334,9 +312,7 @@ local function techsplitTweaks(name, uDef)
             [30] = "coradvsol",
             [31] = "corpun"
         }
-    end
-
-    if name == "armacv" then
+    elseif name == "armacv" then
         uDef.buildoptions = {
             [1] = "armadvsol",
             [2] = "armmoho",
@@ -368,9 +344,7 @@ local function techsplitTweaks(name, uDef)
             [28] = "armnanotc",
             [29] = "armamd",
         }
-    end
-
-    if name == "coracv" then
+    elseif name == "coracv" then
         uDef.buildoptions = {
             [1] = "coradvsol",
             [2] = "cormoho",
@@ -399,7 +373,7 @@ local function techsplitTweaks(name, uDef)
             [25] = "cornanotc",
             [26] = "corfmd",
         }
-    end
+	end
 
     ------------------------------
     -- Armada and Cortex Air Split
@@ -450,9 +424,7 @@ local function techsplitTweaks(name, uDef)
                 [1] = "seaplsl1",
             },
         }
-    end
-
-    if name == "coraap" then
+    elseif name == "coraap" then
         uDef.buildpic = "CORHAAP.DDS"
         uDef.objectname = "Units/CORAAPLAT.s3o"
         uDef.script = "Units/CORHAAP.cob"
@@ -493,9 +465,7 @@ local function techsplitTweaks(name, uDef)
                 [1] = "seaplsl2",
             },
         }
-    end
-
-    if name == "armap" then
+    elseif name == "armap" then
         uDef.buildoptions = {
             [1] = "armca",
             [2] = "armpeep",
@@ -504,9 +474,7 @@ local function techsplitTweaks(name, uDef)
             [5] = "armatlas",
             [6] = "armkam",
         }
-    end
-
-    if name == "corap" then
+    elseif name == "corap" then
         uDef.buildoptions = {
             [1] = "corca",
             [2] = "corfink",
@@ -551,9 +519,7 @@ local function techsplitTweaks(name, uDef)
             [30] = "armguard",
             [31] = "armnanotc",
         }
-    end
-
-    if name == "corca" then
+    elseif name == "corca" then
         uDef.buildoptions = {
             [1] = "corsolar",
             [2] = "corwin",
@@ -584,9 +550,7 @@ local function techsplitTweaks(name, uDef)
             [30] = "corpun",
             [31] = "cornanotc",
         }
-    end
-
-    if name == "armaca" then
+    elseif name == "armaca" then
         uDef.buildpic = "ARMCSA.DDS"
         uDef.objectname = "Units/ARMCSA.s3o"
         uDef.script = "units/ARMCSA.cob"
@@ -621,9 +585,7 @@ local function techsplitTweaks(name, uDef)
             [28] = "armnanotc",
             [29] = "armamd",
         }
-    end
-
-    if name == "coraca" then
+    elseif name == "coraca" then
         uDef.buildpic = "CORCSA.DDS"
         uDef.objectname = "Units/CORCSA.s3o"
         uDef.script = "units/CORCSA.cob"
@@ -664,17 +626,11 @@ local function techsplitTweaks(name, uDef)
 
 	if name == "armhasy" or name == "corhasy" then
 		uDef.metalcost = uDef.metalcost - 1200
-	end
-
-    if name == "armsy" then
+	elseif name == "armsy" then
         uDef.buildoptions[8] = "armbeaver"
-    end
-
-    if name == "corsy" then
+    elseif name == "corsy" then
         uDef.buildoptions[8] = "cormuskrat"
-    end
-
-    if name == "armasy" then
+    elseif name == "armasy" then
         uDef.metalcost = uDef.metalcost + 400
         uDef.buildoptions = {
             [1] = "armacsub",
@@ -851,9 +807,7 @@ local function techsplitTweaks(name, uDef)
         uDef.featuredefs.armshlt_dead.collisionvolumescales = "155 95 180"
         uDef.customparams.buildinggrounddecalsizex = 18
         uDef.customparams.buildinggrounddecalsizez = 18
-    end 
-
-    if name == "corgant" then
+    elseif name == "corgant" then
         uDef.footprintx = 15
         uDef.footprintz = 15
         uDef.collisionvolumescales = "245 131 245"
@@ -866,9 +820,7 @@ local function techsplitTweaks(name, uDef)
         uDef.featuredefs.dead.collisionvolumescales = "238 105 238"
         uDef.customparams.buildinggrounddecalsizex = 18
         uDef.customparams.buildinggrounddecalsizez = 18
-    end
-
-    if name == "leggant" then
+    elseif name == "leggant" then
         uDef.footprintx = 15
         uDef.footprintz = 15
         uDef.collisionvolumescales = "245 135 245"
@@ -886,23 +838,15 @@ local function techsplitTweaks(name, uDef)
     -- Remove lolmech from T3 cons
     if name == "armhaca" or name == "armhack" or name == "armhacv" then
         uDef.buildoptions[24] = ""
-    end
-
-    if name == "armhacs" then
+    elseif name == "armhacs" then
         uDef.buildoptions[13] = ""
-    end
-
-    if name == "corhaca" or name == "corhack" or name == "corhacv" then
+    elseif name == "corhaca" or name == "corhack" or name == "corhacv" then
         uDef.buildoptions[25] = ""
         uDef.buildoptions[26] = ""
-    end
-
-    if name == "corhacs" then
+    elseif name == "corhacs" then
         uDef.buildoptions[15] = ""
         uDef.buildoptions[16] = ""
-    end
-
-    if name == "leghaca" or name == "leghack" or name == "leghacv" then
+    elseif name == "leghaca" or name == "leghack" or name == "leghacv" then
         uDef.buildoptions[33] = ""
         uDef.buildoptions[34] = ""
     end
@@ -962,9 +906,7 @@ local function techsplitTweaks(name, uDef)
         uDef.buildtime = uDef.buildtime + 3800
         uDef.radardistance = 2500
         uDef.sightdistance = 1000
-    end
-
-    if name == "armantiship" or name == "corantiship" then
+    elseif name == "armantiship" or name == "corantiship" then
         uDef.radardistancejam = 450
     end
 
@@ -1110,31 +1052,23 @@ local function techsplitTweaks(name, uDef)
 		}
 		uDef.weapondefs.arm_ham.reloadtime = 1.73
 		uDef.weapondefs.arm_ham.areaofeffect = 51
-	end
-
-	if name == "armwar" then
+	elseif name == "armwar" then
 		uDef.speed = 56
 		uDef.weapondefs.armwar_laser.range = 290
-	end
-
-	if name == "corstorm" then
+	elseif name == "corstorm" then
 		uDef.speed = 42
 		uDef.weapondefs.cor_bot_rocket.accuracy = 150
 		uDef.weapondefs.cor_bot_rocket.range = 600
 		uDef.weapondefs.cor_bot_rocket.reloadtime = 5.5
 		uDef.weapondefs.cor_bot_rocket.damage.default = 198
 		uDef.health = 250
-	end
-
-	if name == "armrock" then
+	elseif name == "armrock" then
 		uDef.health =  240
         uDef.speed =  48
         uDef.weapondefs.arm_bot_rocket.reloadtime = 5.4
 		uDef.weapondefs.arm_bot_rocket.range = 575
 		uDef.weapondefs.arm_bot_rocket.damage.default = 190
-	end
-
-	if name == "armhlt" then
+	elseif name == "armhlt" then
 		uDef.health = 4640
 		uDef.metalcost = 535
 		uDef.energycost = 5700
@@ -1146,9 +1080,7 @@ local function techsplitTweaks(name, uDef)
 			default = 534,
 			vtol = 48,
 		}
-	end
-
-    if name == "armfhlt" then
+	elseif name == "armfhlt" then
 		uDef.health = 7600
 		uDef.metalcost = 570
 		uDef.energycost = 7520
@@ -1160,9 +1092,7 @@ local function techsplitTweaks(name, uDef)
 			default = 290,
 			vtol = 71,
 		}
-	end
-
-	if name == "corhlt" then
+	elseif name == "corhlt" then
 		uDef.health = 4640
 		uDef.metalcost = 580
 		uDef.energycost = 5700
@@ -1174,9 +1104,7 @@ local function techsplitTweaks(name, uDef)
 			default = 360,
 			vtol = 41,
 		}
-	end
-
-    if name == "corfhlt" then
+	elseif name == "corfhlt" then
 		uDef.health = 7340
 		uDef.metalcost = 580
 		uDef.energycost = 7520
@@ -1188,9 +1116,7 @@ local function techsplitTweaks(name, uDef)
 			default = 319,
 			vtol = 61,
 		}
-	end
-
-	if name == "armart" then
+	elseif name == "armart" then
 		uDef.speed = 65
 		uDef.turnrate = 210
 		uDef.maxacc = 0.018
@@ -1203,9 +1129,7 @@ local function techsplitTweaks(name, uDef)
 			vtol = 20,
 		}
 		uDef.weapons[1].maxangledif = 120
-	end
-
-	if name == "corwolv" then
+	elseif name == "corwolv" then
 		uDef.speed = 62
 		uDef.turnrate = 250
 		uDef.maxacc = 0.015
@@ -1218,9 +1142,7 @@ local function techsplitTweaks(name, uDef)
 			vtol = 38,
 		}
 		uDef.weapons[1].maxangledif = 120
-	end
-
-	if name == "armmart" then
+	elseif name == "armmart" then
 		uDef.metalcost = 400
 		uDef.energycost = 5500
 		uDef.buildtime = 7500
@@ -1240,9 +1162,7 @@ local function techsplitTweaks(name, uDef)
 			vtol = 49,
 		}
 		uDef.weapons[1].maxangledif = 120
-	end
-
-	if name == "cormart" then
+	elseif name == "cormart" then
 		uDef.metalcost = 600
 		uDef.energycost = 6600
 		uDef.buildtime = 6500
@@ -1279,15 +1199,11 @@ local function techsplitTweaks(name, uDef)
 			},
 		}
 		uDef.weapons[1].maxangledif = 120
-	end
-
-	if name == "armfido" then
+	elseif name == "armfido" then
 		uDef.speed = 74
 		uDef.weapondefs.bfido.range = 500
 		uDef.weapondefs.bfido.weaponvelocity = 400
-	end
-
-	if name == "cormort" then
+	elseif name == "cormort" then
 		uDef.metalcost = 400
 		uDef.health = 800
 		uDef.speed = 47
@@ -1299,9 +1215,7 @@ local function techsplitTweaks(name, uDef)
 		}
 		uDef.weapondefs.cor_mort.reloadtime = 3
 		uDef.weapondefs.cor_mort.areaofeffect = 64
-	end
-
-	if name == "corhrk" then
+	elseif name == "corhrk" then
 		uDef.turnrate = 600
 		uDef.weapondefs.corhrk_rocket.range = 900
 		uDef.weapondefs.corhrk_rocket.weaponvelocity = 600
@@ -1317,9 +1231,7 @@ local function techsplitTweaks(name, uDef)
 		uDef.weapondefs.corhrk_rocket.areaofeffect = 128
 		uDef.weapons[1].maxangledif = 120
 		uDef.weapons[1].maindir = "0 0 1"
-	end
-
-	if name == "armsptk" then
+	elseif name == "armsptk" then
 		uDef.metalcost = 500
 		uDef.speed = 43
 		uDef.health = 450
@@ -1331,9 +1243,7 @@ local function techsplitTweaks(name, uDef)
 		uDef.weapondefs.adv_rocket.flighttime = 4
 		uDef.weapons[1].maxangledif = 120
 		uDef.weapons[1].maindir = "0 0 1"
-	end
-
-	if name == "corshiva" then
+	elseif name == "corshiva" then
 		uDef.speed = 55
 		uDef.weapondefs.shiva_gun.range = 475
 		uDef.weapondefs.shiva_gun.areaofeffect = 180
@@ -1342,9 +1252,7 @@ local function techsplitTweaks(name, uDef)
 		uDef.weapondefs.shiva_rocket.range = 900
 		uDef.weapondefs.shiva_rocket.reloadtime = 14
 		uDef.weapondefs.shiva_rocket.damage.default = 1500
-	end
-
-	if name == "armmar" then
+	elseif name == "armmar" then
 		uDef.health = 3920
 		uDef.weapondefs.armmech_cannon.areaofeffect = 48
 		uDef.weapondefs.armmech_cannon.range = 275
@@ -1353,17 +1261,13 @@ local function techsplitTweaks(name, uDef)
 			default = 525,
 			vtol = 134,
 		}
-	end
-
-	if name == "corban" then
+	elseif name == "corban" then
 		uDef.speed = 69
 		uDef.turnrate = 500
 		uDef.weapondefs.banisher.areaofeffect = 180
         uDef.weapondefs.banisher.weaponvelocity = 864
 		uDef.weapondefs.banisher.range = 450
-	end
-
-	if name == "armcroc" then
+	elseif name == "armcroc" then
         uDef.health = 5250
 		uDef.turnrate = 270
 		uDef.weapondefs.arm_triton.reloadtime = 1.5
@@ -1381,21 +1285,13 @@ local function techsplitTweaks(name, uDef)
     
     if name == "armhack" or name == "armhacv" or name == "armhaca" then
         uDef.buildoptions[40] = "armnanotc" 
-    end
-
-    if name == "armhacs" then
+    elseif name == "armhacs" then
         uDef.buildoptions[41] = "armnanotcplat"
-    end
-
-    if name == "corhack" or name == "corhacv" or name == "corhaca" then
+    elseif name == "corhack" or name == "corhacv" or name == "corhaca" then
         uDef.buildoptions[40] = "cornanotc"
-    end
-
-    if name == "corhacs" then
+    elseif name == "corhacs" then
         uDef.buildoptions[41] = "cornanotcplat"
-    end
-
-	if name == "correap" then
+    elseif name == "correap" then
 		uDef.speed = 74
 		uDef.turnrate = 250
 		uDef.weapondefs.cor_reap.areaofeffect = 92
@@ -1404,9 +1300,7 @@ local function techsplitTweaks(name, uDef)
 			vtol = 48,
 		}
 		uDef.weapondefs.cor_reap.range = 305
-	end
-
-	if name == "armbull" then
+	elseif name == "armbull" then
 		uDef.health = 6000
 		uDef.metalcost = 1100
 		uDef.weapondefs.arm_bull.range = 400
@@ -1417,9 +1311,7 @@ local function techsplitTweaks(name, uDef)
 		}
 		uDef.weapondefs.arm_bull.reloadtime = 2
 		uDef.weapondefs.arm_bull.areaofeffect = 96
-	end
-
-	if name == "corsumo" then
+	elseif name == "corsumo" then
 		uDef.weapondefs.corsumo_weapon.range = 750
 		uDef.weapondefs.corsumo_weapon.damage = {
 			commanders = 350,
@@ -1427,9 +1319,7 @@ local function techsplitTweaks(name, uDef)
 			vtol = 165,
 		}
 		uDef.weapondefs.corsumo_weapon.reloadtime = 1
-	end
-
-	if name == "corgol" then 
+	elseif name == "corgol" then 
 		uDef.speed = 37
 		uDef.weapondefs.cor_gol.damage = {
 			default = 1600,
@@ -1438,9 +1328,7 @@ local function techsplitTweaks(name, uDef)
 		}
 		uDef.weapondefs.cor_gol.reloadtime = 4
 		uDef.weapondefs.cor_gol.range = 700
-	end
-
-	if name == "armguard" then 
+	elseif name == "armguard" then 
 		uDef.health = 6000
 		uDef.metalcost = 800
 		uDef.energycost = 8000
@@ -1463,9 +1351,7 @@ local function techsplitTweaks(name, uDef)
 			subs = 70,
 			vtol = 42,
 		}
-	end
-
-	if name == "corpun" then
+	elseif name == "corpun" then
 		uDef.health = 6400
 		uDef.metalcost = 870
 		uDef.energycost = 8700
@@ -1490,15 +1376,11 @@ local function techsplitTweaks(name, uDef)
 			subs = 21,
 			vtol = 22,
 		}
-	end
-
-    if name == "armpb" then
+	elseif name == "armpb" then
         uDef.health = 3360
         uDef.weapondefs.armpb_weapon.range = 500
         uDef.weapondefs.armpb_weapon.reloadtime = 1.2
-    end
-
-    if name == "corvipe" then
+    elseif name == "corvipe" then
         uDef.health = 3600
         uDef.weapondefs.vipersabot.areaofeffect = 96
         uDef.weapondefs.vipersabot.edgeeffectiveness = 0.8
@@ -1528,9 +1410,7 @@ local function techsplitTweaks(name, uDef)
 			[10] = "legaspy",
 			[11] = "legaradk",
 		}
-	end
-
-	if name == "legavp" then
+	elseif name == "legavp" then
 		uDef.buildoptions = {
 			[1] = "legacv",
 			[2] = "legch",
@@ -1545,10 +1425,7 @@ local function techsplitTweaks(name, uDef)
 			[11] = "legmh",
 			[12] = "legah"
 		}
-	end
-
-	-- Placeholder: Legion T2 air is cor seaplanes
-	if name == "legaap" then
+	elseif name == "legaap" then
 		uDef.buildoptions = {
 			[1] = "legaca",
 			[2] = "corhunt",
@@ -1558,20 +1435,14 @@ local function techsplitTweaks(name, uDef)
 			[6] = "corsfig",
 			[7] = "legatrans",
 		}
-	end
-
-	if name == "legap" then
+	elseif name == "legap" then
 		uDef.buildoptions[7] = ""
-	end
-
-	if name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp"
+	elseif name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp"
 	then
 			uDef.metalcost = uDef.metalcost - 1300
 			uDef.energycost = uDef.energycost - 5000
 			uDef.buildtime = math.ceil(uDef.buildtime * 0.015) * 100
-	end
-
-	if name == "legch"
+	elseif name == "legch"
 	then
 		uDef.metalcost = uDef.metalcost * 2
 		uDef.energycost = uDef.energycost * 2
@@ -1614,9 +1485,7 @@ local function techsplitTweaks(name, uDef)
 			[28] = "leghive",
 			[29] = "legjuno",
 		}
-	end
-
-	if name == "legca" then
+	elseif name == "legca" then
 		uDef.buildoptions = {
 			[1]  = "legsolar",
 			[2]  = "legwin",
@@ -1647,9 +1516,7 @@ local function techsplitTweaks(name, uDef)
 			[28] = "leghive",
 			[29] = "legjuno",
 		}
-	end
-
-	if name == "legcv" then
+	elseif name == "legcv" then
 		uDef.buildoptions = {
 			[1]  = "legsolar",
 			[2]  = "legwin",
@@ -1680,9 +1547,7 @@ local function techsplitTweaks(name, uDef)
 			[28] = "leghive",
 			[29] = "legjuno",
 		}
-	end
-
-	if name == "legotter" then 
+	elseif name == "legotter" then 
 		uDef.buildoptions = {
 			[1]  = "legsolar",
 			[2]  = "legwin",
@@ -1756,9 +1621,7 @@ local function techsplitTweaks(name, uDef)
 			[32] = "corasy",
 			[33] = "legabm",
 		}
-	end
-
-	if name == "legacv" then
+	elseif name == "legacv" then
 		uDef.buildoptions = {
 			[1] = "legadvsol",
 			[2] = "legmoho",
@@ -1791,9 +1654,7 @@ local function techsplitTweaks(name, uDef)
 			[30] = "legabm",
 			[31] = "legctl",
 		}
-	end
-
-	if name == "legack" then
+	elseif name == "legack" then
 		uDef.buildoptions = {
 			[1] = "legadvsol",
 			[2] = "legmoho",
@@ -1826,9 +1687,7 @@ local function techsplitTweaks(name, uDef)
 			[30] = "legabm",
 			[31] = "legctl",
 		}
-	end
-
-	if name == "legaca" then 
+	elseif name == "legaca" then 
 		uDef.buildpic = "CORCSA.DDS"
 		uDef.objectname = "Units/CORCSA.s3o"
 		uDef.script = "Units/CORCSA.cob"
@@ -1872,9 +1731,7 @@ local function techsplitTweaks(name, uDef)
 		uDef.weapondefs.advanced_riot_cannon.range = 480
 		uDef.weapondefs.advanced_riot_cannon.reloadtime = 1.5
 		uDef.weapondefs.standard_minigun.range = 400
-	end
-
-	if name == "legmg" then
+	elseif name == "legmg" then
 		uDef.weapondefs.armmg_weapon.range = 650
 	end
 
