@@ -1286,13 +1286,13 @@ local function techsplitTweaks(name, unitDef)
 	--Tech Split Hotfixes 3
 
 	if name == "armhack" or name == "armhacv" or name == "armhaca" then
-		unitDef.buildoptions[40] = "armnanotc"
+		table.insert(unitDef.buildoptions, "armnanotc")
 	elseif name == "armhacs" then
-		unitDef.buildoptions[41] = "armnanotcplat"
+		table.insert(unitDef.buildoptions, "armnanotcplat")
 	elseif name == "corhack" or name == "corhacv" or name == "corhaca" then
-		unitDef.buildoptions[40] = "cornanotc"
+		table.insert(unitDef.buildoptions, "cornanotc")
 	elseif name == "corhacs" then
-		unitDef.buildoptions[41] = "cornanotcplat"
+		table.insert(unitDef.buildoptions, "cornanotcplat")
 	elseif name == "correap" then
 		unitDef.speed = 74
 		unitDef.turnrate = 250
