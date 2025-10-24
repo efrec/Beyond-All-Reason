@@ -66,6 +66,7 @@ return {
 			[32] = "armsilo",
 			[33] = "armvulc",
 			[34] = "armshltxuw",
+			[35] = "armnanotcplat",
 		},
 		customparams = {
 			minesweeper = 600,

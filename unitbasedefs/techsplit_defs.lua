@@ -1076,15 +1076,7 @@ local function techsplitTweaks(name, unitDef)
 	----------------------------------------------
 	-- Tech Split Hotfixes 3
 
-	if name == "armhack" or name == "armhacv" or name == "armhaca" then
-		table.insert(unitDef.buildoptions, "armnanotc")
-	elseif name == "armhacs" then
-		table.insert(unitDef.buildoptions, "armnanotcplat")
-	elseif name == "corhack" or name == "corhacv" or name == "corhaca" then
-		table.insert(unitDef.buildoptions, "cornanotc")
-	elseif name == "corhacs" then
-		table.insert(unitDef.buildoptions, "cornanotcplat")
-	elseif name == "correap" then
+	if name == "correap" then
 		unitDef.speed = 74
 		unitDef.turnrate = 250
 		unitDef.weapondefs.cor_reap.areaofeffect = 92
