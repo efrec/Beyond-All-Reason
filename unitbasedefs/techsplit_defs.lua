@@ -107,6 +107,20 @@ local function techsplitTweaks(name, unitDef)
 			"armsptk",
 			"armspy",
 		}
+	elseif name == "legalab" then
+		unitDef.buildoptions = {
+			"legack",
+			"legadvaabot",
+			"legstr",
+			"legshot",
+			"leginfestor",
+			"legamph",
+			"legsnapper",
+			"legbart",
+			"leghrk",
+			"legaspy",
+			"legaradk",
+		}
 	elseif name == "armavp" then
 		unitDef.buildoptions = {
 			"armacv",
@@ -136,6 +150,32 @@ local function techsplitTweaks(name, unitDef)
 			"corvrad",
 			"corban"
 		}
+	elseif name == "legavp" then
+		unitDef.buildoptions = {
+			"legacv",
+			"legch",
+			"legavrad",
+			"legsh",
+			"legmrv",
+			"legfloat",
+			"legaskirmtank",
+			"legamcluster",
+			"legvcarry",
+			"legner",
+			"legmh",
+			"legah"
+		}
+	elseif name == "legap" then
+		table.removeIf(unitDef.buildoptions, function(v) return transportHeavy[v] end)
+	elseif name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp" then
+		unitDef.metalcost = unitDef.metalcost - 1300
+		unitDef.energycost = unitDef.energycost - 5000
+		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.015) * 100
+	elseif name == "legch" then
+		unitDef.metalcost = unitDef.metalcost * 2
+		unitDef.energycost = unitDef.energycost * 2
+		unitDef.buildtime = unitDef.buildtime * 2
+		unitDef.customparams.techlevel = 2
 	end
 
 	-- Land Cons
@@ -201,6 +241,37 @@ local function techsplitTweaks(name, unitDef)
 			"coradvsol",
 			"corpun"
 		}
+	elseif name == "legck" then
+		unitDef.buildoptions = {
+			"legsolar",
+			"legwin",
+			"leggeo",
+			"legmstor",
+			"legestor",
+			"legmex",
+			"legeconv",
+			"leglab",
+			"legalab",
+			"legvp",
+			"legap",
+			"legnanotc",
+			"legeyes",
+			"legrad",
+			"legdrag",
+			"leglht",
+			"legrl",
+			"legctl",
+			"legjam",
+			"corsy",
+			"legadvsol",
+			"legmext15",
+			"legcluster",
+			"legrhapsis",
+			"legmg",
+			"legdtr",
+			"leghive",
+			"legjuno",
+		}
 	elseif name == "armack" then
 		unitDef.buildoptions = {
 			"armadvsol",
@@ -261,6 +332,39 @@ local function techsplitTweaks(name, unitDef)
 			"corsy",
 			"cornanotc",
 			"corfmd",
+		}
+	elseif name == "legack" then
+		unitDef.buildoptions = {
+			"legadvsol",
+			"legmoho",
+			"legapopupdef",
+			"legmg",
+			"legrhapsis",
+			"leglupara",
+			"legjuno",
+			"leghive",
+			"legfus",
+			"legarad",
+			"legajam",
+			"legsd",
+			"leglab",
+			"legalab",
+			"leghalab",
+			"legcluster",
+			"legeconv",
+			"legageo",
+			"legrampart",
+			"legmstor",
+			"legestor",
+			"legcluster",
+			"legmg",
+			"legdl",
+			"legvp",
+			"legap",
+			"corsy",
+			"legnanotc",
+			"legabm",
+			"legctl",
 		}
 	elseif name == "armcv" then
 		unitDef.buildoptions = {
@@ -394,6 +498,103 @@ local function techsplitTweaks(name, unitDef)
 			"coradvsol",
 			"corpun"
 		}
+	elseif name == "legca" then
+		unitDef.buildoptions = {
+			"legsolar",
+			"legwin",
+			"leggeo",
+			"legmstor",
+			"legestor",
+			"legmex",
+			"legeconv",
+			"leglab",
+			"legaap",
+			"legvp",
+			"legap",
+			"legnanotc",
+			"legeyes",
+			"legrad",
+			"legdrag",
+			"leglht",
+			"legrl",
+			"legctl",
+			"legjam",
+			"corsy",
+			"legadvsol",
+			"legmext15",
+			"legcluster",
+			"legrhapsis",
+			"legmg",
+			"legdtr",
+			"leghive",
+			"legjuno",
+		}
+	elseif name == "legcv" then
+		unitDef.buildoptions = {
+			"legsolar",
+			"legwin",
+			"leggeo",
+			"legmstor",
+			"legestor",
+			"legmex",
+			"legeconv",
+			"leglab",
+			"legavp",
+			"legvp",
+			"legap",
+			"legnanotc",
+			"legeyes",
+			"legrad",
+			"legdrag",
+			"leglht",
+			"legrl",
+			"legctl",
+			"legjam",
+			"corsy",
+			"legadvsol",
+			"legmext15",
+			"legcluster",
+			"legrhapsis",
+			"legmg",
+			"legdtr",
+			"leghive",
+			"legjuno",
+		}
+	elseif name == "legotter" then
+		unitDef.buildoptions = {
+			"legsolar",
+			"legwin",
+			"leggeo",
+			"legmstor",
+			"legestor",
+			"legmex",
+			"legeconv",
+			"leglab",
+			"legavp",
+			"legvp",
+			"legap",
+			"legnanotc",
+			"legeyes",
+			"legrad",
+			"legdrag",
+			"leglht",
+			"legrl",
+			"legctl",
+			"legjam",
+			"corsy",
+			"legadvsol",
+			"legmext15",
+			"legcluster",
+			"legrhapsis",
+			"legmg",
+			"legdtr",
+			"leghive",
+			"legtide",
+			"legtl",
+			"legfrad",
+			"corasy",
+			"legjuno",
+		}
 	elseif name == "armacv" then
 		unitDef.buildoptions = {
 			"armadvsol",
@@ -454,6 +655,39 @@ local function techsplitTweaks(name, unitDef)
 			"corsy",
 			"cornanotc",
 			"corfmd",
+		}
+	elseif name == "legacv" then
+		unitDef.buildoptions = {
+			"legadvsol",
+			"legmoho",
+			"legapopupdef",
+			"legmg",
+			"legrhapsis",
+			"leglupara",
+			"legjuno",
+			"leghive",
+			"legfus",
+			"legarad",
+			"legajam",
+			"legsd",
+			"leglab",
+			"legavp",
+			"leghavp",
+			"legcluster",
+			"legeconv",
+			"legageo",
+			"legrampart",
+			"legmstor",
+			"legestor",
+			"legcluster",
+			"legmg",
+			"legdl",
+			"legvp",
+			"legap",
+			"corsy",
+			"legnanotc",
+			"legabm",
+			"legctl",
 		}
 	end
 
@@ -546,6 +780,16 @@ local function techsplitTweaks(name, unitDef)
 			select = {
 				"seaplsl2",
 			},
+		}
+	elseif name == "legaap" then
+		unitDef.buildoptions = {
+			"legaca",
+			"corhunt",
+			"corcut",
+			"corsb",
+			"corseap",
+			"corsfig",
+			"legatrans",
 		}
 	elseif name == "armap" then
 		unitDef.buildoptions = {
@@ -698,6 +942,42 @@ local function techsplitTweaks(name, unitDef)
 			"corsy",
 			"cornanotc",
 			"corfmd",
+		}
+	elseif name == "legaca" then
+		unitDef.buildpic = "CORCSA.DDS"
+		unitDef.objectname = "Units/CORCSA.s3o"
+		unitDef.script = "Units/CORCSA.cob"
+		unitDef.buildoptions = {
+			"legadvsol",
+			"legmoho",
+			"legapopupdef",
+			"legmg",
+			"legrhapsis",
+			"leglupara",
+			"legjuno",
+			"leghive",
+			"legfus",
+			"legarad",
+			"legajam",
+			"legsd",
+			"leglab",
+			"legaap",
+			"leghaap",
+			"legcluster",
+			"legeconv",
+			"legageo",
+			"legrampart",
+			"legmstor",
+			"legestor",
+			"legcluster",
+			"legmg",
+			"legdl",
+			"legvp",
+			"legap",
+			"corsy",
+			"legnanotc",
+			"legabm",
+			"legctl",
 		}
 	end
 
@@ -920,7 +1200,7 @@ local function techsplitTweaks(name, unitDef)
 	if conTier3[name] then
 		table.removeIf(unitDef.buildoptions, function(v) return lolmechs[v] end)
 	elseif commanders[name] then
-		table.removeIf(unitDef.buildoptions, function (v) return labHover[v] end)
+		table.removeIf(unitDef.buildoptions, function(v) return labHover[v] end)
 	end
 
 	if labTier2[name] then
@@ -1069,199 +1349,7 @@ local function techsplitTweaks(name, unitDef)
 			"corpun",
 			"corfmd",
 		}
-	end
-
-	-- Legion Update
-
-	-- T2 labs
-	if name == "legalab" then
-		unitDef.buildoptions = {
-			"legack",
-			"legadvaabot",
-			"legstr",
-			"legshot",
-			"leginfestor",
-			"legamph",
-			"legsnapper",
-			"legbart",
-			"leghrk",
-			"legaspy",
-			"legaradk",
-		}
-	elseif name == "legavp" then
-		unitDef.buildoptions = {
-			"legacv",
-			"legch",
-			"legavrad",
-			"legsh",
-			"legmrv",
-			"legfloat",
-			"legaskirmtank",
-			"legamcluster",
-			"legvcarry",
-			"legner",
-			"legmh",
-			"legah"
-		}
-	elseif name == "legaap" then
-		unitDef.buildoptions = {
-			"legaca",
-			"corhunt",
-			"corcut",
-			"corsb",
-			"corseap",
-			"corsfig",
-			"legatrans",
-		}
-	elseif name == "legap" then
-		table.removeIf(unitDef.buildoptions, function(v) return transportHeavy[v] end)
-	elseif name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp" then
-		unitDef.metalcost = unitDef.metalcost - 1300
-		unitDef.energycost = unitDef.energycost - 5000
-		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.015) * 100
 	elseif name == "legch" then
-		unitDef.metalcost = unitDef.metalcost * 2
-		unitDef.energycost = unitDef.energycost * 2
-		unitDef.buildtime = unitDef.buildtime * 2
-		unitDef.customparams.techlevel = 2
-	end
-
-	-- T1 Cons
-
-	if name == "legck" then
-		unitDef.buildoptions = {
-			"legsolar",
-			"legwin",
-			"leggeo",
-			"legmstor",
-			"legestor",
-			"legmex",
-			"legeconv",
-			"leglab",
-			"legalab",
-			"legvp",
-			"legap",
-			"legnanotc",
-			"legeyes",
-			"legrad",
-			"legdrag",
-			"leglht",
-			"legrl",
-			"legctl",
-			"legjam",
-			"corsy",
-			"legadvsol",
-			"legmext15",
-			"legcluster",
-			"legrhapsis",
-			"legmg",
-			"legdtr",
-			"leghive",
-			"legjuno",
-		}
-	elseif name == "legca" then
-		unitDef.buildoptions = {
-			"legsolar",
-			"legwin",
-			"leggeo",
-			"legmstor",
-			"legestor",
-			"legmex",
-			"legeconv",
-			"leglab",
-			"legaap",
-			"legvp",
-			"legap",
-			"legnanotc",
-			"legeyes",
-			"legrad",
-			"legdrag",
-			"leglht",
-			"legrl",
-			"legctl",
-			"legjam",
-			"corsy",
-			"legadvsol",
-			"legmext15",
-			"legcluster",
-			"legrhapsis",
-			"legmg",
-			"legdtr",
-			"leghive",
-			"legjuno",
-		}
-	elseif name == "legcv" then
-		unitDef.buildoptions = {
-			"legsolar",
-			"legwin",
-			"leggeo",
-			"legmstor",
-			"legestor",
-			"legmex",
-			"legeconv",
-			"leglab",
-			"legavp",
-			"legvp",
-			"legap",
-			"legnanotc",
-			"legeyes",
-			"legrad",
-			"legdrag",
-			"leglht",
-			"legrl",
-			"legctl",
-			"legjam",
-			"corsy",
-			"legadvsol",
-			"legmext15",
-			"legcluster",
-			"legrhapsis",
-			"legmg",
-			"legdtr",
-			"leghive",
-			"legjuno",
-		}
-	elseif name == "legotter" then
-		unitDef.buildoptions = {
-			"legsolar",
-			"legwin",
-			"leggeo",
-			"legmstor",
-			"legestor",
-			"legmex",
-			"legeconv",
-			"leglab",
-			"legavp",
-			"legvp",
-			"legap",
-			"legnanotc",
-			"legeyes",
-			"legrad",
-			"legdrag",
-			"leglht",
-			"legrl",
-			"legctl",
-			"legjam",
-			"corsy",
-			"legadvsol",
-			"legmext15",
-			"legcluster",
-			"legrhapsis",
-			"legmg",
-			"legdtr",
-			"leghive",
-			"legtide",
-			"legtl",
-			"legfrad",
-			"corasy",
-			"legjuno",
-		}
-	end
-
-	--------------------------
-	-- Legion Air Placeholders
-
-	if name == "legch" then
 		unitDef.buildoptions = {
 			"legadvsol",
 			"legmoho",
@@ -1295,108 +1383,6 @@ local function techsplitTweaks(name, unitDef)
 			"legtl",
 			"corasy",
 			"legabm",
-		}
-	elseif name == "legacv" then
-		unitDef.buildoptions = {
-			"legadvsol",
-			"legmoho",
-			"legapopupdef",
-			"legmg",
-			"legrhapsis",
-			"leglupara",
-			"legjuno",
-			"leghive",
-			"legfus",
-			"legarad",
-			"legajam",
-			"legsd",
-			"leglab",
-			"legavp",
-			"leghavp",
-			"legcluster",
-			"legeconv",
-			"legageo",
-			"legrampart",
-			"legmstor",
-			"legestor",
-			"legcluster",
-			"legmg",
-			"legdl",
-			"legvp",
-			"legap",
-			"corsy",
-			"legnanotc",
-			"legabm",
-			"legctl",
-		}
-	elseif name == "legack" then
-		unitDef.buildoptions = {
-			"legadvsol",
-			"legmoho",
-			"legapopupdef",
-			"legmg",
-			"legrhapsis",
-			"leglupara",
-			"legjuno",
-			"leghive",
-			"legfus",
-			"legarad",
-			"legajam",
-			"legsd",
-			"leglab",
-			"legalab",
-			"leghalab",
-			"legcluster",
-			"legeconv",
-			"legageo",
-			"legrampart",
-			"legmstor",
-			"legestor",
-			"legcluster",
-			"legmg",
-			"legdl",
-			"legvp",
-			"legap",
-			"corsy",
-			"legnanotc",
-			"legabm",
-			"legctl",
-		}
-	elseif name == "legaca" then
-		unitDef.buildpic = "CORCSA.DDS"
-		unitDef.objectname = "Units/CORCSA.s3o"
-		unitDef.script = "Units/CORCSA.cob"
-		unitDef.buildoptions = {
-			"legadvsol",
-			"legmoho",
-			"legapopupdef",
-			"legmg",
-			"legrhapsis",
-			"leglupara",
-			"legjuno",
-			"leghive",
-			"legfus",
-			"legarad",
-			"legajam",
-			"legsd",
-			"leglab",
-			"legaap",
-			"leghaap",
-			"legcluster",
-			"legeconv",
-			"legageo",
-			"legrampart",
-			"legmstor",
-			"legestor",
-			"legcluster",
-			"legmg",
-			"legdl",
-			"legvp",
-			"legap",
-			"corsy",
-			"legnanotc",
-			"legabm",
-			"legctl",
 		}
 	end
 
