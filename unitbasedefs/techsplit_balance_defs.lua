@@ -3,6 +3,13 @@ local function techsplit_balanceTweaks(name, unitDef)
 		unitDef.speed = 54
 		unitDef.weapondefs.arm_ham.range = 300
 		unitDef.weapondefs.arm_ham.predictboost = 0.8
+		unitDef.weapondefs.arm_ham.damage = {
+			default = 150,
+			subs = 50,
+			vtol = 15,
+		}
+		unitDef.weapondefs.arm_ham.reloadtime = 1.73
+		unitDef.weapondefs.arm_ham.areaofeffect = 51
 	elseif name == "armwar" then
 		unitDef.speed = 60
 		unitDef.weapondefs.armwar_laser.range = 280
@@ -11,6 +18,7 @@ local function techsplit_balanceTweaks(name, unitDef)
 		unitDef.weapondefs.cor_bot_rocket.range = 600
 		unitDef.weapondefs.cor_bot_rocket.reloadtime = 4.8
 		unitDef.weapondefs.cor_bot_rocket.damage.default = 198
+		unitDef.weapondefs.cor_bot_rocket.accuracy = 150
 		unitDef.health = 385
 	elseif name == "armrock" then
 		unitDef.speed = 50
@@ -30,6 +38,18 @@ local function techsplit_balanceTweaks(name, unitDef)
 			default = 534,
 			vtol = 48,
 		}
+	elseif name == "armfhlt" then
+		unitDef.health = 7600
+		unitDef.metalcost = 570
+		unitDef.energycost = 7520
+		unitDef.buildtime = 11700
+		unitDef.weapondefs.armfhlt_laser.range = 750
+		unitDef.weapondefs.armfhlt_laser.reloadtime = 1.45
+		unitDef.weapondefs.armfhlt_laser.damage = {
+			commanders = 414,
+			default = 290,
+			vtol = 71,
+		}
 	elseif name == "corhlt" then
 		unitDef.health = 4640
 		unitDef.metalcost = 580
@@ -41,6 +61,18 @@ local function techsplit_balanceTweaks(name, unitDef)
 			commanders = 540,
 			default = 360,
 			vtol = 41,
+		}
+	elseif name == "corfhlt" then
+		unitDef.health = 7340
+		unitDef.metalcost = 580
+		unitDef.energycost = 7520
+		unitDef.buildtime = 13800
+		unitDef.weapondefs.corfhlt_laser.range = 750
+		unitDef.weapondefs.corfhlt_laser.reloadtime = 1.5
+		unitDef.weapondefs.corfhlt_laser.damage = {
+			commanders = 482,
+			default = 319,
+			vtol = 61,
 		}
 	elseif name == "armart" then
 		unitDef.speed = 65
@@ -81,6 +113,7 @@ local function techsplit_balanceTweaks(name, unitDef)
 		unitDef.weapondefs.arm_artillery.hightrajectory = 1
 		unitDef.weapondefs.arm_artillery.range = 1140
 		unitDef.weapondefs.arm_artillery.reloadtime = 3.05
+		unitDef.weapondefs.arm_artillery.weaponvelocity = 500
 		unitDef.weapondefs.arm_artillery.damage = {
 			default = 488,
 			subs = 122,
@@ -129,20 +162,33 @@ local function techsplit_balanceTweaks(name, unitDef)
 		unitDef.weapondefs.bfido.range = 500
 		unitDef.weapondefs.bfido.weaponvelocity = 400
 	elseif name == "cormort" then
-		unitDef.health = 800
 		unitDef.metalcost = 325
+		unitDef.health = 800
 		unitDef.speed = 51
 		unitDef.weapondefs.cor_mort.range = 650
+		unitDef.weapondefs.cor_mort.reloadtime = 3
+		unitDef.weapondefs.cor_mort.areaofeffect = 64
+		unitDef.weapondefs.cor_mort.damage = {
+			default = 250,
+			subs = 83,
+			vtol = 25,
+		}
 	elseif name == "corhrk" then
 		unitDef.turnrate = 600
+		unitDef.weapondefs.corhrk_rocket.areaofeffect = 128
+		unitDef.weapondefs.corhrk_rocket.weapontimer = 4
+		unitDef.weapondefs.corhrk_rocket.flighttime = 22
 		unitDef.weapondefs.corhrk_rocket.range = 900
 		unitDef.weapondefs.corhrk_rocket.weaponvelocity = 600
-		unitDef.weapondefs.corhrk_rocket.flighttime = 22
-		unitDef.weapondefs.corhrk_rocket.reloadtime = 8
 		unitDef.weapondefs.corhrk_rocket.turnrate = 30000
-		unitDef.weapondefs.corhrk_rocket.weapontimer = 4
-		unitDef.weapons[1].maxangledif = 60
+		unitDef.weapondefs.corhrk_rocket.reloadtime = 8
+		unitDef.weapondefs.corhrk_rocket.damage = {
+			default = 1200,
+			subs = 400,
+			vtol = 120,
+		}
 		unitDef.weapons[1].maindir = "0 0 1"
+		unitDef.weapons[1].maxangledif = 60
 	elseif name == "armsptk" then
 		unitDef.metalcost = 500
 		unitDef.speed = 43
@@ -178,7 +224,9 @@ local function techsplit_balanceTweaks(name, unitDef)
 		unitDef.turnrate = 500
 		unitDef.weapondefs.banisher.areaofeffect = 180
 		unitDef.weapondefs.banisher.range = 400
+		unitDef.weapondefs.banisher.weaponvelocity = 864
 	elseif name == "armcroc" then
+		unitDef.health = 5250
 		unitDef.turnrate = 270
 		unitDef.weapondefs.arm_triton.reloadtime = 1.5
 		unitDef.weapondefs.arm_triton.damage = {
@@ -186,9 +234,7 @@ local function techsplit_balanceTweaks(name, unitDef)
 			subs = 111,
 			vtol = 44
 		}
-		unitDef.weapons[2] = {
-			def = "",
-		}
+		table.removeIf(unitDef.weapons, function(v) return v.def == "ARMCL_MISSILE" end)
 	elseif name == "correap" then
 		unitDef.speed = 76
 		unitDef.turnrate = 250
