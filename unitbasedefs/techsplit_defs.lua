@@ -47,10 +47,8 @@ local pinpointers = {
 
 local lolmechs = {
 	armbanth = true,
-	corjugg = true,
-	corkorg = true,
-	legeheatraymech = true,
-	legelrpcmech = true,
+	corjugg = true, corkorg = true,
+	legeheatraymech = true, legelrpcmech = true,
 }
 
 local extractorT2 = {
