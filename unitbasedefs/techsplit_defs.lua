@@ -873,7 +873,7 @@ local function techsplitTweaks(name, unitDef)
 		}
 	end
 
-	-- T3 Gantries
+	-- T4 Gantries
 
 	if name == "armshltx" then
 		unitDef.footprintx = 15
