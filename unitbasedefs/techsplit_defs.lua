@@ -30,6 +30,8 @@ local conTier3 = {
 }
 
 local transportHeavy = {
+	armhvytrans = true,
+	corhvytrans = true,
 	legatrans = true,
 }
 
@@ -780,25 +782,7 @@ local function techsplitTweaks(name, unitDef)
 			"corsfig",
 			"legatrans",
 		}
-	elseif name == "armap" then
-		unitDef.buildoptions = {
-			"armca",
-			"armpeep",
-			"armfig",
-			"armthund",
-			"armatlas",
-			"armkam",
-		}
-	elseif name == "corap" then
-		unitDef.buildoptions = {
-			"corca",
-			"corfink",
-			"corveng",
-			"corshad",
-			"corvalk",
-			"corbw",
-		}
-	elseif name == "legap" then
+	elseif name:match("^...ap$") then
 		table.removeIf(unitDef.buildoptions, function(v) return transportHeavy[v] end)
 	end
 
