@@ -329,6 +329,12 @@ local function techsplit_balanceTweaks(name, unitDef)
 		unitDef.weapondefs.vipersabot.edgeeffectiveness = 0.8
 		unitDef.weapondefs.vipersabot.range = 480
 		unitDef.weapondefs.vipersabot.reloadtime = 3
+	elseif name == "legapopupdef" then
+		unitDef.weapondefs.advanced_riot_cannon.range = 480
+		unitDef.weapondefs.advanced_riot_cannon.reloadtime = 1.5
+		unitDef.weapondefs.standard_minigun.range = 400
+	elseif name == "legmg" then
+		unitDef.weapondefs.armmg_weapon.range = 650
 	end
 
 	return unitDef
