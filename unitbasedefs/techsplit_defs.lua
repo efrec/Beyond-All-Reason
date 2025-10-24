@@ -1172,29 +1172,28 @@ local function techsplitTweaks(name, unitDef)
 		unitDef.customparams.buildinggrounddecalsizez = 18
 	end
 
-	if conTier3[name] then
-		table.removeIf(unitDef.buildoptions, function(v) return lolmechs[v] end)
-	elseif commanders[name] then
-		table.removeIf(unitDef.buildoptions, function(v) return labHover[v] end)
-	end
+	-- General changes
+	-- Costs, remove some build options
 
-	if labTier2[name] then
+	if commanders[name] then
+		table.removeIf(unitDef.buildoptions, function(v) return labHover[v] end)
+	elseif labTier2[name] then
 		-- T2 labs are priced as t1.5 but require more BP
-		-- ! Multiple changes to the same stats on the units?
 		unitDef.metalcost = unitDef.metalcost - 1300
 		unitDef.energycost = unitDef.energycost - 5000
 		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.015) * 100
-	elseif isNowTier2[name] and name:match("ch$") then
+	elseif isNowTier2[name] and name:match("^...ch$") then
 		-- Hover cons are priced as t2 (they are, literally, t2)
 		unitDef.metalcost = unitDef.metalcost * 2
 		unitDef.energycost = unitDef.energycost * 2
 		unitDef.buildtime = unitDef.buildtime * 2
-		unitDef.customparams.techlevel = 2
 	elseif conTier2[name] then
 		-- T2 cons are priced as t1.5 (excludes hovers, see above)
 		unitDef.metalcost = unitDef.metalcost - 200
 		unitDef.energycost = unitDef.energycost - 2000
 		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.008) * 100
+	elseif conTier3[name] then
+		table.removeIf(unitDef.buildoptions, function(v) return lolmechs[v] end)
 	end
 
 	-- T2 mexes upkeep increased, health decreased
