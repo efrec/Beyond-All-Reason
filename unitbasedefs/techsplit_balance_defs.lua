@@ -86,7 +86,7 @@ local function techsplit_balanceTweaks(name, unitDef)
 			subs = 61,
 			vtol = 20,
 		}
-		unitDef.weapons[1].maxangledif = 30
+		unitDef.weapons[1].maxangledif = 120
 	elseif name == "corwolv" then
 		unitDef.speed = 62
 		unitDef.turnrate = 250
@@ -99,7 +99,7 @@ local function techsplit_balanceTweaks(name, unitDef)
 			subs = 95,
 			vtol = 38,
 		}
-		unitDef.weapons[1].maxangledif = 30
+		unitDef.weapons[1].maxangledif = 120
 	elseif name == "armmart" then
 		unitDef.metalcost = 400
 		unitDef.energycost = 5500
@@ -119,7 +119,7 @@ local function techsplit_balanceTweaks(name, unitDef)
 			subs = 122,
 			vtol = 49,
 		}
-		unitDef.weapons[1].maxangledif = 30
+		unitDef.weapons[1].maxangledif = 120
 	elseif name == "cormart" then
 		unitDef.metalcost = 600
 		unitDef.energycost = 6600
@@ -156,7 +156,7 @@ local function techsplit_balanceTweaks(name, unitDef)
 				vtol = 120,
 			},
 		}
-		unitDef.weapons[1].maxangledif = 30
+		unitDef.weapons[1].maxangledif = 120
 	elseif name == "armfido" then
 		unitDef.speed = 74
 		unitDef.weapondefs.bfido.range = 500
