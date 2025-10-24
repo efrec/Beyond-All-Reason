@@ -319,6 +319,16 @@ local function techsplit_balanceTweaks(name, unitDef)
 			subs = 21,
 			vtol = 22,
 		}
+	elseif name == "armpb" then
+		unitDef.health = 3360
+		unitDef.weapondefs.armpb_weapon.range = 500
+		unitDef.weapondefs.armpb_weapon.reloadtime = 1.2
+	elseif name == "corvipe" then
+		unitDef.health = 3600
+		unitDef.weapondefs.vipersabot.areaofeffect = 96
+		unitDef.weapondefs.vipersabot.edgeeffectiveness = 0.8
+		unitDef.weapondefs.vipersabot.range = 480
+		unitDef.weapondefs.vipersabot.reloadtime = 3
 	end
 
 	return unitDef
