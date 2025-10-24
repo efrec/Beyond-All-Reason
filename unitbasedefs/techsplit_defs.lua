@@ -165,17 +165,6 @@ local function techsplitTweaks(name, unitDef)
 			"legmh",
 			"legah"
 		}
-	elseif name == "legap" then
-		table.removeIf(unitDef.buildoptions, function(v) return transportHeavy[v] end)
-	elseif name == "legaap" or name == "legasy" or name == "legalab" or name == "legavp" then
-		unitDef.metalcost = unitDef.metalcost - 1300
-		unitDef.energycost = unitDef.energycost - 5000
-		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.015) * 100
-	elseif name == "legch" then
-		unitDef.metalcost = unitDef.metalcost * 2
-		unitDef.energycost = unitDef.energycost * 2
-		unitDef.buildtime = unitDef.buildtime * 2
-		unitDef.customparams.techlevel = 2
 	end
 
 	-- Land Cons
@@ -809,6 +798,8 @@ local function techsplitTweaks(name, unitDef)
 			"corvalk",
 			"corbw",
 		}
+	elseif name == "legap" then
+		table.removeIf(unitDef.buildoptions, function(v) return transportHeavy[v] end)
 	end
 
 	-- Air Cons
@@ -1209,7 +1200,7 @@ local function techsplitTweaks(name, unitDef)
 		unitDef.metalcost = unitDef.metalcost - 1300
 		unitDef.energycost = unitDef.energycost - 5000
 		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.015) * 100
-	elseif isNowTier2[name] and (name == "armch" or name == "corch" or name == "legch") then
+	elseif isNowTier2[name] and name:match("ch$") then
 		-- Hover cons are priced as t2 (they are, literally, t2)
 		unitDef.metalcost = unitDef.metalcost * 2
 		unitDef.energycost = unitDef.energycost * 2
@@ -1243,13 +1234,13 @@ local function techsplitTweaks(name, unitDef)
 
 	-- T2 ship jammers get radar
 
-	if name == "armsjam" or name == "corsjam" then
+	if name:match("sjam$") then
 		unitDef.metalcost = unitDef.metalcost + 90
 		unitDef.energycost = unitDef.energycost + 1050
 		unitDef.buildtime = unitDef.buildtime + 3000
 		unitDef.radarDistance = 2200
 		unitDef.sightdistance = 900
-	elseif name == "armantiship" or name == "corantiship" then
+	elseif name:match("antiship$") then
 		-- And somewhat vice-versa
 		unitDef.radardistancejam = 450
 	end
