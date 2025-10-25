@@ -1176,6 +1176,7 @@ local function techsplitTweaks(name, unitDef)
 	-- Costs, remove some build options
 
 	if commanders[name] then
+		-- Hovers are T2 labs, buildable only through cons.
 		table.removeIf(unitDef.buildoptions, function(v) return labHover[v] end)
 	elseif labTier2[name] then
 		-- T2 labs are priced as t1.5 but require more BP
