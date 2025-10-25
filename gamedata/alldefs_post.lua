@@ -74,6 +74,18 @@ local function processWeapons(unitDefName, unitDef)
 	end
 end
 
+local techSplitModifyDef, techSplitBalanceDef
+
+if Spring.GetModOptions().techsplit then
+	local techsplitUnits = VFS.Include("unitbasedefs/techsplit_defs.lua")
+	techSplitModifyDef = techsplitUnits.techsplitTweaks
+end
+
+if Spring.GetModOptions().techsplit_balance then
+	local techsplit_balanceUnits = VFS.Include("unitbasedefs/techsplit_balance_defs.lua")
+	techSplitBalanceDef = techsplit_balanceUnits.techsplit_balanceTweaks
+end
+
 function UnitDef_Post(name, uDef)
 	local modOptions = Spring.GetModOptions()
 
@@ -1406,20 +1418,15 @@ function UnitDef_Post(name, uDef)
 		end
 	end
 
-	----------------
-	-- Tech Split --
-	----------------
+	-- Tech Split Modoption
 
 	if modOptions.techsplit == true then
-		local techsplitUnits = VFS.Include("unitbasedefs/techsplit_defs.lua")
-		uDef = techsplitUnits.techsplitTweaks(name, uDef)
+		uDef = techSplitModifyDef(name, uDef)
 	end
 
 	if modOptions.techsplit_balance == true then
-		local techsplit_balanceUnits = VFS.Include("unitbasedefs/techsplit_balance_defs.lua")
-		uDef = techsplit_balanceUnits.techsplit_balanceTweaks(name, uDef)
+		uDef = techSplitBalanceDef(name, uDef)
 	end
-
 
 	-- Multipliers Modoptions
 
