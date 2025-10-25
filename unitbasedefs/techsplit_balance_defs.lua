@@ -11,21 +11,21 @@ local function techsplit_balanceTweaks(name, unitDef)
 		unitDef.weapondefs.arm_ham.reloadtime = 1.73
 		unitDef.weapondefs.arm_ham.areaofeffect = 51
 	elseif name == "armwar" then
-		unitDef.speed = 60
-		unitDef.weapondefs.armwar_laser.range = 280
+		unitDef.speed = 56
+		unitDef.weapondefs.armwar_laser.range = 290
 	elseif name == "corstorm" then
-		unitDef.speed = 45
-		unitDef.weapondefs.cor_bot_rocket.range = 600
-		unitDef.weapondefs.cor_bot_rocket.reloadtime = 4.8
-		unitDef.weapondefs.cor_bot_rocket.damage.default = 198
+		unitDef.health = 250
+		unitDef.speed = 42
 		unitDef.weapondefs.cor_bot_rocket.accuracy = 150
-		unitDef.health = 385
+		unitDef.weapondefs.cor_bot_rocket.range = 600
+		unitDef.weapondefs.cor_bot_rocket.reloadtime = 5.5
+		unitDef.weapondefs.cor_bot_rocket.damage.default = 198
 	elseif name == "armrock" then
-		unitDef.speed = 50
+		unitDef.health = 240
+		unitDef.speed = 48
 		unitDef.weapondefs.arm_bot_rocket.range = 575
-		unitDef.weapondefs.arm_bot_rocket.reloadtime = 4.6
+		unitDef.weapondefs.arm_bot_rocket.reloadtime = 5.4
 		unitDef.weapondefs.arm_bot_rocket.damage.default = 190
-		unitDef.health = 390
 	elseif name == "armhlt" then
 		unitDef.health = 4640
 		unitDef.metalcost = 535
@@ -137,9 +137,9 @@ local function techsplit_balanceTweaks(name, unitDef)
 			edgeeffectiveness = 0.65,
 			explosiongenerator = "custom:genericshellexplosion-large-bomb",
 			gravityaffected = "true",
-			mygravity = 0.1,
 			hightrajectory = 1,
 			impulsefactor = 0.123,
+			mygravity = 0.1,
 			name = "PlasmaCannon",
 			noselfdamage = true,
 			range = 1050,
@@ -162,12 +162,12 @@ local function techsplit_balanceTweaks(name, unitDef)
 		unitDef.weapondefs.bfido.range = 500
 		unitDef.weapondefs.bfido.weaponvelocity = 400
 	elseif name == "cormort" then
-		unitDef.metalcost = 325
+		unitDef.metalcost = 400
 		unitDef.health = 800
-		unitDef.speed = 51
+		unitDef.speed = 47
+		unitDef.weapondefs.cor_mort.areaofeffect = 64
 		unitDef.weapondefs.cor_mort.range = 650
 		unitDef.weapondefs.cor_mort.reloadtime = 3
-		unitDef.weapondefs.cor_mort.areaofeffect = 64
 		unitDef.weapondefs.cor_mort.damage = {
 			default = 250,
 			subs = 83,
@@ -188,7 +188,7 @@ local function techsplit_balanceTweaks(name, unitDef)
 			vtol = 120,
 		}
 		unitDef.weapons[1].maindir = "0 0 1"
-		unitDef.weapons[1].maxangledif = 60
+		unitDef.weapons[1].maxangledif = 120
 	elseif name == "armsptk" then
 		unitDef.metalcost = 500
 		unitDef.speed = 43
@@ -199,7 +199,7 @@ local function techsplit_balanceTweaks(name, unitDef)
 		unitDef.weapondefs.adv_rocket.customparams.overrange_distance = 800
 		unitDef.weapondefs.adv_rocket.weapontimer = 8
 		unitDef.weapondefs.adv_rocket.flighttime = 4
-		unitDef.weapons[1].maxangledif = 45
+		unitDef.weapons[1].maxangledif = 120
 		unitDef.weapons[1].maindir = "0 0 1"
 	elseif name == "corshiva" then
 		unitDef.speed = 55
