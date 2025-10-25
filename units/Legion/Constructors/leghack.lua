@@ -68,8 +68,6 @@ return {
 			[30] = "legfus",
 			[31] = "legsd",
 			[32] = "leglab",
-			[33] = "legeheatraymech",
-			[34] = "legelrpcmech",
 		},
 		customparams = {
 			unitgroup = 'buildert2',

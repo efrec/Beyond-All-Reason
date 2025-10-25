@@ -1193,8 +1193,6 @@ local function techsplitTweaks(name, unitDef)
 		unitDef.metalcost = unitDef.metalcost - 200
 		unitDef.energycost = unitDef.energycost - 2000
 		unitDef.buildtime = math.ceil(unitDef.buildtime * 0.008) * 100
-	elseif conTier3[name] then
-		table.removeIf(unitDef.buildoptions, function(v) return lolmechs[v] end)
 	end
 
 	-- T2 mexes upkeep increased, health decreased
