@@ -1420,11 +1420,11 @@ function UnitDef_Post(name, uDef)
 
 	-- Tech Split Modoption
 
-	if modOptions.techsplit == true then
+	if techSplitModifyDef then
 		uDef = techSplitModifyDef(name, uDef)
 	end
 
-	if modOptions.techsplit_balance == true then
+	if techSplitBalanceDef then
 		uDef = techSplitBalanceDef(name, uDef)
 	end
 
