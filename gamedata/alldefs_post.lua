@@ -92,6 +92,109 @@ do
 	}
 end
 
+----------------------------------------------------------------------
+-- CATEGORY ASSIGNER
+----------------------------------------------------------------------
+
+local hoverList = {
+	HOVER2 = true,
+	HOVER3 = true,
+	HHOVER4 = true,
+	HOVER5 = true
+}
+
+local shipList = {
+	BOAT3 = true,
+	BOAT4 = true,
+	BOAT5 = true,
+	BOAT8 = true,
+	EPICSHIP = true
+}
+
+local subList = {
+	UBOAT4 = true,
+	EPICSUBMARINE = true
+}
+
+local amphibList = {
+	VBOT6 = true,
+	COMMANDERBOT = true,
+	SCAVCOMMANDERBOT = true,
+	ATANK3 = true,
+	ABOT2 = true,
+	HABOT5 = true,
+	ABOTBOMB2 = true,
+	EPICBOT = true,
+	EPICALLTERRAIN = true
+}
+
+local commanderList = {
+	COMMANDERBOT = true,
+	SCAVCOMMANDERBOT = true
+}
+
+local categories -- for lexical scope; see below
+
+categories = {
+	-- Manual categories: OBJECT T4AIR LIGHTAIRSCOUT GROUNDSCOUT RAPTOR
+	-- Deprecated caregories: BOT TANK PHIB NOTLAND SPACE
+	ALL = function() return true end,
+	MOBILE = function(uDef)
+		return uDef.speed and uDef.speed > 0
+	end,
+	NOTMOBILE = function(uDef)
+		return not categories.MOBILE(uDef)
+	end,
+	WEAPON = function(uDef)
+		return uDef.weapondefs ~= nil
+	end,
+	NOWEAPON = function(uDef)
+		return not categories.WEAPON(uDef)
+	end,
+	VTOL = function(uDef)
+		return uDef.canfly == true
+	end,
+	NOTAIR = function(uDef)
+		return not categories.VTOL(uDef)
+	end,
+	-- convertible tank/boats have maxwaterdepth:
+	HOVER = function(uDef)
+		return hoverList[uDef.movementclass] and (uDef.maxwaterdepth == nil or uDef.maxwaterdepth < 1)
+	end,
+	NOTHOVER = function(uDef)
+		return not categories.HOVER(uDef)
+	end,
+	SHIP = function(uDef)
+		return shipList[uDef.movementclass]
+			or (hoverList[uDef.movementclass] and uDef.maxwaterdepth and uDef.maxwaterdepth >= 1)
+	end,
+	NOTSHIP = function(uDef)
+		return not categories.SHIP(uDef)
+	end,
+	NOTSUB = function(uDef)
+		return not subList[uDef.movementclass]
+	end,
+	CANBEUW = function(uDef)
+		return amphibList[uDef.movementclass] or uDef.cansubmerge == true
+	end,
+	UNDERWATER = function(uDef)
+		return (uDef.minwaterdepth and uDef.waterline == nil)
+			or (uDef.minwaterdepth and uDef.waterline > uDef.minwaterdepth and uDef.speed and uDef.speed > 0)
+	end,
+	SURFACE = function(uDef)
+		return not (categories.UNDERWATER(uDef) and categories.MOBILE(uDef)) and not categories.VTOL(uDef)
+	end,
+	MINE = function(uDef)
+		return uDef.weapondefs and uDef.weapondefs.minerange
+	end,
+	COMMANDER = function(uDef)
+		return commanderList[uDef.movementclass]
+	end,
+	EMPABLE = function(uDef)
+		return categories.SURFACE(uDef) and uDef.customparams and uDef.customparams.paralyzemultiplier ~= 0
+	end,
+}
+
 ---Sequence of effects that are applied during `UnitDef_Post`.
 ---@type function[]
 local unitDefPostEffectList = {
@@ -116,6 +219,19 @@ local unitDefPostEffectList = {
 		unitDef.customparams.isscavengerunit = name:match("_scav$")
 		unitDef.customparams.subfolder = unitDef.customparams.subfolder or "none"
 		unitDef.customparams.techlevel = unitDef.customparams.techlevel or 1
+		unitDef.category = unitDef.category or ""
+		if string.find(unitDef.category, "OBJECT") then
+			-- Objects should not be targetable and therefore are not assigned any other category
+			unitDef.category = "OBJECT"
+		else
+			for categoryName, condition in pairs(categories) do
+				if unitDef.exemptcategory == nil or not string.find(unitDef.exemptcategory, categoryName) then
+					if condition(unitDef) then
+						unitDef.category = unitDef.category .. " " .. categoryName
+					end
+				end
+			end
+		end
 
 		-- Global physics behaviors
 		if unitDef.health then
@@ -894,83 +1010,6 @@ function UnitDef_Post(name, uDef)
 
 	if uDef.health and uDef.customparams.israptorunit then
 		applyRaptorEffect(name, uDef)
-	end
-
-	----------------------------------------------------------------------
-	-- CATEGORY ASSIGNER
-	----------------------------------------------------------------------
-
-	-- uDef.movementclass lists
-	local hoverList = {
-		HOVER2 = true,
-		HOVER3 = true,
-		HHOVER4 = true,
-		HOVER5 = true
-	}
-
-	local shipList = {
-		BOAT3 = true,
-		BOAT4 = true,
-		BOAT5 = true,
-		BOAT8 = true,
-		EPICSHIP = true
-	}
-
-	local subList = {
-		UBOAT4 = true,
-		EPICSUBMARINE = true
-	}
-
-	local amphibList = {
-		VBOT6 = true,
-		COMMANDERBOT = true,
-		SCAVCOMMANDERBOT = true,
-		ATANK3 = true,
-		ABOT2 = true,
-		HABOT5 = true,
-		ABOTBOMB2 = true,
-		EPICBOT = true,
-		EPICALLTERRAIN = true
-	}
-
-	local commanderList = {
-		COMMANDERBOT = true,
-		SCAVCOMMANDERBOT = true
-	}
-
-	local categories = {}
-
-	-- Manual categories: OBJECT T4AIR LIGHTAIRSCOUT GROUNDSCOUT RAPTOR
-	-- Deprecated caregories: BOT TANK PHIB NOTLAND SPACE
-
-	categories["ALL"] = function() return true end
-	categories["MOBILE"] = function(uDef) return uDef.speed and uDef.speed > 0 end
-	categories["NOTMOBILE"] = function(uDef) return not categories.MOBILE(uDef) end
-	categories["WEAPON"] = function(uDef) return uDef.weapondefs ~= nil end
-	categories["NOWEAPON"] = function(uDef) return not categories.WEAPON(uDef) end
-	categories["VTOL"] = function(uDef) return uDef.canfly == true end
-	categories["NOTAIR"] = function(uDef) return not categories.VTOL(uDef) end
-	categories["HOVER"] = function(uDef) return hoverList[uDef.movementclass] and (uDef.maxwaterdepth == nil or uDef.maxwaterdepth < 1) end -- convertible tank/boats have maxwaterdepth
-	categories["NOTHOVER"] = function(uDef) return not categories.HOVER(uDef) end
-	categories["SHIP"] = function(uDef) return shipList[uDef.movementclass] or (hoverList[uDef.movementclass] and uDef.maxwaterdepth and uDef.maxwaterdepth >=1) end
-	categories["NOTSHIP"] = function(uDef) return not categories.SHIP(uDef) end
-	categories["NOTSUB"] = function(uDef) return not subList[uDef.movementclass] end
-	categories["CANBEUW"] = function(uDef) return amphibList[uDef.movementclass] or uDef.cansubmerge == true end
-	categories["UNDERWATER"] = function(uDef) return (uDef.minwaterdepth and uDef.waterline == nil) or (uDef.minwaterdepth and uDef.waterline > uDef.minwaterdepth and uDef.speed and uDef.speed > 0) end
-	categories["SURFACE"] = function(uDef) return not (categories.UNDERWATER(uDef) and categories.MOBILE(uDef)) and not categories.VTOL(uDef) end
-	categories["MINE"] = function(uDef) return uDef.weapondefs and uDef.weapondefs.minerange end
-	categories["COMMANDER"] = function(uDef) return commanderList[uDef.movementclass] end
-	categories["EMPABLE"] = function(uDef) return categories.SURFACE(uDef) and uDef.customparams and uDef.customparams.paralyzemultiplier ~= 0 end
-
-	uDef.category = uDef.category or ""
-	if not string.find(uDef.category, "OBJECT") then -- objects should not be targetable and therefore are not assigned any other category
-		for categoryName, condition in pairs(categories) do
-			if uDef.exemptcategory == nil or not string.find(uDef.exemptcategory, categoryName) then
-				if condition(uDef) then
-						uDef.category = uDef.category.." " .. categoryName
-				end
-			end
-		end
 	end
 
 	--Juno Rework
