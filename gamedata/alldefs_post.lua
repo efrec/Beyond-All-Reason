@@ -1448,161 +1448,154 @@ end
 -- WEAP DEF PROCESSING --
 -------------------------
 
-local function ProcessSoundDefaults(wd)
-	local forceSetVolume = not wd.soundstartvolume or not wd.soundhitvolume or not wd.soundhitwetvolume
-	if not forceSetVolume then
-		return
-	end
+local weaponDefPostEffectList = {} ---@type function[]
+local weaponDefPostReworkList = {} ---@type function[]
+local weaponPostDefMultiplierList = {} ---@type function[]
 
-	local defaultDamage = wd.damage and wd.damage.default
+do
+	local soundVolumeMinimum = 5
+	local isNonstandardGravityUnit = {
+		'cormship_',
+		'armmship_'
+	}
 
-	if not defaultDamage or defaultDamage <= 50 then
-		-- old filter that gave small weapons a base-minumum sound volume, now fixed with noew math.min(math.max)
-		-- if not defaultDamage then
-		wd.soundstartvolume = 5
-		wd.soundhitvolume = 5
-		wd.soundhitwetvolume = 5
-		return
-	end
-
-	local soundVolume = math.sqrt(defaultDamage * 0.5)
-
-	if wd.weapontype == "LaserCannon" then
-		soundVolume = soundVolume * 0.5
-	end
-
-	if not wd.soundstartvolume then
-		wd.soundstartvolume = soundVolume
-	end
-	if not wd.soundhitvolume then
-		wd.soundhitvolume = soundVolume
-	end
-	if not wd.soundhitwetvolume then
-		if wd.weapontype == "LaserCannon" or "BeamLaser" then
-			wd.soundhitwetvolume = soundVolume * 0.3
-		else
-			wd.soundhitwetvolume = soundVolume * 1.4
+	-- General weapon def transformations
+	table.insert(weaponDefPostEffectList, function(name, wDef)
+		-- Ensure that subtables exist.
+		wDef.customparams = wDef.customparams or {}
+		if not wDef.shield then
+			wDef.damage = wDef.damage or {}
 		end
-	end
-end
 
--- process weapondef
-function WeaponDef_Post(name, wDef)
-	local modOptions = Spring.GetModOptions()
-
-	if not SaveDefsToCustomParams then
-		-------------- EXPERIMENTAL MODOPTIONS
-
-		-- Standard Gravity
-		local gravityOverwriteExemptions = { --add the name of the weapons (or just the name of the unit followed by _ ) to this table to exempt from gravity standardization.
-			'cormship_', 'armmship_'
-		}
-		if wDef.gravityaffected == "true" and wDef.mygravity == nil then
-			local isExempt = false
-
-			for _, exemption in ipairs(gravityOverwriteExemptions) do
-				if string.find(name, exemption) then
-					isExempt = true
-					break
+		-- Sound defaults
+		if not wDef.soundstartvolume or not wDef.soundhitvolume or not wDef.soundhitwetvolume then
+			local defaultDamage = wDef.damage and wDef.damage.default or 0
+			if defaultDamage <= 50 then
+				wDef.soundstartvolume = soundVolumeMinimum
+				wDef.soundhitvolume = soundVolumeMinimum
+				wDef.soundhitwetvolume = soundVolumeMinimum
+			else
+				local soundVolume = math.sqrt(defaultDamage * 0.5)
+				if wDef.weapontype == "LaserCannon" then
+					soundVolume = soundVolume * 0.5
+				end
+				if not wDef.soundstartvolume then
+					wDef.soundstartvolume = soundVolume
+				end
+				if not wDef.soundhitvolume then
+					wDef.soundhitvolume = soundVolume
+				end
+				if not wDef.soundhitwetvolume then
+					if wDef.weapontype == "LaserCannon" or wDef.weapontype == "BeamLaser" then
+						wDef.soundhitwetvolume = soundVolume * 0.3
+					else
+						wDef.soundhitwetvolume = soundVolume * 1.4
+					end
 				end
 			end
-			if not isExempt then
+		end
+
+		-- Gravity standardization
+		if wDef.gravityaffected == "true" and wDef.mygravity == nil then
+			if table.any(isNonstandardGravityUnit, function(v) return isNonstandardGravityUnit[v] end) then
 				wDef.mygravity = 0.1445
 			end
 		end
 
-		----EMP rework
+		-- Shield interception standardization
+		if wDef.weapontype == "DGun" then
+			wDef.interceptedbyshieldtype = 512 -- default (0) is not interceptable
+		elseif wDef.weapontype == "StarburstLauncher" and not string.find(name, "raptor") then
+			wDef.interceptedbyshieldtype = 1024 -- distinguish from MissileLauncher (except raptors)
+		end
+	end)
+end
 
-		if modOptions.emprework then
-			if name == 'empblast' then
+-- DO NOT BAKE/SAVE EXPERIMENTAL MODOPTIONS TO PARAMS --
+if not SaveDefsToCustomParams then
+	if modOptions.emprework then
+		table.insert(weaponDefPostReworkList, function(name, wDef)
+			if name == "empblast" then
 				wDef.areaofeffect = 350
 				wDef.edgeeffectiveness = 0.6
 				wDef.paralyzetime = 12
 				wDef.damage.default = 50000
-			end
-			if name == 'spybombx' then
+			elseif name == "spybombx" then
 				wDef.areaofeffect = 350
 				wDef.edgeeffectiveness = 0.4
 				wDef.paralyzetime = 20
 				wDef.damage.default = 16000
-			end
-			if name == 'spybombxscav' then
+			elseif name == "spybombxscav" then
 				wDef.edgeeffectiveness = 0.50
 				wDef.paralyzetime = 12
 				wDef.damage.default = 35000
 			end
-		end
+		end)
+	end
 
-		--Air rework
-		if modOptions.air_rework == true then
+	if modOptions.air_rework then
+		table.insert(weaponDefPostReworkList, function(name, wDef)
 			if wDef.weapontype == "BeamLaser" then
 				wDef.damage.vtol = wDef.damage.default * 0.25
-			end
-			if wDef.range == 300 and wDef.reloadtime == 0.4 then
-				--comm lasers
+			elseif wDef.range == 300 and wDef.reloadtime == 0.4 then
+				--comm lasers -- ! why would you do this
 				wDef.damage.vtol = wDef.damage.default
-			end
-			if wDef.weapontype == "Cannon" and wDef.damage.default ~= nil then
+			elseif wDef.weapontype == "Cannon" and wDef.damage.default ~= nil then
 				wDef.damage.vtol = wDef.damage.default * 0.35
 			end
-		end
+		end)
+	end
 
-		--[[Skyshift: Air rework
-		if Spring.GetModOptions().skyshift == true then
-			skyshiftUnits = VFS.Include("unitbasedefs/skyshiftunits_post.lua")
-			wDef = skyshiftUnits.skyshiftWeaponTweaks(name, wDef)
-		end]]
+	local shieldModOption = modOptions.experimentalshields
 
-		---- SHIELD CHANGES
-
-		if wDef.weapontype == "DGun" then
-			wDef.interceptedbyshieldtype = 512 --make dgun (like behemoth) interceptable by shields, optionally
-		elseif wDef.weapontype == "StarburstLauncher" and not string.find(name, "raptor") then
-			wDef.interceptedbyshieldtype = 1024 --separate from combined MissileLauncher, except raptors
-		end
-
-		local shieldModOption = modOptions.experimentalshields
-
-		if shieldModOption == "absorbplasma" then
-			if wDef.shield and wDef.shield.repulser and wDef.shield.repulser ~= false then
+	if shieldModOption == "absorbplasma" then
+		table.insert(weaponDefPostReworkList, function(name, wDef)
+			if wDef.shield and wDef.shield.repulser ~= false then
 				wDef.shield.repulser = false
 			end
-		elseif shieldModOption == "absorbeverything" then
-			if wDef.shield and wDef.shield.repulser and wDef.shield.repulser ~= false then
+		end)
+	elseif shieldModOption == "absorbeverything" then
+		table.insert(weaponDefPostReworkList, function(name, wDef)
+			if wDef.shield and wDef.shield.repulser ~= false then
 				wDef.shield.repulser = false
-			end
-			if (not wDef.interceptedbyshieldtype) or wDef.interceptedbyshieldtype ~= 1 then
+			elseif not wDef.interceptedbyshieldtype or wDef.interceptedbyshieldtype ~= 1 then
 				wDef.interceptedbyshieldtype = 1
 			end
-		elseif shieldModOption == "bounceeverything" then
+		end)
+	elseif shieldModOption == "bounceeverything" then
+		table.insert(weaponDefPostReworkList, function(name, wDef)
 			if wDef.shield then
 				wDef.shield.repulser = true
-			end
-			if (not wDef.interceptedbyshieldtype) or wDef.interceptedbyshieldtype ~= 1 then
+			else
 				wDef.interceptedbyshieldtype = 1
 			end
-		end
+		end)
+	end
 
-		--Shields Rework
-		if modOptions.shieldsrework == true then
-			-- To compensate for always taking full damage from projectiles in contrast to bounce-style only taking partial
-			local shieldPowerMultiplier = 1.9
-			local shieldRegenMultiplier = 2.5
-			local shieldRechargeCostMultiplier = 1
+	if modOptions.shieldsrework then
+		-- To compensate for always taking full damage from projectiles in contrast to bounce-style only taking partial
+		local shieldPowerMultiplier = 1.9
+		local shieldRegenMultiplier = 2.5
+		local shieldRechargeCostMultiplier = 1
 
-			-- For balance, paralyzers need to do reduced damage to shields, as their raw raw damage is outsized
-			local paralyzerShieldDamageMultiplier = 0.25
+		-- For balance, paralyzers need to do reduced damage to shields, as their raw raw damage is outsized
+		local paralyzerShieldDamageMultiplier = 0.25
 
-			-- VTOL's may or may not do full damage to shields if not defined in weapondefs
-			local vtolShieldDamageMultiplier = 0
+		-- VTOL's may or may not do full damage to shields if not defined in weapondefs
+		local vtolShieldDamageMultiplier = 0
 
-			local shieldCollisionExemptions = { --add the name of the weapons (or just the name of the unit followed by _ ) to this table to exempt from shield collision.
-			'corsilo_', 'armsilo_', 'armthor_empmissile', 'armemp_', 'cortron_', 'corjuno_', 'armjuno_',
-			}
+		local shieldCollisionExemptions = {
+			'corsilo_', -- partial weapon name
+			'armsilo_',
+			'armthor_empmissile', -- or full
+			'armemp_',
+			'cortron_',
+			'corjuno_',
+			'armjuno_',
+		}
 
-			if wDef.damage ~= nil then
-				-- Due to the engine not handling overkill damage, we have to store the original shield damage values as a customParam for unit_shield_behavior.lua to reference
-				wDef.customparams = wDef.customparams or {}
+		table.insert(weaponDefPostReworkList, function(name, wDef)
+			if wDef.damage then
 				if wDef.damage.shields then
 					wDef.customparams.shield_damage = wDef.damage.shields
 				elseif wDef.damage.default then
@@ -1617,20 +1610,18 @@ function WeaponDef_Post(name, wDef)
 					wDef.customparams.shield_damage = wDef.customparams.shield_damage * paralyzerShieldDamageMultiplier
 				end
 
-				-- Set damage to 0 so projectiles always collide with shield. Without this, if damage > shield charge then it passes through.
-				-- Applying damage is instead handled in unit_shield_behavior.lua
+				-- Set damage to 0 so projectiles never break through/bypass the shield natively.
+				-- Shield damage is applied and breakthrough handled via unit_shield_behavior.lua.
 				wDef.damage.shields = 0
 
 				if wDef.beamtime and wDef.beamtime > 1 / Game.gameSpeed then
-					 -- This splits up the damage of hitscan weapons over the duration of beamtime, as each frame counts as a hit in ShieldPreDamaged() callin
-					 -- Math.floor is used to sheer off the extra digits of the number of frames that the hits occur
+					-- This splits up the damage of hitscan weapons over the duration of beamtime, as each frame counts as a hit in ShieldPreDamaged() callin
+					-- Math.floor is used to sheer off the extra digits of the number of frames that the hits occur
 					wDef.customparams.beamtime_damage_reduction_multiplier = 1 / math.floor(wDef.beamtime * Game.gameSpeed)
 				end
-			end
-
-			if wDef.shield then
+			elseif wDef.shield then
 				wDef.shield.exterior = true
-				if wDef.shield.repulser == true then --isn't an evocom
+				if wDef.shield.repulser then -- isn't an evocom -- ! fixme: not a valid assumption
 					wDef.shield.powerregen = wDef.shield.powerregen * shieldRegenMultiplier
 					wDef.shield.power = wDef.shield.power * shieldPowerMultiplier
 					wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * shieldRechargeCostMultiplier
@@ -1650,123 +1641,124 @@ function WeaponDef_Post(name, wDef)
 					break
 				end
 			end
-		end
-
-		if modOptions.multiplier_shieldpower then
-			if wDef.shield then
-				local multiplier = modOptions.multiplier_shieldpower
-				if wDef.shield.power then
-					wDef.shield.power = wDef.shield.power * multiplier
-				end
-				if wDef.shield.powerregen then
-					wDef.shield.powerregen = wDef.shield.powerregen * multiplier
-				end
-				if wDef.shield.powerregenenergy then
-					wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * multiplier
-				end
-				if wDef.shield.startingpower then
-					wDef.shield.startingpower = wDef.shield.startingpower * multiplier
-				end
-			end
-		end
-		----------------------------------------
-
-		--Use targetborderoverride in weapondef customparams to override this global setting
-		--Controls whether the weapon aims for the center or the edge of its target's collision volume. Clamped between -1.0 - target the far border, and 1.0 - target the near border.
-		if wDef.customparams and wDef.customparams.targetborderoverride == nil then
-			wDef.targetborder = 1 --Aim for just inside the hitsphere
-		elseif wDef.customparams and wDef.customparams.targetborderoverride ~= nil then
-			wDef.targetborder = tonumber(wDef.customparams.targetborderoverride)
-		end
-
-		if wDef.craterareaofeffect then
-			wDef.cratermult = (wDef.cratermult or 0) + wDef.craterareaofeffect / 2000
-		end
-
-		-- Target borders of unit hitboxes rather than center (-1 = far border, 0 = center, 1 = near border)
-		-- wDef.targetborder = 1.0
-
-		if wDef.weapontype == "Cannon" then
-			if not wDef.model then
-				-- do not cast shadows on plasma shells
-				wDef.castshadow = false
-			end
-
-			if wDef.stages == nil then
-				wDef.stages = 10
-				if wDef.damage ~= nil and wDef.damage.default ~= nil and wDef.areaofeffect ~= nil then
-					wDef.stages = math.floor(7.5 + math.min(wDef.damage.default * 0.0033, wDef.areaofeffect * 0.13))
-					wDef.alphadecay = 1 - ((1 / wDef.stages) / 1.5)
-					wDef.sizedecay = 0.4 / wDef.stages
-				end
-			end
-		end
-
-		if modOptions.xmas and wDef.weapontype == "StarburstLauncher" and wDef.model and VFS.FileExists('objects3d\\candycane_' .. wDef.model) then
-			wDef.model = 'candycane_' .. wDef.model
-		end
-
-		-- prepared to strip these customparams for when we remove old deferred lighting widgets
-		--if wDef.customparams then
-		--	wDef.customparams.expl_light_opacity = nil
-		--	wDef.customparams.expl_light_heat_radius = nil
-		--	wDef.customparams.expl_light_radius = nil
-		--	wDef.customparams.expl_light_color = nil
-		--	wDef.customparams.expl_light_nuke = nil
-		--	wDef.customparams.expl_light_skip = nil
-		--	wDef.customparams.expl_light_heat_life_mult = nil
-		--	wDef.customparams.expl_light_heat_radius_mult = nil
-		--	wDef.customparams.expl_light_heat_strength_mult = nil
-		--	wDef.customparams.expl_light_life = nil
-		--	wDef.customparams.expl_light_life_mult = nil
-		--	wDef.customparams.expl_noheatdistortion = nil
-		--	wDef.customparams.light_skip = nil
-		--	wDef.customparams.light_fade_time = nil
-		--	wDef.customparams.light_fade_offset = nil
-		--	wDef.customparams.light_beam_mult = nil
-		--	wDef.customparams.light_beam_start = nil
-		--	wDef.customparams.light_beam_mult_frames = nil
-		--	wDef.customparams.light_camera_height = nil
-		--	wDef.customparams.light_ground_height = nil
-		--	wDef.customparams.light_color = nil
-		--	wDef.customparams.light_radius = nil
-		--	wDef.customparams.light_radius_mult = nil
-		--	wDef.customparams.light_mult = nil
-		--	wDef.customparams.fake_Weapon = nil
-		--end
-
-		if wDef.damage ~= nil then
-			wDef.damage.indestructable = 0
-		end
-
-		if wDef.weapontype == "BeamLaser" then
-			if wDef.beamttl == nil then
-				wDef.beamttl = 3
-				wDef.beamdecay = 0.7
-			end
-			if wDef.corethickness then
-				wDef.corethickness = wDef.corethickness * 1.21
-			end
-			if wDef.thickness then
-				wDef.thickness = wDef.thickness * 1.27
-			end
-			if wDef.laserflaresize then
-				wDef.laserflaresize = wDef.laserflaresize * 1.15        -- note: thickness affects this too
-			end
-			wDef.texture1 = "largebeam"        -- The projectile texture
-			wDef.texture3 = "flare2"    -- Flare texture for #BeamLaser
-			wDef.texture4 = "flare2"    -- Flare texture for #BeamLaser with largeBeamLaser = true
-		end
-
-		-- scavengers
-		if string.find(name, '_scav') then
-			VFS.Include("gamedata/scavengers/weapondef_post.lua")
-			wDef = scav_Wdef_Post(name, wDef)
-		end
-
-		ProcessSoundDefaults(wDef)
+		end)
 	end
 
+	if modOptions.multiplier_shieldpower then
+		if wDef.shield then
+			local multiplier = modOptions.multiplier_shieldpower
+			if wDef.shield.power then
+				wDef.shield.power = wDef.shield.power * multiplier
+			end
+			if wDef.shield.powerregen then
+				wDef.shield.powerregen = wDef.shield.powerregen * multiplier
+			end
+			if wDef.shield.powerregenenergy then
+				wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * multiplier
+			end
+			if wDef.shield.startingpower then
+				wDef.shield.startingpower = wDef.shield.startingpower * multiplier
+			end
+		end
+	end
+	----------------------------------------
+
+	--Use targetborderoverride in weapondef customparams to override this global setting
+	--Controls whether the weapon aims for the center or the edge of its target's collision volume. Clamped between -1.0 - target the far border, and 1.0 - target the near border.
+	if wDef.customparams and wDef.customparams.targetborderoverride == nil then
+		wDef.targetborder = 1 --Aim for just inside the hitsphere
+	elseif wDef.customparams and wDef.customparams.targetborderoverride ~= nil then
+		wDef.targetborder = tonumber(wDef.customparams.targetborderoverride)
+	end
+
+	if wDef.craterareaofeffect then
+		wDef.cratermult = (wDef.cratermult or 0) + wDef.craterareaofeffect / 2000
+	end
+
+	-- Target borders of unit hitboxes rather than center (-1 = far border, 0 = center, 1 = near border)
+	-- wDef.targetborder = 1.0
+
+	if wDef.weapontype == "Cannon" then
+		if not wDef.model then
+			-- do not cast shadows on plasma shells
+			wDef.castshadow = false
+		end
+
+		if wDef.stages == nil then
+			wDef.stages = 10
+			if wDef.damage ~= nil and wDef.damage.default ~= nil and wDef.areaofeffect ~= nil then
+				wDef.stages = math.floor(7.5 + math.min(wDef.damage.default * 0.0033, wDef.areaofeffect * 0.13))
+				wDef.alphadecay = 1 - ((1 / wDef.stages) / 1.5)
+				wDef.sizedecay = 0.4 / wDef.stages
+			end
+		end
+	end
+
+	if modOptions.xmas and wDef.weapontype == "StarburstLauncher" and wDef.model and VFS.FileExists('objects3d\\candycane_' .. wDef.model) then
+		wDef.model = 'candycane_' .. wDef.model
+	end
+
+	-- prepared to strip these customparams for when we remove old deferred lighting widgets
+	--if wDef.customparams then
+	--	wDef.customparams.expl_light_opacity = nil
+	--	wDef.customparams.expl_light_heat_radius = nil
+	--	wDef.customparams.expl_light_radius = nil
+	--	wDef.customparams.expl_light_color = nil
+	--	wDef.customparams.expl_light_nuke = nil
+	--	wDef.customparams.expl_light_skip = nil
+	--	wDef.customparams.expl_light_heat_life_mult = nil
+	--	wDef.customparams.expl_light_heat_radius_mult = nil
+	--	wDef.customparams.expl_light_heat_strength_mult = nil
+	--	wDef.customparams.expl_light_life = nil
+	--	wDef.customparams.expl_light_life_mult = nil
+	--	wDef.customparams.expl_noheatdistortion = nil
+	--	wDef.customparams.light_skip = nil
+	--	wDef.customparams.light_fade_time = nil
+	--	wDef.customparams.light_fade_offset = nil
+	--	wDef.customparams.light_beam_mult = nil
+	--	wDef.customparams.light_beam_start = nil
+	--	wDef.customparams.light_beam_mult_frames = nil
+	--	wDef.customparams.light_camera_height = nil
+	--	wDef.customparams.light_ground_height = nil
+	--	wDef.customparams.light_color = nil
+	--	wDef.customparams.light_radius = nil
+	--	wDef.customparams.light_radius_mult = nil
+	--	wDef.customparams.light_mult = nil
+	--	wDef.customparams.fake_Weapon = nil
+	--end
+
+	if wDef.damage ~= nil then
+		wDef.damage.indestructable = 0
+	end
+
+	if wDef.weapontype == "BeamLaser" then
+		if wDef.beamttl == nil then
+			wDef.beamttl = 3
+			wDef.beamdecay = 0.7
+		end
+		if wDef.corethickness then
+			wDef.corethickness = wDef.corethickness * 1.21
+		end
+		if wDef.thickness then
+			wDef.thickness = wDef.thickness * 1.27
+		end
+		if wDef.laserflaresize then
+			wDef.laserflaresize = wDef.laserflaresize * 1.15        -- note: thickness affects this too
+		end
+		wDef.texture1 = "largebeam"        -- The projectile texture
+		wDef.texture3 = "flare2"    -- Flare texture for #BeamLaser
+		wDef.texture4 = "flare2"    -- Flare texture for #BeamLaser with largeBeamLaser = true
+	end
+
+	-- scavengers
+	if string.find(name, '_scav') then
+		VFS.Include("gamedata/scavengers/weapondef_post.lua")
+		wDef = scav_Wdef_Post(name, wDef)
+	end
+end
+
+-- process weapondef
+function WeaponDef_Post(name, wDef)
 	-- Multipliers
 
 	-- Weapon Range
