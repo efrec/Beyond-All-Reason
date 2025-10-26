@@ -453,11 +453,7 @@ if modOptions.evocom then
 	end)
 end
 
-function UnitDef_Post(name, uDef)
-	for index, effect in ipairs(unitDefPostEffectList) do
-		effect(name, uDef)
-	end
-
+table.insert(unitDefPostEffectList, function(name, uDef)
 	if uDef.customparams.evolution_target then
 		local udcp                            = uDef.customparams
 		udcp.combatradius                     = udcp.combatradius or 1000
@@ -469,6 +465,12 @@ function UnitDef_Post(name, uDef)
 		udcp.evolution_power_multiplier       = tonumber(udcp.evolution_power_multiplier) or 1
 		udcp.evolution_power_threshold        = tonumber(udcp.evolution_power_threshold) or 600
 		udcp.evolution_timer                  = tonumber(udcp.evolution_timer) or 20
+	end
+end)
+
+function UnitDef_Post(name, uDef)
+	for index, effect in ipairs(unitDefPostEffectList) do
+		effect(name, uDef)
 	end
 
 	-- Extra Units ----------------------------------------------------------------------------------------------------------------------------------
