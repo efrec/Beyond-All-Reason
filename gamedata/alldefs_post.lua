@@ -74,7 +74,20 @@ local function processWeapons(unitDefName, unitDef)
 	end
 end
 
+---Sequence of effects that are applied during `UnitDef_Post`.
+---@type function[]
+local unitDefPostEffectList = {
+	-- General transforms applied to all units:
+	function(name, unitDef)
+		-- todo
+	end,
+}
+
 function UnitDef_Post(name, uDef)
+	for index, effect in ipairs(unitDefPostEffectList) do
+		effect(name, uDef)
+	end
+
 	local modOptions = Spring.GetModOptions()
 
 	local isScav = string.sub(name, -5, -1) == "_scav"
