@@ -980,8 +980,20 @@ if modOptions.releasecandidates then
 end
 
 -------------------------
+-- UNIT REWORKS AND TESTS
+
+---Sequence of effects that are applied during `UnitDef_Post`.
+--
+-- Units are mostly done with post-processing by this step, except for
+-- modoptions that apply general stat multipliers, e.g. to unit speed.
+---@type function[]
+local unitDefPostReworkList = {}
+
+-------------------------
 -- UNIT MULTIPLIERS
 
+---Sequence of effects that are applied last during `UnitDef_Post`.
+---@type function[]
 local unitPostDefMultiplierList = {}
 
 if modOptions.multiplier_maxvelocity ~= 1 then
@@ -1124,9 +1136,12 @@ if modOptions.multiplier_radarrange ~= 1 then
 	end)
 end
 
-
 function UnitDef_Post(name, uDef)
 	for index, effect in ipairs(unitDefPostEffectList) do
+		effect(name, uDef)
+	end
+
+	for index, effect in ipairs(unitDefPostReworkList) do
 		effect(name, uDef)
 	end
 
