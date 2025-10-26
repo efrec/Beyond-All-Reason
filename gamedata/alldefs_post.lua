@@ -991,13 +991,7 @@ local unitDefPostReworkList = {}
 
 if modOptions.junorework then
 	table.insert(unitDefPostReworkList, function(name, uDef)
-		if name == "armjuno" then
-			uDef.metalcost = 500
-			uDef.energycost = 12000
-			uDef.buildtime = 15000
-			uDef.weapondefs.juno_pulse.energypershot = 7000
-			uDef.weapondefs.juno_pulse.metalpershot = 100
-		elseif name == "corjuno" then
+		if uDef.basename:match("^...juno$") then
 			uDef.metalcost = 500
 			uDef.energycost = 12000
 			uDef.buildtime = 15000
