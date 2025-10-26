@@ -168,6 +168,54 @@ local unitDefPostEffectList = {
 			unitDef.sightemitheight = 40
 			unitDef.radaremitheight = 40
 		end
+
+		-- Max slope standardization
+		if unitDef.maxslope then
+			unitDef.maxslope = math.floor((unitDef.maxslope * 1.5) + 0.5)
+		end
+
+		--[[ Sanitize to whole frames (plus leeways because float arithmetic is bonkers).
+			The engine uses full frames for actual reload times, but forwards the raw
+			value to LuaUI (so for example calculated DPS is incorrect without sanitisation). ]]
+		processWeapons(name, unitDef)
+
+		-- Wreck and heap standardization
+		if not unitDef.customparams.iscommander and not unitDef.customparams.iseffigy then
+			if unitDef.featuredefs and unitDef.health then
+				-- wrecks
+				if unitDef.featuredefs.dead then
+					unitDef.featuredefs.dead.damage = unitDef.health
+					if unitDef.metalcost and unitDef.energycost then
+						unitDef.featuredefs.dead.metal = math.floor(unitDef.metalcost * 0.6)
+					end
+				end
+				-- heaps
+				if unitDef.featuredefs.heap then
+					unitDef.featuredefs.heap.damage = unitDef.health
+					if unitDef.metalcost and unitDef.energycost then
+						unitDef.featuredefs.heap.metal = math.floor(unitDef.metalcost * 0.25)
+					end
+				end
+			end
+		end
+
+		-- Air unit physics standardization
+		if unitDef.canfly then
+			unitDef.crashdrag = 0.01    -- default 0.005
+			if string.find(name, "fepoch") or string.find(name, "fblackhy") or string.find(name, "corcrw") or string.find(name, "legfort") then
+				unitDef.collide = true
+			else
+				unitDef.collide = false
+			end
+		end
+
+		-- Mass standardization
+		if unitDef.metalcost and unitDef.health and unitDef.canmove == true and unitDef.mass == nil then
+			unitDef.mass = math.max(unitDef.metalcost, math.ceil(unitDef.health/6))
+			if unitDef.mass > 750 and unitDef.metalcost < 751 then
+				unitDef.mass = 750
+			end
+		end
 	end,
 }
 
@@ -848,35 +896,6 @@ function UnitDef_Post(name, uDef)
 		applyRaptorEffect(name, uDef)
 	end
 
-	--[[ Sanitize to whole frames (plus leeways because float arithmetic is bonkers).
-         The engine uses full frames for actual reload times, but forwards the raw
-         value to LuaUI (so for example calculated DPS is incorrect without sanitisation). ]]
-	processWeapons(name, uDef)
-
-	-- Wreck and heap standardization
-	if not uDef.customparams.iscommander and not uDef.customparams.iseffigy then
-		if uDef.featuredefs and uDef.health then
-			-- wrecks
-			if uDef.featuredefs.dead then
-				uDef.featuredefs.dead.damage = uDef.health
-				if uDef.metalcost and uDef.energycost then
-					uDef.featuredefs.dead.metal = math.floor(uDef.metalcost * 0.6)
-				end
-			end
-			-- heaps
-			if uDef.featuredefs.heap then
-				uDef.featuredefs.heap.damage = uDef.health
-				if uDef.metalcost and uDef.energycost then
-					uDef.featuredefs.heap.metal = math.floor(uDef.metalcost * 0.25)
-				end
-			end
-		end
-	end
-
-	if uDef.maxslope then
-		uDef.maxslope = math.floor((uDef.maxslope * 1.5) + 0.5)
-	end
-
 	----------------------------------------------------------------------
 	-- CATEGORY ASSIGNER
 	----------------------------------------------------------------------
@@ -952,25 +971,6 @@ function UnitDef_Post(name, uDef)
 				end
 			end
 		end
-	end
-
-	if uDef.canfly then
-		uDef.crashdrag = 0.01    -- default 0.005
-		if not (string.find(name, "fepoch") or string.find(name, "fblackhy") or string.find(name, "corcrw") or string.find(name, "legfort")) then
-			--(string.find(name, "liche") or string.find(name, "crw") or string.find(name, "fepoch") or string.find(name, "fblackhy")) then
-			uDef.collide = false
-		end
-	end
-
-	if uDef.metalcost and uDef.health and uDef.canmove == true and uDef.mass == nil then
-		local healthmass = math.ceil(uDef.health/6)
-		uDef.mass = math.max(uDef.metalcost, healthmass)
-		if uDef.metalcost < 751 and uDef.mass > 750 then
-			uDef.mass = 750
-		end
-		--if uDef.metalcost < healthmass then
-		--	Spring.Echo(name, uDef.mass, uDef.metalcost, uDef.mass - uDef.metalcost)
-		--end
 	end
 
 	--Juno Rework
