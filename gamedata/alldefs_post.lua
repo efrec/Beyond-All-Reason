@@ -380,72 +380,82 @@ then
 	end
 end
 
-function UnitDef_Post(name, uDef)
-	for index, effect in ipairs(unitDefPostEffectList) do
-		effect(name, uDef)
-	end
+if modOptions.evocom then
+	local xpMultiplier = modOptions.evocomxpmultiplier
+	local powerMultiplier = modOptions.evocomlevelupmultiplier
+	local levelUpMethod = modOptions.evocomlevelupmethod
+	local levelUpTime = modOptions.evocomleveluptime * 60
+	local levelOnePower = 10000
+	local levelLimit = modOptions.evocomlevelcap
+	local canRespawnWithEffigy = modOptions.comrespawn == "all" or modOptions.comrespawn == "evocom"
+	local addEffigyOption = {
+		[2]  = "comeffigylvl1",
+		[3]  = "comeffigylvl2",
+		[4]  = "comeffigylvl2",
+		[5]  = "comeffigylvl3",
+		[6]  = "comeffigylvl3",
+		[7]  = "comeffigylvl4",
+		[8]  = "comeffigylvl4",
+		[9]  = "comeffigylvl5",
+		[10] = "comeffigylvl5",
+	}
 
-	if modOptions.evocom then
+	table.insert(unitDefPostEffectList, function(name, uDef)
 		if uDef.customparams.evocomlvl or name == "armcom" or name == "corcom" or name == "legcom" then
-			local comLevel = uDef.customparams.evocomlvl
-			if modOptions.comrespawn == "all" or modOptions.comrespawn == "evocom" then--add effigy respawning, if enabled
-				uDef.customparams.respawn_condition = "health"
+			local comLevel = uDef.customparams.evocomlvl or 1
 
-				local numBuildoptions = #uDef.buildoptions
-				if comLevel == 2 then
-					uDef.buildoptions[numBuildoptions + 1] = "comeffigylvl1"
-				elseif comLevel == 3 or comLevel == 4 then
-					uDef.buildoptions[numBuildoptions + 1] = "comeffigylvl2"
-				elseif comLevel == 5 or comLevel == 6 then
-					uDef.buildoptions[numBuildoptions + 1] = "comeffigylvl3"
-				elseif comLevel == 7 or comLevel == 8 then
-					uDef.buildoptions[numBuildoptions + 1] = "comeffigylvl4"
-				elseif comLevel == 9 or comLevel == 10 then
-					uDef.buildoptions[numBuildoptions + 1] = "comeffigylvl5"
-				end
-			end
 			uDef.customparams.combatradius = 0
 			uDef.customparams.evolution_health_transfer = "percentage"
 
 			if uDef.power then
-				uDef.power = uDef.power/modOptions.evocomxpmultiplier
+				uDef.power = uDef.power / xpMultiplier
 			else
-				uDef.power = ((uDef.metalcost+(uDef.energycost/60))/modOptions.evocomxpmultiplier)
+				uDef.power = (uDef.metalcost + uDef.energycost / 60) / xpMultiplier
 			end
 
-			if  name == "armcom" then
+			if name == "armcom" then
 				uDef.customparams.evolution_target = "armcomlvl2"
 				uDef.customparams.inheritxpratemultiplier = 0.5
 				uDef.customparams.childreninheritxp = "TURRET MOBILEBUILT"
 				uDef.customparams.parentsinheritxp = "TURRET MOBILEBUILT"
 				uDef.customparams.evocomlvl = 1
-				elseif name == "corcom" then
+			elseif name == "corcom" then
 				uDef.customparams.evolution_target = "corcomlvl2"
 				uDef.customparams.evocomlvl = 1
-				elseif name == "legcom" then
+			elseif name == "legcom" then
 				uDef.customparams.evolution_target = "legcomlvl2"
 				uDef.customparams.evocomlvl = 1
-				end
-
-			if modOptions.evocomlevelupmethod == "dynamic" then
-				uDef.customparams.evolution_condition = "power"
-				uDef.customparams.evolution_power_multiplier = 1			-- Scales the power calculated based on your own combined power.
-				local evolutionPowerThreshold = uDef.customparams.evolution_power_threshold or 10000 --sets threshold for level 1 commanders
-				uDef.customparams.evolution_power_threshold = evolutionPowerThreshold*modOptions.evocomlevelupmultiplier
-			elseif modOptions.evocomlevelupmethod == "timed" then
-				uDef.customparams.evolution_timer = modOptions.evocomleveluptime*60*uDef.customparams.evocomlvl
-				uDef.customparams.evolution_condition = "timer_global"
 			end
 
-			if comLevel and modOptions.evocomlevelcap <= comLevel then
-				uDef.customparams.evolution_health_transfer = nil
-				uDef.customparams.evolution_target = nil
+			if levelUpMethod == "dynamic" then
+				uDef.customparams.evolution_condition = "power"
+				uDef.customparams.evolution_power_multiplier = 1
+				uDef.customparams.evolution_power_threshold = (uDef.customparams.evolution_power_threshold or levelOnePower) * powerMultiplier
+			elseif levelUpMethod == "timed" then
+				uDef.customparams.evolution_condition = "timer_global"
+				uDef.customparams.evolution_timer = uDef.customparams.evocomlvl * levelUpTime
+			end
+
+			if levelLimit <= comLevel then
 				uDef.customparams.evolution_condition = nil
-				uDef.customparams.evolution_timer = nil
-				uDef.customparams.evolution_power_threshold = nil
+				uDef.customparams.evolution_health_transfer = nil
 				uDef.customparams.evolution_power_multiplier = nil
+				uDef.customparams.evolution_power_threshold = nil
+				uDef.customparams.evolution_target = nil
+				uDef.customparams.evolution_timer = nil
+			end
+
+			if canRespawnWithEffigy then
+				uDef.customparams.respawn_condition = "health"
+				table.insert(uDef.buildoptions, addEffigyOption[comLevel])
 			end
 		end
+	end)
+end
+
+function UnitDef_Post(name, uDef)
+	for index, effect in ipairs(unitDefPostEffectList) do
+		effect(name, uDef)
 	end
 
 	if uDef.customparams.evolution_target then
@@ -460,7 +470,6 @@ function UnitDef_Post(name, uDef)
 		udcp.evolution_power_threshold        = tonumber(udcp.evolution_power_threshold) or 600
 		udcp.evolution_timer                  = tonumber(udcp.evolution_timer) or 20
 	end
-
 
 	-- Extra Units ----------------------------------------------------------------------------------------------------------------------------------
 	if modOptions.experimentalextraunits then
