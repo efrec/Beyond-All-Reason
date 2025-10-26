@@ -1456,7 +1456,7 @@ do
 	local soundVolumeMinimum = 5
 	local isNonstandardGravityUnit = {
 		'cormship_',
-		'armmship_'
+		'armmship_',
 	}
 
 	-- General weapon def transformations
@@ -1759,6 +1759,16 @@ end
 
 -- process weapondef
 function WeaponDef_Post(name, wDef)
+	for _, postEffectList in ipairs {
+		weaponDefPostEffectList,    -- General weapon def changes, including most modoptions.
+		weaponDefPostReworkList,    -- Overhauls to weapon defs, including tests and balance packs.
+		weaponPostDefMultiplierList -- Pure multipliers to specific stats, such as build range.
+	} do
+		for index, effect in ipairs(postEffectList) do
+			effect(name, wDef)
+		end
+	end
+
 	-- Multipliers
 
 	-- Weapon Range
