@@ -728,139 +728,117 @@ end)
 if modOptions.experimentalextraunits then
 	table.insert(unitDefPostEffectList, function(name, uDef)
 		local bo = uDef.buildoptions
+		local count = #bo
 
 		-- Armada T1 Land Constructors
 		if name == "armca" or name == "armck" or name == "armcv" then
-			local numBuildoptions = #bo
 
 		-- Armada T1 Sea Constructors
 		elseif name == "armcs" or name == "armcsa" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armgplat" -- Gun Platform - Light Plasma Defense
-			bo[numBuildoptions + 2] = "armfrock" -- Scumbag - Anti Air Missile Battery
+			bo[count + 1] = "armgplat" -- Gun Platform - Light Plasma Defense
+			bo[count + 2] = "armfrock" -- Scumbag - Anti Air Missile Battery
 
 		-- Armada T1 Vehicle Factory
 		elseif name == "armvp" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armzapper" -- Zapper - Light EMP Vehicle
+			bo[count + 1] = "armzapper" -- Zapper - Light EMP Vehicle
 
 		-- Armada T1 Aircraft Plant
 		elseif name == "armap" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armfify" -- Firefly - Resurrection Aircraft
+			bo[count + 1] = "armfify" -- Firefly - Resurrection Aircraft
 
 		-- Armada T2 Land Constructors
 		elseif name == "armaca" or name == "armack" or name == "armacv" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armshockwave" -- Shockwave - T2 EMP Armed Metal Extractor
-			bo[numBuildoptions + 2] = "armwint2" -- T2 Wind Generator
-			bo[numBuildoptions + 3] = "armnanotct2" -- T2 Constructor Turret
-			bo[numBuildoptions + 4] = "armlwall" -- Dragon's Fury - T2 Pop-up Wall Turret
-			bo[numBuildoptions + 5] = "armgatet3" -- Asylum - Advanced Shield Generator
+			bo[count + 1] = "armshockwave" -- Shockwave - T2 EMP Armed Metal Extractor
+			bo[count + 2] = "armwint2" -- T2 Wind Generator
+			bo[count + 3] = "armnanotct2" -- T2 Constructor Turret
+			bo[count + 4] = "armlwall" -- Dragon's Fury - T2 Pop-up Wall Turret
+			bo[count + 5] = "armgatet3" -- Asylum - Advanced Shield Generator
 
 		-- Armada T2 Sea Constructors
 		elseif name == "armacsub" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armfgate" -- Aurora - Floating Plasma Deflector
-			bo[numBuildoptions + 2] = "armnanotc2plat" -- Floating T2 Constructor Turret
+			bo[count + 1] = "armfgate" -- Aurora - Floating Plasma Deflector
+			bo[count + 2] = "armnanotc2plat" -- Floating T2 Constructor Turret
 
 		-- Armada T2 Shipyard
 		elseif name == "armasy" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armexcalibur" -- Excalibur - Coastal Assault Submarine
-			bo[numBuildoptions + 2] = "armseadragon" -- Seadragon - Nuclear ICBM Submarine
+			bo[count + 1] = "armexcalibur" -- Excalibur - Coastal Assault Submarine
+			bo[count + 2] = "armseadragon" -- Seadragon - Nuclear ICBM Submarine
 
 		-- Armada T3 Gantry
 		elseif name == "armshltx" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armmeatball" -- Meatball - Amphibious Assault Mech
-			bo[numBuildoptions + 2] = "armassimilator" -- Assimilator - Amphibious Battle Mech
+			bo[count + 1] = "armmeatball" -- Meatball - Amphibious Assault Mech
+			bo[count + 2] = "armassimilator" -- Assimilator - Amphibious Battle Mech
 
 		-- Armada T3 Underwater Gantry
 		elseif name == "armshltxuw" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armmeatball" -- Meatball - Amphibious Assault Mech
-			bo[numBuildoptions + 2] = "armassimilator" -- Assimilator - Amphibious Battle Mech
+			bo[count + 1] = "armmeatball" -- Meatball - Amphibious Assault Mech
+			bo[count + 2] = "armassimilator" -- Assimilator - Amphibious Battle Mech
 
 		-- Cortex T1 Land Constructors
 		elseif name == "corca" or name == "corck" or name == "corcv" then
-			local numBuildoptions = #bo
 
 		-- Cortex T1 Sea Constructors
 		elseif name == "corcs" or name == "corcsa" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "corgplat" -- Gun Platform - Light Plasma Defense
-			bo[numBuildoptions + 2] = "corfrock" -- Janitor - Anti Air Missile Battery
+			bo[count + 1] = "corgplat" -- Gun Platform - Light Plasma Defense
+			bo[count + 2] = "corfrock" -- Janitor - Anti Air Missile Battery
 
 		-- Cortex T1 Bots Factory
 		elseif name == "corlab" then
-			local numBuildoptions = #bo
 
 		-- Cortex T2 Land Constructors
 		elseif name == "coraca" or name == "corack" or name == "coracv" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "corwint2" -- T2 Wind Generator
-			bo[numBuildoptions + 2] = "cornanotct2" -- T2 Constructor Turret
-			bo[numBuildoptions + 3] = "cormwall" -- Dragon's Rage - T2 Pop-up Wall Turret
-			bo[numBuildoptions + 4] = "corgatet3" -- Sanctuary - Advanced Shield Generator
+			bo[count + 1] = "corwint2" -- T2 Wind Generator
+			bo[count + 2] = "cornanotct2" -- T2 Constructor Turret
+			bo[count + 3] = "cormwall" -- Dragon's Rage - T2 Pop-up Wall Turret
+			bo[count + 4] = "corgatet3" -- Sanctuary - Advanced Shield Generator
 
 		-- Cortex T2 Sea Constructors
 		elseif name == "coracsub" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "corfgate" -- Atoll - Floating Plasma Deflector
-			bo[numBuildoptions + 2] = "cornanotc2plat" -- Floating T2 Constructor Turret
+			bo[count + 1] = "corfgate" -- Atoll - Floating Plasma Deflector
+			bo[count + 2] = "cornanotc2plat" -- Floating T2 Constructor Turret
 
 		-- Cortex T2 Bots Factory
 		elseif name == "coralab" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions+1] = "cordeadeye"
+			bo[count+1] = "cordeadeye"
 
 		-- Cortex T2 Vehicle Factory
 		elseif name == "coravp" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "corvac" -- Printer - Armored Field Engineer
-			bo[numBuildoptions + 2] = "corphantom" -- Phantom - Amphibious Stealth Scout
-			bo[numBuildoptions + 3] = "corsiegebreaker" -- Siegebreaker - Heavy Long Range Destroyer
-			bo[numBuildoptions + 4] = "corforge" -- Forge - Flamethrower Combat Engineer
-			bo[numBuildoptions + 5] = "cortorch" -- Torch - Fast Flamethrower Tank
+			bo[count + 1] = "corvac" -- Printer - Armored Field Engineer
+			bo[count + 2] = "corphantom" -- Phantom - Amphibious Stealth Scout
+			bo[count + 3] = "corsiegebreaker" -- Siegebreaker - Heavy Long Range Destroyer
+			bo[count + 4] = "corforge" -- Forge - Flamethrower Combat Engineer
+			bo[count + 5] = "cortorch" -- Torch - Fast Flamethrower Tank
 
 		-- Cortex T2 Aircraft Plant
 		elseif name == "coraap" then
-			local numBuildoptions = #bo
 
 		-- Cortex T2 Shipyard
 		elseif name == "corasy" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "coresuppt3" -- Adjudictator - Heavy Heatray Battleship
-			bo[numBuildoptions + 2] = "coronager" -- Onager - Coastal Assault Submarine
-			bo[numBuildoptions + 3] = "cordesolator" -- Desolator - Nuclear ICBM Submarine
-			bo[numBuildoptions + 4] = "corprince" -- Black Prince - Shore bombardment battleship
+			bo[count + 1] = "coresuppt3" -- Adjudictator - Heavy Heatray Battleship
+			bo[count + 2] = "coronager" -- Onager - Coastal Assault Submarine
+			bo[count + 3] = "cordesolator" -- Desolator - Nuclear ICBM Submarine
+			bo[count + 4] = "corprince" -- Black Prince - Shore bombardment battleship
 
 		-- Cortex T3 Gantry
 		elseif name == "corgant" then
-			local numBuildoptions = #bo
 
 		-- Cortex T3 Underwater Gantry
 		elseif name == "corgantuw" then
-			local numBuildoptions = #bo
 
 		-- Legion T1 Land Constructors
 		elseif name == "legca" or name == "legck" or name == "legcv" then
-			local numBuildoptions = #bo
 
 		-- Legion T2 Land Constructors
 		elseif name == "legaca" or name == "legack" or name == "legacv" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "legmohocon" -- Advanced Metal Fortifier - Metal Extractor with Constructor Turret
-			bo[numBuildoptions + 2] = "legwint2" -- T2 Wind Generator
-			bo[numBuildoptions + 3] = "legnanotct2" -- T2 Constructor Turret
-			bo[numBuildoptions + 4] = "legrwall" -- Dragon's Constitution - T2 (not Pop-up) Wall Turret
-			bo[numBuildoptions + 5] = "leggatet3" -- Elysium - Advanced Shield Generator
+			bo[count + 1] = "legmohocon" -- Advanced Metal Fortifier - Metal Extractor with Constructor Turret
+			bo[count + 2] = "legwint2" -- T2 Wind Generator
+			bo[count + 3] = "legnanotct2" -- T2 Constructor Turret
+			bo[count + 4] = "legrwall" -- Dragon's Constitution - T2 (not Pop-up) Wall Turret
+			bo[count + 5] = "leggatet3" -- Elysium - Advanced Shield Generator
 
 		-- Legion T3 Gantry
 		elseif name == "leggant" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "legbunk" -- Pilum - Fast Assault Mech
+			bo[count + 1] = "legbunk" -- Pilum - Fast Assault Mech
 		end
 	end)
 end
@@ -868,137 +846,118 @@ end
 if modOptions.scavunitsforplayers then
 	table.insert(unitDefPostEffectList, function(name, uDef)
 		local bo = uDef.buildoptions
+		local count = #bo
 
 		-- Armada T1 Land Constructors
 		if name == "armca" or name == "armck" or name == "armcv" then
-			local numBuildoptions = #bo
 
 		-- Armada T1 Sea Constructors
 		elseif name == "armcs" or name == "armcsa" then
-			local numBuildoptions = #bo
 
 		-- Armada T1 Vehicle Factory
 		elseif name == "armvp" then
-			local numBuildoptions = #bo
 
 		-- Armada T1 Aircraft Plant
 		elseif name == "armap" then
-			local numBuildoptions = #bo
 
 		-- Armada T2 Constructors
 		elseif name == "armaca" or name == "armack" or name == "armacv" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armapt3" -- T3 Aircraft Gantry
-			bo[numBuildoptions + 2] = "armminivulc" -- Mini Ragnarok
-			bo[numBuildoptions + 3] = "armbotrail" -- Pawn Launcher
-			bo[numBuildoptions + 4] = "armannit3" -- Epic Pulsar
-			bo[numBuildoptions + 5] = "armafust3" -- Epic Fusion Reactor
-			bo[numBuildoptions + 6] = "armmmkrt3" -- Epic Energy Converter
+			bo[count + 1] = "armapt3" -- T3 Aircraft Gantry
+			bo[count + 2] = "armminivulc" -- Mini Ragnarok
+			bo[count + 3] = "armbotrail" -- Pawn Launcher
+			bo[count + 4] = "armannit3" -- Epic Pulsar
+			bo[count + 5] = "armafust3" -- Epic Fusion Reactor
+			bo[count + 6] = "armmmkrt3" -- Epic Energy Converter
 
 		-- Armada T2 Shipyard
 		elseif name == "armasy" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armdronecarry" -- Nexus - Drone Carrier
-			bo[numBuildoptions + 2] = "armptt2" -- Epic Skater
-			bo[numBuildoptions + 3] = "armdecadet3" -- Epic Dolphin
-			bo[numBuildoptions + 4] = "armpshipt3" -- Epic Ellysaw
-			bo[numBuildoptions + 5] = "armserpt3" -- Epic Serpent
-			bo[numBuildoptions + 6] = "armtrident" -- Trident - Depth Charge Drone Carrier
+			bo[count + 1] = "armdronecarry" -- Nexus - Drone Carrier
+			bo[count + 2] = "armptt2" -- Epic Skater
+			bo[count + 3] = "armdecadet3" -- Epic Dolphin
+			bo[count + 4] = "armpshipt3" -- Epic Ellysaw
+			bo[count + 5] = "armserpt3" -- Epic Serpent
+			bo[count + 6] = "armtrident" -- Trident - Depth Charge Drone Carrier
 
 		-- Armada T3 Gantry
 		elseif name == "armshltx" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armrattet4" -- Ratte - Very Heavy Tank
-			bo[numBuildoptions + 2] = "armsptkt4" -- Epic Recluse
-			bo[numBuildoptions + 3] = "armpwt4" -- Epic Pawn
-			bo[numBuildoptions + 4] = "armvadert4" -- Epic Tumbleweed - Nuclear Rolling Bomb
-			bo[numBuildoptions + 5] = "armdronecarryland" -- Nexus Terra - Drone Carrier
+			bo[count + 1] = "armrattet4" -- Ratte - Very Heavy Tank
+			bo[count + 2] = "armsptkt4" -- Epic Recluse
+			bo[count + 3] = "armpwt4" -- Epic Pawn
+			bo[count + 4] = "armvadert4" -- Epic Tumbleweed - Nuclear Rolling Bomb
+			bo[count + 5] = "armdronecarryland" -- Nexus Terra - Drone Carrier
 
 		-- Armada T3 Underwater Gantry
 		elseif name == "armshltxuw" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "armrattet4" -- Ratte - Very Heavy Tank
-			bo[numBuildoptions + 2] = "armsptkt4" -- Epic Recluse
-			bo[numBuildoptions + 3] = "armpwt4" -- Epic Pawn
-			bo[numBuildoptions + 4] = "armvadert4" -- Epic Tumbleweed - Nuclear Rolling Bomb
+			bo[count + 1] = "armrattet4" -- Ratte - Very Heavy Tank
+			bo[count + 2] = "armsptkt4" -- Epic Recluse
+			bo[count + 3] = "armpwt4" -- Epic Pawn
+			bo[count + 4] = "armvadert4" -- Epic Tumbleweed - Nuclear Rolling Bomb
 
 		-- Cortex T1 Bots Factory
 		elseif name == "corlab" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions+1] = "corkark" -- Archaic Karkinos
+			bo[count+1] = "corkark" -- Archaic Karkinos
 
 		-- Cortex T2 Land Constructors
 		elseif name == "coraca" or name == "corack" or name == "coracv" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "corapt3" -- T3 Aircraft Gantry
-			bo[numBuildoptions + 2] = "corminibuzz" -- Mini Calamity
-			bo[numBuildoptions + 3] = "corhllllt" -- Quad Guard - Quad Light Laser Turret
-			bo[numBuildoptions + 4] = "cordoomt3" -- Epic Bulwark
-			bo[numBuildoptions + 5] = "corafust3" -- Epic Fusion Reactor
-			bo[numBuildoptions + 6] = "cormmkrt3" -- Epic Energy Converter
+			bo[count + 1] = "corapt3" -- T3 Aircraft Gantry
+			bo[count + 2] = "corminibuzz" -- Mini Calamity
+			bo[count + 3] = "corhllllt" -- Quad Guard - Quad Light Laser Turret
+			bo[count + 4] = "cordoomt3" -- Epic Bulwark
+			bo[count + 5] = "corafust3" -- Epic Fusion Reactor
+			bo[count + 6] = "cormmkrt3" -- Epic Energy Converter
 
 		-- Cortex T2 Sea Constructors
 		elseif name == "coracsub" then
-			local numBuildoptions = #bo
 
 		-- Cortex T2 Bots Factory
 		elseif name == "coralab" then
-			local numBuildoptions = #bo
 
 		-- Cortex T2 Vehicle Factory
 		elseif name == "coravp" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions+1] = "corgatreap" -- Laser Tiger
-			bo[numBuildoptions+2] = "corftiger" -- Heat Tiger
+			bo[count+1] = "corgatreap" -- Laser Tiger
+			bo[count+2] = "corftiger" -- Heat Tiger
 
 		-- Cortex T2 Aircraft Plant
 		elseif name == "coraap" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions+1] = "corcrw" -- Archaic Dragon
+			bo[count+1] = "corcrw" -- Archaic Dragon
 
 		-- Cortex T2 Shipyard
 		elseif name == "corasy" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "cordronecarry" -- Dispenser - Drone Carrier
-			bo[numBuildoptions + 2] = "corslrpc" -- Leviathan - LRPC Ship
-			bo[numBuildoptions + 3] = "corsentinel" -- Sentinel - Depth Charge Drone Carrier
+			bo[count + 1] = "cordronecarry" -- Dispenser - Drone Carrier
+			bo[count + 2] = "corslrpc" -- Leviathan - LRPC Ship
+			bo[count + 3] = "corsentinel" -- Sentinel - Depth Charge Drone Carrier
 
 		-- Cortex T3 Gantry
 		elseif name == "corgant" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "corkarganetht4" -- Epic Karganeth
-			bo[numBuildoptions + 2] = "corgolt4" -- Epic Tzar
-			bo[numBuildoptions + 3] = "corakt4" -- Epic Grunt
-			bo[numBuildoptions + 4] = "corthermite" -- Thermite/Epic Termite
-			bo[numBuildoptions + 5] = "cormandot4" -- Epic Commando
+			bo[count + 1] = "corkarganetht4" -- Epic Karganeth
+			bo[count + 2] = "corgolt4" -- Epic Tzar
+			bo[count + 3] = "corakt4" -- Epic Grunt
+			bo[count + 4] = "corthermite" -- Thermite/Epic Termite
+			bo[count + 5] = "cormandot4" -- Epic Commando
 
 		-- Cortex T3 Underwater Gantry
 		elseif name == "corgantuw" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "corkarganetht4" -- Epic Karganeth
-			bo[numBuildoptions + 2] = "corgolt4" -- Epic Tzar
-			bo[numBuildoptions + 3] = "corakt4" -- Epic Grunt
-			bo[numBuildoptions + 4] = "cormandot4" -- Epic Commando
+			bo[count + 1] = "corkarganetht4" -- Epic Karganeth
+			bo[count + 2] = "corgolt4" -- Epic Tzar
+			bo[count + 3] = "corakt4" -- Epic Grunt
+			bo[count + 4] = "cormandot4" -- Epic Commando
 
 		-- Legion T1 Land Constructors
 		elseif name == "legca" or name == "legck" or name == "legcv" then
-			local numBuildoptions = #bo
 
 		-- Legion T2 Land Constructors
 		elseif name == "legaca" or name == "legack" or name == "legacv" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "legapt3" -- T3 Aircraft Gantry
-			bo[numBuildoptions + 2] = "legministarfall" -- Mini Starfall
-			bo[numBuildoptions + 3] = "legafust3" -- Epic Fusion Reactor
-			bo[numBuildoptions + 4] = "legadveconvt3" -- Epic Energy Converter
+			bo[count + 1] = "legapt3" -- T3 Aircraft Gantry
+			bo[count + 2] = "legministarfall" -- Mini Starfall
+			bo[count + 3] = "legafust3" -- Epic Fusion Reactor
+			bo[count + 4] = "legadveconvt3" -- Epic Energy Converter
 
 		-- Legion T3 Gantry
 		elseif name == "leggant" then
-			local numBuildoptions = #bo
-			bo[numBuildoptions + 1] = "legsrailt4" -- Epic Arquebus
-			bo[numBuildoptions + 2] = "leggobt3" -- Epic Goblin
-			bo[numBuildoptions + 3] = "legpede" -- Mukade - Heavy Multi Weapon Centipede
-			bo[numBuildoptions + 4] = "legeheatraymech_old" -- Old Sol Invictus - Quad Heatray Mech
+			bo[count + 1] = "legsrailt4" -- Epic Arquebus
+			bo[count + 2] = "leggobt3" -- Epic Goblin
+			bo[count + 3] = "legpede" -- Mukade - Heavy Multi Weapon Centipede
+			bo[count + 4] = "legeheatraymech_old" -- Old Sol Invictus - Quad Heatray Mech
 		end
 	end)
 end
