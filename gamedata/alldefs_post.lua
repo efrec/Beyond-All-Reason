@@ -78,6 +78,10 @@ end
 local COLLISION_SPEED_MIN = 75 / Game.gameSpeed
 
 -------------------------
+-- UNIT DEF PROCESSING --
+-------------------------
+
+-------------------------
 -- UNIT CATEGORIES
 
 local hoverList = {
@@ -1439,6 +1443,10 @@ function UnitDef_Post(name, uDef)
 		end
 	end
 end
+
+-------------------------
+-- WEAP DEF PROCESSING --
+-------------------------
 
 local function ProcessSoundDefaults(wd)
 	local forceSetVolume = not wd.soundstartvolume or not wd.soundhitvolume or not wd.soundhitwetvolume
