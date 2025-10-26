@@ -266,7 +266,7 @@ local unitDefPostEffectList = {
 		unitDef.customparams.techlevel = unitDef.customparams.techlevel or 1
 		unitDef.category = unitDef.category or ""
 		if string.find(unitDef.category, "OBJECT") then
-			-- Objects should not be targetable and therefore are not assigned any other category
+			-- Objects should not be targetable and therefore are not assigned any other category.
 			unitDef.category = "OBJECT"
 		else
 			for categoryName, condition in pairs(categories) do
@@ -288,11 +288,9 @@ local unitDefPostEffectList = {
 			if unitDef.sounds.ok then
 				unitDef.sounds.ok = nil
 			end
-
 			if unitDef.sounds.select then
 				unitDef.sounds.select = nil
 			end
-
 			if unitDef.sounds.activate then
 				unitDef.sounds.activate = nil
 			end
@@ -313,11 +311,7 @@ local unitDefPostEffectList = {
 		processWeapons(name, unitDef)
 
 		-- Model material shading
-		local vertexDisplacement = 5.5 + (unitDef.footprintx + unitDef.footprintz) / 12
-		if vertexDisplacement > 10 then
-			vertexDisplacement = 10
-		end
-		unitDef.customparams.vertdisp = 1.0 * vertexDisplacement
+		unitDef.customparams.vertdisp = math.min(5.5 + (unitDef.footprintx + unitDef.footprintz) / 12, 10)
 		unitDef.customparams.healthlookmod = 0
 
 		-- LOS height standardization
@@ -338,20 +332,18 @@ local unitDefPostEffectList = {
 
 		-- Max slope standardization
 		if unitDef.maxslope then
-			unitDef.maxslope = math.floor((unitDef.maxslope * 1.5) + 0.5)
+			unitDef.maxslope = math.floor(unitDef.maxslope * 1.5 + 0.5)
 		end
 
 		-- Wreck and heap standardization
 		if not unitDef.customparams.iscommander and not unitDef.customparams.iseffigy then
 			if unitDef.featuredefs and unitDef.health then
-				-- wrecks
 				if unitDef.featuredefs.dead then
 					unitDef.featuredefs.dead.damage = unitDef.health
 					if unitDef.metalcost and unitDef.energycost then
 						unitDef.featuredefs.dead.metal = math.floor(unitDef.metalcost * 0.6)
 					end
 				end
-				-- heaps
 				if unitDef.featuredefs.heap then
 					unitDef.featuredefs.heap.damage = unitDef.health
 					if unitDef.metalcost and unitDef.energycost then
@@ -363,7 +355,7 @@ local unitDefPostEffectList = {
 
 		-- Air unit physics standardization
 		if unitDef.canfly then
-			unitDef.crashdrag = 0.01    -- default 0.005
+			unitDef.crashdrag = 0.01 -- default 0.005
 			if string.find(name, "fepoch") or string.find(name, "fblackhy") or string.find(name, "corcrw") or string.find(name, "legfort") then
 				unitDef.collide = true
 			else
@@ -372,7 +364,7 @@ local unitDefPostEffectList = {
 		end
 
 		-- Mass standardization
-		if unitDef.metalcost and unitDef.health and unitDef.canmove == true and unitDef.mass == nil then
+		if unitDef.metalcost and unitDef.health and unitDef.canmove and unitDef.mass == nil then
 			unitDef.mass = math.max(unitDef.metalcost, math.ceil(unitDef.health/6))
 			if unitDef.mass > 750 and unitDef.metalcost < 751 then
 				unitDef.mass = 750
@@ -383,14 +375,6 @@ local unitDefPostEffectList = {
 		if unitDef.workertime and not unitDef.terraformspeed then
 			unitDef.terraformspeed = unitDef.workertime * 30
 		end
-
-		-- For model material shader
-		local vertexDisplacement = 5.5 + ((unitDef.footprintx + unitDef.footprintz) / 12)
-		if vertexDisplacement > 10 then
-			vertexDisplacement = 10
-		end
-		unitDef.customparams.vertdisp = 1.0 * vertexDisplacement
-		unitDef.customparams.healthlookmod = 0
 	end,
 }
 
@@ -481,7 +465,7 @@ then
 		table.insert(unitRestrictions, function(name, unitDef)
 			if unitDef.customparams.ignore_noair then
 				return false
-			elseif unitDef.customparams.disable_when_no_air then -- Remove drone carriers with no other purpose (ex. leghive but not rampart).
+			elseif unitDef.customparams.disable_when_no_air then -- drone carriers with no other purpose, e.g. leghive but not rampart.
 				return true
 			elseif string.find(unitDef.customparams.subfolder, "Aircraft") then
 				return true
@@ -630,9 +614,6 @@ then
 			armvulc = true,
 			corbuzz = true,
 			legstarfall = true,
-			armvulc_scav = true,
-			corbuzz_scav = true,
-			legstarfall_scav = true,
 		}
 		table.insert(unitRestrictions, function(name, uDef)
 			return isLolCannon[uDef.basename]
@@ -995,6 +976,31 @@ end
 ---@type function[]
 local unitDefPostReworkList = {}
 
+if modOptions.air_rework then
+	local airReworkUnits = VFS.Include("unitbasedefs/air_rework_defs.lua")
+	table.insert(unitDefPostReworkList, airReworkUnits.airReworkTweaks)
+end
+
+if modOptions.skyshift then
+	local skyshiftUnits = VFS.Include("unitbasedefs/skyshiftunits_post.lua")
+	table.insert(unitDefPostReworkList, skyshiftUnits.skyshiftUnitTweaks)
+end
+
+if modOptions.proposed_unit_reworks then
+	local proposed_unit_reworks = VFS.Include("unitbasedefs/proposed_unit_reworks_defs.lua")
+	table.insert(unitDefPostReworkList, proposed_unit_reworks.proposed_unit_reworksTweaks)
+end
+
+if modOptions.techsplit then
+	local techsplitUnits = VFS.Include("unitbasedefs/techsplit_defs.lua")
+	table.insert(unitDefPostReworkList, techsplitUnits.techsplitTweaks)
+end
+
+if modOptions.techsplit_balance then
+	local techsplit_balanceUnits = VFS.Include("unitbasedefs/techsplit_balance_defs.lua")
+	table.insert(unitDefPostReworkList, techsplit_balanceUnits.techsplit_balanceTweaks)
+end
+
 if modOptions.junorework then
 	table.insert(unitDefPostReworkList, function(name, uDef)
 		if uDef.basename:match("^...juno$") then
@@ -1079,62 +1085,46 @@ if modOptions.emprework then
 	end)
 end
 
-if modOptions.air_rework then
-	local airReworkUnits = VFS.Include("unitbasedefs/air_rework_defs.lua")
-	table.insert(unitDefPostReworkList, airReworkUnits.airReworkTweaks)
-end
-
-if modOptions.skyshift then
-	local skyshiftUnits = VFS.Include("unitbasedefs/skyshiftunits_post.lua")
-	table.insert(unitDefPostReworkList, skyshiftUnits.skyshiftUnitTweaks)
-end
-
-if modOptions.proposed_unit_reworks then
-	local proposed_unit_reworks = VFS.Include("unitbasedefs/proposed_unit_reworks_defs.lua")
-	table.insert(unitDefPostReworkList, proposed_unit_reworks.proposed_unit_reworksTweaks)
-end
-
 if modOptions.naval_balance_tweaks then
-	local buildOptionReplacements = {
-		armcs = { armfhlt = "armnavaldefturret" },
-		armch = { armfhlt = "armnavaldefturret" },
-		armbeaver = { armfhlt = "armnavaldefturret" },
-		armcsa = { armfhlt = "armnavaldefturret" },
-		corcs = { corfhlt = "cornavaldefturret" },
-		corch = { corfhlt = "cornavaldefturret" },
-		cormuskrat = { corfhlt = "cornavaldefturret" },
-		corcsa = { corfhlt = "cornavaldefturret" },
-		legcs = { legfmg = "legnavaldefturret" },
-		legch = { legfmg = "legnavaldefturret" },
-		legotter = { legfmg = "legnavaldefturret" },
-		armacsub = { armkraken = "armanavaldefturret" },
-		armmls = {
-			armfhlt   = "armnavaldefturret",
-			armkraken = "armanavaldefturret",
-		},
-		coracsub = { corfdoom = "coranavaldefturret" },
-		cormls = {
-			corfhlt  = "cornavaldefturret",
-			corfdoom = "coranavaldefturret",
-		},
-	}
 	local isAdvancedNavalRadar = {
 		armfrad = true,
 		corfrad = true,
 		legfrad = true,
 	}
+	local buildOptionReplacements = {
+		[{ armcs = true, armch = true, armbeaver = true, armcsa = true }] = {
+			armfhlt = "armnavaldefturret"
+		},
+		[{ armmls = true }] = {
+			armfhlt   = "armnavaldefturret",
+			armkraken = "armanavaldefturret",
+		},
+		[{ corcs = true, corch = true, cormuskrat = true, corcsa = true }] = {
+			corfhlt = "cornavaldefturret"
+		},
+		[{ cormls = true }] = {
+			corfhlt  = "cornavaldefturret",
+			corfdoom = "coranavaldefturret",
+		},
+		[{ legcs = true, legch = true, legotter = true, legcsa = true }] = {
+			legfmg = "legnavaldefturret"
+		},
+	}
 
 	table.insert(unitDefPostReworkList, function(name, uDef)
-		local baseName = uDef.basename
-		if buildOptionReplacements[baseName] then
-			local replacements = buildOptionReplacements[baseName]
-			for i, buildOption in ipairs(uDef.buildoptions) do
-				if replacements[buildOption] then
-					uDef.buildoptions[i] = replacements[buildOption]
+		if isAdvancedNavalRadar[uDef.basename] then
+			uDef.sightdistance = 800
+		else
+			for builders, replacements in pairs(buildOptionReplacements) do
+				if builders[uDef.basename] then
+					local suffix = uDef.customparams.isscavengerunit and "_scav" or ""
+					for i, buildOption in pairs(uDef.buildoptions) do
+						if replacements[buildOption:gsub(suffix, "")] then
+							uDef.buildoptions[i] = replacements[buildOption] .. suffix
+						end
+					end
 				end
 			end
-		elseif isAdvancedNavalRadar[baseName] then
-			uDef.sightdistance = 800
 		end
 	end)
 end
@@ -1297,16 +1287,6 @@ if modOptions.factory_costs then
 	end)
 end
 
-if modOptions.techsplit then
-	local techsplitUnits = VFS.Include("unitbasedefs/techsplit_defs.lua")
-	table.insert(unitDefPostReworkList, techsplitUnits.techsplitTweaks)
-end
-
-if modOptions.techsplit_balance then
-	local techsplit_balanceUnits = VFS.Include("unitbasedefs/techsplit_balance_defs.lua")
-	table.insert(unitDefPostReworkList, techsplit_balanceUnits.techsplit_balanceTweaks)
-end
-
 -------------------------
 -- UNIT MULTIPLIERS
 
@@ -1315,147 +1295,145 @@ end
 local unitPostDefMultiplierList = {}
 
 if modOptions.multiplier_maxvelocity ~= 1 then
-	local x = modOptions.multiplier_maxvelocity
+	local mult = modOptions.multiplier_maxvelocity
+	local multHalf = (mult - 1) / 2 + 1
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		if uDef.speed then
-			uDef.speed = uDef.speed * x
-			if uDef.maxdec then
-				uDef.maxdec = uDef.maxdec * ((x - 1) / 2 + 1)
-			end
-			if uDef.maxacc then
-				uDef.maxacc = uDef.maxacc * ((x - 1) / 2 + 1)
-			end
+			uDef.speed = uDef.speed * mult
+		end
+		if uDef.maxdec then
+			uDef.maxdec = uDef.maxdec * multHalf
+		end
+		if uDef.maxacc then
+			uDef.maxacc = uDef.maxacc * multHalf
 		end
 	end)
 end
 
 if modOptions.multiplier_turnrate ~= 1 then
-	local x = modOptions.multiplier_turnrate
+	local mult = modOptions.multiplier_turnrate
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		if uDef.turnrate then
-			uDef.turnrate = uDef.turnrate * x
+			uDef.turnrate = uDef.turnrate * mult
 		end
 	end)
 end
 
 if modOptions.multiplier_builddistance ~= 1 then
-	local x = modOptions.multiplier_builddistance
+	local mult = modOptions.multiplier_builddistance
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		if uDef.builddistance then
-			uDef.builddistance = uDef.builddistance * x
+			uDef.builddistance = uDef.builddistance * mult
 		end
 	end)
 end
 
 if modOptions.multiplier_buildpower ~= 1 then
-	local x = modOptions.multiplier_buildpower
+	local mult = modOptions.multiplier_buildpower
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		if uDef.workertime then
-			uDef.workertime = uDef.workertime * x
+			uDef.workertime = uDef.workertime * mult
 		end
 		if uDef.terraformspeed then
-			uDef.terraformspeed = uDef.terraformspeed * x
+			uDef.terraformspeed = uDef.terraformspeed * mult
 		end
 	end)
 end
 
-if modOptions.multiplier_metalextraction * modOptions.multiplier_resourceincome ~= 1 then
-	local x = modOptions.multiplier_metalextraction * modOptions.multiplier_resourceincome
+if modOptions.multiplier_metalemulttraction * modOptions.multiplier_resourceincome ~= 1 then
+	local mult = modOptions.multiplier_metalemulttraction * modOptions.multiplier_resourceincome
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if (uDef.extractsmetal and uDef.extractsmetal > 0) and (uDef.customparams.metal_extractor and uDef.customparams.metal_extractor > 0) then
-			uDef.extractsmetal = uDef.extractsmetal * x
-			uDef.customparams.metal_extractor = uDef.customparams.metal_extractor * x
+		if (uDef.emulttractsmetal or 0) > 0 and (uDef.customparams.metal_emulttractor or 0) > 0 then
+			uDef.emulttractsmetal = uDef.emulttractsmetal * mult
+			uDef.customparams.metal_emulttractor = uDef.customparams.metal_emulttractor * mult
 			if uDef.metalstorage then
-				uDef.metalstorage = uDef.metalstorage * x
+				uDef.metalstorage = uDef.metalstorage * mult
 			end
 		end
 	end)
 end
 
 if modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome ~= 1 then
-	local x = modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
+	local mult = modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if uDef.energymake then
-			uDef.energymake = uDef.energymake * x
+		-- Apply multipliers only to income, never to expenses:
+		if (uDef.energymake or 0) > 0 then
+			uDef.energymake = uDef.energymake * mult
 			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * x
+				uDef.energystorage = uDef.energystorage * mult
 			end
 		end
-		if uDef.windgenerator and uDef.windgenerator > 0 then
-			uDef.windgenerator = uDef.windgenerator * x
+		if (uDef.windgenerator or 0) > 0 then
+			uDef.windgenerator = uDef.windgenerator * mult
 			if uDef.customparams.energymultiplier then
-				uDef.customparams.energymultiplier = tonumber(uDef.customparams.energymultiplier) * x
+				uDef.customparams.energymultiplier = tonumber(uDef.customparams.energymultiplier) * mult
 			else
-				uDef.customparams.energymultiplier = x
+				uDef.customparams.energymultiplier = mult
 			end
 			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * x
-			end
-		end
-		if uDef.tidalgenerator then
-			uDef.tidalgenerator = uDef.tidalgenerator * x
-			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * x
+				uDef.energystorage = uDef.energystorage * mult
 			end
 		end
-		if uDef.energyupkeep and uDef.energyupkeep < 0 then
-			-- units with negative upkeep means they produce energy when "on".
-			uDef.energyupkeep = uDef.energyupkeep * x
+		if (uDef.tidalgenerator or 0) > 0 then
+			uDef.tidalgenerator = uDef.tidalgenerator * mult
 			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * x
+				uDef.energystorage = uDef.energystorage * mult
+			end
+		end
+		if (uDef.energyupkeep or 0) < 0 then
+			uDef.energyupkeep = uDef.energyupkeep * mult
+			if uDef.energystorage then
+				uDef.energystorage = uDef.energystorage * mult
 			end
 		end
 	end)
 end
 
 if modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome ~= 1 then
-	local x = modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome
+	local mult = modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		if uDef.customparams.energyconv_capacity and uDef.customparams.energyconv_efficiency then
-			--uDef.customparams.energyconv_capacity = uDef.customparams.energyconv_capacity * x
-			uDef.customparams.energyconv_efficiency = uDef.customparams.energyconv_efficiency * x
+			uDef.customparams.energyconv_efficiency = uDef.customparams.energyconv_efficiency * mult
 			if uDef.metalstorage then
-				uDef.metalstorage = uDef.metalstorage * x
+				uDef.metalstorage = uDef.metalstorage * mult
 			end
 			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * x
+				uDef.energystorage = uDef.energystorage * mult
 			end
 		end
 	end)
 end
 
 if modOptions.multiplier_losrange ~= 1 then
-	local x = modOptions.multiplier_losrange
+	local mult = modOptions.multiplier_losrange
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		if uDef.sightdistance then
-			uDef.sightdistance = uDef.sightdistance * x
+			uDef.sightdistance = uDef.sightdistance * mult
 		end
-	end)
-end
-
-if modOptions.multiplier_losrange ~= 1 then
-	local x = modOptions.multiplier_losrange
-	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		if uDef.airsightdistance then
-			uDef.airsightdistance = uDef.airsightdistance * x
+			uDef.airsightdistance = uDef.airsightdistance * mult
 		end
 	end)
 end
 
 if modOptions.multiplier_radarrange ~= 1 then
-	local x = modOptions.multiplier_radarrange
+	local mult = modOptions.multiplier_radarrange
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		if uDef.radardistance then
-			uDef.radardistance = uDef.radardistance * x
+			uDef.radardistance = uDef.radardistance * mult
 		end
 		if uDef.sonardistance then
-			uDef.sonardistance = uDef.sonardistance * x
+			uDef.sonardistance = uDef.sonardistance * mult
 		end
 	end)
 end
 
 function UnitDef_Post(name, uDef)
-	for _, postEffectList in ipairs { unitDefPostEffectList, unitDefPostReworkList, unitPostDefMultiplierList } do
+	for _, postEffectList in ipairs {
+		unitDefPostEffectList,    -- General unit def changes, including most modoptions.
+		unitDefPostReworkList,    -- Overhauls to unit defs, including tests and balance packs.
+		unitPostDefMultiplierList -- Pure multipliers to specific stats, such as build range.
+	} do
 		for index, effect in ipairs(postEffectList) do
 			effect(name, uDef)
 		end
