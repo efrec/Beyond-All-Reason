@@ -312,6 +312,14 @@ local unitDefPostEffectList = {
 		-- Correct frame-rounding and arithmetic issues in weapons.
 		processWeapons(name, unitDef)
 
+		-- Model material shading
+		local vertexDisplacement = 5.5 + (unitDef.footprintx + unitDef.footprintz) / 12
+		if vertexDisplacement > 10 then
+			vertexDisplacement = 10
+		end
+		unitDef.customparams.vertdisp = 1.0 * vertexDisplacement
+		unitDef.customparams.healthlookmod = 0
+
 		-- LOS height standardization
 		local sightemitheight = 0
 		local radaremitheight = 0
