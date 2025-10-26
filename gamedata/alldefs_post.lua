@@ -142,6 +142,32 @@ local unitDefPostEffectList = {
 				unitDef.sounds.build = nil
 			end
 		end
+
+		-- Make LOS height more forgiving than the default (20).
+		unitDef.sightemitheight = 0
+		unitDef.radaremitheight = 0
+		if unitDef.collisionvolumescales then
+			local x = unitDef.collisionvolumescales
+			local xtab = {}
+			for i in string.gmatch(x, "%S+") do
+				xtab[#xtab + 1] = i
+			end
+			unitDef.sightemitheight = unitDef.sightemitheight + tonumber(xtab[2])
+			unitDef.radaremitheight = unitDef.radaremitheight + tonumber(xtab[2])
+		end
+		if unitDef.collisionvolumeoffsets then
+			local x = unitDef.collisionvolumeoffsets
+			local xtab = {}
+			for i in string.gmatch(x, "%S+") do
+				xtab[#xtab + 1] = i
+			end
+			unitDef.sightemitheight = unitDef.sightemitheight + tonumber(xtab[2])
+			unitDef.radaremitheight = unitDef.radaremitheight + tonumber(xtab[2])
+		end
+		if unitDef.sightemitheight < 40 then
+			unitDef.sightemitheight = 40
+			unitDef.radaremitheight = 40
+		end
 	end,
 }
 
@@ -826,35 +852,6 @@ function UnitDef_Post(name, uDef)
          The engine uses full frames for actual reload times, but forwards the raw
          value to LuaUI (so for example calculated DPS is incorrect without sanitisation). ]]
 	processWeapons(name, uDef)
-
-	-- make los height a bit more forgiving	(20 is the default)
-	--uDef.sightemitheight = (uDef.sightemitheight and uDef.sightemitheight or 20) + 20
-	if true then
-		uDef.sightemitheight = 0
-		uDef.radaremitheight = 0
-		if uDef.collisionvolumescales then
-			local x = uDef.collisionvolumescales
-			local xtab = {}
-			for i in string.gmatch(x, "%S+") do
-				xtab[#xtab + 1] = i
-			end
-			uDef.sightemitheight = uDef.sightemitheight + tonumber(xtab[2])
-			uDef.radaremitheight = uDef.radaremitheight + tonumber(xtab[2])
-		end
-		if uDef.collisionvolumeoffsets then
-			local x = uDef.collisionvolumeoffsets
-			local xtab = {}
-			for i in string.gmatch(x, "%S+") do
-				xtab[#xtab + 1] = i
-			end
-			uDef.sightemitheight = uDef.sightemitheight + tonumber(xtab[2])
-			uDef.radaremitheight = uDef.radaremitheight + tonumber(xtab[2])
-		end
-		if uDef.sightemitheight < 40 then
-			uDef.sightemitheight = 40
-			uDef.radaremitheight = 40
-		end
-	end
 
 	-- Wreck and heap standardization
 	if not uDef.customparams.iscommander and not uDef.customparams.iseffigy then
