@@ -305,30 +305,20 @@ local unitDefPostEffectList = {
 		end
 
 		-- Make LOS height more forgiving than the default (20).
-		unitDef.sightemitheight = 0
-		unitDef.radaremitheight = 0
-		if unitDef.collisionvolumescales then
-			local x = unitDef.collisionvolumescales
-			local xtab = {}
-			for i in string.gmatch(x, "%S+") do
-				xtab[#xtab + 1] = i
+		local sightemitheight = 0
+		local radaremitheight = 0
+		for _, scaleName in ipairs { "collisionvolumescales", "collisionvolumeoffsets" } do
+			if unitDef[scaleName] then
+				local values = {}
+				for i in string.gmatch(unitDef[scaleName], "%S+") do
+					values[#values + 1] = i
+				end
+				sightemitheight = sightemitheight + tonumber(values[2])
+				radaremitheight = radaremitheight + tonumber(values[2])
 			end
-			unitDef.sightemitheight = unitDef.sightemitheight + tonumber(xtab[2])
-			unitDef.radaremitheight = unitDef.radaremitheight + tonumber(xtab[2])
 		end
-		if unitDef.collisionvolumeoffsets then
-			local x = unitDef.collisionvolumeoffsets
-			local xtab = {}
-			for i in string.gmatch(x, "%S+") do
-				xtab[#xtab + 1] = i
-			end
-			unitDef.sightemitheight = unitDef.sightemitheight + tonumber(xtab[2])
-			unitDef.radaremitheight = unitDef.radaremitheight + tonumber(xtab[2])
-		end
-		if unitDef.sightemitheight < 40 then
-			unitDef.sightemitheight = 40
-			unitDef.radaremitheight = 40
-		end
+		unitDef.sightemitheight = math.max(unitDef.sightemitheight, sightemitheight, 40)
+		unitDef.radaremitheight = math.max(unitDef.radaremitheight, radaremitheight, 40)
 
 		if unitDef.health and unitDef.customparams.israptorunit then
 			applyRaptorEffect(name, unitDef)
