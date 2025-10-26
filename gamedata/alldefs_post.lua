@@ -405,6 +405,11 @@ local unitDefPostEffectList = {
 				unitDef.mass = 750
 			end
 		end
+
+		-- Build power standardization
+		if unitDef.workertime and not unitDef.terraformspeed then
+			unitDef.terraformspeed = unitDef.workertime * 30
+		end
 	end,
 }
 
@@ -979,6 +984,147 @@ end
 
 local unitPostDefMultiplierList = {}
 
+if modOptions.multiplier_maxvelocity ~= 1 then
+	local x = modOptions.multiplier_maxvelocity
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if uDef.speed then
+			uDef.speed = uDef.speed * x
+			if uDef.maxdec then
+				uDef.maxdec = uDef.maxdec * ((x - 1) / 2 + 1)
+			end
+			if uDef.maxacc then
+				uDef.maxacc = uDef.maxacc * ((x - 1) / 2 + 1)
+			end
+		end
+	end)
+end
+
+if modOptions.multiplier_turnrate ~= 1 then
+	local x = modOptions.multiplier_turnrate
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if uDef.turnrate then
+			uDef.turnrate = uDef.turnrate * x
+		end
+	end)
+end
+
+if modOptions.multiplier_builddistance ~= 1 then
+	local x = modOptions.multiplier_builddistance
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if uDef.builddistance then
+			uDef.builddistance = uDef.builddistance * x
+		end
+	end)
+end
+
+if modOptions.multiplier_buildpower ~= 1 then
+	local x = modOptions.multiplier_buildpower
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if uDef.workertime then
+			uDef.workertime = uDef.workertime * x
+		end
+		if uDef.terraformspeed then
+			uDef.terraformspeed = uDef.terraformspeed * x
+		end
+	end)
+end
+
+if modOptions.multiplier_metalextraction * modOptions.multiplier_resourceincome ~= 1 then
+	local x = modOptions.multiplier_metalextraction * modOptions.multiplier_resourceincome
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if (uDef.extractsmetal and uDef.extractsmetal > 0) and (uDef.customparams.metal_extractor and uDef.customparams.metal_extractor > 0) then
+			uDef.extractsmetal = uDef.extractsmetal * x
+			uDef.customparams.metal_extractor = uDef.customparams.metal_extractor * x
+			if uDef.metalstorage then
+				uDef.metalstorage = uDef.metalstorage * x
+			end
+		end
+	end)
+end
+
+if modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome ~= 1 then
+	local x = modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if uDef.energymake then
+			uDef.energymake = uDef.energymake * x
+			if uDef.energystorage then
+				uDef.energystorage = uDef.energystorage * x
+			end
+		end
+		if uDef.windgenerator and uDef.windgenerator > 0 then
+			uDef.windgenerator = uDef.windgenerator * x
+			if uDef.customparams.energymultiplier then
+				uDef.customparams.energymultiplier = tonumber(uDef.customparams.energymultiplier) * x
+			else
+				uDef.customparams.energymultiplier = x
+			end
+			if uDef.energystorage then
+				uDef.energystorage = uDef.energystorage * x
+			end
+		end
+		if uDef.tidalgenerator then
+			uDef.tidalgenerator = uDef.tidalgenerator * x
+			if uDef.energystorage then
+				uDef.energystorage = uDef.energystorage * x
+			end
+		end
+		if uDef.energyupkeep and uDef.energyupkeep < 0 then
+			-- units with negative upkeep means they produce energy when "on".
+			uDef.energyupkeep = uDef.energyupkeep * x
+			if uDef.energystorage then
+				uDef.energystorage = uDef.energystorage * x
+			end
+		end
+	end)
+end
+
+if modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome ~= 1 then
+	local x = modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if uDef.customparams.energyconv_capacity and uDef.customparams.energyconv_efficiency then
+			--uDef.customparams.energyconv_capacity = uDef.customparams.energyconv_capacity * x
+			uDef.customparams.energyconv_efficiency = uDef.customparams.energyconv_efficiency * x
+			if uDef.metalstorage then
+				uDef.metalstorage = uDef.metalstorage * x
+			end
+			if uDef.energystorage then
+				uDef.energystorage = uDef.energystorage * x
+			end
+		end
+	end)
+end
+
+if modOptions.multiplier_losrange ~= 1 then
+	local x = modOptions.multiplier_losrange
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if uDef.sightdistance then
+			uDef.sightdistance = uDef.sightdistance * x
+		end
+	end)
+end
+
+if modOptions.multiplier_losrange ~= 1 then
+	local x = modOptions.multiplier_losrange
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if uDef.airsightdistance then
+			uDef.airsightdistance = uDef.airsightdistance * x
+		end
+	end)
+end
+
+if modOptions.multiplier_radarrange ~= 1 then
+	local x = modOptions.multiplier_radarrange
+	table.insert(unitPostDefMultiplierList, function(name, uDef)
+		if uDef.radardistance then
+			uDef.radardistance = uDef.radardistance * x
+		end
+		if uDef.sonardistance then
+			uDef.sonardistance = uDef.sonardistance * x
+		end
+	end)
+end
+
+
 function UnitDef_Post(name, uDef)
 	for index, effect in ipairs(unitDefPostEffectList) do
 		effect(name, uDef)
@@ -1433,137 +1579,6 @@ function UnitDef_Post(name, uDef)
 
 	for index, effect in ipairs(unitPostDefMultiplierList) do
 		effect(name, uDef)
-	end
-
-	-- Max Speed
-	if uDef.speed then
-		local x = modOptions.multiplier_maxvelocity
-		if x ~= 1 then
-			uDef.speed = uDef.speed * x
-			if uDef.maxdec then
-				uDef.maxdec = uDef.maxdec * ((x - 1) / 2 + 1)
-			end
-			if uDef.maxacc then
-				uDef.maxacc = uDef.maxacc * ((x - 1) / 2 + 1)
-			end
-		end
-	end
-
-	-- Turn Speed
-	if uDef.turnrate then
-		local x = modOptions.multiplier_turnrate
-		if x ~= 1 then
-			uDef.turnrate = uDef.turnrate * x
-		end
-	end
-
-	-- Build Distance
-	if uDef.builddistance then
-		local x = modOptions.multiplier_builddistance
-		if x ~= 1 then
-			uDef.builddistance = uDef.builddistance * x
-		end
-	end
-
-	-- Buildpower
-	if uDef.workertime then
-		local x = modOptions.multiplier_buildpower
-		if x ~= 1 then
-			uDef.workertime = uDef.workertime * x
-		end
-
-		-- increase terraformspeed to be able to restore ground faster
-		uDef.terraformspeed = uDef.workertime * 30
-	end
-
-	--energystorage
-	--metalstorage
-	-- Metal Extraction Multiplier
-	if (uDef.extractsmetal and uDef.extractsmetal > 0) and (uDef.customparams.metal_extractor and uDef.customparams.metal_extractor > 0) then
-		local x = modOptions.multiplier_metalextraction * modOptions.multiplier_resourceincome
-		uDef.extractsmetal = uDef.extractsmetal * x
-		uDef.customparams.metal_extractor = uDef.customparams.metal_extractor * x
-		if uDef.metalstorage then
-			uDef.metalstorage = uDef.metalstorage * x
-		end
-	end
-
-	-- Energy Production Multiplier
-	if uDef.energymake then
-		local x = modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
-		uDef.energymake = uDef.energymake * x
-		if uDef.energystorage then
-			uDef.energystorage = uDef.energystorage * x
-		end
-	end
-	if uDef.windgenerator and uDef.windgenerator > 0 then
-		local x = modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
-		uDef.windgenerator = uDef.windgenerator * x
-		if uDef.customparams.energymultiplier then
-			uDef.customparams.energymultiplier = tonumber(uDef.customparams.energymultiplier) * x
-		else
-			uDef.customparams.energymultiplier = x
-		end
-		if uDef.energystorage then
-			uDef.energystorage = uDef.energystorage * x
-		end
-	end
-	if uDef.tidalgenerator then
-		local x = modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
-		uDef.tidalgenerator = uDef.tidalgenerator * x
-		if uDef.energystorage then
-			uDef.energystorage = uDef.energystorage * x
-		end
-	end
-	if uDef.energyupkeep and uDef.energyupkeep < 0 then
-		-- units with negative upkeep means they produce energy when "on".
-		local x = modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
-		uDef.energyupkeep = uDef.energyupkeep * x
-		if uDef.energystorage then
-			uDef.energystorage = uDef.energystorage * x
-		end
-	end
-
-	-- Energy Conversion Multiplier
-	if uDef.customparams.energyconv_capacity and uDef.customparams.energyconv_efficiency then
-		local x = modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome
-		--uDef.customparams.energyconv_capacity = uDef.customparams.energyconv_capacity * x
-		uDef.customparams.energyconv_efficiency = uDef.customparams.energyconv_efficiency * x
-		if uDef.metalstorage then
-			uDef.metalstorage = uDef.metalstorage * x
-		end
-		if uDef.energystorage then
-			uDef.energystorage = uDef.energystorage * x
-		end
-	end
-
-	-- Sensors range
-	if uDef.sightdistance then
-		local x = modOptions.multiplier_losrange
-		if x ~= 1 then
-			uDef.sightdistance = uDef.sightdistance * x
-		end
-	end
-
-	if uDef.airsightdistance then
-		local x = modOptions.multiplier_losrange
-		if x ~= 1 then
-			uDef.airsightdistance = uDef.airsightdistance * x
-		end
-	end
-
-	if uDef.radardistance then
-		local x = modOptions.multiplier_radarrange
-		if x ~= 1 then
-			uDef.radardistance = uDef.radardistance * x
-		end
-	end
-
-	if uDef.sonardistance then
-		local x = modOptions.multiplier_radarrange
-		if x ~= 1 then
-			uDef.sonardistance = uDef.sonardistance * x
-		end
 	end
 
 	-- add model vertex displacement
