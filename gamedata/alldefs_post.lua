@@ -746,14 +746,13 @@ if modOptions.scavunitsforplayers then
 	end)
 end
 
+if modOptions.releasecandidates then
+
+end
+
 function UnitDef_Post(name, uDef)
 	for index, effect in ipairs(unitDefPostEffectList) do
 		effect(name, uDef)
-	end
-
-	-- Release candidate units --------------------------------------------------------------------------------------------------------------------------------------------------------
-	if modOptions.releasecandidates or modOptions.experimentalextraunits then
-
 	end
 
 	if string.find(name, "raptor") and uDef.health then
