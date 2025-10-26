@@ -1455,16 +1455,10 @@ if modOptions.multiplier_radarrange ~= 1 then
 end
 
 function UnitDef_Post(name, uDef)
-	for index, effect in ipairs(unitDefPostEffectList) do
-		effect(name, uDef)
-	end
-
-	for index, effect in ipairs(unitDefPostReworkList) do
-		effect(name, uDef)
-	end
-
-	for index, effect in ipairs(unitPostDefMultiplierList) do
-		effect(name, uDef)
+	for _, postEffectList in ipairs { unitDefPostEffectList, unitDefPostReworkList, unitPostDefMultiplierList } do
+		for index, effect in ipairs(postEffectList) do
+			effect(name, uDef)
+		end
 	end
 
 	-- add model vertex displacement
