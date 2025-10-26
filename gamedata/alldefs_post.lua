@@ -92,9 +92,8 @@ do
 	}
 end
 
-----------------------------------------------------------------------
--- CATEGORY ASSIGNER
-----------------------------------------------------------------------
+-------------------------
+-- UNIT CATEGORIES
 
 local hoverList = {
 	HOVER2 = true,
@@ -195,6 +194,9 @@ categories = {
 	end,
 }
 
+-------------------------
+-- RAPTOR DEFS
+
 local function applyRaptorEffect(name, uDef)
 	local raptorHealth = uDef.health
 	uDef.activatewhenbuilt = true
@@ -257,6 +259,9 @@ local function applyRaptorEffect(name, uDef)
 			--uDef.attackrunlength = 32
 	end
 end
+
+-------------------------
+-- UNIT DEF POST EFFECTS
 
 ---Sequence of effects that are applied during `UnitDef_Post`.
 ---@type function[]
@@ -402,6 +407,8 @@ local unitDefPostEffectList = {
 		end
 	end,
 }
+
+-- UNIT MODOPTION EFFECTS
 
 local modOptions = Spring.GetModOptions()
 
@@ -967,6 +974,11 @@ if modOptions.releasecandidates then
 
 end
 
+-------------------------
+-- UNIT MULTIPLIERS
+
+local unitPostDefMultiplierList = {}
+
 function UnitDef_Post(name, uDef)
 	for index, effect in ipairs(unitDefPostEffectList) do
 		effect(name, uDef)
@@ -1418,6 +1430,10 @@ function UnitDef_Post(name, uDef)
 
 
 	-- Multipliers Modoptions
+
+	for index, effect in ipairs(unitPostDefMultiplierList) do
+		effect(name, uDef)
+	end
 
 	-- Max Speed
 	if uDef.speed then
