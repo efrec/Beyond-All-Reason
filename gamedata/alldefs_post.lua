@@ -167,28 +167,29 @@ if modOptions.unithats == "april" then
 		corwin   = "apf/corwin.s3o",
 		corthud  = "apf/corthud.s3o",
 	}
-	table.insert(UnitDefPostEffects, function(name, uDef)
+	table.insert(unitDefPostEffectList, function(name, uDef)
 		uDef.objectname = unitHatApril[name] or uDef.objectname -- name => basename?
 	end)
 end
 
-function UnitDef_Post(name, uDef)
-	for index, effect in ipairs(unitDefPostEffectList) do
-		effect(name, uDef)
-	end
+if table.any(modOptions, function(value, key)
+		return value and type(key) == "string" and key:match("^unit_restrictions_%w+$")
+	end)
+then
+	local unitRestrictions = {}
 
-	-- Unit Restrictions
-	if modOptions.unit_restrictions_notech2 then
-		if tonumber(uDef.customparams.techlevel) == 2 or tonumber(uDef.customparams.techlevel) == 3 then
-			uDef.maxthisunit = 0
+	table.insert(unitDefPostEffectList, function(name, unitDef)
+		for _, test in ipairs(unitRestrictions) do
+			if test(name, unitDef) then
+				unitDef.maxthisunit = 0
+				break
+			end
 		end
-	end
+	end)
 
-	if modOptions.unit_restrictions_notech3 then
-		if tonumber(uDef.customparams.techlevel) == 3 then
-			uDef.maxthisunit = 0
-		end
-	end
+	table.insert(unitRestrictions, function(name, unitDef)
+		return unitDef.maxthisunit == 0 -- short-circuit check
+	end)
 
 	if modOptions.unit_restrictions_notech15 then
 		-- Tech 1.5 is a semi offical thing, modoption ported from teiserver meme commands
@@ -208,82 +209,85 @@ function UnitDef_Post(name, uDef)
 			legplat		= true,
 			legamsub	= true,
 		}
-		if tech15[uDef.basename] then
-			uDef.maxthisunit = 0
-		end
+		table.insert(unitRestrictions, function(name, uDef) return tech15[uDef.basename] end)
 	end
 
-	if modOptions.unit_restrictions_noair and not uDef.customparams.ignore_noair then
-		if string.find(uDef.customparams.subfolder, "Aircraft") then
-			uDef.maxthisunit = 0
-		elseif uDef.customparams.unitgroup and uDef.customparams.unitgroup == "aa" then
-			uDef.maxthisunit = 0
-		elseif uDef.canfly then
-			uDef.maxthisunit = 0
-		elseif uDef.customparams.disable_when_no_air then --used to remove drone carriers with no other purpose (ex. leghive but not rampart)
-			uDef.maxthisunit = 0
-		end
-		local AircraftFactories = {
-			armap = true,
+	if modOptions.unit_restrictions_noair then
+		local isAirFactory = {
 			armaap = true,
-			armplat = true,
-			corap = true,
-			coraap = true,
-			corplat = true,
-			corapt3 = true,
-			legapt3 = true,
+			armap = true,
 			armapt3 = true,
-			legap = true,
+			armplat = true,
+			coraap = true,
+			corap = true,
+			corapt3 = true,
+			corplat = true,
 			legaap = true,
-			armap_scav = true,
-			armaap_scav = true,
-			armplat_scav = true,
-			corap_scav = true,
-			coraap_scav = true,
-			corplat_scav = true,
-			corapt3_scav = true,
-			legapt3_scav = true,
-			armapt3_scav = true,
-			legap_scav = true,
-			legaap_scav = true,
-
+			legap = true,
+			legapt3 = true,
 		}
-		if AircraftFactories[name] then
-			uDef.maxthisunit = 0
-		end
+
+		table.insert(unitRestrictions, function(name, unitDef)
+			if unitDef.customparams.ignore_noair then
+				return false
+			elseif unitDef.customparams.disable_when_no_air then -- Remove drone carriers with no other purpose (ex. leghive but not rampart).
+				return true
+			elseif string.find(unitDef.customparams.subfolder, "Aircraft") then
+				return true
+			elseif unitDef.customparams.unitgroup and unitDef.customparams.unitgroup == "aa" then
+				return true
+			elseif unitDef.canfly then
+				return true
+			elseif isAirFactory[unitDef.basename] then
+				return true
+			end
+		end)
+	end
+
+	if modOptions.unit_restrictions_notech2 then
+		table.insert(unitRestrictions, function(name, unitDef)
+			return tonumber(unitDef.customparams.techlevel) >= 2
+		end)
+	elseif modOptions.unit_restrictions_notech3 then
+		table.insert(unitRestrictions, function(name, unitDef)
+			return tonumber(unitDef.customparams.techlevel) >= 3
+		end)
 	end
 
 	if modOptions.unit_restrictions_noextractors then
-		if (uDef.extractsmetal and uDef.extractsmetal > 0) and (uDef.customparams.metal_extractor and uDef.customparams.metal_extractor > 0) then
-			uDef.maxthisunit = 0
-		end
+		table.insert(unitRestrictions, function(name, uDef)
+			return uDef.extractsmetal and uDef.extractsmetal > 0
+				and uDef.customparams.metal_extractor and uDef.customparams.metal_extractor > 0
+		end)
 	end
 
 	if modOptions.unit_restrictions_noconverters then
-		if uDef.customparams.energyconv_capacity and uDef.customparams.energyconv_efficiency then
-			uDef.maxthisunit = 0
-		end
+		table.insert(unitRestrictions, function(name, uDef)
+			return uDef.customparams.energyconv_capacity and uDef.customparams.energyconv_efficiency
+		end)
 	end
 
 	if modOptions.unit_restrictions_nofusion then
-		if uDef.basename == "armdf" or string.sub(uDef.basename, -3) == "fus" then
-			uDef.maxthisunit = 0
-		end
+		table.insert(unitRestrictions, function(name, uDef)
+			return uDef.basename == "armdf" or uDef.basename:match("fus$")
+		end)
 	end
 
 	if modOptions.unit_restrictions_nonukes then
-		if uDef.weapondefs then
-			for _, weapon in pairs(uDef.weapondefs) do
-				if (weapon.interceptor and weapon.interceptor == 1) or (weapon.targetable and weapon.targetable == 1) then
-					uDef.maxthisunit = 0
-					break
+		table.insert(unitRestrictions, function(name, uDef)
+			if uDef.weapondefs then
+				for _, weapon in pairs(uDef.weapondefs) do
+					if (weapon.interceptor and weapon.interceptor == 1) or (weapon.targetable and weapon.targetable == 1) then
+						return true
+					end
 				end
+				return false
 			end
-		end
+		end)
 	end
 
 	if modOptions.unit_restrictions_nodefence then
-		local whitelist = {
+		local legalized = {
 			armllt	= true,
 			armrl	= true,
 			armfrt	= true,
@@ -300,53 +304,86 @@ function UnitDef_Post(name, uDef)
 			--sea tl= true,
 			--sea aa= true,
 		}
-		-- "defense" or "defence", as legion doesn't fully follow past conventions
-		if not whitelist[name] and string.find(string.lower(uDef.customparams.subfolder), "defen") then
-			uDef.maxthisunit = 0
-		end
+
+		table.insert(unitRestrictions, function(name, uDef)
+			if uDef.weapondefs then
+				-- "defense" or "defence", as legion doesn't follow convention
+				return uDef.customparams.subfolder:lower():match("defen[cs]e")
+					and not legalized[name]
+			end
+		end)
 	end
 
 	if modOptions.unit_restrictions_noantinuke then
-		if uDef.weapondefs then
-			local numWeapons = 0
-			local newWdefs = {}
-			local hasAnti = false
-			for i, weapon in pairs(uDef.weapondefs) do
-				if weapon.interceptor and weapon.interceptor == 1 then
-					uDef.weapondefs[i] = nil
-					hasAnti = true
-				else
-					numWeapons = numWeapons + 1
-					newWdefs[numWeapons] = weapon
-				end
-			end
-			if hasAnti then
-				uDef.weapondefs = newWdefs
-				if numWeapons == 0 and (not uDef.radardistance or uDef.radardistance < 1500) then
-					uDef.maxthisunit = 0
-				else
-					if uDef.metalcost then
-						uDef.metalcost = math.floor(uDef.metalcost * 0.6)	-- give a discount for removing anti-nuke
+		local function isAntiNukeWeapon(weapon)
+			return weapon.interceptor == 1
+		end
+		local function isNotAntiNukeWeapon(weapon)
+			return weapon.interceptor ~= 1
+		end
+
+		table.insert(unitRestrictions, function(name, uDef)
+			if uDef.weapondefs and table.any(uDef.weapondefs, isAntiNukeWeapon) then
+				uDef.weapondefs = table.filterArray(uDef.weapondefs, isNotAntiNukeWeapon)
+				if next(uDef.weapondefs) or (uDef.radardistance and uDef.radardistance >= 1500) then
+					if uDef.metalcost then -- give a discount for removing anti-nuke
+						uDef.metalcost = math.floor(uDef.metalcost * 0.6)
 						uDef.energycost = math.floor(uDef.energycost * 0.6)
 					end
+					return false
+				else
+					return true
 				end
 			end
-		end
+		end)
 	end
 
-	--normal commander respawning
-	if modOptions.comrespawn == "all" or (modOptions.comrespawn == "evocom" and modOptions.evocom)then
-		if name == "armcom" or name == "corcom" or name == "legcom" then
-			uDef.customparams.effigy = "comeffigylvl1"
-			uDef.customparams.effigy_offset = 1
-			uDef.customparams.respawn_condition = "health"
-			uDef.customparams.minimum_respawn_stun = 5
-			uDef.customparams.distance_stun_multiplier = 1
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "comeffigylvl1"
-		end
+	if modOptions.unit_restrictions_notacnukes then
+		local isTacticalNuke = {
+			armemp = true,
+			cortron = true,
+			legperdition = true,
+		}
+		table.insert(unitRestrictions, function(name, uDef)
+			return isTacticalNuke[uDef.basename]
+		end)
 	end
 
+	if modOptions.unit_restrictions_nolrpc then
+		local isLRPC = {
+			armbotrail = true,
+			armbrtha = true,
+			armvulc = true,
+			corint = true,
+			corbuzz = true,
+			leglrpc = true,
+			legelrpcmech = true,
+			legstarfall = true,
+		}
+		table.insert(unitRestrictions, function(name, uDef)
+			return isLRPC[uDef.basename]
+		end)
+	end
+
+	if modOptions.unit_restrictions_noendgamelrpc then
+		local isLolCannon = {
+			armvulc = true,
+			corbuzz = true,
+			legstarfall = true,
+			armvulc_scav = true,
+			corbuzz_scav = true,
+			legstarfall_scav = true,
+		}
+		table.insert(unitRestrictions, function(name, uDef)
+			return isLolCannon[uDef.basename]
+		end)
+	end
+end
+
+function UnitDef_Post(name, uDef)
+	for index, effect in ipairs(unitDefPostEffectList) do
+		effect(name, uDef)
+	end
 
 	if modOptions.evocom then
 		if uDef.customparams.evocomlvl or name == "armcom" or name == "corcom" or name == "legcom" then
@@ -424,56 +461,6 @@ function UnitDef_Post(name, uDef)
 		udcp.evolution_timer                  = tonumber(udcp.evolution_timer) or 20
 	end
 
-	if modOptions.unit_restrictions_notacnukes then
-		local TacNukes = {
-			armemp = true,
-			cortron = true,
-			legperdition = true,
-			armemp_scav = true,
-			cortron_scav = true,
-		}
-		if TacNukes[name] then
-			uDef.maxthisunit = 0
-		end
-	end
-
-	if modOptions.unit_restrictions_nolrpc then
-		local LRPCs = {
-			armbotrail = true,
-			armbrtha = true,
-			armvulc = true,
-			corint = true,
-			corbuzz = true,
-			leglrpc = true,
-			legelrpcmech = true,
-			legstarfall = true,
-			armbotrail_scav = true,
-			armbrtha_scav = true,
-			armvulc_scav = true,
-			corint_scav = true,
-			corbuzz_scav = true,
-			legstarfall_scav = true,
-			leglrpc_scav = true,
-			legelrpcmech_scav = true,
-		}
-		if LRPCs[name] then
-			uDef.maxthisunit = 0
-		end
-	end
-
-	if modOptions.unit_restrictions_noendgamelrpc then
-		local LRPCs = {
-			armvulc = true,
-			corbuzz = true,
-			legstarfall = true,
-			armvulc_scav = true,
-			corbuzz_scav = true,
-			legstarfall_scav = true,
-		}
-		if LRPCs[name] then
-			uDef.maxthisunit = 0
-		end
-	end
 
 	-- Extra Units ----------------------------------------------------------------------------------------------------------------------------------
 	if modOptions.experimentalextraunits then
