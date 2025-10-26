@@ -608,163 +608,147 @@ if modOptions.experimentalextraunits then
 	end)
 end
 
+if modOptions.scavunitsforplayers then
+	table.insert(unitDefPostEffectList, function(name, uDef)
+		local bo = uDef.buildoptions
+
+		-- Armada T1 Land Constructors
+		if name == "armca" or name == "armck" or name == "armcv" then
+			local numBuildoptions = #bo
+
+		-- Armada T1 Sea Constructors
+		elseif name == "armcs" or name == "armcsa" then
+			local numBuildoptions = #bo
+
+		-- Armada T1 Vehicle Factory
+		elseif name == "armvp" then
+			local numBuildoptions = #bo
+
+		-- Armada T1 Aircraft Plant
+		elseif name == "armap" then
+			local numBuildoptions = #bo
+
+		-- Armada T2 Constructors
+		elseif name == "armaca" or name == "armack" or name == "armacv" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "armapt3" -- T3 Aircraft Gantry
+			bo[numBuildoptions + 2] = "armminivulc" -- Mini Ragnarok
+			bo[numBuildoptions + 3] = "armbotrail" -- Pawn Launcher
+			bo[numBuildoptions + 4] = "armannit3" -- Epic Pulsar
+			bo[numBuildoptions + 5] = "armafust3" -- Epic Fusion Reactor
+			bo[numBuildoptions + 6] = "armmmkrt3" -- Epic Energy Converter
+
+		-- Armada T2 Shipyard
+		elseif name == "armasy" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "armdronecarry" -- Nexus - Drone Carrier
+			bo[numBuildoptions + 2] = "armptt2" -- Epic Skater
+			bo[numBuildoptions + 3] = "armdecadet3" -- Epic Dolphin
+			bo[numBuildoptions + 4] = "armpshipt3" -- Epic Ellysaw
+			bo[numBuildoptions + 5] = "armserpt3" -- Epic Serpent
+			bo[numBuildoptions + 6] = "armtrident" -- Trident - Depth Charge Drone Carrier
+
+		-- Armada T3 Gantry
+		elseif name == "armshltx" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "armrattet4" -- Ratte - Very Heavy Tank
+			bo[numBuildoptions + 2] = "armsptkt4" -- Epic Recluse
+			bo[numBuildoptions + 3] = "armpwt4" -- Epic Pawn
+			bo[numBuildoptions + 4] = "armvadert4" -- Epic Tumbleweed - Nuclear Rolling Bomb
+			bo[numBuildoptions + 5] = "armdronecarryland" -- Nexus Terra - Drone Carrier
+
+		-- Armada T3 Underwater Gantry
+		elseif name == "armshltxuw" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "armrattet4" -- Ratte - Very Heavy Tank
+			bo[numBuildoptions + 2] = "armsptkt4" -- Epic Recluse
+			bo[numBuildoptions + 3] = "armpwt4" -- Epic Pawn
+			bo[numBuildoptions + 4] = "armvadert4" -- Epic Tumbleweed - Nuclear Rolling Bomb
+
+		-- Cortex T1 Bots Factory
+		elseif name == "corlab" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions+1] = "corkark" -- Archaic Karkinos
+
+		-- Cortex T2 Land Constructors
+		elseif name == "coraca" or name == "corack" or name == "coracv" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "corapt3" -- T3 Aircraft Gantry
+			bo[numBuildoptions + 2] = "corminibuzz" -- Mini Calamity
+			bo[numBuildoptions + 3] = "corhllllt" -- Quad Guard - Quad Light Laser Turret
+			bo[numBuildoptions + 4] = "cordoomt3" -- Epic Bulwark
+			bo[numBuildoptions + 5] = "corafust3" -- Epic Fusion Reactor
+			bo[numBuildoptions + 6] = "cormmkrt3" -- Epic Energy Converter
+
+		-- Cortex T2 Sea Constructors
+		elseif name == "coracsub" then
+			local numBuildoptions = #bo
+
+		-- Cortex T2 Bots Factory
+		elseif name == "coralab" then
+			local numBuildoptions = #bo
+
+		-- Cortex T2 Vehicle Factory
+		elseif name == "coravp" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions+1] = "corgatreap" -- Laser Tiger
+			bo[numBuildoptions+2] = "corftiger" -- Heat Tiger
+
+		-- Cortex T2 Aircraft Plant
+		elseif name == "coraap" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions+1] = "corcrw" -- Archaic Dragon
+
+		-- Cortex T2 Shipyard
+		elseif name == "corasy" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "cordronecarry" -- Dispenser - Drone Carrier
+			bo[numBuildoptions + 2] = "corslrpc" -- Leviathan - LRPC Ship
+			bo[numBuildoptions + 3] = "corsentinel" -- Sentinel - Depth Charge Drone Carrier
+
+		-- Cortex T3 Gantry
+		elseif name == "corgant" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "corkarganetht4" -- Epic Karganeth
+			bo[numBuildoptions + 2] = "corgolt4" -- Epic Tzar
+			bo[numBuildoptions + 3] = "corakt4" -- Epic Grunt
+			bo[numBuildoptions + 4] = "corthermite" -- Thermite/Epic Termite
+			bo[numBuildoptions + 5] = "cormandot4" -- Epic Commando
+
+		-- Cortex T3 Underwater Gantry
+		elseif name == "corgantuw" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "corkarganetht4" -- Epic Karganeth
+			bo[numBuildoptions + 2] = "corgolt4" -- Epic Tzar
+			bo[numBuildoptions + 3] = "corakt4" -- Epic Grunt
+			bo[numBuildoptions + 4] = "cormandot4" -- Epic Commando
+
+		-- Legion T1 Land Constructors
+		elseif name == "legca" or name == "legck" or name == "legcv" then
+			local numBuildoptions = #bo
+
+		-- Legion T2 Land Constructors
+		elseif name == "legaca" or name == "legack" or name == "legacv" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "legapt3" -- T3 Aircraft Gantry
+			bo[numBuildoptions + 2] = "legministarfall" -- Mini Starfall
+			bo[numBuildoptions + 3] = "legafust3" -- Epic Fusion Reactor
+			bo[numBuildoptions + 4] = "legadveconvt3" -- Epic Energy Converter
+
+		-- Legion T3 Gantry
+		elseif name == "leggant" then
+			local numBuildoptions = #bo
+			bo[numBuildoptions + 1] = "legsrailt4" -- Epic Arquebus
+			bo[numBuildoptions + 2] = "leggobt3" -- Epic Goblin
+			bo[numBuildoptions + 3] = "legpede" -- Mukade - Heavy Multi Weapon Centipede
+			bo[numBuildoptions + 4] = "legeheatraymech_old" -- Old Sol Invictus - Quad Heatray Mech
+		end
+	end)
+end
+
 function UnitDef_Post(name, uDef)
 	for index, effect in ipairs(unitDefPostEffectList) do
 		effect(name, uDef)
-	end
-
-	-- Scavengers Units ------------------------------------------------------------------------------------------------------------------------
-	if modOptions.scavunitsforplayers then
-		-- Armada T1 Land Constructors
-		if name == "armca" or name == "armck" or name == "armcv" then
-			local numBuildoptions = #uDef.buildoptions
-		end
-
-		-- Armada T1 Sea Constructors
-		if name == "armcs" or name == "armcsa" then
-			local numBuildoptions = #uDef.buildoptions
-		end
-
-		-- Armada T1 Vehicle Factory
-		if name == "armvp" then
-			local numBuildoptions = #uDef.buildoptions
-		end
-
-		-- Armada T1 Aircraft Plant
-		if name == "armap" then
-			local numBuildoptions = #uDef.buildoptions
-		end
-
-		-- Armada T2 Constructors
-		if name == "armaca" or name == "armack" or name == "armacv" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "armapt3" -- T3 Aircraft Gantry
-			uDef.buildoptions[numBuildoptions + 2] = "armminivulc" -- Mini Ragnarok
-			uDef.buildoptions[numBuildoptions + 3] = "armbotrail" -- Pawn Launcher
-			uDef.buildoptions[numBuildoptions + 4] = "armannit3" -- Epic Pulsar
-			uDef.buildoptions[numBuildoptions + 5] = "armafust3" -- Epic Fusion Reactor
-			uDef.buildoptions[numBuildoptions + 6] = "armmmkrt3" -- Epic Energy Converter
-		end
-
-		-- Armada T2 Shipyard
-		if name == "armasy" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "armdronecarry" -- Nexus - Drone Carrier
-			uDef.buildoptions[numBuildoptions + 2] = "armptt2" -- Epic Skater
-			uDef.buildoptions[numBuildoptions + 3] = "armdecadet3" -- Epic Dolphin
-			uDef.buildoptions[numBuildoptions + 4] = "armpshipt3" -- Epic Ellysaw
-			uDef.buildoptions[numBuildoptions + 5] = "armserpt3" -- Epic Serpent
-			uDef.buildoptions[numBuildoptions + 6] = "armtrident" -- Trident - Depth Charge Drone Carrier
-		end
-
-		-- Armada T3 Gantry
-		if name == "armshltx" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "armrattet4" -- Ratte - Very Heavy Tank
-			uDef.buildoptions[numBuildoptions + 2] = "armsptkt4" -- Epic Recluse
-			uDef.buildoptions[numBuildoptions + 3] = "armpwt4" -- Epic Pawn
-			uDef.buildoptions[numBuildoptions + 4] = "armvadert4" -- Epic Tumbleweed - Nuclear Rolling Bomb
-			uDef.buildoptions[numBuildoptions + 5] = "armdronecarryland" -- Nexus Terra - Drone Carrier
-		end
-
-		-- Armada T3 Underwater Gantry
-		if name == "armshltxuw" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "armrattet4" -- Ratte - Very Heavy Tank
-			uDef.buildoptions[numBuildoptions + 2] = "armsptkt4" -- Epic Recluse
-			uDef.buildoptions[numBuildoptions + 3] = "armpwt4" -- Epic Pawn
-			uDef.buildoptions[numBuildoptions + 4] = "armvadert4" -- Epic Tumbleweed - Nuclear Rolling Bomb
-		end
-
-		-- Cortex T1 Bots Factory
-		if name == "corlab" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions+1] = "corkark" -- Archaic Karkinos
-		end
-
-		-- Cortex T2 Land Constructors
-		if name == "coraca" or name == "corack" or name == "coracv" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "corapt3" -- T3 Aircraft Gantry
-			uDef.buildoptions[numBuildoptions + 2] = "corminibuzz" -- Mini Calamity
-			uDef.buildoptions[numBuildoptions + 3] = "corhllllt" -- Quad Guard - Quad Light Laser Turret
-			uDef.buildoptions[numBuildoptions + 4] = "cordoomt3" -- Epic Bulwark
-			uDef.buildoptions[numBuildoptions + 5] = "corafust3" -- Epic Fusion Reactor
-			uDef.buildoptions[numBuildoptions + 6] = "cormmkrt3" -- Epic Energy Converter
-		end
-
-		-- Cortex T2 Sea Constructors
-		if name == "coracsub" then
-			local numBuildoptions = #uDef.buildoptions
-		end
-
-		-- Cortex T2 Bots Factory
-		if name == "coralab" then
-			local numBuildoptions = #uDef.buildoptions
-		end
-
-		-- Cortex T2 Vehicle Factory
-		if name == "coravp" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions+1] = "corgatreap" -- Laser Tiger
-			uDef.buildoptions[numBuildoptions+2] = "corftiger" -- Heat Tiger
-		end
-
-		-- Cortex T2 Aircraft Plant
-		if name == "coraap" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions+1] = "corcrw" -- Archaic Dragon
-		end
-
-		-- Cortex T2 Shipyard
-		if name == "corasy" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "cordronecarry" -- Dispenser - Drone Carrier
-			uDef.buildoptions[numBuildoptions + 2] = "corslrpc" -- Leviathan - LRPC Ship
-			uDef.buildoptions[numBuildoptions + 3] = "corsentinel" -- Sentinel - Depth Charge Drone Carrier
-		end
-
-		-- Cortex T3 Gantry
-		if name == "corgant" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "corkarganetht4" -- Epic Karganeth
-			uDef.buildoptions[numBuildoptions + 2] = "corgolt4" -- Epic Tzar
-			uDef.buildoptions[numBuildoptions + 3] = "corakt4" -- Epic Grunt
-			uDef.buildoptions[numBuildoptions + 4] = "corthermite" -- Thermite/Epic Termite
-			uDef.buildoptions[numBuildoptions + 5] = "cormandot4" -- Epic Commando
-		end
-
-		-- Cortex T3 Underwater Gantry
-		if name == "corgantuw" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "corkarganetht4" -- Epic Karganeth
-			uDef.buildoptions[numBuildoptions + 2] = "corgolt4" -- Epic Tzar
-			uDef.buildoptions[numBuildoptions + 3] = "corakt4" -- Epic Grunt
-			uDef.buildoptions[numBuildoptions + 4] = "cormandot4" -- Epic Commando
-		end
-
-		-- Legion T1 Land Constructors
-		if name == "legca" or name == "legck" or name == "legcv" then
-			local numBuildoptions = #uDef.buildoptions
-		end
-
-		-- Legion T2 Land Constructors
-		if name == "legaca" or name == "legack" or name == "legacv" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "legapt3" -- T3 Aircraft Gantry
-			uDef.buildoptions[numBuildoptions + 2] = "legministarfall" -- Mini Starfall
-			uDef.buildoptions[numBuildoptions + 3] = "legafust3" -- Epic Fusion Reactor
-			uDef.buildoptions[numBuildoptions + 4] = "legadveconvt3" -- Epic Energy Converter
-		end
-
-		-- Legion T3 Gantry
-		if name == "leggant" then
-			local numBuildoptions = #uDef.buildoptions
-			uDef.buildoptions[numBuildoptions + 1] = "legsrailt4" -- Epic Arquebus
-			uDef.buildoptions[numBuildoptions + 2] = "leggobt3" -- Epic Goblin
-			uDef.buildoptions[numBuildoptions + 3] = "legpede" -- Mukade - Heavy Multi Weapon Centipede
-			uDef.buildoptions[numBuildoptions + 4] = "legeheatraymech_old" -- Old Sol Invictus - Quad Heatray Mech
-		end
 	end
 
 	-- Release candidate units --------------------------------------------------------------------------------------------------------------------------------------------------------
