@@ -989,6 +989,324 @@ end
 ---@type function[]
 local unitDefPostReworkList = {}
 
+if modOptions.junorework then
+	table.insert(unitDefPostReworkList, function(name, uDef)
+		if name == "armjuno" then
+			uDef.metalcost = 500
+			uDef.energycost = 12000
+			uDef.buildtime = 15000
+			uDef.weapondefs.juno_pulse.energypershot = 7000
+			uDef.weapondefs.juno_pulse.metalpershot = 100
+		elseif name == "corjuno" then
+			uDef.metalcost = 500
+			uDef.energycost = 12000
+			uDef.buildtime = 15000
+			uDef.weapondefs.juno_pulse.energypershot = 7000
+			uDef.weapondefs.juno_pulse.metalpershot = 100
+		end
+	end)
+end
+
+if modOptions.shieldsrework then
+	-- Compensate for taking full damage from projectiles; c.f. bounce-style taking partial.
+	local shieldPowerMultiplier = 1.9
+	table.insert(unitDefPostReworkList, function(name, uDef)
+		if uDef.weapondefs then
+			for _, weapon in pairs(uDef.weapondefs) do
+				if weapon.shield and weapon.shield.repulser then
+					uDef.onoffable = true
+				end
+			end
+			if uDef.customparams.shield_power then
+				uDef.customparams.shield_power = uDef.customparams.shield_power * shieldPowerMultiplier
+			end
+		end
+	end)
+end
+
+if modOptions.emprework then
+	table.insert(unitDefPostReworkList, function(name, uDef)
+		if name == "armstil" then
+			uDef.weapondefs.stiletto_bomb.areaofeffect = 250
+			uDef.weapondefs.stiletto_bomb.burst = 3
+			uDef.weapondefs.stiletto_bomb.burstrate = 0.3333
+			uDef.weapondefs.stiletto_bomb.edgeeffectiveness = 0.30
+			uDef.weapondefs.stiletto_bomb.damage.default = 3000
+			uDef.weapondefs.stiletto_bomb.paralyzetime = 1
+		elseif name == "armspid" then
+			uDef.weapondefs.spider.paralyzetime = 2
+			uDef.weapondefs.spider.damage.vtol = 100
+			uDef.weapondefs.spider.damage.default = 600
+			uDef.weapondefs.spider.reloadtime = 1.495
+		elseif name == "armdfly" then
+			uDef.weapondefs.armdfly_paralyzer.paralyzetime = 1
+			uDef.weapondefs.armdfly_paralyzer.beamdecay = 0.05
+			uDef.weapondefs.armdfly_paralyzer.beamtime = 0.1
+			uDef.weapondefs.armdfly_paralyzer.areaofeffect = 8
+			uDef.weapondefs.armdfly_paralyzer.targetmoveerror = 0.05
+		elseif name == "armemp" then
+			uDef.weapondefs.armemp_weapon.areaofeffect = 512
+			uDef.weapondefs.armemp_weapon.burstrate = 0.3333
+			uDef.weapondefs.armemp_weapon.edgeeffectiveness = -0.10
+			uDef.weapondefs.armemp_weapon.paralyzetime = 22
+			uDef.weapondefs.armemp_weapon.damage.default = 60000
+		elseif name == "armshockwave" then
+			uDef.weapondefs.hllt_bottom.areaofeffect = 150
+			uDef.weapondefs.hllt_bottom.edgeeffectiveness = 0.15
+			uDef.weapondefs.hllt_bottom.reloadtime = 1.4
+			uDef.weapondefs.hllt_bottom.paralyzetime = 5
+			uDef.weapondefs.hllt_bottom.damage.default = 800
+		elseif name == "armthor" then
+			uDef.weapondefs.empmissile.areaofeffect = 250
+			uDef.weapondefs.empmissile.edgeeffectiveness = -0.50
+			uDef.weapondefs.empmissile.damage.default = 20000
+			uDef.weapondefs.empmissile.paralyzetime = 5
+			uDef.weapondefs.emp.damage.default = 200
+			uDef.weapondefs.emp.reloadtime = .5
+			uDef.weapondefs.emp.paralyzetime = 1
+		elseif name == "corbw" then
+			uDef.weapondefs.bladewing_lyzer.damage.default = 300
+			uDef.weapondefs.bladewing_lyzer.paralyzetime = 1
+		elseif (name =="corfmd" or name =="armamd" or name =="cormabm" or name =="armscab") then
+			uDef.customparams.paralyzemultiplier = 1.5
+		elseif (name == "armvulc" or name == "corbuzz" or name == "legstarfall" or name == "corsilo" or name == "armsilo") then
+			uDef.customparams.paralyzemultiplier = 2
+		elseif name == "armmar" then
+			uDef.customparams.paralyzemultiplier = 0.8
+		elseif name == "armbanth" then
+			uDef.customparams.paralyzemultiplier = 1.6
+		end
+	end)
+end
+
+if modOptions.air_rework then
+	local airReworkUnits = VFS.Include("unitbasedefs/air_rework_defs.lua")
+	table.insert(unitDefPostReworkList, airReworkUnits.airReworkTweaks)
+end
+
+if modOptions.skyshift then
+	local skyshiftUnits = VFS.Include("unitbasedefs/skyshiftunits_post.lua")
+	table.insert(unitDefPostReworkList, skyshiftUnits.skyshiftUnitTweaks)
+end
+
+if modOptions.proposed_unit_reworks then
+	local proposed_unit_reworks = VFS.Include("unitbasedefs/proposed_unit_reworks_defs.lua")
+	table.insert(unitDefPostReworkList, proposed_unit_reworks.proposed_unit_reworksTweaks)
+end
+
+if modOptions.naval_balance_tweaks then
+	local buildOptionReplacements = {
+		armcs = { armfhlt = "armnavaldefturret" },
+		armch = { armfhlt = "armnavaldefturret" },
+		armbeaver = { armfhlt = "armnavaldefturret" },
+		armcsa = { armfhlt = "armnavaldefturret" },
+		corcs = { corfhlt = "cornavaldefturret" },
+		corch = { corfhlt = "cornavaldefturret" },
+		cormuskrat = { corfhlt = "cornavaldefturret" },
+		corcsa = { corfhlt = "cornavaldefturret" },
+		legcs = { legfmg = "legnavaldefturret" },
+		legch = { legfmg = "legnavaldefturret" },
+		legotter = { legfmg = "legnavaldefturret" },
+		armacsub = { armkraken = "armanavaldefturret" },
+		armmls = {
+			armfhlt   = "armnavaldefturret",
+			armkraken = "armanavaldefturret",
+		},
+		coracsub = { corfdoom = "coranavaldefturret" },
+		cormls = {
+			corfhlt  = "cornavaldefturret",
+			corfdoom = "coranavaldefturret",
+		},
+	}
+	local isAdvancedNavalRadar = {
+		armfrad = true,
+		corfrad = true,
+		legfrad = true,
+	}
+
+	table.insert(unitDefPostReworkList, function(name, uDef)
+		local baseName = uDef.basename
+		if buildOptionReplacements[baseName] then
+			local replacements = buildOptionReplacements[baseName]
+			for i, buildOption in ipairs(uDef.buildoptions) do
+				if replacements[buildOption] then
+					uDef.buildoptions[i] = replacements[buildOption]
+				end
+			end
+		elseif isAdvancedNavalRadar[baseName] then
+			uDef.sightdistance = 800
+		end
+	end)
+end
+
+if modOptions.lategame_rebalance then
+	table.insert(unitDefPostReworkList, function(name, uDef)
+		local baseName = uDef.basename
+		if baseName == "armamb" then
+			uDef.weapondefs.armamb_gun.reloadtime = 2
+			uDef.weapondefs.armamb_gun_high.reloadtime = 7.7
+		elseif baseName == "cortoast" then
+			uDef.weapondefs.cortoast_gun.reloadtime = 2.35
+			uDef.weapondefs.cortoast_gun_high.reloadtime = 8.8
+		elseif baseName == "armpb" then
+			uDef.weapondefs.armpb_weapon.reloadtime = 1.7
+			uDef.weapondefs.armpb_weapon.range = 700
+		elseif baseName == "corvipe" then
+			uDef.weapondefs.vipersabot.reloadtime = 2.1
+			uDef.weapondefs.vipersabot.range = 700
+		elseif baseName == "armanni" then
+			uDef.metalcost = 4000
+			uDef.energycost = 85000
+			uDef.buildtime = 59000
+		elseif baseName == "corbhmth" then
+			uDef.metalcost = 3600
+			uDef.energycost = 40000
+			uDef.buildtime = 70000
+		elseif baseName == "armbrtha" then
+			uDef.metalcost = 5000
+			uDef.energycost = 71000
+			uDef.buildtime = 94000
+		elseif baseName == "corint" then
+			uDef.metalcost = 5100
+			uDef.energycost = 74000
+			uDef.buildtime = 103000
+		elseif baseName == "armvulc" then
+			uDef.metalcost = 75600
+			uDef.energycost = 902400
+			uDef.buildtime = 1680000
+		elseif baseName == "corbuzz" then
+			uDef.metalcost = 73200
+			uDef.energycost = 861600
+			uDef.buildtime = 1680000
+		elseif baseName == "armmar" then
+			uDef.metalcost = 1070
+			uDef.energycost = 23000
+			uDef.buildtime = 28700
+		elseif baseName == "armraz" then
+			uDef.metalcost = 4200
+			uDef.energycost = 75000
+			uDef.buildtime = 97000
+		elseif baseName == "armthor" then
+			uDef.metalcost = 9450
+			uDef.energycost = 255000
+			uDef.buildtime = 265000
+		elseif baseName == "corshiva" then
+			uDef.metalcost = 1800
+			uDef.energycost = 26500
+			uDef.buildtime = 35000
+			uDef.speed = 50.8
+			uDef.weapondefs.shiva_rocket.tracks = true
+			uDef.weapondefs.shiva_rocket.turnrate = 7500
+		elseif baseName == "corkarg" then
+			uDef.metalcost = 2625
+			uDef.energycost = 60000
+			uDef.buildtime = 79000
+		elseif baseName == "cordemon" then
+			uDef.metalcost = 6300
+			uDef.energycost = 94500
+			uDef.buildtime = 94500
+		elseif baseName == "armstil" then
+			uDef.health = 1300
+			uDef.weapondefs.stiletto_bomb.burst = 3
+			uDef.weapondefs.stiletto_bomb.burstrate = 0.2333
+			uDef.weapondefs.stiletto_bomb.damage = {
+				default = 3000
+			}
+		elseif baseName == "armlance" then
+			uDef.health = 1750
+		elseif baseName == "cortitan" then
+			uDef.health = 1800
+		elseif baseName == "armyork" then
+			uDef.weapondefs.mobileflak.reloadtime = 0.8333
+		elseif baseName == "corsent" then
+			uDef.weapondefs.mobileflak.reloadtime = 0.8333
+		elseif baseName == "armaas" then
+			uDef.weapondefs.mobileflak.reloadtime = 0.8333
+		elseif baseName == "corarch" then
+			uDef.weapondefs.mobileflak.reloadtime = 0.8333
+		elseif baseName == "armflak" then
+			uDef.weapondefs.armflak_gun.reloadtime = 0.6
+		elseif baseName == "corflak" then
+			uDef.weapondefs.armflak_gun.reloadtime = 0.6
+		elseif baseName == "armmercury" then
+			uDef.weapondefs.arm_advsam.reloadtime = 11
+			uDef.weapondefs.arm_advsam.stockpile = false
+		elseif baseName == "corscreamer" then
+			uDef.weapondefs.cor_advsam.reloadtime = 11
+			uDef.weapondefs.cor_advsam.stockpile = false
+		elseif baseName == "armfig" then
+			uDef.metalcost = 77
+			uDef.energycost = 3100
+			uDef.buildtime = 3700
+		elseif baseName == "armsfig" then
+			uDef.metalcost = 95
+			uDef.energycost = 4750
+			uDef.buildtime = 5700
+		elseif baseName == "armhawk" then
+			uDef.metalcost = 155
+			uDef.energycost = 6300
+			uDef.buildtime = 9800
+		elseif baseName == "corveng" then
+			uDef.metalcost = 77
+			uDef.energycost = 3000
+			uDef.buildtime = 3600
+		elseif baseName == "corsfig" then
+			uDef.metalcost = 95
+			uDef.energycost = 4850
+			uDef.buildtime = 5400
+		elseif baseName == "corvamp" then
+			uDef.metalcost = 150
+			uDef.energycost = 5250
+			uDef.buildtime = 9250
+		end
+	end)
+end
+
+if modOptions.factory_costs then
+	table.insert(unitDefPostReworkList, function(name, uDef)
+		if name == "armmoho" or name == "cormoho" or name == "cormexp" then
+			uDef.metalcost = uDef.metalcost + 50
+			uDef.energycost = uDef.energycost + 2000
+		elseif name == "armageo" or name == "corageo" then
+			uDef.metalcost = uDef.metalcost + 100
+			uDef.energycost = uDef.energycost + 4000
+		elseif name == "armavp" or name == "coravp" or name == "armalab" or name == "coralab" or name == "armaap" or name == "coraap" or name == "armasy" or name == "corasy" then
+			uDef.metalcost = uDef.metalcost - 1000
+			uDef.workertime = 600
+			uDef.buildtime = uDef.buildtime * 2
+		elseif name == "armvp" or name == "corvp" or name == "armlab" or name == "corlab" or name == "armsy" or name == "corsy"then
+			uDef.metalcost = uDef.metalcost - 50
+			uDef.buildtime = uDef.buildtime - 1500
+			uDef.energycost = uDef.energycost - 280
+		elseif name == "armap" or name == "corap" or name == "armhp" or name == "corhp" or name == "armfhp" or name == "corfhp" or name == "armplat" or name == "corplat" then
+			uDef.metalcost = uDef.metalcost - 100
+			uDef.buildtime = uDef.buildtime - 600
+			uDef.energycost = uDef.energycost - 100
+		elseif name == "armshltx" or name == "corgant" or name == "armshltxuw" or name == "corgantuw" then
+			uDef.workertime = 2000
+			uDef.buildtime = uDef.buildtime * 1.33
+		elseif name == "armnanotc" or name == "cornanotc" or name == "armnanotcplat" or name == "cornanotcplat" then
+			uDef.metalcost = uDef.metalcost + 40
+		end
+
+		if tonumber(uDef.customparams.techlevel) == 2 and uDef.energycost and uDef.metalcost and uDef.buildtime and not (name == "armavp" or name == "coravp" or name == "armalab" or name == "coralab" or name == "armaap" or name == "coraap" or name == "armasy" or name == "corasy") then
+			uDef.buildtime = math.ceil(uDef.buildtime * 0.015 / 5) * 500
+		elseif tonumber(uDef.customparams.techlevel) == 3 and uDef.energycost and uDef.metalcost and uDef.buildtime then
+			uDef.buildtime = math.ceil(uDef.buildtime * 0.0015) * 1000
+		end
+	end)
+end
+
+if modOptions.techsplit then
+	local techsplitUnits = VFS.Include("unitbasedefs/techsplit_defs.lua")
+	table.insert(unitDefPostReworkList, techsplitUnits.techsplitTweaks)
+end
+
+if modOptions.techsplit_balance then
+	local techsplit_balanceUnits = VFS.Include("unitbasedefs/techsplit_balance_defs.lua")
+	table.insert(unitDefPostReworkList, techsplit_balanceUnits.techsplit_balanceTweaks)
+end
+
 -------------------------
 -- UNIT MULTIPLIERS
 
@@ -1144,453 +1462,6 @@ function UnitDef_Post(name, uDef)
 	for index, effect in ipairs(unitDefPostReworkList) do
 		effect(name, uDef)
 	end
-
-	--Juno Rework
-	if modOptions.junorework == true then
-		if name == "armjuno" then
-			uDef.metalcost = 500
-			uDef.energycost = 12000
-			uDef.buildtime = 15000
-			uDef.weapondefs.juno_pulse.energypershot = 7000
-			uDef.weapondefs.juno_pulse.metalpershot = 100
-		end
-		if name == "corjuno" then
-			uDef.metalcost = 500
-			uDef.energycost = 12000
-			uDef.buildtime = 15000
-			uDef.weapondefs.juno_pulse.energypershot = 7000
-			uDef.weapondefs.juno_pulse.metalpershot = 100
-		end
-	end
-
-	-- Shield Rework
-	if modOptions.shieldsrework == true and uDef.weapondefs then
-		local shieldPowerMultiplier = 1.9-- To compensate for always taking full damage from projectiles in contrast to bounce-style only taking partial
-
-		for _, weapon in pairs(uDef.weapondefs) do
-			if weapon.shield and weapon.shield.repulser then
-				uDef.onoffable = true
-			end
-		end
-		if uDef.customparams.shield_power then
-			uDef.customparams.shield_power = uDef.customparams.shield_power * shieldPowerMultiplier
-		end
-	end
-
-	--- EMP rework
-	if modOptions.emprework == true then
-		if name == "armstil" then
-			uDef.weapondefs.stiletto_bomb.areaofeffect = 250
-			uDef.weapondefs.stiletto_bomb.burst = 3
-			uDef.weapondefs.stiletto_bomb.burstrate = 0.3333
-			uDef.weapondefs.stiletto_bomb.edgeeffectiveness = 0.30
-			uDef.weapondefs.stiletto_bomb.damage.default = 3000
-			uDef.weapondefs.stiletto_bomb.paralyzetime = 1
-		end
-
-		if name == "armspid" then
-			uDef.weapondefs.spider.paralyzetime = 2
-			uDef.weapondefs.spider.damage.vtol = 100
-			uDef.weapondefs.spider.damage.default = 600
-			uDef.weapondefs.spider.reloadtime = 1.495
-		end
-
-		if name == "armdfly" then
-			uDef.weapondefs.armdfly_paralyzer.paralyzetime = 1
-			uDef.weapondefs.armdfly_paralyzer.beamdecay = 0.05--testing
-			uDef.weapondefs.armdfly_paralyzer.beamtime = 0.1--testing
-			uDef.weapondefs.armdfly_paralyzer.areaofeffect = 8--testing
-			uDef.weapondefs.armdfly_paralyzer.targetmoveerror = 0.05--testing
-
-
-
-
-			--mono beam settings
-			--uDef.weapondefs.armdfly_paralyzer.reloadtime = 0.05--testing
-			--uDef.weapondefs.armdfly_paralyzer.damage.default = 150--testing (~2800/s for parity with live)
-			--uDef.weapondefs.armdfly_paralyzer.beamdecay = 0.95
-			--uDef.weapondefs.armdfly_paralyzer.duration = 200--should be unused?
-			--uDef.weapondefs.armdfly_paralyzer.beamttl = 2--frames visible.just leads to laggy ghosting if raised too high.
-
-			--burst testing within monobeam
-			--uDef.weapondefs.armdfly_paralyzer.damage.default = 125
-			--uDef.weapondefs.armdfly_paralyzer.reloadtime = 1--testing
-			--uDef.weapondefs.armdfly_paralyzer.beamttl = 3--frames visible.just leads to laggy ghosting if raised too high.
-			--uDef.weapondefs.armdfly_paralyzer.beamBurst = true--testing
-			--uDef.weapondefs.armdfly_paralyzer.burst = 10--testing
-			--uDef.weapondefs.armdfly_paralyzer.burstRate = 0.1--testing
-
-		end
-
-		if name == "armemp" then
-			uDef.weapondefs.armemp_weapon.areaofeffect = 512
-			uDef.weapondefs.armemp_weapon.burstrate = 0.3333
-			uDef.weapondefs.armemp_weapon.edgeeffectiveness = -0.10
-			uDef.weapondefs.armemp_weapon.paralyzetime = 22
-			uDef.weapondefs.armemp_weapon.damage.default = 60000
-
-		end
-		if name == "armshockwave" then
-			uDef.weapondefs.hllt_bottom.areaofeffect = 150
-			uDef.weapondefs.hllt_bottom.edgeeffectiveness = 0.15
-			uDef.weapondefs.hllt_bottom.reloadtime = 1.4
-			uDef.weapondefs.hllt_bottom.paralyzetime = 5
-			uDef.weapondefs.hllt_bottom.damage.default = 800
-		end
-
-		if name == "armthor" then
-			uDef.weapondefs.empmissile.areaofeffect = 250
-			uDef.weapondefs.empmissile.edgeeffectiveness = -0.50
-			uDef.weapondefs.empmissile.damage.default = 20000
-			uDef.weapondefs.empmissile.paralyzetime = 5
-			uDef.weapondefs.emp.damage.default = 200
-			uDef.weapondefs.emp.reloadtime = .5
-			uDef.weapondefs.emp.paralyzetime = 1
-		end
-
-		if name == "corbw" then
-			--uDef.weapondefs.bladewing_lyzer.burst = 4--shotgun mode, outdated but worth keeping
-			--uDef.weapondefs.bladewing_lyzer.reloadtime = 0.8
-			--uDef.weapondefs.bladewing_lyzer.beamburst = true
-			--uDef.weapondefs.bladewing_lyzer.sprayangle = 2100
-			--uDef.weapondefs.bladewing_lyzer.beamdecay = 0.5
-			--uDef.weapondefs.bladewing_lyzer.beamtime = 0.03
-			--uDef.weapondefs.bladewing_lyzer.beamttl = 0.4
-
-			uDef.weapondefs.bladewing_lyzer.damage.default = 300
-			uDef.weapondefs.bladewing_lyzer.paralyzetime = 1
-		end
-
-
-		if (name =="corfmd" or name =="armamd" or name =="cormabm" or name =="armscab") then
-			uDef.customparams.paralyzemultiplier = 1.5
-		end
-
-		if (name == "armvulc" or name == "corbuzz" or name == "legstarfall" or name == "corsilo" or name == "armsilo") then
-			uDef.customparams.paralyzemultiplier = 2
-		end
-
-		--if name == "corsumo" then
-			--uDef.customparams.paralyzemultiplier = 0.9
-		--end
-
-		if name == "armmar" then
-			uDef.customparams.paralyzemultiplier = 0.8
-		end
-
-		if name == "armbanth" then
-			uDef.customparams.paralyzemultiplier = 1.6
-		end
-
-		--if name == "armraz" then
-			--uDef.customparams.paralyzemultiplier = 1.2
-		--end
-		--if name == "armvang" then
-			--uDef.customparams.paralyzemultiplier = 1.1
-		--end
-
-		--if name == "armlun" then
-			--uDef.customparams.paralyzemultiplier = 1.05
-		--end
-
-		--if name == "corshiva" then
-			--uDef.customparams.paralyzemultiplier = 1.1
-		--end
-
-		--if name == "corcat" then
-			--uDef.customparams.paralyzemultiplier = 1.05
-		--end
-
-		--if name == "corkarg" then
-			--uDef.customparams.paralyzemultiplier = 1.2
-		--end
-		--if name == "corsok" then
-			--uDef.customparams.paralyzemultiplier = 1.1
-		--end
-		--if name == "cordemont4" then
-			--uDef.customparams.paralyzemultiplier = 1.2
-		--end
-
-	end
-	
-	--Air rework
-	if modOptions.air_rework == true then
-		local airReworkUnits = VFS.Include("unitbasedefs/air_rework_defs.lua")
-		uDef = airReworkUnits.airReworkTweaks(name, uDef)
-	end
-
-	-- Skyshift: Air rework
-	if modOptions.skyshift == true then
-		local skyshiftUnits = VFS.Include("unitbasedefs/skyshiftunits_post.lua")
-		uDef = skyshiftUnits.skyshiftUnitTweaks(name, uDef)
-	end
-
-	-- Proposed Unit Reworks
-	if modOptions.proposed_unit_reworks == true then
-		local proposed_unit_reworks = VFS.Include("unitbasedefs/proposed_unit_reworks_defs.lua")
-		uDef = proposed_unit_reworks.proposed_unit_reworksTweaks(name, uDef)
-	end
-
-	-- Naval Balance Adjustments, if anything breaks here blame ZephyrSkies
-	if modOptions.naval_balance_tweaks == true then
-		local buildOptionReplacements = {
-			armcs = { ["armfhlt"] = "armnavaldefturret" },
-			armch = { ["armfhlt"] = "armnavaldefturret" },
-			armbeaver = { ["armfhlt"] = "armnavaldefturret" },
-			armcsa = { ["armfhlt"] = "armnavaldefturret" },
-			corcs = { ["corfhlt"] = "cornavaldefturret" },
-			corch = { ["corfhlt"] = "cornavaldefturret" },
-			cormuskrat = { ["corfhlt"] = "cornavaldefturret" },
-			corcsa = { ["corfhlt"] = "cornavaldefturret" },
-			legcs = { ["legfmg"]  = "legnavaldefturret" },
-			legch = { ["legfmg"]  = "legnavaldefturret" },
-			legotter = { ["legfmg"]  = "legnavaldefturret" },
-			armacsub = { ["armkraken"]  = "armanavaldefturret" },
-			armmls = {
-				["armfhlt"]  = "armnavaldefturret",
-				["armkraken"] = "armanavaldefturret",
-			},
-			coracsub = { ["corfdoom"]  = "coranavaldefturret" },
-			cormls = {
-				["corfhlt"]  = "cornavaldefturret",
-				["corfdoom"] = "coranavaldefturret",
-			},
-		}
-
-		if buildOptionReplacements[name] then
-			local replacements = buildOptionReplacements[name]
-			for i, buildOption in ipairs(uDef.buildoptions or {}) do
-				if replacements[buildOption] then
-					uDef.buildoptions[i] = replacements[buildOption]
-				end
-			end
-		end
-
-		if name == "armfrad" then
-			uDef.sightdistance = 800
-		end
-		if name == "corfrad" then
-			uDef.sightdistance = 800
-		end
-		if name == "legfrad" then
-			uDef.sightdistance = 800
-		end
-
-	end
-
-	--Lategame Rebalance
-	if modOptions.lategame_rebalance == true then
-		if name == "armamb" then
-			uDef.weapondefs.armamb_gun.reloadtime = 2
-			uDef.weapondefs.armamb_gun_high.reloadtime = 7.7
-		end
-		if name == "cortoast" then
-			uDef.weapondefs.cortoast_gun.reloadtime = 2.35
-			uDef.weapondefs.cortoast_gun_high.reloadtime = 8.8
-		end
-		if name == "armpb" then
-			uDef.weapondefs.armpb_weapon.reloadtime = 1.7
-			uDef.weapondefs.armpb_weapon.range = 700
-		end
-		if name == "corvipe" then
-			uDef.weapondefs.vipersabot.reloadtime = 2.1
-			uDef.weapondefs.vipersabot.range = 700
-		end
-		if name == "armanni" then
-			uDef.metalcost = 4000
-			uDef.energycost = 85000
-			uDef.buildtime = 59000
-		end
-		if name == "corbhmth" then
-			uDef.metalcost = 3600
-			uDef.energycost = 40000
-			uDef.buildtime = 70000
-		end
-		if name == "armbrtha" then
-			uDef.metalcost = 5000
-			uDef.energycost = 71000
-			uDef.buildtime = 94000
-		end
-		if name == "corint" then
-			uDef.metalcost = 5100
-			uDef.energycost = 74000
-			uDef.buildtime = 103000
-		end
-		if name == "armvulc" then
-			uDef.metalcost = 75600
-			uDef.energycost = 902400
-			uDef.buildtime = 1680000
-		end
-		if name == "corbuzz" then
-			uDef.metalcost = 73200
-			uDef.energycost = 861600
-			uDef.buildtime = 1680000
-		end
-		if name == "armmar" then
-			uDef.metalcost = 1070
-			uDef.energycost = 23000
-			uDef.buildtime = 28700
-		end
-		if name == "armraz" then
-			uDef.metalcost = 4200
-			uDef.energycost = 75000
-			uDef.buildtime = 97000
-		end
-		if name == "armthor" then
-			uDef.metalcost = 9450
-			uDef.energycost = 255000
-			uDef.buildtime = 265000
-		end
-		if name == "corshiva" then
-			uDef.metalcost = 1800
-			uDef.energycost = 26500
-			uDef.buildtime = 35000
-			uDef.speed = 50.8
-			uDef.weapondefs.shiva_rocket.tracks = true
-			uDef.weapondefs.shiva_rocket.turnrate = 7500
-		end
-		if name == "corkarg" then
-			uDef.metalcost = 2625
-			uDef.energycost = 60000
-			uDef.buildtime = 79000
-		end
-		if name == "cordemon" then
-			uDef.metalcost = 6300
-			uDef.energycost = 94500
-			uDef.buildtime = 94500
-		end
-		if name == "armstil" then
-			uDef.health = 1300
-			uDef.weapondefs.stiletto_bomb.burst = 3
-			uDef.weapondefs.stiletto_bomb.burstrate = 0.2333
-			uDef.weapondefs.stiletto_bomb.damage = {
-				default = 3000
-			}
-		end
-		if name == "armlance" then
-			uDef.health = 1750
-		end
-		if name == "cortitan" then
-			uDef.health = 1800
-		end
-		if name == "armyork" then
-			uDef.weapondefs.mobileflak.reloadtime = 0.8333
-		end
-		if name == "corsent" then
-			uDef.weapondefs.mobileflak.reloadtime = 0.8333
-		end
-		if name == "armaas" then
-			uDef.weapondefs.mobileflak.reloadtime = 0.8333
-		end
-		if name == "corarch" then
-			uDef.weapondefs.mobileflak.reloadtime = 0.8333
-		end
-		if name == "armflak" then
-			uDef.weapondefs.armflak_gun.reloadtime = 0.6
-		end
-		if name == "corflak" then
-			uDef.weapondefs.armflak_gun.reloadtime = 0.6
-		end
-		if name == "armmercury" then
-			uDef.weapondefs.arm_advsam.reloadtime = 11
-			uDef.weapondefs.arm_advsam.stockpile = false
-		end
-		if name == "corscreamer" then
-			uDef.weapondefs.cor_advsam.reloadtime = 11
-			uDef.weapondefs.cor_advsam.stockpile = false
-		end
-		if name == "armfig" then
-			uDef.metalcost = 77
-			uDef.energycost = 3100
-			uDef.buildtime = 3700
-		end
-		if name == "armsfig" then
-			uDef.metalcost = 95
-			uDef.energycost = 4750
-			uDef.buildtime = 5700
-		end
-		if name == "armhawk" then
-			uDef.metalcost = 155
-			uDef.energycost = 6300
-			uDef.buildtime = 9800
-		end
-		if name == "corveng" then
-			uDef.metalcost = 77
-			uDef.energycost = 3000
-			uDef.buildtime = 3600
-		end
-		if name == "corsfig" then
-			uDef.metalcost = 95
-			uDef.energycost = 4850
-			uDef.buildtime = 5400
-		end
-		if name == "corvamp" then
-			uDef.metalcost = 150
-			uDef.energycost = 5250
-			uDef.buildtime = 9250
-		end
-	end
-
-	-- Factory costs test
-
-	if modOptions.factory_costs == true then
-
-		if name == "armmoho" or name == "cormoho" or name == "cormexp" then
-			uDef.metalcost = uDef.metalcost + 50
-			uDef.energycost = uDef.energycost + 2000
-		end
-		if name == "armageo" or name == "corageo" then
-			uDef.metalcost = uDef.metalcost + 100
-			uDef.energycost = uDef.energycost + 4000
-		end
-		if name == "armavp" or name == "coravp" or name == "armalab" or name == "coralab" or name == "armaap" or name == "coraap" or name == "armasy" or name == "corasy" then
-			uDef.metalcost = uDef.metalcost - 1000
-			uDef.workertime = 600
-			uDef.buildtime = uDef.buildtime * 2
-		end
-		if name == "armvp" or name == "corvp" or name == "armlab" or name == "corlab" or name == "armsy" or name == "corsy"then
-			uDef.metalcost = uDef.metalcost - 50
-			uDef.buildtime = uDef.buildtime - 1500
-			uDef.energycost = uDef.energycost - 280
-		end
-		if name == "armap" or name == "corap" or name == "armhp" or name == "corhp" or name == "armfhp" or name == "corfhp" or name == "armplat" or name == "corplat" then
-			uDef.metalcost = uDef.metalcost - 100
-			uDef.buildtime = uDef.buildtime - 600
-			uDef.energycost = uDef.energycost - 100
-		end
-		if name == "armshltx" or name == "corgant" or name == "armshltxuw" or name == "corgantuw" then
-			uDef.workertime = 2000
-			uDef.buildtime = uDef.buildtime * 1.33
-		end
-
-		if tonumber(uDef.customparams.techlevel) == 2 and uDef.energycost and uDef.metalcost and uDef.buildtime and not (name == "armavp" or name == "coravp" or name == "armalab" or name == "coralab" or name == "armaap" or name == "coraap" or name == "armasy" or name == "corasy") then
-			uDef.buildtime = math.ceil(uDef.buildtime * 0.015 / 5) * 500
-		end
-		if tonumber(uDef.customparams.techlevel) == 3 and uDef.energycost and uDef.metalcost and uDef.buildtime then
-			uDef.buildtime = math.ceil(uDef.buildtime * 0.0015) * 1000
-		end
-
-		if name == "armnanotc" or name == "cornanotc" or name == "armnanotcplat" or name == "cornanotcplat" then
-			uDef.metalcost = uDef.metalcost + 40
-		end
-	end
-
-	----------------
-	-- Tech Split --
-	----------------
-
-	if modOptions.techsplit == true then
-		local techsplitUnits = VFS.Include("unitbasedefs/techsplit_defs.lua")
-		uDef = techsplitUnits.techsplitTweaks(name, uDef)
-	end
-
-	if modOptions.techsplit_balance == true then
-		local techsplit_balanceUnits = VFS.Include("unitbasedefs/techsplit_balance_defs.lua")
-		uDef = techsplit_balanceUnits.techsplit_balanceTweaks(name, uDef)
-	end
-
-
-	-- Multipliers Modoptions
 
 	for index, effect in ipairs(unitPostDefMultiplierList) do
 		effect(name, uDef)
