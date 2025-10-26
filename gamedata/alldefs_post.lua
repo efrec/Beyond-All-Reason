@@ -304,7 +304,15 @@ local unitDefPostEffectList = {
 			end
 		end
 
-		-- Make LOS height more forgiving than the default (20).
+		-- Special unit types and behaviors
+		if unitDef.health and unitDef.customparams.israptorunit then
+			applyRaptorEffect(name, unitDef)
+		end
+
+		-- Correct frame-rounding and arithmetic issues in weapons.
+		processWeapons(name, unitDef)
+
+		-- LOS height standardization
 		local sightemitheight = 0
 		local radaremitheight = 0
 		for _, scaleName in ipairs { "collisionvolumescales", "collisionvolumeoffsets" } do
@@ -320,19 +328,10 @@ local unitDefPostEffectList = {
 		unitDef.sightemitheight = math.max(unitDef.sightemitheight, sightemitheight, 40)
 		unitDef.radaremitheight = math.max(unitDef.radaremitheight, radaremitheight, 40)
 
-		if unitDef.health and unitDef.customparams.israptorunit then
-			applyRaptorEffect(name, unitDef)
-		end
-
 		-- Max slope standardization
 		if unitDef.maxslope then
 			unitDef.maxslope = math.floor((unitDef.maxslope * 1.5) + 0.5)
 		end
-
-		--[[ Sanitize to whole frames (plus leeways because float arithmetic is bonkers).
-			The engine uses full frames for actual reload times, but forwards the raw
-			value to LuaUI (so for example calculated DPS is incorrect without sanitisation). ]]
-		processWeapons(name, unitDef)
 
 		-- Wreck and heap standardization
 		if not unitDef.customparams.iscommander and not unitDef.customparams.iseffigy then
