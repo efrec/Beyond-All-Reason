@@ -77,21 +77,6 @@ end
 ---@type number The minimum speed required for units to suffer fall/collision damage.
 local COLLISION_SPEED_MIN = 75 / Game.gameSpeed
 
-local metaLowerkeys
-do
-	local function lower(key)
-		return type(key) == "string" and key:lower() or key
-	end
-	metaLowerkeys = {
-		__index = function (self, key)
-			return rawget(self, lower(key))
-		end,
-		__newindex = function (self, key, value)
-			return rawset(self, lower(key), value)
-		end,
-	}
-end
-
 -------------------------
 -- UNIT CATEGORIES
 
@@ -268,15 +253,6 @@ end
 local unitDefPostEffectList = {
 	-- General transforms applied to all units:
 	function(name, unitDef)
-		-- Force all keys to lowercase. Only applies to the top-level keys.
-		for k, v in pairs(unitDef) do
-			if type(k) == "string" and k ~= k:lower() then
-				unitDef[k:lower()] = v
-				unitDef[k] = nil
-			end
-		end
-		unitDef = setmetatable(unitDef, metaLowerkeys)
-
 		-- Ensure subtables exist.
 		unitDef.buildoptions = unitDef.buildoptions or {}
 		unitDef.customparams = unitDef.customparams or {}
