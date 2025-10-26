@@ -273,6 +273,7 @@ local unitDefPostEffectList = {
 		unitDef = setmetatable(unitDef, metaLowerkeys)
 
 		-- Ensure subtables exist.
+		unitDef.buildoptions = unitDef.buildoptions or {}
 		unitDef.customparams = unitDef.customparams or {}
 
 		-- Unit name and identity
