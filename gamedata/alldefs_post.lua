@@ -524,19 +524,6 @@ then
 		end)
 	end
 
-	if modOptions.unit_restrictions_nonukes then
-		table.insert(unitRestrictions, function(name, uDef)
-			if uDef.weapondefs then
-				for _, weapon in pairs(uDef.weapondefs) do
-					if (weapon.interceptor and weapon.interceptor == 1) or (weapon.targetable and weapon.targetable == 1) then
-						return true
-					end
-				end
-				return false
-			end
-		end)
-	end
-
 	if modOptions.unit_restrictions_nodefence then
 		local legalized = {
 			armllt	= true,
@@ -565,26 +552,48 @@ then
 		end)
 	end
 
-	if modOptions.unit_restrictions_noantinuke then
-		local function isAntiNukeWeapon(weapon)
-			return weapon.interceptor == 1
+	local nuclearMissileInterceptBit = 1
+	local function isNukeWeapon(weapon)
+		return weapon.targetable == nuclearMissileInterceptBit
+	end
+	local function isAntiNukeWeapon(weapon)
+		return weapon.interceptor == nuclearMissileInterceptBit
+	end
+	local function isNotAntiNukeWeapon(weapon)
+		return weapon.interceptor ~= nuclearMissileInterceptBit
+	end
+	local function removeAntiNukes(uDef)
+		uDef.weapondefs = table.filterArray(uDef.weapondefs, isNotAntiNukeWeapon)
+		if next(uDef.weapondefs) or (uDef.radardistance and uDef.radardistance >= 1500) then
+			if uDef.metalcost then
+				-- Discount the unit to compensate for its antinuke.
+				uDef.metalcost = math.floor(uDef.metalcost * 0.6)
+				uDef.energycost = math.floor(uDef.energycost * 0.6)
+			end
+			return false
+		else
+			return true
 		end
-		local function isNotAntiNukeWeapon(weapon)
-			return weapon.interceptor ~= 1
-		end
+	end
 
+	if modOptions.unit_restrictions_nonukes then
+		table.insert(unitRestrictions, function(name, uDef)
+			if uDef.weapondefs then
+				if table.any(uDef.weapondefs, isNukeWeapon) then
+					return true
+				elseif table.any(uDef.weapondefs, isAntiNukeWeapon) then
+					return removeAntiNukes(uDef)
+				else
+					return false
+				end
+			end
+		end)
+	end
+
+	if modOptions.unit_restrictions_noantinuke then
 		table.insert(unitRestrictions, function(name, uDef)
 			if uDef.weapondefs and table.any(uDef.weapondefs, isAntiNukeWeapon) then
-				uDef.weapondefs = table.filterArray(uDef.weapondefs, isNotAntiNukeWeapon)
-				if next(uDef.weapondefs) or (uDef.radardistance and uDef.radardistance >= 1500) then
-					if uDef.metalcost then -- give a discount for removing anti-nuke
-						uDef.metalcost = math.floor(uDef.metalcost * 0.6)
-						uDef.energycost = math.floor(uDef.energycost * 0.6)
-					end
-					return false
-				else
-					return true
-				end
+				return removeAntiNukes(uDef)
 			end
 		end)
 	end
