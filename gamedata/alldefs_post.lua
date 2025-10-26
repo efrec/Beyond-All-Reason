@@ -145,54 +145,36 @@ local unitDefPostEffectList = {
 	end,
 }
 
+local modOptions = Spring.GetModOptions()
+
+if modOptions.unithats == "april" then
+	local unitHatApril = {
+		corak    = "apf/CORAK.s3o",
+		corllt   = "apf/CORllt.s3o",
+		corhllt  = "apf/CORhllt.s3o",
+		corack   = "apf/CORACK.s3o",
+		corck    = "apf/CORCK.s3o",
+		armpw    = "apf/ARMPW.s3o",
+		cordemon = "apf/cordemon.s3o",
+		correap  = "apf/correap.s3o",
+		corstorm = "apf/corstorm.s3o",
+		armcv    = "apf/armcv.s3o",
+		armrock  = "apf/armrock.s3o",
+		armbull  = "apf/armbull.s3o",
+		armllt   = "apf/armllt.s3o",
+		armwin   = "apf/armwin.s3o",
+		armham   = "apf/armham.s3o",
+		corwin   = "apf/corwin.s3o",
+		corthud  = "apf/corthud.s3o",
+	}
+	table.insert(UnitDefPostEffects, function(name, uDef)
+		uDef.objectname = unitHatApril[name] or uDef.objectname -- name => basename?
+	end)
+end
+
 function UnitDef_Post(name, uDef)
 	for index, effect in ipairs(unitDefPostEffectList) do
 		effect(name, uDef)
-	end
-
-	local modOptions = Spring.GetModOptions()
-
-	-- inidivual unit hat processing
-	do
-		if modOptions.unithats then
-			if modOptions.unithats == "april" then
-				if name == "corak" then
-					uDef.objectname = "apf/CORAK.s3o"
-				elseif name == "corllt" then
-					uDef.objectname = "apf/CORllt.s3o"
-				elseif name == "corhllt" then
-					uDef.objectname = "apf/CORhllt.s3o"
-				elseif name == "corack" then
-					uDef.objectname = "apf/CORACK.s3o"
-				elseif name == "corck" then
-					uDef.objectname = "apf/CORCK.s3o"
-				elseif name == "armpw" then
-					uDef.objectname = "apf/ARMPW.s3o"
-				elseif name == "cordemon" then
-					uDef.objectname = "apf/cordemon.s3o"
-				elseif name == "correap" then
-					uDef.objectname = "apf/correap.s3o"
-				elseif name == "corstorm" then
-					uDef.objectname = "apf/corstorm.s3o"
-				elseif name == "armcv" then
-					uDef.objectname = "apf/armcv.s3o"
-				elseif name == "armrock" then
-					uDef.objectname = "apf/armrock.s3o"
-				elseif name == "armbull" then
-					uDef.objectname = "apf/armbull.s3o"
-				elseif name == "armllt" then
-					uDef.objectname = "apf/armllt.s3o"
-				elseif name == "armwin" then
-					uDef.objectname = "apf/armwin.s3o"
-				elseif name == "armham" then
-					uDef.objectname = "apf/armham.s3o"
-				elseif name == "corwin" then
-					uDef.objectname = "apf/corwin.s3o"
-				elseif name == "corthud" then
-					uDef.objectname = "apf/corthud.s3o"
-				end
-			end
-		end
 	end
 
 	-- Unit Restrictions
