@@ -410,6 +410,14 @@ local unitDefPostEffectList = {
 		if unitDef.workertime and not unitDef.terraformspeed then
 			unitDef.terraformspeed = unitDef.workertime * 30
 		end
+
+		-- For model material shader
+		local vertexDisplacement = 5.5 + ((unitDef.footprintx + unitDef.footprintz) / 12)
+		if vertexDisplacement > 10 then
+			vertexDisplacement = 10
+		end
+		unitDef.customparams.vertdisp = 1.0 * vertexDisplacement
+		unitDef.customparams.healthlookmod = 0
 	end,
 }
 
@@ -979,6 +987,22 @@ if modOptions.releasecandidates then
 
 end
 
+if modOptions.animationcleanup then
+	table.insert(unitDefPostEffectList, function(name, uDef)
+		if uDef.script then
+			local oldscript = uDef.script:lower()
+			if oldscript:match(".cob$") and not oldscript:match("_clean.cob$") then
+				local newscript = oldscript:gsub(".cob$", "_clean.cob")
+				if VFS.FileExists('scripts/' .. newscript) then
+					uDef.script = newscript
+				else
+					Spring.Echo("Unable to find new script for", name, oldscript, '->', newscript, "using old one")
+				end
+			end
+		end
+	end)
+end
+
 -------------------------
 -- UNIT REWORKS AND TESTS
 
@@ -1458,30 +1482,6 @@ function UnitDef_Post(name, uDef)
 	for _, postEffectList in ipairs { unitDefPostEffectList, unitDefPostReworkList, unitPostDefMultiplierList } do
 		for index, effect in ipairs(postEffectList) do
 			effect(name, uDef)
-		end
-	end
-
-	-- add model vertex displacement
-	local vertexDisplacement = 5.5 + ((uDef.footprintx + uDef.footprintz) / 12)
-	if vertexDisplacement > 10 then
-		vertexDisplacement = 10
-	end
-	uDef.customparams.vertdisp = 1.0 * vertexDisplacement
-	uDef.customparams.healthlookmod = 0
-
-	-- Animation Cleanup
-	if modOptions.animationcleanup  then
-		if uDef.script then
-			local oldscript = uDef.script:lower()
-			if oldscript:find(".cob", nil, true) and (not oldscript:find("_clean.", nil, true)) then
-				local newscript = string.sub(oldscript, 1, -5) .. "_clean.cob"
-				if VFS.FileExists('scripts/'..newscript) then
-					Spring.Echo("Using new script for", name, oldscript, '->', newscript)
-					uDef.script = newscript
-				else
-					Spring.Echo("Unable to find new script for", name, oldscript, '->', newscript, "using old one")
-				end
-			end
 		end
 	end
 end
