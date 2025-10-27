@@ -448,6 +448,16 @@ then
 		table.insert(unitRestrictions, function(name, uDef) return tech15[uDef.basename] end)
 	end
 
+	if modOptions.unit_restrictions_notech2 then
+		table.insert(unitRestrictions, function(name, unitDef)
+			return tonumber(unitDef.customparams.techlevel) >= 2
+		end)
+	elseif modOptions.unit_restrictions_notech3 then
+		table.insert(unitRestrictions, function(name, unitDef)
+			return tonumber(unitDef.customparams.techlevel) >= 3
+		end)
+	end
+
 	if modOptions.unit_restrictions_noair then
 		local isAirFactory = {
 			armaap = true,
@@ -477,16 +487,6 @@ then
 			elseif isAirFactory[unitDef.basename] then
 				return true
 			end
-		end)
-	end
-
-	if modOptions.unit_restrictions_notech2 then
-		table.insert(unitRestrictions, function(name, unitDef)
-			return tonumber(unitDef.customparams.techlevel) >= 2
-		end)
-	elseif modOptions.unit_restrictions_notech3 then
-		table.insert(unitRestrictions, function(name, unitDef)
-			return tonumber(unitDef.customparams.techlevel) >= 3
 		end)
 	end
 
@@ -537,15 +537,15 @@ then
 		end)
 	end
 
-	local nuclearMissileInterceptBit = 1
+	local icbmInterceptBit = 1
 	local function isNukeWeapon(weapon)
-		return weapon.targetable == nuclearMissileInterceptBit
+		return weapon.targetable == icbmInterceptBit
 	end
 	local function isAntiNukeWeapon(weapon)
-		return weapon.interceptor == nuclearMissileInterceptBit
+		return weapon.interceptor == icbmInterceptBit
 	end
 	local function isNotAntiNukeWeapon(weapon)
-		return weapon.interceptor ~= nuclearMissileInterceptBit
+		return weapon.interceptor ~= icbmInterceptBit
 	end
 	local function removeAntiNukes(uDef)
 		uDef.weapondefs = table.filterArray(uDef.weapondefs, isNotAntiNukeWeapon)
