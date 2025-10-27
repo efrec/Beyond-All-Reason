@@ -233,8 +233,6 @@ local function applyRaptorEffect(name, uDef)
 			uDef.maxacc = 1
 			uDef.maxdec = 0.25
 			uDef.usesmoothmesh = true
-
-			-- flightmodel
 			uDef.maxaileron = 0.025
 			uDef.maxbank = 0.8
 			uDef.maxelevator = 0.025
@@ -245,7 +243,6 @@ local function applyRaptorEffect(name, uDef)
 			uDef.turnradius = 64
 			uDef.turnrate = 1600
 			uDef.speedtofront = 0.01
-			--uDef.attackrunlength = 32
 	end
 end
 
@@ -1452,51 +1449,64 @@ local weaponDefPostEffectList = {} ---@type function[]
 local weaponDefPostReworkList = {} ---@type function[]
 local weaponPostDefMultiplierList = {} ---@type function[]
 
-do
-	local soundVolumeMinimum = 5
+local soundVolumeMinimum = 5
+
+-- General weapon def transformations
+table.insert(weaponDefPostEffectList, function(name, wDef)
+	-- Ensure that subtables exist.
+	wDef.customparams = wDef.customparams or {}
+	if not wDef.shield then
+		wDef.damage = wDef.damage or {}
+		wDef.damage.indestructable = 0
+	end
+
+	-- Sound defaults
+	if not wDef.soundstartvolume or not wDef.soundhitvolume or not wDef.soundhitwetvolume then
+		local defaultDamage = wDef.damage and wDef.damage.default or 0
+		if defaultDamage <= 50 then
+			wDef.soundstartvolume = soundVolumeMinimum
+			wDef.soundhitvolume = soundVolumeMinimum
+			wDef.soundhitwetvolume = soundVolumeMinimum
+		else
+			local soundVolume = math.sqrt(defaultDamage * 0.5)
+			if wDef.weapontype == "LaserCannon" then
+				soundVolume = soundVolume * 0.5
+			end
+			if not wDef.soundstartvolume then
+				wDef.soundstartvolume = soundVolume
+			end
+			if not wDef.soundhitvolume then
+				wDef.soundhitvolume = soundVolume
+			end
+			if not wDef.soundhitwetvolume then
+				if wDef.weapontype == "LaserCannon" or wDef.weapontype == "BeamLaser" then
+					wDef.soundhitwetvolume = soundVolume * 0.3
+				else
+					wDef.soundhitwetvolume = soundVolume * 1.4
+				end
+			end
+		end
+	end
+
+	-- Aim point default
+	if not wDef.targetborder then
+		wDef.targetborder = 1 -- Nearest point on target collider
+	end
+end)
+
+if SaveDefsToCustomParams then
+	-- Changes will be baked/saved into customparams.
+else
+	-- DO NOT BAKE/SAVE STANDARDIZATION INTO PARAMS --
+
 	local isNonstandardGravityUnit = {
 		'cormship_',
 		'armmship_',
 	}
 
-	-- General weapon def transformations
 	table.insert(weaponDefPostEffectList, function(name, wDef)
-		-- Ensure that subtables exist.
-		wDef.customparams = wDef.customparams or {}
-		if not wDef.shield then
-			wDef.damage = wDef.damage or {}
-		end
-
-		-- Sound defaults
-		if not wDef.soundstartvolume or not wDef.soundhitvolume or not wDef.soundhitwetvolume then
-			local defaultDamage = wDef.damage and wDef.damage.default or 0
-			if defaultDamage <= 50 then
-				wDef.soundstartvolume = soundVolumeMinimum
-				wDef.soundhitvolume = soundVolumeMinimum
-				wDef.soundhitwetvolume = soundVolumeMinimum
-			else
-				local soundVolume = math.sqrt(defaultDamage * 0.5)
-				if wDef.weapontype == "LaserCannon" then
-					soundVolume = soundVolume * 0.5
-				end
-				if not wDef.soundstartvolume then
-					wDef.soundstartvolume = soundVolume
-				end
-				if not wDef.soundhitvolume then
-					wDef.soundhitvolume = soundVolume
-				end
-				if not wDef.soundhitwetvolume then
-					if wDef.weapontype == "LaserCannon" or wDef.weapontype == "BeamLaser" then
-						wDef.soundhitwetvolume = soundVolume * 0.3
-					else
-						wDef.soundhitwetvolume = soundVolume * 1.4
-					end
-				end
-			end
-		end
-
 		-- Gravity standardization
-		if wDef.gravityaffected == "true" and wDef.mygravity == nil then
+		if wDef.gravityaffected == "true" then -- ! why on earth is this a string
 			if table.any(isNonstandardGravityUnit, function(v) return isNonstandardGravityUnit[v] end) then
 				wDef.mygravity = 0.1445
 			end
@@ -1508,11 +1518,58 @@ do
 		elseif wDef.weapontype == "StarburstLauncher" and not string.find(name, "raptor") then
 			wDef.interceptedbyshieldtype = 1024 -- distinguish from MissileLauncher (except raptors)
 		end
-	end)
-end
 
--- DO NOT BAKE/SAVE EXPERIMENTAL MODOPTIONS TO PARAMS --
-if not SaveDefsToCustomParams then
+		-- Crater depth standardization
+		if wDef.craterareaofeffect then
+			wDef.cratermult = (wDef.cratermult or 0) + wDef.craterareaofeffect / 2000
+		end
+
+		-- Weapon type visuals standardization
+		if wDef.weapontype == "Cannon" then
+			if not wDef.model then
+				wDef.castshadow = false
+			end
+			if not wDef.stages then
+				if not wDef.damage and not wDef.damage.default and not wDef.areaofeffect then
+					wDef.stages = math.floor(7.5 + math.min(wDef.damage.default * 0.0033, wDef.areaofeffect * 0.13))
+					wDef.alphadecay = 1 - ((1 / wDef.stages) / 1.5)
+					wDef.sizedecay = 0.4 / wDef.stages
+				else
+					wDef.stages = 10
+				end
+			end
+		elseif wDef.weapontype == "BeamLaser" then
+			if not wDef.beamttl then
+				wDef.beamttl = 3
+				wDef.beamdecay = 0.7
+			end
+			if wDef.corethickness then
+				wDef.corethickness = wDef.corethickness * 1.21
+			end
+			if wDef.thickness then
+				wDef.thickness = wDef.thickness * 1.27
+			end
+			if wDef.laserflaresize then
+				wDef.laserflaresize = wDef.laserflaresize * 1.15        -- note: thickness affects this too
+			end
+			wDef.texture1 = "largebeam"        -- The projectile texture
+			wDef.texture3 = "flare2"    -- Flare texture for #BeamLaser
+			wDef.texture4 = "flare2"    -- Flare texture for #BeamLaser with largeBeamLaser = true
+		end
+
+		-- Scavenger weapons visuals standardization
+		VFS.Include("gamedata/scavengers/weapondef_post.lua")
+		if scav_Wdef_Post then
+			table.insert(weaponDefPostReworkList, function(name, wDef)
+				if string.find(name, '_scav') then
+					wDef = scav_Wdef_Post(name, wDef)
+				end
+			end)
+		end
+	end)
+
+	-- DO NOT BAKE/SAVE EXPERIMENTAL MODOPTIONS TO PARAMS --
+
 	if modOptions.emprework then
 		table.insert(weaponDefPostReworkList, function(name, wDef)
 			if name == "empblast" then
@@ -1550,15 +1607,15 @@ if not SaveDefsToCustomParams then
 
 	if shieldModOption == "absorbplasma" then
 		table.insert(weaponDefPostReworkList, function(name, wDef)
-			if wDef.shield and wDef.shield.repulser ~= false then
+			if wDef.shield then
 				wDef.shield.repulser = false
 			end
 		end)
 	elseif shieldModOption == "absorbeverything" then
 		table.insert(weaponDefPostReworkList, function(name, wDef)
-			if wDef.shield and wDef.shield.repulser ~= false then
+			if wDef.shield then
 				wDef.shield.repulser = false
-			elseif not wDef.interceptedbyshieldtype or wDef.interceptedbyshieldtype ~= 1 then
+			elseif wDef.interceptedbyshieldtype ~= 1 then
 				wDef.interceptedbyshieldtype = 1
 			end
 		end)
@@ -1595,7 +1652,15 @@ if not SaveDefsToCustomParams then
 		}
 
 		table.insert(weaponDefPostReworkList, function(name, wDef)
-			if wDef.damage then
+			if wDef.shield then
+				wDef.shield.exterior = true
+				if wDef.shield.repulser then -- isn't an evocom -- ! fixme: not a valid assumption
+					wDef.shield.powerregen = wDef.shield.powerregen * shieldRegenMultiplier
+					wDef.shield.power = wDef.shield.power * shieldPowerMultiplier
+					wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * shieldRechargeCostMultiplier
+				end
+				wDef.shield.repulser = false
+			elseif wDef.damage then
 				if wDef.damage.shields then
 					wDef.customparams.shield_damage = wDef.damage.shields
 				elseif wDef.damage.default then
@@ -1619,14 +1684,6 @@ if not SaveDefsToCustomParams then
 					-- Math.floor is used to sheer off the extra digits of the number of frames that the hits occur
 					wDef.customparams.beamtime_damage_reduction_multiplier = 1 / math.floor(wDef.beamtime * Game.gameSpeed)
 				end
-			elseif wDef.shield then
-				wDef.shield.exterior = true
-				if wDef.shield.repulser then -- isn't an evocom -- ! fixme: not a valid assumption
-					wDef.shield.powerregen = wDef.shield.powerregen * shieldRegenMultiplier
-					wDef.shield.power = wDef.shield.power * shieldPowerMultiplier
-					wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * shieldRechargeCostMultiplier
-				end
-				wDef.shield.repulser = false
 			end
 
 			if ((not wDef.interceptedbyshieldtype or wDef.interceptedbyshieldtype ~= 1) and wDef.weapontype ~= "Cannon") then
@@ -1642,60 +1699,73 @@ if not SaveDefsToCustomParams then
 				end
 			end
 		end)
-	end
 
-	if modOptions.multiplier_shieldpower then
-		if wDef.shield then
-			local multiplier = modOptions.multiplier_shieldpower
-			if wDef.shield.power then
-				wDef.shield.power = wDef.shield.power * multiplier
-			end
-			if wDef.shield.powerregen then
-				wDef.shield.powerregen = wDef.shield.powerregen * multiplier
-			end
-			if wDef.shield.powerregenenergy then
-				wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * multiplier
-			end
-			if wDef.shield.startingpower then
-				wDef.shield.startingpower = wDef.shield.startingpower * multiplier
-			end
-		end
-	end
-	----------------------------------------
-
-	--Use targetborderoverride in weapondef customparams to override this global setting
-	--Controls whether the weapon aims for the center or the edge of its target's collision volume. Clamped between -1.0 - target the far border, and 1.0 - target the near border.
-	if wDef.customparams and wDef.customparams.targetborderoverride == nil then
-		wDef.targetborder = 1 --Aim for just inside the hitsphere
-	elseif wDef.customparams and wDef.customparams.targetborderoverride ~= nil then
-		wDef.targetborder = tonumber(wDef.customparams.targetborderoverride)
-	end
-
-	if wDef.craterareaofeffect then
-		wDef.cratermult = (wDef.cratermult or 0) + wDef.craterareaofeffect / 2000
-	end
-
-	-- Target borders of unit hitboxes rather than center (-1 = far border, 0 = center, 1 = near border)
-	-- wDef.targetborder = 1.0
-
-	if wDef.weapontype == "Cannon" then
-		if not wDef.model then
-			-- do not cast shadows on plasma shells
-			wDef.castshadow = false
+		if modOptions.xmas then
+			table.insert(weaponDefPostEffectList, function(name, wDef)
+				if wDef.weapontype == "StarburstLauncher" and wDef.model and VFS.FileExists('objects3d\\candycane_' .. wDef.model) then
+					wDef.model = 'candycane_' .. wDef.model
+				end
+			end)
 		end
 
-		if wDef.stages == nil then
-			wDef.stages = 10
-			if wDef.damage ~= nil and wDef.damage.default ~= nil and wDef.areaofeffect ~= nil then
-				wDef.stages = math.floor(7.5 + math.min(wDef.damage.default * 0.0033, wDef.areaofeffect * 0.13))
-				wDef.alphadecay = 1 - ((1 / wDef.stages) / 1.5)
-				wDef.sizedecay = 0.4 / wDef.stages
-			end
-		end
-	end
+		-- DO NOT BAKE/SAVE WEAPON MULTIPLIERS TO PARAMS --
 
-	if modOptions.xmas and wDef.weapontype == "StarburstLauncher" and wDef.model and VFS.FileExists('objects3d\\candycane_' .. wDef.model) then
-		wDef.model = 'candycane_' .. wDef.model
+		if modOptions.multiplier_shieldpower ~= 1 then
+			local mult = modOptions.multiplier_shieldpower
+			table.insert(weaponPostDefMultiplierList, function(name, wDef)
+				if wDef.shield then
+					if wDef.shield.power then
+						wDef.shield.power = wDef.shield.power * mult
+					end
+					if wDef.shield.powerregen then
+						wDef.shield.powerregen = wDef.shield.powerregen * mult
+					end
+					if wDef.shield.powerregenenergy then
+						wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * mult
+					end
+					if wDef.shield.startingpower then
+						wDef.shield.startingpower = wDef.shield.startingpower * mult
+					end
+				end
+			end)
+		end
+
+		if modOptions.multiplier_weaponrange ~= 1 then
+			local mult = tonumber(modOptions.multiplier_weaponrange)
+			assert(mult)
+			table.insert(weaponPostDefMultiplierList, function(name, wDef)
+				if wDef.range then
+					wDef.range = wDef.range * mult
+				end
+				if wDef.flighttime then
+					wDef.flighttime = wDef.flighttime * (mult * 1.5)
+				end
+				if wDef.weapontype == "Cannon" and wDef.weaponvelocity and wDef.gravityaffected == "true" then
+					wDef.weaponvelocity = wDef.weaponvelocity * math.sqrt(mult)
+				elseif wDef.weapontype == "StarburstLauncher" and wDef.weapontimer then
+					wDef.weapontimer = wDef.weapontimer + (wDef.weapontimer * ((mult - 1) * 0.4))
+				end
+				if wDef.customparams and wDef.customparams.overrange_distance then
+					wDef.customparams.overrange_distance = wDef.customparams.overrange_distance * mult
+				end
+			end)
+		end
+
+		if modOptions.multiplier_weapondamage ~= 1 then
+			local mult = modOptions.multiplier_weapondamage
+			table.insert(weaponPostDefMultiplierList, function(name, wDef)
+				if wDef.damage then
+					for armorType, damage in pairs(wDef.damage) do
+						wDef.damage[armorType] = damage * mult
+					end
+				end
+				if wDef.customparams.area_onhit_damage then
+					wDef.customparams.area_onhit_damage = wDef.customparams.area_onhit_damage * mult
+				elseif wDef.customparams.area_ondeath_damage then
+					wDef.customparams.area_ondeath_damage = wDef.customparams.area_ondeath_damage * mult
+				end
+			end)
+		end
 	end
 
 	-- prepared to strip these customparams for when we remove old deferred lighting widgets
@@ -1726,38 +1796,8 @@ if not SaveDefsToCustomParams then
 	--	wDef.customparams.light_mult = nil
 	--	wDef.customparams.fake_Weapon = nil
 	--end
-
-	if wDef.damage ~= nil then
-		wDef.damage.indestructable = 0
-	end
-
-	if wDef.weapontype == "BeamLaser" then
-		if wDef.beamttl == nil then
-			wDef.beamttl = 3
-			wDef.beamdecay = 0.7
-		end
-		if wDef.corethickness then
-			wDef.corethickness = wDef.corethickness * 1.21
-		end
-		if wDef.thickness then
-			wDef.thickness = wDef.thickness * 1.27
-		end
-		if wDef.laserflaresize then
-			wDef.laserflaresize = wDef.laserflaresize * 1.15        -- note: thickness affects this too
-		end
-		wDef.texture1 = "largebeam"        -- The projectile texture
-		wDef.texture3 = "flare2"    -- Flare texture for #BeamLaser
-		wDef.texture4 = "flare2"    -- Flare texture for #BeamLaser with largeBeamLaser = true
-	end
-
-	-- scavengers
-	if string.find(name, '_scav') then
-		VFS.Include("gamedata/scavengers/weapondef_post.lua")
-		wDef = scav_Wdef_Post(name, wDef)
-	end
 end
 
--- process weapondef
 function WeaponDef_Post(name, wDef)
 	for _, postEffectList in ipairs {
 		weaponDefPostEffectList,    -- General weapon def changes, including most modoptions.
@@ -1766,38 +1806,6 @@ function WeaponDef_Post(name, wDef)
 	} do
 		for index, effect in ipairs(postEffectList) do
 			effect(name, wDef)
-		end
-	end
-
-	-- Multipliers
-
-	-- Weapon Range
-	local rangeMult = modOptions.multiplier_weaponrange
-	if rangeMult ~= 1 then
-		if wDef.range then
-			wDef.range = wDef.range * rangeMult
-		end
-		if wDef.flighttime then
-			wDef.flighttime = wDef.flighttime * (rangeMult * 1.5)
-		end
-		if wDef.weaponvelocity and wDef.weapontype == "Cannon" and wDef.gravityaffected == "true" then
-			wDef.weaponvelocity = wDef.weaponvelocity * math.sqrt(rangeMult)
-		end
-		if wDef.weapontype == "StarburstLauncher" and wDef.weapontimer then
-			wDef.weapontimer = wDef.weapontimer + (wDef.weapontimer * ((rangeMult - 1) * 0.4))
-		end
-		if wDef.customparams and wDef.customparams.overrange_distance then
-			wDef.customparams.overrange_distance = wDef.customparams.overrange_distance * rangeMult
-		end
-	end
-
-	-- Weapon Damage
-	local damageMult = modOptions.multiplier_weapondamage
-	if damageMult ~= 1 then
-		if wDef.damage then
-			for damageClass, damageValue in pairs(wDef.damage) do
-				wDef.damage[damageClass] = wDef.damage[damageClass] * damageMult
-			end
 		end
 	end
 
