@@ -121,12 +121,13 @@ local commanderList = {
 	SCAVCOMMANDERBOT = true
 }
 
-local categories -- for lexical scope; see below
-
+local categories
+-- Manual categories: OBJECT T4AIR LIGHTAIRSCOUT GROUNDSCOUT RAPTOR
+-- Deprecated caregories: BOT TANK PHIB NOTLAND SPACE
 categories = {
-	-- Manual categories: OBJECT T4AIR LIGHTAIRSCOUT GROUNDSCOUT RAPTOR
-	-- Deprecated caregories: BOT TANK PHIB NOTLAND SPACE
-	ALL = function() return true end,
+	ALL = function()
+		return true
+	end,
 	MOBILE = function(uDef)
 		return uDef.speed and uDef.speed > 0
 	end,
@@ -145,8 +146,8 @@ categories = {
 	NOTAIR = function(uDef)
 		return not categories.VTOL(uDef)
 	end,
-	-- convertible tank/boats have maxwaterdepth:
 	HOVER = function(uDef)
+		-- Convertible tanks/boats are pseudo-hovers with a maxwaterdepth:
 		return hoverList[uDef.movementclass] and (uDef.maxwaterdepth == nil or uDef.maxwaterdepth < 1)
 	end,
 	NOTHOVER = function(uDef)
@@ -189,60 +190,60 @@ categories = {
 local function applyRaptorEffect(name, uDef)
 	local raptorHealth = uDef.health
 	uDef.activatewhenbuilt = true
-	uDef.metalcost = raptorHealth * 0.5
-	uDef.energycost = math.min(raptorHealth * 5, 16000000)
-	uDef.buildtime = math.min(raptorHealth * 10, 16000000)
-	uDef.hidedamage = true
-	uDef.mass = raptorHealth
-	uDef.canhover = true
 	uDef.autoheal = math.ceil(math.sqrt(raptorHealth * 0.2))
-	uDef.customparams.paralyzemultiplier = uDef.customparams.paralyzemultiplier or .2
+	uDef.buildtime = math.min(raptorHealth * 10, 16000000)
+	uDef.canhover = true
+	uDef.capturable = false
+	uDef.customparams.areadamageresistance = "_RAPTORACID_"
+	uDef.customparams.paralyzemultiplier = uDef.customparams.paralyzemultiplier or 0.2
+	uDef.energycost = math.min(raptorHealth * 5, 16000000)
+	uDef.floater = true
+	uDef.hidedamage = true
 	uDef.idleautoheal = math.ceil(math.sqrt(raptorHealth * 0.2))
 	uDef.idletime = 1
-	uDef.customparams.areadamageresistance = "_RAPTORACID_"
-	uDef.upright = false
-	uDef.floater = true
+	uDef.leavetracks = false
+	uDef.mass = raptorHealth
+	uDef.maxwaterdepth = 0
+	uDef.metalcost = raptorHealth * 0.5
 	uDef.turninplace = true
 	uDef.turninplaceanglelimit = 360
-	uDef.capturable = false
-	uDef.leavetracks = false
-	uDef.maxwaterdepth = 0
+	uDef.upright = false
 
 	if uDef.cancloak then
 		uDef.cloakcost = 0
 		uDef.cloakcostmoving = 0
+		uDef.initcloaked = 1
 		uDef.mincloakdistance = 100
 		uDef.seismicsignature = 3
-		uDef.initcloaked = 1
 	else
 		uDef.seismicsignature = 0
 	end
 
 	if uDef.sightdistance then
-		uDef.sonardistance = uDef.sightdistance * 2
-		uDef.radardistance = uDef.sightdistance * 2
 		uDef.airsightdistance = uDef.sightdistance * 2
+		uDef.radardistance = uDef.sightdistance * 2
+		uDef.sonardistance = uDef.sightdistance * 2
 	end
 
-	if (not uDef.canfly) and uDef.speed then
-		uDef.rspeed = uDef.speed * 0.65
-		uDef.turnrate = uDef.speed * 10
+	if not uDef.canfly and uDef.speed then
 		uDef.maxacc = uDef.speed * 0.00166
 		uDef.maxdec = uDef.speed * 0.00166
+		uDef.rspeed = uDef.speed * 0.65
+		uDef.turnrate = uDef.speed * 10
 	elseif uDef.canfly then
-			uDef.maxacc = 1
-			uDef.maxdec = 0.25
-			uDef.usesmoothmesh = true
-			uDef.maxaileron = 0.025
-			uDef.maxbank = 0.8
-			uDef.maxelevator = 0.025
-			uDef.maxpitch = 0.75
-			uDef.maxrudder = 0.025
-			uDef.wingangle = 0.06593
-			uDef.wingdrag = 0.835
-			uDef.turnradius = 64
-			uDef.turnrate = 1600
-			uDef.speedtofront = 0.01
+		uDef.maxacc = 1
+		uDef.maxaileron = 0.025
+		uDef.maxbank = 0.8
+		uDef.maxdec = 0.25
+		uDef.maxelevator = 0.025
+		uDef.maxpitch = 0.75
+		uDef.maxrudder = 0.025
+		uDef.speedtofront = 0.01
+		uDef.turnradius = 64
+		uDef.turnrate = 1600
+		uDef.usesmoothmesh = true
+		uDef.wingangle = 0.06593
+		uDef.wingdrag = 0.835
 	end
 end
 
@@ -474,7 +475,7 @@ then
 		}
 
 		table.insert(unitRestrictions, function(name, unitDef)
-			if unitDef.customparams.ignore_noair then
+			if unitDef.customparams.ignore_noair then -- ! should combine with disable_when_no_air
 				return false
 			elseif unitDef.customparams.disable_when_no_air then -- drone carriers with no other purpose, e.g. leghive but not rampart.
 				return true
@@ -520,12 +521,10 @@ then
 			corrl	= true,
 			cortl	= true,
 			corfrt	= true,
-			legfrl	= true,
 
 			leglht	= true,
 			legrl	= true,
-			--sea tl= true,
-			--sea aa= true,
+			legfrl	= true,
 		}
 
 		table.insert(unitRestrictions, function(name, uDef)
@@ -1004,6 +1003,7 @@ end
 
 if modOptions.junorework then
 	table.insert(unitDefPostReworkList, function(name, uDef)
+		-- Excludes Juno variants like minijuno.
 		if uDef.basename:match("^...juno$") then
 			uDef.metalcost = 500
 			uDef.energycost = 12000
@@ -1015,7 +1015,7 @@ if modOptions.junorework then
 end
 
 if modOptions.shieldsrework then
-	-- Compensate for taking full damage from projectiles; c.f. bounce-style taking partial.
+	-- Compensate for taking full damage from projectiles; c.f. bounce-style taking partial damage.
 	local shieldPowerMultiplier = 1.9
 	table.insert(unitDefPostReworkList, function(name, uDef)
 		if uDef.weapondefs then
@@ -1093,22 +1093,21 @@ if modOptions.naval_balance_tweaks then
 		legfrad = true,
 	}
 	local buildOptionReplacements = {
+		-- [<hash set of builders>] := <dictionary of replacements>
 		[{ armcs = true, armch = true, armbeaver = true, armcsa = true }] = {
-			armfhlt = "armnavaldefturret"
+			armfhlt = "armnavaldefturret",
 		},
 		[{ armmls = true }] = {
-			armfhlt   = "armnavaldefturret",
-			armkraken = "armanavaldefturret",
+			armfhlt = "armnavaldefturret", armkraken = "armanavaldefturret",
 		},
 		[{ corcs = true, corch = true, cormuskrat = true, corcsa = true }] = {
 			corfhlt = "cornavaldefturret"
 		},
 		[{ cormls = true }] = {
-			corfhlt  = "cornavaldefturret",
-			corfdoom = "coranavaldefturret",
+			corfhlt = "cornavaldefturret", corfdoom = "coranavaldefturret",
 		},
 		[{ legcs = true, legch = true, legotter = true, legcsa = true }] = {
-			legfmg = "legnavaldefturret"
+			legfmg = "legnavaldefturret",
 		},
 	}
 
@@ -1118,10 +1117,15 @@ if modOptions.naval_balance_tweaks then
 		else
 			for builders, replacements in pairs(buildOptionReplacements) do
 				if builders[uDef.basename] then
-					local suffix = uDef.customparams.isscavengerunit and "_scav" or ""
-					for i, buildOption in pairs(uDef.buildoptions) do
-						if replacements[buildOption:gsub(suffix, "")] then
-							uDef.buildoptions[i] = replacements[buildOption] .. suffix
+					local pattern, suffix -- todo: add helpers to deal w/ generated units
+					if uDef.customparams.isscavengerunit then
+						pattern, suffix = "_scav$", "_scav"
+					end
+					for i, unitName in pairs(uDef.buildoptions) do
+						if replacements[unitName] then
+							uDef.buildoptions[i] = replacements[unitName]
+						elseif pattern and replacements[unitName:gsub(pattern, "")] then
+							uDef.buildoptions[i] = replacements[unitName] .. suffix
 						end
 					end
 				end
@@ -1367,7 +1371,7 @@ if modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
 		if (uDef.windgenerator or 0) > 0 then
 			uDef.windgenerator = uDef.windgenerator * mult
 			if uDef.customparams.energymultiplier then
-				uDef.customparams.energymultiplier = tonumber(uDef.customparams.energymultiplier) * mult
+				uDef.customparams.energymultiplier = uDef.customparams.energymultiplier * mult
 			else
 				uDef.customparams.energymultiplier = mult
 			end
@@ -1809,15 +1813,16 @@ function WeaponDef_Post(name, wDef)
 		end
 	end
 
-	-- ExplosionSpeed is calculated same way engine does it, and then doubled
-	-- Note that this modifier will only effect weapons fired from actual units, via super clever hax of using the weapon name as prefix
+	-- Calculate explosion speed last to handle multipliers properly. -- todo: should be an effect
 	if wDef.damage and wDef.damage.default then
 		if string.find(name, '_', nil, true) then
 			local prefix = string.sub(name, 1, 3)
+			-- Limit to actual units' weapons by filtering on the weapon's side prefix:
 			if prefix == 'arm' or prefix == 'cor' or prefix == 'leg' or prefix == 'rap' then
 				local globaldamage = math.max(30, wDef.damage.default / 20)
+				-- This is how the engine calculates the explosion speed:
 				local defExpSpeed = (8 + (globaldamage * 2.5)) / (9 + (math.sqrt(globaldamage) * 0.70)) * 0.5
-				wDef.explosionSpeed = defExpSpeed * 2
+				wDef.explosionSpeed = defExpSpeed * 2 -- Which we double.
 			end
 		end
 	end
@@ -1829,7 +1834,7 @@ function ExplosionDef_Post(name, eDef)
 end
 
 --------------------------
--- MODOPTIONS
+-- MODOPTIONS POST PROCESS
 -------------------------
 
 -- process modoptions (last, because they should not get baked)
