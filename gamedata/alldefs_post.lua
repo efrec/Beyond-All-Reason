@@ -1797,34 +1797,41 @@ else
 		end
 	end
 
-	-- prepared to strip these customparams for when we remove old deferred lighting widgets
-	--if wDef.customparams then
-	--	wDef.customparams.expl_light_opacity = nil
-	--	wDef.customparams.expl_light_heat_radius = nil
-	--	wDef.customparams.expl_light_radius = nil
-	--	wDef.customparams.expl_light_color = nil
-	--	wDef.customparams.expl_light_nuke = nil
-	--	wDef.customparams.expl_light_skip = nil
-	--	wDef.customparams.expl_light_heat_life_mult = nil
-	--	wDef.customparams.expl_light_heat_radius_mult = nil
-	--	wDef.customparams.expl_light_heat_strength_mult = nil
-	--	wDef.customparams.expl_light_life = nil
-	--	wDef.customparams.expl_light_life_mult = nil
-	--	wDef.customparams.expl_noheatdistortion = nil
-	--	wDef.customparams.light_skip = nil
-	--	wDef.customparams.light_fade_time = nil
-	--	wDef.customparams.light_fade_offset = nil
-	--	wDef.customparams.light_beam_mult = nil
-	--	wDef.customparams.light_beam_start = nil
-	--	wDef.customparams.light_beam_mult_frames = nil
-	--	wDef.customparams.light_camera_height = nil
-	--	wDef.customparams.light_ground_height = nil
-	--	wDef.customparams.light_color = nil
-	--	wDef.customparams.light_radius = nil
-	--	wDef.customparams.light_radius_mult = nil
-	--	wDef.customparams.light_mult = nil
-	--	wDef.customparams.fake_Weapon = nil
-	--end
+	-- Strip these customparams for when we remove old deferred lighting widgets.
+	if false then
+		local params = {
+			"expl_light_opacity",
+			"expl_light_heat_radius",
+			"expl_light_radius",
+			"expl_light_color",
+			"expl_light_nuke",
+			"expl_light_skip",
+			"expl_light_heat_life_mult",
+			"expl_light_heat_radius_mult",
+			"expl_light_heat_strength_mult",
+			"expl_light_life",
+			"expl_light_life_mult",
+			"expl_noheatdistortion",
+			"light_skip",
+			"light_fade_time",
+			"light_fade_offset",
+			"light_beam_mult",
+			"light_beam_start",
+			"light_beam_mult_frames",
+			"light_camera_height",
+			"light_ground_height",
+			"light_color",
+			"light_radius",
+			"light_radius_mult",
+			"light_mult",
+			"fake_Weapon", -- caps?
+		}
+		table.insert(weaponPostDefMultiplierList, function(name, wDef)
+			for _, param in ipairs(params) do
+				wDef[param] = nil
+			end
+		end)
+	end
 end
 
 function WeaponDef_Post(name, wDef)
