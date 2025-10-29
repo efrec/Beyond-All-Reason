@@ -293,8 +293,9 @@ local unitDefPostEffectList = {
 			unitDef.minCollisionSpeed = COLLISION_SPEED_MIN
 		end
 
-		-- Remove overzealous sounds
+		-- Remove sound conflicts with gui_soundeffects.lua.
 		if unitDef.sounds then
+			-- Keep: cant, canceldestruct, underattack, unitcomplete, build, capture, repair, working, cloak, uncloak, 
 			if unitDef.sounds.ok then
 				unitDef.sounds.ok = nil
 			end
