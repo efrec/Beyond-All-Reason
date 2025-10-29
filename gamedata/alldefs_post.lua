@@ -1456,6 +1456,21 @@ end
 -- WEAP DEF PROCESSING --
 -------------------------
 
+local function setExplosionSpeed(name, weaponDef)
+	if weaponDef.damage and weaponDef.damage.default then
+		if string.find(name, '_', nil, true) then
+			local prefix = string.sub(name, 1, 3)
+			-- Limit to actual units' weapons by filtering on the weapon's side prefix:
+			if prefix == 'arm' or prefix == 'cor' or prefix == 'leg' or prefix == 'rap' then
+				local globaldamage = math.max(30, weaponDef.damage.default / 20)
+				-- This is how the engine calculates the explosion speed:
+				local defExpSpeed = (8 + (globaldamage * 2.5)) / (9 + (math.sqrt(globaldamage) * 0.70)) * 0.5
+				weaponDef.explosionSpeed = defExpSpeed * 2 -- Which we double.
+			end
+		end
+	end
+end
+
 local weaponDefPostEffectList = {} ---@type function[]
 local weaponDefPostReworkList = {} ---@type function[]
 local weaponPostDefMultiplierList = {} ---@type function[]
@@ -1567,6 +1582,9 @@ else
 			wDef.texture3 = "flare2"    -- Flare texture for #BeamLaser
 			wDef.texture4 = "flare2"    -- Flare texture for #BeamLaser with largeBeamLaser = true
 		end
+
+		-- Explosion speed standardization
+		table.insert(weaponDefPostEffectList, setExplosionSpeed)
 
 		-- Scavenger weapons visuals standardization
 		VFS.Include("gamedata/scavengers/weapondef_post.lua")
@@ -1820,19 +1838,8 @@ function WeaponDef_Post(name, wDef)
 		end
 	end
 
-	-- Calculate explosion speed last to handle multipliers properly. -- todo: should be an effect
-	if wDef.damage and wDef.damage.default then
-		if string.find(name, '_', nil, true) then
-			local prefix = string.sub(name, 1, 3)
-			-- Limit to actual units' weapons by filtering on the weapon's side prefix:
-			if prefix == 'arm' or prefix == 'cor' or prefix == 'leg' or prefix == 'rap' then
-				local globaldamage = math.max(30, wDef.damage.default / 20)
-				-- This is how the engine calculates the explosion speed:
-				local defExpSpeed = (8 + (globaldamage * 2.5)) / (9 + (math.sqrt(globaldamage) * 0.70)) * 0.5
-				wDef.explosionSpeed = defExpSpeed * 2 -- Which we double.
-			end
-		end
-	end
+	-- Reapply explosion speed to catch any updates to weapon damage.
+	setExplosionSpeed(name, wDef)
 end
 
 -- process effects
