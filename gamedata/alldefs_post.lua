@@ -65,7 +65,8 @@ local function processWeapons(unitDefName, unitDef)
 		weaponDef.burstrate = round_to_frames(weaponDef, "burstrate")
 
 		if weaponDef.customparams and weaponDef.customparams.cluster_def then
-			if not WeaponDefs[weaponDef.customparams.cluster_def] then
+			if not weaponDef.customparams.cluster_def:match("^" .. unitDefName .. "_") then
+				-- Fix for the common shorthand "cluster_munition" used for the submunition.
 				weaponDef.customparams.cluster_def = unitDefName .. "_" .. weaponDef.customparams.cluster_def
 			end
 			weaponDef.customparams.cluster_number = weaponDef.customparams.cluster_number or 5
