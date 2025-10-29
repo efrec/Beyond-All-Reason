@@ -17,14 +17,6 @@
 -------------------------
 -- BAKING DEFS TO FILES
 
--- When `true`, defs are saved within their own customparams as string values in `def.customparams.__def`.
--- A widget is included that detects these customparams and outputs the saved defs to files automatically.
--- This will export all changes regardless of their source to their export folder, in `Spring/baked_defs`.
-SaveDefsToCustomParams = false
-
--------------------------
--- PRE-BAKING DEFS TO FILES
-
 -- This section is for testing changes to defs and baking them into the def files.
 -- Only the changes in this section will be baked; changes made afterward are not.
 -- 1. Add desired def changes to this section.
@@ -37,6 +29,10 @@ function PrebakeUnitDefs()
 		-- UnitDef changes go here
 	end
 end
+
+-- When `true`, defs are saved within their own customparams as string values in `def.customparams.__def`.
+-- A widget is included that detects these customparams and outputs the saved defs in `Spring/baked_defs`.
+SaveDefsToCustomParams = false
 
 --------------------------
 -- DEFS POST PROCESSING --
