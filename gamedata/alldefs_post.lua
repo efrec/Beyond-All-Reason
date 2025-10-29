@@ -1850,6 +1850,7 @@ function WeaponDef_Post(name, wDef)
 	end
 
 	-- Reapply explosion speed to catch any updates to weapon damage.
+	-- TODO: Calculated fields should recalculate automatically.
 	setExplosionSpeed(name, wDef)
 end
 
