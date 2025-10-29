@@ -81,6 +81,13 @@ local COLLISION_SPEED_MIN = 75 / Game.gameSpeed
 -- UNIT DEF PROCESSING --
 -------------------------
 
+-- The general order of operations followed below:
+-- 1. Provide game-default values for nil properties. These may or may not match engine defaults.
+-- 2. Override def values to standardize across all defs. These override even non-nil properties.
+-- 3. Implement reworks, overhauls, tests, and etc. by fully replacing values, e.g. no +/-values.
+-- 4. Apply general modoptions that adjust unit values or which might require specific behaviors.
+-- 5. Apply multiplier modoptions that increase or decrease properties by universal coefficients.
+
 -------------------------
 -- UNIT CATEGORIES
 
