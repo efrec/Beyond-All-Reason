@@ -320,6 +320,24 @@ local unitDefPostEffectList = {
 		unitDef.customparams.vertdisp = math.min(5.5 + (unitDef.footprintx + unitDef.footprintz) / 12, 10)
 		unitDef.customparams.healthlookmod = 0
 
+		-- Wreck and heap standardization
+		if not unitDef.customparams.iscommander and not unitDef.customparams.iseffigy then
+			if unitDef.featuredefs and unitDef.health then
+				if unitDef.featuredefs.dead then
+					unitDef.featuredefs.dead.damage = unitDef.health
+					if unitDef.metalcost and unitDef.energycost then
+						unitDef.featuredefs.dead.metal = math.floor(unitDef.metalcost * 0.6)
+					end
+				end
+				if unitDef.featuredefs.heap then
+					unitDef.featuredefs.heap.damage = unitDef.health
+					if unitDef.metalcost and unitDef.energycost then
+						unitDef.featuredefs.heap.metal = math.floor(unitDef.metalcost * 0.25)
+					end
+				end
+			end
+		end
+
 		-- LOS height standardization
 		local sightemitheight = 0
 		local radaremitheight = 0
@@ -339,24 +357,6 @@ local unitDefPostEffectList = {
 		-- Max slope standardization
 		if unitDef.maxslope then
 			unitDef.maxslope = math.floor(unitDef.maxslope * 1.5 + 0.5)
-		end
-
-		-- Wreck and heap standardization
-		if not unitDef.customparams.iscommander and not unitDef.customparams.iseffigy then
-			if unitDef.featuredefs and unitDef.health then
-				if unitDef.featuredefs.dead then
-					unitDef.featuredefs.dead.damage = unitDef.health
-					if unitDef.metalcost and unitDef.energycost then
-						unitDef.featuredefs.dead.metal = math.floor(unitDef.metalcost * 0.6)
-					end
-				end
-				if unitDef.featuredefs.heap then
-					unitDef.featuredefs.heap.damage = unitDef.health
-					if unitDef.metalcost and unitDef.energycost then
-						unitDef.featuredefs.heap.metal = math.floor(unitDef.metalcost * 0.25)
-					end
-				end
-			end
 		end
 
 		-- Global physics behaviors
