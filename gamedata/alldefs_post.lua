@@ -288,11 +288,6 @@ local unitDefPostEffectList = {
 			end
 		end
 
-		-- Global physics behaviors
-		if unitDef.health then
-			unitDef.minCollisionSpeed = COLLISION_SPEED_MIN
-		end
-
 		-- Remove sound conflicts with gui_soundeffects.lua.
 		if unitDef.sounds then
 			-- Keep: cant, canceldestruct, underattack, unitcomplete, build, capture, repair, working, cloak, uncloak, 
@@ -362,6 +357,11 @@ local unitDefPostEffectList = {
 					end
 				end
 			end
+		end
+
+		-- Global physics behaviors
+		if unitDef.health then
+			unitDef.minCollisionSpeed = COLLISION_SPEED_MIN
 		end
 
 		-- Air unit physics standardization
