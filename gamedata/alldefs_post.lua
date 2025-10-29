@@ -88,6 +88,10 @@ local COLLISION_SPEED_MIN = 75 / Game.gameSpeed
 -- 4. Apply general modoptions that adjust unit values or which might require specific behaviors.
 -- 5. Apply multiplier modoptions that increase or decrease properties by universal coefficients.
 
+-- When defaults are baked and then later changed, you have to modify their ordering so they will
+-- override the previous defaults. That's to say that defaults are baked while standards are not,
+-- and there is no silver bullet to make that process make more sense without more configuration.
+
 -------------------------
 -- UNIT CATEGORIES
 
@@ -1584,18 +1588,18 @@ else
 		end
 
 		-- Explosion speed standardization
-		table.insert(weaponDefPostEffectList, setExplosionSpeed)
-
-		-- Scavenger weapons visuals standardization
-		VFS.Include("gamedata/scavengers/weapondef_post.lua")
-		if scav_Wdef_Post then
-			table.insert(weaponDefPostReworkList, function(name, wDef)
-				if string.find(name, '_scav') then
-					wDef = scav_Wdef_Post(name, wDef)
-				end
-			end)
-		end
+		setExplosionSpeed(name, wDef)
 	end)
+
+	-- Scavenger weapons visuals standardization
+	VFS.Include("gamedata/scavengers/weapondef_post.lua")
+	if scav_Wdef_Post then
+		table.insert(weaponDefPostReworkList, function(name, wDef)
+			if string.find(name, '_scav') then
+				wDef = scav_Wdef_Post(name, wDef)
+			end
+		end)
+	end
 
 	-- DO NOT BAKE/SAVE EXPERIMENTAL MODOPTIONS TO PARAMS --
 
