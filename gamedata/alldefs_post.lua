@@ -104,17 +104,44 @@ end
 
 ---@type number Approximate true-value equivalence, based largely on energy conversion.
 local ENERGY_TO_METAL = 60
+---@type number Rather arbitrary value to determine what "long range" is.
+local DISTANCE_LONG_RANGE = 1500
+
 ---@type number The minimum speed required for units to suffer fall/collision damage.
 local COLLISION_SPEED_MIN = 75 / Game.gameSpeed
 ---@type number Greatly increase the rate of terrain restoration. Relative to build power.
 local TERRAFORM_WORKER_RATIO = 30
 ---@type integer Nuke and antinuke projectile interceptor bitmask.
 local INTERCEPTOR_MASK_ICBM = 1
----@type number Rather arbitrary value to determine what "long range" is.
-local DISTANCE_LONG_RANGE = 1500
-
----@type table Hardcoded override to enforce collisions for very-large air units. -- todo: detect instead
-local isCollideAirUnit = { "fepoch", "fblackhy", "corcrw", "legfort" }
+---Shield and anti-shield projectile interception bitmask.
+---Used to distinguish shield types, from "plasma repulsors" to "universal absorbers".
+---@type table<string, integer>
+local INTERCEPTION = {
+	-- Game interception masks:
+	Nothing           = 0,
+	Everything        = 1,
+	Plasma            = 1,
+	Lasers            = 2,
+	Missiles          = 4,
+	Bombs             = 8,
+	-- Engine default per-type:
+	DGun              = 0,
+	Cannon            = 1,
+	EmgCannon         = 1, -- unused
+	LaserCannon       = 2,
+	BeamLaser         = 2,
+	MissileLauncher   = 4,
+	StarburstLauncher = 4,
+	AircraftBomb      = 8,
+	Flame             = 16,
+	TorpedoLauncher   = 32,
+	LightningCannon   = 64,
+	Rifle             = 128, -- unused
+	Melee             = 256, -- unused
+	-- Additional weapon types:
+	DGunOverride      = 512, -- allows interception with modoptions and tweaks
+	StarburstOverride = 1024, -- separates nukes and siege units from missiles
+}
 
 ---@type number Compensates for reworked shields taking full damage from projectiles; c.f. bounce-style taking partial damage.
 local shieldPowerMultiplier = 1.9
@@ -128,14 +155,17 @@ local paralyzerShieldDamageMultiplier = 0.25
 local vtolShieldDamageMultiplier = 0
 ---@type table Full weapon name (unit + weapon name) patterns for hardcoded exceptions for shield bypass. -- todo: un-hardcode
 local shieldCollisionExemptions = {
-	'corsilo_', -- partial weapon name
-	'armsilo_',
-	'armthor_empmissile', -- or full
-	'armemp_',
-	'cortron_',
-	'corjuno_',
-	'armjuno_',
+	"corsilo_", -- partial weapon name
+	"armsilo_",
+	"armthor_empmissile", -- or full
+	"armemp_",
+	"cortron_",
+	"corjuno_",
+	"armjuno_",
 }
+
+---@type table Hardcoded override to enforce collisions for very-large air units. -- todo: detect instead
+local isCollideAirUnit = { "fepoch", "fblackhy", "corcrw", "legfort" }
 
 local function processWeapons(unitDefName, unitDef)
 	local weaponDefs = unitDef.weapondefs
