@@ -1342,9 +1342,9 @@ if modOptions.factory_costs then
 			uDef.metalcost = uDef.metalcost + 40
 		end
 
-		if tonumber(uDef.customparams.techlevel) == 2 and uDef.energycost and uDef.metalcost and uDef.buildtime and not (name == "armavp" or name == "coravp" or name == "armalab" or name == "coralab" or name == "armaap" or name == "coraap" or name == "armasy" or name == "corasy") then
+		if uDef.customparams.techlevel == 2 and uDef.energycost and uDef.metalcost and uDef.buildtime and not (name == "armavp" or name == "coravp" or name == "armalab" or name == "coralab" or name == "armaap" or name == "coraap" or name == "armasy" or name == "corasy") then
 			uDef.buildtime = math.ceil(uDef.buildtime * 0.015 / 5) * 500
-		elseif tonumber(uDef.customparams.techlevel) == 3 and uDef.energycost and uDef.metalcost and uDef.buildtime then
+		elseif uDef.customparams.techlevel == 3 and uDef.energycost and uDef.metalcost and uDef.buildtime then
 			uDef.buildtime = math.ceil(uDef.buildtime * 0.0015) * 1000
 		end
 	end)
