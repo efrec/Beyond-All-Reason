@@ -38,6 +38,39 @@ SaveDefsToCustomParams = false
 -- DEFS POST PROCESSING --
 --------------------------
 
+---Set a default value when given an empty property, and get the value, either way.
+---@return any actual
+local function default(tbl, key, value)
+	if tbl[key] == nil then
+		tbl[key] = value
+		return value
+	else
+		return tbl[key]
+	end
+end
+
+---Apply a coefficient to a value, iff exists, and return the value for logical chaining.
+---@return number? value
+local function multiplier(tbl, key, coefficient)
+	local value = tbl[key]
+	if value then
+		value = value * coefficient
+		tbl[key] = value
+	end
+	return value
+end
+
+---Ensure a table exists in another table. Slightly more efficient than `default(tbl, key, {})`.
+---@return table value
+local function subtable(tbl, key)
+	local sub = tbl[key]
+	if not sub then
+		sub = {}
+		tbl[key] = sub
+	end
+	return sub
+end
+
 --[[ Sanitize to whole frames (plus leeways because float arithmetic is bonkers).
      The engine uses full frames for actual reload times, but forwards the raw
      value to LuaUI (so for example calculated DPS is incorrect without sanitisation). ]]
@@ -69,8 +102,16 @@ end
 -- override the previous defaults. That's to say that defaults are baked while standards are not,
 -- and there is no silver bullet to make that process make more sense without more configuration.
 
+---@type number Approximate true-value equivalence, based largely on energy conversion.
+local ENERGY_TO_METAL = 60
 ---@type number The minimum speed required for units to suffer fall/collision damage.
 local COLLISION_SPEED_MIN = 75 / Game.gameSpeed
+---@type number Greatly increase the rate of terrain restoration. Relative to build power.
+local TERRAFORM_WORKER_RATIO = 30
+---@type integer Nuke and antinuke projectile interceptor bitmask.
+local INTERCEPTOR_MASK_ICBM = 1
+---@type number Rather arbitrary value to determine what "long range" is.
+local DISTANCE_LONG_RANGE = 1500
 
 ---@type table Hardcoded override to enforce collisions for very-large air units. -- todo: detect instead
 local isCollideAirUnit = { "fepoch", "fblackhy", "corcrw", "legfort" }
@@ -105,34 +146,16 @@ local function processWeapons(unitDefName, unitDef)
 	for weaponDefName, weaponDef in pairs(weaponDefs) do
 		weaponDef.reloadtime = round_to_frames(weaponDef, "reloadtime")
 		weaponDef.burstrate = round_to_frames(weaponDef, "burstrate")
-
-		if weaponDef.customparams and weaponDef.customparams.cluster_def then
-			if not weaponDef.customparams.cluster_def:match("^" .. unitDefName .. "_") then
-				-- Fix for the common shorthand "cluster_munition" used for the submunition.
-				weaponDef.customparams.cluster_def = unitDefName .. "_" .. weaponDef.customparams.cluster_def
+		local custom = subtable(weaponDef, "customparams")
+		if custom.cluster_def then
+			custom.cluster_number = custom.cluster_number or 5
+			-- Fix for the common shorthand "cluster_munition" used for the submunition.
+			if not custom.cluster_def:match("^" .. unitDefName .. "_") then
+				custom.cluster_def = unitDefName .. "_" .. custom.cluster_def
 			end
-			weaponDef.customparams.cluster_number = weaponDef.customparams.cluster_number or 5
 		end
 	end
 end
-
----@type number The minimum speed required for units to suffer fall/collision damage.
-local COLLISION_SPEED_MIN = 75 / Game.gameSpeed
-
--------------------------
--- UNIT DEF PROCESSING --
--------------------------
-
--- The general order of operations followed below:
--- 1. Provide game-default values for nil properties. These may or may not match engine defaults.
--- 2. Override def values to standardize across all defs. These override even non-nil properties.
--- 3. Implement reworks, overhauls, tests, and etc. by fully replacing values, e.g. no +/-values.
--- 4. Apply general modoptions that adjust unit values or which might require specific behaviors.
--- 5. Apply multiplier modoptions that increase or decrease properties by universal coefficients.
-
--- When defaults are baked and then later changed, you have to modify their ordering so they will
--- override the previous defaults. That's to say that defaults are baked while standards are not,
--- and there is no silver bullet to make that process make more sense without more configuration.
 
 -------------------------
 -- UNIT CATEGORIES
@@ -233,7 +256,7 @@ categories = {
 		return commanderList[uDef.movementclass]
 	end,
 	EMPABLE = function(uDef)
-		return categories.SURFACE(uDef) and uDef.customparams and uDef.customparams.paralyzemultiplier ~= 0
+		return categories.SURFACE(uDef) and uDef.customparams.paralyzemultiplier ~= 0
 	end,
 }
 
@@ -242,6 +265,9 @@ categories = {
 
 local function applyRaptorEffect(name, uDef)
 	local raptorHealth = uDef.health
+	if not raptorHealth then
+		return
+	end
 	uDef.activatewhenbuilt = true
 	uDef.autoheal = math.ceil(math.sqrt(raptorHealth * 0.2))
 	uDef.buildtime = math.min(raptorHealth * 10, 16000000)
@@ -309,65 +335,57 @@ local unitDefPostEffectList = {
 	-- General transforms applied to all units:
 	function(name, unitDef)
 		-- Ensure subtables exist.
-		unitDef.buildoptions = unitDef.buildoptions or {}
-		unitDef.customparams = unitDef.customparams or {}
+		subtable(unitDef, "buildoptions")
+		subtable(unitDef, "customparams")
+		subtable(unitDef, "featuredefs")
+		subtable(unitDef, "sfxtypes")
+		subtable(unitDef, "sounds")
+		subtable(unitDef, "weapondefs")
+		subtable(unitDef, "weapons")
 
 		-- Unit name and identity
 		unitDef.basename = name:gsub("_scav$", "")
-		unitDef.icontype = unitDef.icontype or name
 		unitDef.customparams.israptorunit = name:match("^raptor")
 		unitDef.customparams.isscavengerunit = name:match("_scav$")
-		unitDef.customparams.subfolder = unitDef.customparams.subfolder or "none"
-		unitDef.customparams.techlevel = unitDef.customparams.techlevel or 1
-		unitDef.category = unitDef.category or ""
+		default(unitDef, "icontype", name)
+		default(unitDef.customparams, "category", "")
+		default(unitDef.customparams, "exemptcategory", "")
+		default(unitDef.customparams, "subfolder", "none")
+		default(unitDef.customparams, "techlevel", 1)
 		if string.find(unitDef.category, "OBJECT") then
 			-- Objects should not be targetable and therefore are not assigned any other category.
 			unitDef.category = "OBJECT"
 		else
 			for categoryName, condition in pairs(categories) do
-				if unitDef.exemptcategory == nil or not string.find(unitDef.exemptcategory, categoryName) then
-					if condition(unitDef) then
-						unitDef.category = unitDef.category .. " " .. categoryName
-					end
+				if not string.find(unitDef.exemptcategory, categoryName) and condition(unitDef) then
+					unitDef.category = unitDef.category .. " " .. categoryName
 				end
 			end
 		end
 
 		-- Remove sound conflicts with gui_soundeffects.lua.
-		if unitDef.sounds then
-			-- Keep: cant, canceldestruct, underattack, unitcomplete, build, capture, repair, working, cloak, uncloak, 
-			if unitDef.sounds.ok then
-				unitDef.sounds.ok = nil
-			end
-			if unitDef.sounds.select then
-				unitDef.sounds.select = nil
-			end
-			if unitDef.sounds.activate then
-				unitDef.sounds.activate = nil
-			end
-			if unitDef.sounds.deactivate then
-				unitDef.sounds.deactivate = nil
-			end
-			if unitDef.sounds.build then
-				unitDef.sounds.build = nil
-			end
-		end
+		-- Keep: cant, canceldestruct, underattack, unitcomplete, capture, repair, working, cloak, uncloak, ..?
+		unitDef.sounds.ok = nil
+		unitDef.sounds.select = nil
+		unitDef.sounds.activate = nil
+		unitDef.sounds.deactivate = nil
+		unitDef.sounds.build = nil
 
 		-- Special unit types and behaviors
-		if unitDef.health and unitDef.customparams.israptorunit then
+		if unitDef.customparams.israptorunit then
 			applyRaptorEffect(name, unitDef)
 		end
 
 		-- Correct frame-rounding and arithmetic issues in weapons.
 		processWeapons(name, unitDef)
 
-		-- Model material shading
-		unitDef.customparams.vertdisp = math.min(5.5 + (unitDef.footprintx + unitDef.footprintz) / 12, 10)
+		-- Model material shading standardization
 		unitDef.customparams.healthlookmod = 0
+		unitDef.customparams.vertdisp = math.min(5.5 + (unitDef.footprintx + unitDef.footprintz) / 12, 10)
 
 		-- Wreck and heap standardization
 		if not unitDef.customparams.iscommander and not unitDef.customparams.iseffigy then
-			if unitDef.featuredefs and unitDef.health then
+			if unitDef.health then
 				if unitDef.featuredefs.dead then
 					unitDef.featuredefs.dead.damage = unitDef.health
 					if unitDef.metalcost and unitDef.energycost then
@@ -418,14 +436,14 @@ local unitDefPostEffectList = {
 		-- Mass standardization
 		if unitDef.metalcost and unitDef.health and unitDef.canmove and unitDef.mass == nil then
 			unitDef.mass = math.max(unitDef.metalcost, math.ceil(unitDef.health/6))
-			if unitDef.mass > 750 and unitDef.metalcost < 751 then
-				unitDef.mass = 750
+			if unitDef.metalcost <= 750 then
+				unitDef.mass = math.min(unitDef.mass, 750)
 			end
 		end
 
 		-- Build power standardization
 		if unitDef.workertime and not unitDef.terraformspeed then
-			unitDef.terraformspeed = unitDef.workertime * 30
+			unitDef.terraformspeed = unitDef.workertime * TERRAFORM_WORKER_RATIO
 		end
 	end,
 }
@@ -463,8 +481,8 @@ if table.any(modOptions, function(value, key)
 		return value and type(key) == "string" and key:match("^unit_restrictions_%w+$")
 	end)
 then
+	-- Add a restriction effect only iff restrictions exist.
 	local unitRestrictions = {}
-
 	table.insert(unitDefPostEffectList, function(name, unitDef)
 		for _, test in ipairs(unitRestrictions) do
 			if test(name, unitDef) then
@@ -481,16 +499,14 @@ then
 	if modOptions.unit_restrictions_notech15 then
 		-- Tech 1.5 is a semi offical thing, modoption ported from teiserver meme commands
 		local tech15 = {
-			corhp		= true,
-			corfhp		= true,
-			corplat		= true,
-			coramsub	= true,
-
 			armhp		= true,
 			armfhp		= true,
 			armplat		= true,
 			armamsub	= true,
-
+			corhp		= true,
+			corfhp		= true,
+			corplat		= true,
+			coramsub	= true,
 			leghp		= true,
 			legfhp		= true,
 			legplat		= true,
@@ -523,7 +539,6 @@ then
 			legap = true,
 			legapt3 = true,
 		}
-
 		table.insert(unitRestrictions, function(name, unitDef)
 			if unitDef.customparams.ignore_noair then -- ! should combine with disable_when_no_air
 				return false
@@ -531,7 +546,7 @@ then
 				return true
 			elseif string.find(unitDef.customparams.subfolder, "Aircraft") then
 				return true
-			elseif unitDef.customparams.unitgroup and unitDef.customparams.unitgroup == "aa" then
+			elseif unitDef.customparams.unitgroup == "aa" then
 				return true
 			elseif unitDef.canfly then
 				return true
@@ -543,8 +558,7 @@ then
 
 	if modOptions.unit_restrictions_noextractors then
 		table.insert(unitRestrictions, function(name, uDef)
-			return uDef.extractsmetal and uDef.extractsmetal > 0
-				and uDef.customparams.metal_extractor and uDef.customparams.metal_extractor > 0
+			return default(uDef, "extractsmetal", 0) > 0 and default(uDef.customparams, "metal_extractor", 0) > 0
 		end)
 	end
 
@@ -566,17 +580,14 @@ then
 			armrl	= true,
 			armfrt	= true,
 			armtl	= true,
-
 			corllt	= true,
 			corrl	= true,
 			cortl	= true,
 			corfrt	= true,
-
 			leglht	= true,
 			legrl	= true,
 			legfrl	= true,
 		}
-
 		table.insert(unitRestrictions, function(name, uDef)
 			if uDef.weapondefs then
 				-- "defense" or "defence", as legion doesn't follow convention
@@ -586,19 +597,18 @@ then
 		end)
 	end
 
-	local icbmInterceptBit = 1
 	local function isNukeWeapon(weapon)
-		return weapon.targetable == icbmInterceptBit
+		return weapon.targetable == INTERCEPTOR_MASK_ICBM
 	end
 	local function isAntiNukeWeapon(weapon)
-		return weapon.interceptor == icbmInterceptBit
+		return weapon.interceptor == INTERCEPTOR_MASK_ICBM
 	end
 	local function isNotAntiNukeWeapon(weapon)
-		return weapon.interceptor ~= icbmInterceptBit
+		return weapon.interceptor ~= INTERCEPTOR_MASK_ICBM
 	end
 	local function removeAntiNukes(uDef)
 		uDef.weapondefs = table.filterArray(uDef.weapondefs, isNotAntiNukeWeapon)
-		if next(uDef.weapondefs) or (uDef.radardistance and uDef.radardistance >= 1500) then
+		if next(uDef.weapondefs) or (uDef.radardistance and uDef.radardistance >= DISTANCE_LONG_RANGE) then
 			if uDef.metalcost then
 				-- Discount the unit to compensate for its antinuke.
 				uDef.metalcost = math.floor(uDef.metalcost * 0.6)
@@ -701,7 +711,7 @@ if modOptions.evocom then
 			if uDef.power then
 				uDef.power = uDef.power / xpMultiplier
 			else
-				uDef.power = (uDef.metalcost + uDef.energycost / 60) / xpMultiplier
+				uDef.power = (uDef.metalcost + uDef.energycost / ENERGY_TO_METAL) / xpMultiplier
 			end
 
 			if name == "armcom" then
@@ -1351,58 +1361,31 @@ if modOptions.multiplier_maxvelocity ~= 1 then
 	local mult = modOptions.multiplier_maxvelocity
 	local multHalf = (mult - 1) / 2 + 1
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if uDef.speed then
-			uDef.speed = uDef.speed * mult
-		end
-		if uDef.maxdec then
-			uDef.maxdec = uDef.maxdec * multHalf
-		end
-		if uDef.maxacc then
-			uDef.maxacc = uDef.maxacc * multHalf
-		end
+		multiplier(uDef, "speed", mult)
+		multiplier(uDef, "maxdec", multHalf)
+		multiplier(uDef, "maxacc", multHalf)
 	end)
 end
 
 if modOptions.multiplier_turnrate ~= 1 then
 	local mult = modOptions.multiplier_turnrate
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if uDef.turnrate then
-			uDef.turnrate = uDef.turnrate * mult
-		end
+		multiplier(uDef, "turnrate", mult)
 	end)
 end
 
 if modOptions.multiplier_builddistance ~= 1 then
 	local mult = modOptions.multiplier_builddistance
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if uDef.builddistance then
-			uDef.builddistance = uDef.builddistance * mult
-		end
+		multiplier(uDef, "builddistance", mult)
 	end)
 end
 
 if modOptions.multiplier_buildpower ~= 1 then
 	local mult = modOptions.multiplier_buildpower
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if uDef.workertime then
-			uDef.workertime = uDef.workertime * mult
-		end
-		if uDef.terraformspeed then
-			uDef.terraformspeed = uDef.terraformspeed * mult
-		end
-	end)
-end
-
-if modOptions.multiplier_metalemulttraction * modOptions.multiplier_resourceincome ~= 1 then
-	local mult = modOptions.multiplier_metalemulttraction * modOptions.multiplier_resourceincome
-	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if (uDef.emulttractsmetal or 0) > 0 and (uDef.customparams.metal_emulttractor or 0) > 0 then
-			uDef.emulttractsmetal = uDef.emulttractsmetal * mult
-			uDef.customparams.metal_emulttractor = uDef.customparams.metal_emulttractor * mult
-			if uDef.metalstorage then
-				uDef.metalstorage = uDef.metalstorage * mult
-			end
-		end
+		multiplier(uDef, "workertime", mult)
+		multiplier(uDef, "terraformspeed", mult)
 	end)
 end
 
@@ -1410,34 +1393,24 @@ if modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
 	local mult = modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		-- Apply multipliers only to income, never to expenses:
+		if (uDef.energymake or 0) > 0 or (uDef.windgenerator or 0) > 0 or (uDef.tidalgenerator or 0) > 0 or (uDef.energyupkeep or 0) < 0 then
+			multiplier(uDef, "energystorage", mult) -- increase storage only once
+		else
+			return
+		end
 		if (uDef.energymake or 0) > 0 then
-			uDef.energymake = uDef.energymake * mult
-			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * mult
-			end
+			multiplier(uDef, "energymake", mult)
 		end
 		if (uDef.windgenerator or 0) > 0 then
-			uDef.windgenerator = uDef.windgenerator * mult
-			if uDef.customparams.energymultiplier then
-				uDef.customparams.energymultiplier = uDef.customparams.energymultiplier * mult
-			else
-				uDef.customparams.energymultiplier = mult
-			end
-			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * mult
-			end
+			default(uDef.customparams, "energymultiplier", 1)
+			multiplier(uDef.customparams, "energymultiplier", mult)
+			multiplier(uDef, "windgenerator", mult)
 		end
 		if (uDef.tidalgenerator or 0) > 0 then
-			uDef.tidalgenerator = uDef.tidalgenerator * mult
-			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * mult
-			end
+			multiplier(uDef, "tidalgenerator", mult)
 		end
 		if (uDef.energyupkeep or 0) < 0 then
-			uDef.energyupkeep = uDef.energyupkeep * mult
-			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * mult
-			end
+			multiplier(uDef, "energyupkeep", mult)
 		end
 	end)
 end
@@ -1445,14 +1418,10 @@ end
 if modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome ~= 1 then
 	local mult = modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if uDef.customparams.energyconv_capacity and uDef.customparams.energyconv_efficiency then
-			uDef.customparams.energyconv_efficiency = uDef.customparams.energyconv_efficiency * mult
-			if uDef.metalstorage then
-				uDef.metalstorage = uDef.metalstorage * mult
-			end
-			if uDef.energystorage then
-				uDef.energystorage = uDef.energystorage * mult
-			end
+		if multiplier(uDef.customparams, "energyconv_efficiency", mult) then
+			multiplier(uDef.customparams, "energyconv_efficiency", mult)
+			multiplier(uDef, "metalstorage", mult)
+			multiplier(uDef, "energystorage", mult)
 		end
 	end)
 end
@@ -1460,24 +1429,16 @@ end
 if modOptions.multiplier_losrange ~= 1 then
 	local mult = modOptions.multiplier_losrange
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if uDef.sightdistance then
-			uDef.sightdistance = uDef.sightdistance * mult
-		end
-		if uDef.airsightdistance then
-			uDef.airsightdistance = uDef.airsightdistance * mult
-		end
+		multiplier(uDef.customparams, "sightdistance", mult)
+		multiplier(uDef.customparams, "airsightdistance", mult)
 	end)
 end
 
 if modOptions.multiplier_radarrange ~= 1 then
 	local mult = modOptions.multiplier_radarrange
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if uDef.radardistance then
-			uDef.radardistance = uDef.radardistance * mult
-		end
-		if uDef.sonardistance then
-			uDef.sonardistance = uDef.sonardistance * mult
-		end
+		multiplier(uDef.customparams, "radardistance", mult)
+		multiplier(uDef.customparams, "sonardistance", mult)
 	end)
 end
 
