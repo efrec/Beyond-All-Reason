@@ -119,11 +119,11 @@ local INTERCEPTOR_MASK_ICBM = 1
 local INTERCEPTION = {
 	-- Game interception masks:
 	Nothing           = 0,
-	Everything        = 1,
 	Plasma            = 1,
 	Lasers            = 2,
 	Missiles          = 4,
 	Bombs             = 8,
+	Everything        = table.reduce({ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }, function(a, b) return a + 2 ^ b end, 0),
 	-- Engine default per-type:
 	DGun              = 0,
 	Cannon            = 1,
