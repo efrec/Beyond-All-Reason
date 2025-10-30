@@ -51,7 +51,7 @@ end
 
 ---Apply a coefficient to a value, iff exists, and return the value for logical chaining.
 ---@return number? value
-local function multiplier(tbl, key, coefficient)
+local function multiply(tbl, key, coefficient)
 	local value = tbl[key]
 	if value then
 		value = value * coefficient
@@ -1391,31 +1391,31 @@ if modOptions.multiplier_maxvelocity ~= 1 then
 	local mult = modOptions.multiplier_maxvelocity
 	local multHalf = (mult - 1) / 2 + 1
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		multiplier(uDef, "speed", mult)
-		multiplier(uDef, "maxdec", multHalf)
-		multiplier(uDef, "maxacc", multHalf)
+		multiply(uDef, "speed", mult)
+		multiply(uDef, "maxdec", multHalf)
+		multiply(uDef, "maxacc", multHalf)
 	end)
 end
 
 if modOptions.multiplier_turnrate ~= 1 then
 	local mult = modOptions.multiplier_turnrate
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		multiplier(uDef, "turnrate", mult)
+		multiply(uDef, "turnrate", mult)
 	end)
 end
 
 if modOptions.multiplier_builddistance ~= 1 then
 	local mult = modOptions.multiplier_builddistance
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		multiplier(uDef, "builddistance", mult)
+		multiply(uDef, "builddistance", mult)
 	end)
 end
 
 if modOptions.multiplier_buildpower ~= 1 then
 	local mult = modOptions.multiplier_buildpower
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		multiplier(uDef, "workertime", mult)
-		multiplier(uDef, "terraformspeed", mult)
+		multiply(uDef, "workertime", mult)
+		multiply(uDef, "terraformspeed", mult)
 	end)
 end
 
@@ -1424,23 +1424,23 @@ if modOptions.multiplier_energyproduction * modOptions.multiplier_resourceincome
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
 		-- Apply multipliers only to income, never to expenses:
 		if (uDef.energymake or 0) > 0 or (uDef.windgenerator or 0) > 0 or (uDef.tidalgenerator or 0) > 0 or (uDef.energyupkeep or 0) < 0 then
-			multiplier(uDef, "energystorage", mult) -- increase storage only once
+			multiply(uDef, "energystorage", mult) -- increase storage only once
 		else
 			return
 		end
 		if (uDef.energymake or 0) > 0 then
-			multiplier(uDef, "energymake", mult)
+			multiply(uDef, "energymake", mult)
 		end
 		if (uDef.windgenerator or 0) > 0 then
 			default(uDef.customparams, "energymultiplier", 1)
-			multiplier(uDef.customparams, "energymultiplier", mult)
-			multiplier(uDef, "windgenerator", mult)
+			multiply(uDef.customparams, "energymultiplier", mult)
+			multiply(uDef, "windgenerator", mult)
 		end
 		if (uDef.tidalgenerator or 0) > 0 then
-			multiplier(uDef, "tidalgenerator", mult)
+			multiply(uDef, "tidalgenerator", mult)
 		end
 		if (uDef.energyupkeep or 0) < 0 then
-			multiplier(uDef, "energyupkeep", mult)
+			multiply(uDef, "energyupkeep", mult)
 		end
 	end)
 end
@@ -1448,10 +1448,10 @@ end
 if modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome ~= 1 then
 	local mult = modOptions.multiplier_energyconversion * modOptions.multiplier_resourceincome
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		if multiplier(uDef.customparams, "energyconv_efficiency", mult) then
-			multiplier(uDef.customparams, "energyconv_efficiency", mult)
-			multiplier(uDef, "metalstorage", mult)
-			multiplier(uDef, "energystorage", mult)
+		if multiply(uDef.customparams, "energyconv_efficiency", mult) then
+			multiply(uDef.customparams, "energyconv_efficiency", mult)
+			multiply(uDef, "metalstorage", mult)
+			multiply(uDef, "energystorage", mult)
 		end
 	end)
 end
@@ -1459,16 +1459,16 @@ end
 if modOptions.multiplier_losrange ~= 1 then
 	local mult = modOptions.multiplier_losrange
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		multiplier(uDef.customparams, "sightdistance", mult)
-		multiplier(uDef.customparams, "airsightdistance", mult)
+		multiply(uDef.customparams, "sightdistance", mult)
+		multiply(uDef.customparams, "airsightdistance", mult)
 	end)
 end
 
 if modOptions.multiplier_radarrange ~= 1 then
 	local mult = modOptions.multiplier_radarrange
 	table.insert(unitPostDefMultiplierList, function(name, uDef)
-		multiplier(uDef.customparams, "radardistance", mult)
-		multiplier(uDef.customparams, "sonardistance", mult)
+		multiply(uDef.customparams, "radardistance", mult)
+		multiply(uDef.customparams, "sonardistance", mult)
 	end)
 end
 
@@ -1592,9 +1592,9 @@ table.insert(weaponDefPostEffectList, function(name, wDef)
 	elseif wDef.weapontype == "BeamLaser" then
 		default(wDef, "beamttl", 3)
 		default(wDef, "beamdecay", 0.7)
-		multiplier(wDef, "corethickness", 1.21)
-		multiplier(wDef, "thickness", 1.27)
-		multiplier(wDef, "laserflaresize", 1.15) -- note: thickness affects this too
+		multiply(wDef, "corethickness", 1.21)
+		multiply(wDef, "thickness", 1.27)
+		multiply(wDef, "laserflaresize", 1.15) -- note: thickness affects this too
 		wDef.texture1 = "largebeam" -- The projectile texture
 		wDef.texture3 = "flare2"    -- Flare texture for #BeamLaser
 		wDef.texture4 = "flare2"    -- Flare texture for #BeamLaser with largeBeamLaser = true
@@ -1687,9 +1687,9 @@ if modOptions.shieldsrework then
 			shield.exterior = true
 			if shield.repulser then
 				shield.repulser = false
-				multiplier(shield, "power", shieldPowerMultiplier)
-				multiplier(shield, "powerregen", shieldRegenMultiplier)
-				multiplier(shield, "powerregenenergy", shieldRechargeCostMultiplier)
+				multiply(shield, "power", shieldPowerMultiplier)
+				multiply(shield, "powerregen", shieldRegenMultiplier)
+				multiply(shield, "powerregenenergy", shieldRechargeCostMultiplier)
 			end
 			return
 		end
@@ -1746,10 +1746,10 @@ if modOptions.shieldsrework then
 		local mult = modOptions.multiplier_shieldpower
 		table.insert(weaponPostDefMultiplierList, function(name, wDef)
 			if wDef.shield then
-				multiplier(wDef.shield, "power", mult)
-				multiplier(wDef.shield, "powerregen", mult)
-				multiplier(wDef.shield, "powerregenenergy", mult)
-				multiplier(wDef.shield, "startingpower", mult)
+				multiply(wDef.shield, "power", mult)
+				multiply(wDef.shield, "powerregen", mult)
+				multiply(wDef.shield, "powerregenenergy", mult)
+				multiply(wDef.shield, "startingpower", mult)
 			end
 		end)
 	end
@@ -1757,15 +1757,15 @@ if modOptions.shieldsrework then
 	if modOptions.multiplier_weaponrange ~= 1 then
 		local mult = modOptions.multiplier_weaponrange
 		table.insert(weaponPostDefMultiplierList, function(name, wDef)
-			multiplier(wDef, "range", mult)
-			multiplier(wDef, "flighttime", mult * 1.5)
+			multiply(wDef, "range", mult)
+			multiply(wDef, "flighttime", mult * 1.5)
 			if wDef.weapontype == "Cannon" and wDef.gravityaffected then
-				multiplier(wDef, "weaponvelocity", math.sqrt(mult))
+				multiply(wDef, "weaponvelocity", math.sqrt(mult))
 			elseif wDef.weapontype == "StarburstLauncher" and wDef.weapontimer then
-				multiplier(wDef, "weaponvelocity", 0.6 + 0.4 * mult)
+				multiply(wDef, "weaponvelocity", 0.6 + 0.4 * mult)
 			end
 			if wDef.customparams.overrange_distance then
-				multiplier(wDef.customparams, "overrange_distance", mult)
+				multiply(wDef.customparams, "overrange_distance", mult)
 			end
 		end)
 	end
@@ -1777,8 +1777,8 @@ if modOptions.shieldsrework then
 				for armorType, damage in pairs(wDef.damage) do
 					wDef.damage[armorType] = damage * mult
 				end
-				multiplier(wDef.customparams, "area_ondeath_damage", mult)
-				multiplier(wDef.customparams, "area_onhit_damage", mult)
+				multiply(wDef.customparams, "area_ondeath_damage", mult)
+				multiply(wDef.customparams, "area_onhit_damage", mult)
 			end
 		end)
 	end
