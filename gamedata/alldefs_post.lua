@@ -1491,6 +1491,18 @@ end
 -- WEAP DEF PROCESSING --
 -------------------------
 
+local WEAPON_SOUND_MIN = 5
+
+local isNonstandardGravityUnit = {
+	'cormship_',
+	'armmship_',
+}
+
+local function getWeaponVolume(name, wDef)
+	local damage = wDef.damage.default
+	return math.sqrt(damage * 0.5) * (wDef.weapontype == "LaserCannon" and 0.5 or 1)
+end
+
 local function setExplosionSpeed(name, weaponDef)
 	if weaponDef.damage and weaponDef.damage.default then
 		if string.find(name, '_', nil, true) then
@@ -1510,69 +1522,51 @@ local weaponDefPostEffectList = {} ---@type function[]
 local weaponDefPostReworkList = {} ---@type function[]
 local weaponPostDefMultiplierList = {} ---@type function[]
 
-local soundVolumeMinimum = 5
-
 -- General weapon def transformations
 table.insert(weaponDefPostEffectList, function(name, wDef)
-	-- Ensure that subtables exist.
-	wDef.customparams = wDef.customparams or {}
+	-- Ensure that subtables exist. Set some necessary values.
+	subtable(wDef, "customparams")
 	if not wDef.shield then
-		wDef.damage = wDef.damage or {}
-		wDef.damage.indestructable = 0
+		local damage = subtable(wDef, "damage")
+		default(damage, "default", 0)
+		damage.indestructable = 0
+	else
+		wDef.weapontype = "Shield"
+		wDef.damage = nil
 	end
 
-	-- Sound defaults
-	if not wDef.soundstartvolume or not wDef.soundhitvolume or not wDef.soundhitwetvolume then
-		local defaultDamage = wDef.damage and wDef.damage.default or 0
+	-- Volume defaults, and small weapon volume standardization
+	if not wDef.shield and not wDef.soundstartvolume or not wDef.soundhitvolume or not wDef.soundhitwetvolume then
+		local defaultDamage = wDef.damage.default
 		if defaultDamage <= 50 then
-			wDef.soundstartvolume = soundVolumeMinimum
-			wDef.soundhitvolume = soundVolumeMinimum
-			wDef.soundhitwetvolume = soundVolumeMinimum
+			wDef.soundstartvolume = WEAPON_SOUND_MIN
+			wDef.soundhitvolume = WEAPON_SOUND_MIN
+			wDef.soundhitwetvolume = WEAPON_SOUND_MIN
 		else
-			local soundVolume = math.sqrt(defaultDamage * 0.5)
-			if wDef.weapontype == "LaserCannon" then
-				soundVolume = soundVolume * 0.5
-			end
-			if not wDef.soundstartvolume then
-				wDef.soundstartvolume = soundVolume
-			end
-			if not wDef.soundhitvolume then
-				wDef.soundhitvolume = soundVolume
-			end
-			if not wDef.soundhitwetvolume then
-				if wDef.weapontype == "LaserCannon" or wDef.weapontype == "BeamLaser" then
-					wDef.soundhitwetvolume = soundVolume * 0.3
-				else
-					wDef.soundhitwetvolume = soundVolume * 1.4
-				end
-			end
+			local volume = math.max(WEAPON_SOUND_MIN, getWeaponVolume(name, wDef))
+			default(wDef, "soundstartvolume", volume)
+			default(wDef, "soundhitvolume", volume)
+			default(wDef, "soundhitwetvolume", volume * ((wDef.weapontype == "LaserCannon" or wDef.weapontype == "BeamLaser") and 0.3 or 1.4))
 		end
 	end
 
 	-- Aim point default
-	if not wDef.targetborder then
-		wDef.targetborder = 1 -- Nearest point on target collider
-	end
+	default(wDef, "targetborder", 1)
 end)
-
-local isNonstandardGravityUnit = {
-	'cormship_',
-	'armmship_',
-}
 
 table.insert(weaponDefPostEffectList, function(name, wDef)
 	-- Gravity standardization
 	if wDef.gravityaffected == "true" then -- ! why on earth is this a string
-		if table.any(isNonstandardGravityUnit, function(v) return isNonstandardGravityUnit[v] end) then
+		if not table.any(isNonstandardGravityUnit, function(v) return isNonstandardGravityUnit[v] end) then
 			wDef.mygravity = 0.1445
 		end
 	end
 
 	-- Shield interception standardization
 	if wDef.weapontype == "DGun" then
-		wDef.interceptedbyshieldtype = 512 -- default (0) is not interceptable
-	elseif wDef.weapontype == "StarburstLauncher" and not string.find(name, "raptor") then
-		wDef.interceptedbyshieldtype = 1024 -- distinguish from MissileLauncher (except raptors)
+		wDef.interceptedbyshieldtype = INTERCEPTION.DGunOverride
+	elseif wDef.weapontype == "StarburstLauncher" and not name:match("^raptor") then
+		wDef.interceptedbyshieldtype = INTERCEPTION.StarburstOverride
 	end
 
 	-- Crater depth standardization
@@ -1582,33 +1576,26 @@ table.insert(weaponDefPostEffectList, function(name, wDef)
 
 	-- Weapon type visuals standardization
 	if wDef.weapontype == "Cannon" then
+		default(wDef, "areaofeffect", 8) -- from engine default; used in calcs below
 		if not wDef.model then
 			wDef.castshadow = false
 		end
 		if not wDef.stages then
-			if not wDef.damage and not wDef.damage.default and not wDef.areaofeffect then
+			if wDef.damage.default > 0 and wDef.areaofeffect > 0 then
 				wDef.stages = math.floor(7.5 + math.min(wDef.damage.default * 0.0033, wDef.areaofeffect * 0.13))
-				wDef.alphadecay = 1 - ((1 / wDef.stages) / 1.5)
+				wDef.alphadecay = 1 - (1 / wDef.stages) / 1.5
 				wDef.sizedecay = 0.4 / wDef.stages
 			else
 				wDef.stages = 10
 			end
 		end
 	elseif wDef.weapontype == "BeamLaser" then
-		if not wDef.beamttl then
-			wDef.beamttl = 3
-			wDef.beamdecay = 0.7
-		end
-		if wDef.corethickness then
-			wDef.corethickness = wDef.corethickness * 1.21
-		end
-		if wDef.thickness then
-			wDef.thickness = wDef.thickness * 1.27
-		end
-		if wDef.laserflaresize then
-			wDef.laserflaresize = wDef.laserflaresize * 1.15        -- note: thickness affects this too
-		end
-		wDef.texture1 = "largebeam"        -- The projectile texture
+		default(wDef, "beamttl", 3)
+		default(wDef, "beamdecay", 0.7)
+		multiplier(wDef, "corethickness", 1.21)
+		multiplier(wDef, "thickness", 1.27)
+		multiplier(wDef, "laserflaresize", 1.15) -- note: thickness affects this too
+		wDef.texture1 = "largebeam" -- The projectile texture
 		wDef.texture3 = "flare2"    -- Flare texture for #BeamLaser
 		wDef.texture4 = "flare2"    -- Flare texture for #BeamLaser with largeBeamLaser = true
 	end
@@ -1671,70 +1658,77 @@ if shieldModOption == "absorbplasma" then
 		end
 	end)
 elseif shieldModOption == "absorbeverything" then
+	local INTERCEPTION_ALL = INTERCEPTION.Everything
 	table.insert(weaponDefPostReworkList, function(name, wDef)
 		if wDef.shield then
 			wDef.shield.repulser = false
-		elseif wDef.interceptedbyshieldtype ~= 1 then
-			wDef.interceptedbyshieldtype = 1
+		else
+			wDef.interceptedbyshieldtype = INTERCEPTION_ALL
 		end
 	end)
 elseif shieldModOption == "bounceeverything" then
+	local INTERCEPTION_ALL = INTERCEPTION.Everything
 	table.insert(weaponDefPostReworkList, function(name, wDef)
 		if wDef.shield then
 			wDef.shield.repulser = true
 		else
-			wDef.interceptedbyshieldtype = 1
+			wDef.interceptedbyshieldtype = INTERCEPTION_ALL
 		end
 	end)
 end
 
 if modOptions.shieldsrework then
+	local INTERCEPTION_ALL = INTERCEPTION.Everything
+	local INTERCEPTION_NONE = INTERCEPTION.Nothing
+
 	table.insert(weaponDefPostReworkList, function(name, wDef)
 		if wDef.shield then
-			wDef.shield.exterior = true
-			if wDef.shield.repulser then -- isn't an evocom -- ! fixme: not a valid assumption
-				wDef.shield.powerregen = wDef.shield.powerregen * shieldRegenMultiplier
-				wDef.shield.power = wDef.shield.power * shieldPowerMultiplier
-				wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * shieldRechargeCostMultiplier
+			local shield = wDef.shield
+			shield.exterior = true
+			if shield.repulser then
+				shield.repulser = false
+				multiplier(shield, "power", shieldPowerMultiplier)
+				multiplier(shield, "powerregen", shieldRegenMultiplier)
+				multiplier(shield, "powerregenenergy", shieldRechargeCostMultiplier)
 			end
-			wDef.shield.repulser = false
-		elseif wDef.damage then
-			if wDef.damage.shields then
-				wDef.customparams.shield_damage = wDef.damage.shields
-			elseif wDef.damage.default then
-				wDef.customparams.shield_damage = wDef.damage.default
-			elseif wDef.damage.vtol then
-				wDef.customparams.shield_damage = wDef.damage.vtol * vtolShieldDamageMultiplier
-			else
-				wDef.customparams.shield_damage = 0
-			end
-
-			if wDef.paralyzer then
-				wDef.customparams.shield_damage = wDef.customparams.shield_damage * paralyzerShieldDamageMultiplier
-			end
-
-			-- Set damage to 0 so projectiles never break through/bypass the shield natively.
-			-- Shield damage is applied and breakthrough handled via unit_shield_behavior.lua.
-			wDef.damage.shields = 0
-
-			if wDef.beamtime and wDef.beamtime > 1 / Game.gameSpeed then
-				-- This splits up the damage of hitscan weapons over the duration of beamtime, as each frame counts as a hit in ShieldPreDamaged() callin
-				-- Math.floor is used to sheer off the extra digits of the number of frames that the hits occur
-				wDef.customparams.beamtime_damage_reduction_multiplier = 1 / math.floor(wDef.beamtime * Game.gameSpeed)
-			end
+			return
 		end
 
-		if ((not wDef.interceptedbyshieldtype or wDef.interceptedbyshieldtype ~= 1) and wDef.weapontype ~= "Cannon") then
-			wDef.customparams = wDef.customparams or {}
-			wDef.customparams.shield_aoe_penetration = true
+		local damage = 0
+
+		if wDef.damage.shields then
+			damage = wDef.damage.shields
+		elseif wDef.damage.default then
+			damage = wDef.damage.default
+		elseif wDef.damage.vtol then
+			damage = wDef.damage.vtol * vtolShieldDamageMultiplier
+		end
+
+		if wDef.paralyzer then
+			damage = damage * paralyzerShieldDamageMultiplier
+		end
+
+		-- Set damage to 0 so projectiles never break through/bypass the shield natively.
+		-- Shield damage is applied and breakthrough handled via unit_shield_behavior.lua.
+		wDef.damage.shields = 0
+		wDef.customparams.shield_damage = damage
+
+		if wDef.beamtime and wDef.beamtime > 1 / Game.gameSpeed then
+			-- This splits up the damage of hitscan weapons over the duration of beamtime, as each frame counts as a hit in ShieldPreDamaged() callin
+			-- Math.floor is used to sheer off the extra digits of the number of frames that the hits occur
+			wDef.customparams.beamtime_damage_reduction_multiplier = 1 / math.floor(wDef.beamtime * Game.gameSpeed)
 		end
 
 		for _, exemption in ipairs(shieldCollisionExemptions) do
 			if string.find(name, exemption) then
-				wDef.interceptedbyshieldtype = 0
+				wDef.interceptedbyshieldtype = INTERCEPTION_NONE
 				wDef.customparams.shield_aoe_penetration = true
-				break
+				return
 			end
+		end
+
+		if wDef.weapontype ~= "Cannon" and wDef.interceptedbyshieldtype ~= INTERCEPTION_ALL then
+			wDef.customparams.shield_aoe_penetration = true
 		end
 	end)
 
@@ -1752,39 +1746,26 @@ if modOptions.shieldsrework then
 		local mult = modOptions.multiplier_shieldpower
 		table.insert(weaponPostDefMultiplierList, function(name, wDef)
 			if wDef.shield then
-				if wDef.shield.power then
-					wDef.shield.power = wDef.shield.power * mult
-				end
-				if wDef.shield.powerregen then
-					wDef.shield.powerregen = wDef.shield.powerregen * mult
-				end
-				if wDef.shield.powerregenenergy then
-					wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * mult
-				end
-				if wDef.shield.startingpower then
-					wDef.shield.startingpower = wDef.shield.startingpower * mult
-				end
+				multiplier(wDef.shield, "power", mult)
+				multiplier(wDef.shield, "powerregen", mult)
+				multiplier(wDef.shield, "powerregenenergy", mult)
+				multiplier(wDef.shield, "startingpower", mult)
 			end
 		end)
 	end
 
 	if modOptions.multiplier_weaponrange ~= 1 then
-		local mult = tonumber(modOptions.multiplier_weaponrange)
-		assert(mult)
+		local mult = modOptions.multiplier_weaponrange
 		table.insert(weaponPostDefMultiplierList, function(name, wDef)
-			if wDef.range then
-				wDef.range = wDef.range * mult
-			end
-			if wDef.flighttime then
-				wDef.flighttime = wDef.flighttime * (mult * 1.5)
-			end
-			if wDef.weapontype == "Cannon" and wDef.weaponvelocity and wDef.gravityaffected == "true" then
-				wDef.weaponvelocity = wDef.weaponvelocity * math.sqrt(mult)
+			multiplier(wDef, "range", mult)
+			multiplier(wDef, "flighttime", mult * 1.5)
+			if wDef.weapontype == "Cannon" and wDef.gravityaffected then
+				multiplier(wDef, "weaponvelocity", math.sqrt(mult))
 			elseif wDef.weapontype == "StarburstLauncher" and wDef.weapontimer then
-				wDef.weapontimer = wDef.weapontimer + wDef.weapontimer * (mult - 1) * 0.4
+				multiplier(wDef, "weaponvelocity", 0.6 + 0.4 * mult)
 			end
-			if wDef.customparams and wDef.customparams.overrange_distance then
-				wDef.customparams.overrange_distance = wDef.customparams.overrange_distance * mult
+			if wDef.customparams.overrange_distance then
+				multiplier(wDef.customparams, "overrange_distance", mult)
 			end
 		end)
 	end
@@ -1796,11 +1777,8 @@ if modOptions.shieldsrework then
 				for armorType, damage in pairs(wDef.damage) do
 					wDef.damage[armorType] = damage * mult
 				end
-			end
-			if wDef.customparams.area_onhit_damage then
-				wDef.customparams.area_onhit_damage = wDef.customparams.area_onhit_damage * mult
-			elseif wDef.customparams.area_ondeath_damage then
-				wDef.customparams.area_ondeath_damage = wDef.customparams.area_ondeath_damage * mult
+				multiplier(wDef.customparams, "area_ondeath_damage", mult)
+				multiplier(wDef.customparams, "area_onhit_damage", mult)
 			end
 		end)
 	end
