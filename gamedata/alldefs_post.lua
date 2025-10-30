@@ -54,6 +54,48 @@ local function round_to_frames(wd, key)
 	return sanitized_value
 end
 
+-------------------------
+-- UNIT DEF PROCESSING --
+-------------------------
+
+-- The general order of operations followed below:
+-- 1. Provide game-default values for nil properties. These may or may not match engine defaults.
+-- 2. Override def values to standardize across all defs. These override even non-nil properties.
+-- 3. Implement reworks, overhauls, tests, and etc. by fully replacing values, e.g. no +/-values.
+-- 4. Apply general modoptions that adjust unit values or which might require specific behaviors.
+-- 5. Apply multiplier modoptions that increase or decrease properties by universal coefficients.
+
+-- When defaults are baked and then later changed, you have to modify their ordering so they will
+-- override the previous defaults. That's to say that defaults are baked while standards are not,
+-- and there is no silver bullet to make that process make more sense without more configuration.
+
+---@type number The minimum speed required for units to suffer fall/collision damage.
+local COLLISION_SPEED_MIN = 75 / Game.gameSpeed
+
+---@type table Hardcoded override to enforce collisions for very-large air units. -- todo: detect instead
+local isCollideAirUnit = { "fepoch", "fblackhy", "corcrw", "legfort" }
+
+---@type number Compensates for reworked shields taking full damage from projectiles; c.f. bounce-style taking partial damage.
+local shieldPowerMultiplier = 1.9
+---@type number Compensates for reworked shields having a recharge delay before they are able to reactivate.
+local shieldRegenMultiplier = 2.5
+---@type number
+local shieldRechargeCostMultiplier = 1
+---@type number Paralyzers need reduced damage to shields. Their raw raw damage is much higher than normal damage values.
+local paralyzerShieldDamageMultiplier = 0.25
+---@type number Modifies damage to shields for anti-vtol weapons that do not define their damage to shields in their weapondef.
+local vtolShieldDamageMultiplier = 0
+---@type table Full weapon name (unit + weapon name) patterns for hardcoded exceptions for shield bypass. -- todo: un-hardcode
+local shieldCollisionExemptions = {
+	'corsilo_', -- partial weapon name
+	'armsilo_',
+	'armthor_empmissile', -- or full
+	'armemp_',
+	'cortron_',
+	'corjuno_',
+	'armjuno_',
+}
+
 local function processWeapons(unitDefName, unitDef)
 	local weaponDefs = unitDef.weapondefs
 	if not weaponDefs then
@@ -370,11 +412,7 @@ local unitDefPostEffectList = {
 		-- Air unit physics standardization
 		if unitDef.canfly then
 			unitDef.crashdrag = 0.01 -- default 0.005
-			if string.find(name, "fepoch") or string.find(name, "fblackhy") or string.find(name, "corcrw") or string.find(name, "legfort") then
-				unitDef.collide = true
-			else
-				unitDef.collide = false
-			end
+			unitDef.collide = table.any(isCollideAirUnit, function(v) return string.find(name, v, 1, true) end)
 		end
 
 		-- Mass standardization
@@ -795,7 +833,7 @@ if modOptions.experimentalextraunits then
 
 		-- Cortex T2 Bots Factory
 		elseif name == "coralab" then
-			bo[count+1] = "cordeadeye"
+			bo[count + 1] = "cordeadeye"
 
 		-- Cortex T2 Vehicle Factory
 		elseif name == "coravp" then
@@ -891,7 +929,7 @@ if modOptions.scavunitsforplayers then
 
 		-- Cortex T1 Bots Factory
 		elseif name == "corlab" then
-			bo[count+1] = "corkark" -- Archaic Karkinos
+			bo[count + 1] = "corkark" -- Archaic Karkinos
 
 		-- Cortex T2 Land Constructors
 		elseif name == "coraca" or name == "corack" or name == "coracv" then
@@ -1027,8 +1065,6 @@ if modOptions.junorework then
 end
 
 if modOptions.shieldsrework then
-	-- Compensate for taking full damage from projectiles; c.f. bounce-style taking partial damage.
-	local shieldPowerMultiplier = 1.9
 	table.insert(unitDefPostReworkList, function(name, uDef)
 		if uDef.weapondefs then
 			for _, weapon in pairs(uDef.weapondefs) do
@@ -1662,27 +1698,6 @@ elseif shieldModOption == "bounceeverything" then
 end
 
 if modOptions.shieldsrework then
-	-- To compensate for always taking full damage from projectiles in contrast to bounce-style only taking partial
-	local shieldPowerMultiplier = 1.9
-	local shieldRegenMultiplier = 2.5
-	local shieldRechargeCostMultiplier = 1
-
-	-- For balance, paralyzers need to do reduced damage to shields, as their raw raw damage is outsized
-	local paralyzerShieldDamageMultiplier = 0.25
-
-	-- VTOL's may or may not do full damage to shields if not defined in weapondefs
-	local vtolShieldDamageMultiplier = 0
-
-	local shieldCollisionExemptions = {
-		'corsilo_', -- partial weapon name
-		'armsilo_',
-		'armthor_empmissile', -- or full
-		'armemp_',
-		'cortron_',
-		'corjuno_',
-		'armjuno_',
-	}
-
 	table.insert(weaponDefPostReworkList, function(name, wDef)
 		if wDef.shield then
 			wDef.shield.exterior = true
@@ -1775,7 +1790,7 @@ if modOptions.shieldsrework then
 			if wDef.weapontype == "Cannon" and wDef.weaponvelocity and wDef.gravityaffected == "true" then
 				wDef.weaponvelocity = wDef.weaponvelocity * math.sqrt(mult)
 			elseif wDef.weapontype == "StarburstLauncher" and wDef.weapontimer then
-				wDef.weapontimer = wDef.weapontimer + (wDef.weapontimer * ((mult - 1) * 0.4))
+				wDef.weapontimer = wDef.weapontimer + wDef.weapontimer * (mult - 1) * 0.4
 			end
 			if wDef.customparams and wDef.customparams.overrange_distance then
 				wDef.customparams.overrange_distance = wDef.customparams.overrange_distance * mult
