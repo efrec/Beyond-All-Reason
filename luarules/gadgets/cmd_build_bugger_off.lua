@@ -75,7 +75,7 @@ local SEARCH_RADIUS_OFFSET  = 200
 local FAST_UPDATE_FREQUENCY = 30
 local SLOW_UPDATE_FREQUENCY = 60
 local MAX_BUGGEROFF_RADIUS  = 400
-local BUGGEROFF_RADIUS_INCREMENT = FAST_UPDATE_FREQUENCY * 0.5
+local BUGGEROFF_RADIUS_INCREMENT = 4 * Game.squareSize
 
 local function watchBuilder(builderID)
 	slowUpdateBuilders[builderID]   = nil
