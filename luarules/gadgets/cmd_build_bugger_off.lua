@@ -17,6 +17,23 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
+local CMD_BUGGER_OFF = GameCMD.BUGGER_OFF
+
+---@type CommandDescription
+local CMD_BUGGER_OFF_DESC = {
+	id       = CMD_BUGGER_OFF,
+	name     = "Avoid Build Site",
+	action   = "buggeroff",
+	tooltip  = "Avoid a build site until it is placed", -- can be used for other things too though
+	type     = CMDTYPE.ICON_AREA, -- 1..3: map position, 4: sourceID (not a radius)
+	hidden   = true,
+	queueing = true,
+}
+
+local CMD_INSERT = CMD.INSERT
+local CMD_REMOVE = CMD.REMOVE
+local CMD_OPT_ALT = CMD.OPT_ALT
+
 local shouldNotBuggeroff = {}
 local cachedUnitDefs = {}
 local cachedBuilderTeams = {}
@@ -45,8 +62,8 @@ local function willBeNearTarget(unitID, tx, ty, tz, seconds, maxDistance)
 	return math.diag(dx, dy, dz) <= maxDistance
 end
 
-local function isInTargetArea(interferingUnitID, x, y, z, radius)
-	local ux, uy, uz = Spring.GetUnitPosition(interferingUnitID)
+local function isUnitInCylinder(unitID, x, z, radius)
+	local ux, uy, uz = Spring.GetUnitPosition(unitID)
 	if not ux then return false end
 	return math.diag(ux - x, uz - z) <= radius
 end
@@ -110,12 +127,62 @@ local function shouldIssueBuggeroff(builderTeam, interferingUnitID, x, y, z, rad
 		return true
 	end
 
-	if isInTargetArea(interferingUnitID, x, y, z, radius) then
+	if isUnitInCylinder(interferingUnitID, x, z, radius) then
 		return true
 	end
 
 	return false
 end
+
+local goalUpdateTime = 0.1 -- time to update the command's move goal
+local goalUpdateFrames = math.round(goalUpdateTime * Game.gameSpeed)
+local goalRadius = Game.squareSize -- should start relatively strict
+local goalIdleGrowth = 2 ^ (1 / (Game.gameSpeed / goalUpdateFrames)) -- double per second
+local insertParams = { 0, CMD_BUGGER_OFF, 0, 0, 0, 0, 0 }
+
+local unitGoalRadius = {}
+local buggerSource = {}
+
+local function packParams(x, y, z, builderID)
+	local p = insertParams
+	p[4], p[5], p[6], p[7] = x, y, z, builderID
+	return p
+end
+
+local function buggerOff(unitID, x, y, z, builderID)
+	unitGoalRadius[unitID] = goalRadius
+	Spring.GiveOrderToUnit(unitID, CMD_INSERT, packParams(x, y, z, builderID), CMD_OPT_ALT)
+	Spring.SetUnitMoveGoal(unitID, x, y, z, goalRadius) -- even if command was not allowed
+	local buggerers = buggerSource[builderID]
+	if not buggerers then
+		buggerers = { [unitID] = true }
+		buggerSource[builderID] = buggerers
+	else
+		buggerers[unitID] = true
+	end
+end
+
+local function removeBuggerSource(builderID)
+	Spring.GiveOrderToUnitMap(buggerSource[builderID], CMD_REMOVE, CMD_BUGGER_OFF, CMD_OPT_ALT)
+	for unitID in pairs(buggerSource[builderID]) do
+		unitGoalRadius[unitID] = nil
+	end
+	buggerSource[builderID] = nil
+end
+
+local function finishBuggering(unitID)
+	unitGoalRadius[unitID] = nil
+	for _, buggerers in pairs(buggerSource) do
+		buggerers[unitID] = nil
+	end
+end
+
+local function cancelBuggering(unitID)
+	Spring.GiveOrderToUnit(unitID, CMD_REMOVE, CMD_BUGGER_OFF, CMD_OPT_ALT)
+	finishBuggering(unitID)
+end
+
+GG.CancelBuggerOff = cancelBuggering
 
 function gadget:GameFrame(frame)
 	if frame % FAST_UPDATE_FREQUENCY ~= 0 then
@@ -160,7 +227,7 @@ function gadget:GameFrame(frame)
 						local sendX, sendZ = math.closestPointOnCircle(targetX, targetZ, buggerOffRadius, unitX, unitZ)
 
 						if Spring.TestMoveOrder(Spring.GetUnitDefID(interferingUnitID), sendX, targetY, sendZ) then
-							Spring.GiveOrderToUnit(interferingUnitID, CMD.INSERT, {0, CMD.MOVE, CMD.OPT_INTERNAL, sendX, targetY, sendZ}, CMD.OPT_ALT )
+							buggerOff(interferingUnitID, sendX, targetY, sendZ, builderID)
 						end
 					end
 				end
@@ -216,6 +283,18 @@ function gadget:MetaUnitAdded(unitID, unitDefID, unitTeam)
 	end
 end
 
+function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
+	if builderID and buggerSource[builderID] then
+		removeBuggerSource(builderID)
+	end
+end
+
+function gadget:UnitFinished(unitID, unitDefID, unitTeam)
+	if not shouldNotBuggeroff[unitDefID] then
+		Spring.InsertUnitCmdDesc(unitID, CMD_BUGGER_OFF_DESC)
+	end
+end
+
 function gadget:Initialize()
 	for _, teamID in ipairs(Spring.GetTeamList()) do
 		local unitList = Spring.GetTeamUnits(teamID)
@@ -230,10 +309,35 @@ function gadget:MetaUnitRemoved(unitID, unitDefID, unitTeam)
 	if cachedUnitDefs[unitDefID].isBuilder then
 		removeBuilder(unitID)
 	end
+	if buggerSource[unitID] then
+		removeBuggerSource(unitID)
+	end
+	if unitGoalRadius[unitID] then
+		finishBuggering(unitID)
+	end
 end
 
 function gadget:UnitCommand(unitID, unitDefID, unitTeamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
 	if cachedUnitDefs[unitDefID].isBuilder then
 		slowWatchBuilder(unitID)
+	end
+end
+
+function gadget:CommandFallback(unitID, unitDefID, unitTeamID, cmdID, cmdParams, cmdOptions, cmdTag)
+	if cmdID ~= CMD_BUGGER_OFF or unitID % goalUpdateFrames ~= 0 then
+		return false
+	end
+
+	-- TODO: If units should bugger-only-once, then store these in a set, not in the cmd
+	local cx, cy, cz, builderID = cmdParams[1], cmdParams[2], cmdParams[3], cmdParams[4]
+	local radius = unitGoalRadius[unitID] or goalRadius
+	Spring.SetUnitMoveGoal(unitID, cx, cy, cz, radius)
+
+	if Spring.GetUnitWorkerTask(builderID) or isUnitInCylinder(unitID, cx, cz, radius) or Spring.GetUnitIsDead(builderID) then
+		finishBuggering(unitID)
+		return true, true
+	else
+		unitGoalRadius[unitID] = radius * goalIdleGrowth
+		return true, false -- used / remove
 	end
 end

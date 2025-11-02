@@ -262,6 +262,8 @@
 			"blueprint_place_tooltip": "Place a saved blueprint",
 			"blueprint_create": "Save Blueprint",
 			"blueprint_create_tooltip": "Save the selected units into a new blueprint, in the order they were selected",
+			"buggeroff": "Avoid Area",
+			"buggeroff_tooltip": "Avoids a build site until the building can be placed",
 			"factoryqueuemode_normal": "Queue Mode",
 			"factoryqueuemode_quota": "Quota Mode",
 			"factoryqueuemode_tooltip": "Queue: Build each queued unit once\nQuota: Maintain a minimum quota of each unit on the battlefield",
