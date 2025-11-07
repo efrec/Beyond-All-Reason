@@ -38,6 +38,7 @@ return {
 			normaltex = "unittextures/Arm_normal.dds",
 			subfolder = "ArmBots",
 			unitgroup = "weapon",
+			has_surfing_colvol = true,
 		},
 		featuredefs = {
 			dead = {
