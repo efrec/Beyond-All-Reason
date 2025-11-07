@@ -40,19 +40,24 @@ local updateFrames = math_clamp(math.round(updateTime * Game.gameSpeed), 1, Game
 -- The surf height = water height + tiny nudge + update interval * some unit speed * some incline
 local surfHeight = Spring.GetWaterPlaneLevel() + 1 + updateTime * 64 * math_cos(math.rad(45)) -- approx +5.5
 
-local surfboxDefs = {}
+local canSurf = {} -- units that will have their colvols dynamically replaced
+local canFloat = {} -- units that need to be able to float above surfer units
 
 for unitDefID, unitDef in pairs(UnitDefs) do
-	local categories = unitDef.modCategories
-	if categories.notsub and categories.notair and categories.nothover and unitDef.height < waterDepthMax then
-		-- todo: and moveDef.maxwaterdepth > unitDef.height, or something
-		surfboxDefs[unitDefID] = true
+	if unitDef.customParams.has_surfing_colvol then
+		canSurf[unitDefID] = true
+	else
+		local is = unitDef.modCategories
+		if (is.ship or is.hover or is.vtol) and not (is.underwater or is.canbeuw) then
+			canFloat[unitDefID] = true
+		end
 	end
 end
 
 local surferVolumes = {}
 local surfersInWater = {}
 local surfersDiving = {}
+local isFloatingUnit = {}
 local gameFrame = 0
 
 -- Local functions
@@ -134,8 +139,10 @@ function gadget:GameFrame(n)
 end
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-	if surfboxDefs[unitDefID] then
+	if canSurf[unitDefID] then
 		surferVolumes[unitID] = { spGetUnitCollisionVolumeData(unitID) }
+	elseif canFloat[unitDefID] then
+		isFloatingUnit[unitID] = true
 	end
 end
 
@@ -143,6 +150,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 	surferVolumes[unitID] = nil
 	surfersInWater[unitID] = nil
 	surfersDiving[unitID] = nil
+	isFloatingUnit[unitID] = nil
 end
 
 function gadget:UnitEnteredWater(unitID, unitDefID, unitTeam)
@@ -160,11 +168,11 @@ function gadget:UnitLeftWater(unitID, unitDefID, unitTeam)
 end
 
 function gadget:UnitUnitCollision(colliderID, collideeID)
-	if surferVolumes[colliderID] then
-		if not surferVolumes[collideeID] then
-			duck(colliderID, collideeID)
-		end
-	elseif surferVolumes[collideeID] then
+	-- Currently ignoring that a submarine could move above surfer:
+	if surferVolumes[colliderID] and isFloatingUnit[collideeID] then
+		duck(colliderID, collideeID)
+	end
+	if surferVolumes[collideeID] and isFloatingUnit[colliderID] then
 		duck(collideeID, colliderID)
 	end
 end
