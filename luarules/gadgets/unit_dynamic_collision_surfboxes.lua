@@ -67,7 +67,7 @@ local function restoreVolume(unitID)
 end
 
 -- Inflates a bounded ellipsoid to match its bounding rectangle's surface and volume.
-local halfInflateRatio = 1 + sqrt(2) / math.pi
+local halfInflateRatio = 1 + math.sqrt(2) / math.pi
 
 -- Surfboxes raise collision volumes to just above the water level so units that are
 -- able to traverse water deeper than their own height can be attacked and destroyed.
