@@ -23,6 +23,7 @@ local updateTime = 0.1
 
 local math_abs = math.abs
 local math_cos = math.cos
+local math_clamp = math.clamp
 
 local spGetUnitHeight = Spring.GetUnitHeight
 local spGetUnitPosition = Spring.GetUnitPosition
@@ -34,9 +35,10 @@ local spSetUnitCollisionVolumeData = Spring.SetUnitCollisionVolumeData
 
 -- Local state
 
-local updateFrames = math.clamp(math.round(updateTime * Game.gameSpeed), 1, Game.gameSpeed)
--- surfHeight = water height + tiny nudge + update interval * typical unit speed * steep incline
-local surfHeight = Spring.GetWaterPlaneLevel() + 1 + updateTime * 64 * math.cos(math.rad(45)) -- approx +5.5
+local updateFrames = math_clamp(math.round(updateTime * Game.gameSpeed), 1, Game.gameSpeed)
+
+-- The surf height = water height + tiny nudge + update interval * some unit speed * some incline
+local surfHeight = Spring.GetWaterPlaneLevel() + 1 + updateTime * 64 * math_cos(math.rad(45)) -- approx +5.5
 
 local surfboxDefs = {}
 
@@ -60,23 +62,17 @@ local function restoreVolume(unitID)
 end
 
 -- Inflates a bounded ellipsoid to match its bounding rectangle's surface and volume.
--- This applies only half the effect. By other heuristics, could be 1 + sqrt(2) / pi.
-local halfInflateRatio = (1 + 6 / math.pi) * 0.5
+local halfInflateRatio = 1 + sqrt(2) / math.pi
 
 -- Surfboxes raise collision volumes to just above the water level so units that are
--- able to traverse water deeper than their own volume can be attacked and destroyed.
+-- able to traverse water deeper than their own height can be attacked and destroyed.
 local function surf(unitID)
 	local unitHeight = spGetUnitHeight(unitID)
 	local ux, uy = spGetUnitPosition(unitID)
 	local pitch, yaw, roll = spGetUnitRotation(unitID)
 
 	-- Give some weight to the actual height to avoid comical stretches and offsets.
-	local mix = 0.25 + 0.75 * math.abs(math.cos(pitch) * math.cos(roll))
-	if mix == 0 then
-		return
-	elseif mix < 0.5 then
-		mix = 0.5
-	end
+	local mix = math_clamp(0.25 + 0.75 * math_abs(math_cos(pitch) * math_cos(roll)), 0.5, 1)
 	local height = unitHeight / mix
 
 	local volume = surferVolumes[unitID]
@@ -87,19 +83,21 @@ local function surf(unitID)
 	end
 
 	-- Offset needed for the collision volume to reach the surf[ace] height.
-	local yOffsetNew = surfHeight - height - uy
+	local yOffset = surfHeight - height - uy
 
 	-- Split the difference between stretching the volume and lifting it up, with
 	-- the goal of maintaining multiple, but much smaller, deltas in the result..
-	local stretch = 0.5 * (yOffsetNew - (uy + volume[5])) / unitHeight
-	yOffsetNew = 0.5 * yOffsetNew -- ..else this value can be huge with roll/tilt.
+	local stretch = 0.5 * (yOffset - (uy + volume[5])) / unitHeight
+	yOffset = 0.5 * yOffset -- ..else this value can be huge with roll/tilt.
 
 	spSetUnitCollisionVolumeData(
 		unitID,
 		volume[1] * halfInflateRatio,
 		volume[2] * halfInflateRatio * stretch,
 		volume[3] * halfInflateRatio,
-		volume[4], yOffsetNew, volume[6],
+		volume[4],
+		yOffset,
+		volume[6],
 		0, -- Ellipsoids trade great fitness for expensive detection.
 		volume[8],
 		volume[9]
@@ -125,9 +123,9 @@ end
 
 function gadget:GameFrame(n)
 	if n % updateFrames == 0 then
-		local duckdate = n - updateFrames
+		local update = n - updateFrames
 		for unitID in pairs(surfersInWater) do
-			if not surfersDiving[unitID] or surfersDiving[unitID] >= duckdate then
+			if not surfersDiving[unitID] or surfersDiving[unitID] >= update then
 				surf(unitID)
 			end
 		end
