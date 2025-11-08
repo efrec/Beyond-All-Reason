@@ -151,9 +151,9 @@ local function surf(unitID)
 	local ratioZ = shapeDimensionRatio
 
 	local minXYZ = math.min(volume[1], volume[2], volume[3])
-	local maxXYZ = math.max(volume[1], volume[2], volume[3])
+	local maxXZ = math.max(volume[1], volume[3])
 
-	if maxXYZ / minXYZ > 1.125 then
+	if maxXZ / minXYZ > 1.125 then
 		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
 		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
 		ratioX = ratioX / (1 + (volume[1] / minXYZ - 0.5) * 0.25 * upward)
