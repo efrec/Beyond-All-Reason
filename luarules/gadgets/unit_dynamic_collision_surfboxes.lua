@@ -158,13 +158,14 @@ local function surf(unitID)
 	)
 
 	local position = data.position
+
 	spSetUnitMidAndAimPos(
 		unitID,
 		position[1],
-		position[2] + yOffset * 0.5, -- even smaller shift
+		position[2] + yOffset * 0.5,
 		position[3],
 		position[4],
-		position[5], -- no aimy change?
+		position[5] + yOffset * 0.5,
 		position[6],
 		true
 	)
