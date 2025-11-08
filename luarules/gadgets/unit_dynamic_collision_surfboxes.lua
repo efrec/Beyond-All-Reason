@@ -7,7 +7,7 @@ function gadget:GetInfo()
 		author  = "efrec",
 		date    = "2025",
 		license = "GNU GPL, v2 or later",
-		layer   = 0,
+		layer   = 1, -- after unit_dynamic_collision_volume.lua
 		enabled = true,
 	}
 end
@@ -27,9 +27,11 @@ local math_clamp = math.clamp
 
 local spGetUnitHeight = Spring.GetUnitHeight
 local spGetUnitPosition = Spring.GetUnitPosition
-local spGetUnitRotation = Spring.GetUnitRotation
+local spGetUnitDirection = Spring.GetUnitDirection
 local spGetUnitCollisionVolumeData = Spring.GetUnitCollisionVolumeData
 local spSetUnitCollisionVolumeData = Spring.SetUnitCollisionVolumeData
+local spSetUnitMidAndAimPos = Spring.SetUnitMidAndAimPos
+local spSetUnitRadiusAndHeight = Spring.SetUnitRadiusAndHeight
 -- local spGetPieceList = Spring.GetUnitPieceList -- todo
 -- local spSetPieceCollisionData = Spring.SetUnitPieceCollisionVolumeData -- todo
 
@@ -38,7 +40,16 @@ local spSetUnitCollisionVolumeData = Spring.SetUnitCollisionVolumeData
 local updateFrames = math_clamp(math.round(updateTime * Game.gameSpeed), 1, Game.gameSpeed)
 
 -- The surf height = water height + tiny nudge + update interval * some unit speed * some incline
-local surfHeight = Spring.GetWaterPlaneLevel() + 1 + updateTime * 64 * math_cos(math.rad(45)) -- approx +5.5
+local surfHeight = Spring.GetWaterPlaneLevel() + 1 + updateTime * 64 * math.cos(math.rad(45)) -- approx +5.5
+
+-- Inflates a bounded ellipsoid to match its bounding shape's surface and volume.
+local inflateRatios = {
+	--[[ ellipsoid ]] [0] = 1,
+	--[[ cylinder  ]] [1] = (1 + 1.5) * 0.5,
+	--[[ box       ]] [2] = (1 + 6 / math.pi) * 0.5,
+	--[[ sphere    ]] [3] = 1,
+	--[[ footprint ]] [4] = 1, -- as sphere
+}
 
 local canSurf = {} -- units that will have their colvols dynamically replaced
 local canFloat = {} -- units that need to be able to float above surfer units
@@ -54,58 +65,111 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 	end
 end
 
-local surferVolumes = {}
-local surfersInWater = {}
-local surfersDiving = {}
+local surferUnitData = {} -- { volume, position }
+local surferDefData = {} -- caches the unit data
+local surfersInWater = {} -- units that are actually updated
+local surfingYOffset = {} -- going to try something
+local surfersDiving = {} -- forced to use its normal collider
 local isFloatingUnit = {}
 local gameFrame = 0
 
 -- Local functions
 
-local function restoreVolume(unitID)
-	spSetUnitCollisionVolumeData(unitID, unpack(surferVolumes[unitID]))
+local function toUnitSpace(dx, dy, dz, frontX, frontY, frontZ, rightX, rightY, rightZ, upX, upY, upZ)
+	return
+		dx * -rightX + dy * upX + dz * frontX, -- unless unit space is weird, which it probably is
+    	dx * -rightY + dy * upY + dz * frontY,
+    	dx * -rightZ + dy * upZ + dz * frontZ
 end
 
--- Inflates a bounded ellipsoid to match its bounding rectangle's surface and volume.
-local halfInflateRatio = 1 + math.sqrt(2) / math.pi
+local function calculateUnitMidAndAimPos(unitID)
+	-- Reverse-engineer our unit mid and aim point offsets.
+	-- todo: just publish it from unit_dyn_col_vol, sheesh.
+	local bx, by, bz, mx, my, mz, ax, ay, az = spGetUnitPosition(unitID, true, true)
+	local fx, fy, fz, rx, ry, rz, ux, uy, uz = spGetUnitDirection(unitID)
+	mx, my, mz = toUnitSpace(mx - bx, my - by, mz - bz, fx, fy, fz, rx, ry, rz, ux, uy, uz)
+	ax, ay, az = toUnitSpace(ax - bx, ay - by, az - bz, fx, fy, fz, rx, ry, rz, ux, uy, uz)
+	return { mx, my, mz, ax, ay, az, true } -- todo: invert ay?
+end
+
+local function getUnitData(unitID, unitDefID)
+	local data = surferDefData[unitDefID]
+	if not data then
+		data = {
+			position = calculateUnitMidAndAimPos(unitID),
+			radius   = Spring.GetUnitRadius(unitID),
+			volume   = { spGetUnitCollisionVolumeData(unitID) },
+		}
+		surferDefData[unitDefID] = data
+	end
+	return data
+end
+
+local function restoreVolume(unitID)
+	local data = surferUnitData[unitID]
+	if data then
+		spSetUnitCollisionVolumeData(unitID, unpack(data.volume))
+	end
+end
 
 -- Surfboxes raise collision volumes to just above the water level so units that are
 -- able to traverse water deeper than their own height can be attacked and destroyed.
 local function surf(unitID)
 	local unitHeight = spGetUnitHeight(unitID)
-	local ux, uy = spGetUnitPosition(unitID)
-	local pitch, yaw, roll = spGetUnitRotation(unitID)
+	local ux, uy, uz = spGetUnitPosition(unitID)
 
-	-- Give some weight to the actual height to avoid comical stretches and offsets.
-	local mix = math_clamp(0.25 + 0.75 * math_abs(math_cos(pitch) * math_cos(roll)), 0.5, 1)
-	local height = unitHeight / mix
+	local data = surferUnitData[unitID]
+	local volume = data.volume
 
-	local volume = surferVolumes[unitID]
-
-	if uy + volume[5] + unitHeight >= surfHeight then
-		restoreVolume(unitID) -- todo: only restore when needed
+	if unitHeight + uy + volume[5] >= surfHeight then
+		restoreVolume(unitID)
 		return
 	end
 
-	-- Offset needed for the collision volume to reach the surf[ace] height.
+	local _, _, _, _, _, _, _, upward = spGetUnitDirection(unitID)
+	local height = unitHeight / math_clamp(upward, 0.3333, 1)
+
+	-- New offset needed for the collision volume to reach the surf[ace] height.
 	local yOffset = surfHeight - height - uy
 
 	-- Split the difference between stretching the volume and lifting it up, with
 	-- the goal of maintaining multiple, but much smaller, deltas in the result..
-	local stretch = 0.5 * (yOffset - (uy + volume[5])) / unitHeight
-	yOffset = 0.5 * yOffset -- ..else this value can be huge with roll/tilt.
+	local stretch = (1 + (yOffset - volume[5]) / unitHeight) * 0.5
+
+	if stretch > 1 then
+		yOffset = 0.5 * yOffset -- ...else this value can be huge with roll/tilt.
+	else
+		stretch = 1
+	end
+
+	local shapeDimensionRatio = inflateRatios[volume[7]]
 
 	spSetUnitCollisionVolumeData(
 		unitID,
-		volume[1] * halfInflateRatio,
-		volume[2] * halfInflateRatio * stretch,
-		volume[3] * halfInflateRatio,
+		volume[1] * shapeDimensionRatio,
+		volume[2] * shapeDimensionRatio * stretch,
+		volume[3] * shapeDimensionRatio,
 		volume[4],
 		yOffset,
 		volume[6],
 		0, -- Ellipsoids trade great fitness for expensive detection.
 		volume[8],
 		volume[9]
+	)
+
+	-- We can move the unit mid position, especially, to control its collision detection.
+	local offsetLast = surfingYOffset[unitID] or 0
+	surfingYOffset[unitID] = yOffset
+	local position = data.position
+	spSetUnitMidAndAimPos(
+		unitID,
+		position[1],
+		position[2] + yOffset - offsetLast,
+		position[3],
+		position[4],
+		position[5], -- no aimy change?
+		position[6],
+		true
 	)
 end
 
@@ -144,21 +208,21 @@ end
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
 	if canSurf[unitDefID] then
-		surferVolumes[unitID] = { spGetUnitCollisionVolumeData(unitID) }
+		surferUnitData[unitID] = getUnitData(unitID, unitDefID)
 	elseif canFloat[unitDefID] then
 		isFloatingUnit[unitID] = true
 	end
 end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
-	surferVolumes[unitID] = nil
+	surferUnitData[unitID] = nil
 	surfersInWater[unitID] = nil
 	surfersDiving[unitID] = nil
 	isFloatingUnit[unitID] = nil
 end
 
 function gadget:UnitEnteredWater(unitID, unitDefID, unitTeam)
-	if surferVolumes[unitID] then
+	if surferUnitData[unitID] then
 		surfersInWater[unitID] = true
 	end
 end
@@ -173,10 +237,10 @@ end
 
 function gadget:UnitUnitCollision(colliderID, collideeID)
 	-- Currently ignoring that a submarine could move above surfer:
-	if surferVolumes[colliderID] and isFloatingUnit[collideeID] then
+	if surferUnitData[colliderID] and isFloatingUnit[collideeID] then
 		duck(colliderID, collideeID)
 	end
-	if surferVolumes[collideeID] and isFloatingUnit[colliderID] then
+	if surferUnitData[collideeID] and isFloatingUnit[colliderID] then
 		duck(collideeID, colliderID)
 	end
 end
