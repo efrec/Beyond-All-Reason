@@ -137,7 +137,7 @@ local function surf(unitID)
 	local stretch = (1 + (yOffset - volume[5]) / unitHeight) * 0.5
 
 	if stretch > 1 then
-		yOffset = 0.5 * yOffset -- ...else this value can be huge with roll/tilt.
+		yOffset = (volume[5] + yOffset) * 0.5 -- ...else this value can be large.
 	else
 		stretch = 1
 	end
