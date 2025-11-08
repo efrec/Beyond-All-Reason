@@ -16,13 +16,15 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
+-- Configuration
+
 ---@type number Max unit height/water depth for dynamic surfboxes.
 local waterDepthMax = 22
 ---@type number Time between updates, in seconds.
 local updateTime = 0.1
 
-local math_abs = math.abs
-local math_cos = math.cos
+-- Globals
+
 local math_clamp = math.clamp
 
 local spGetUnitHeight = Spring.GetUnitHeight
@@ -31,9 +33,6 @@ local spGetUnitDirection = Spring.GetUnitDirection
 local spGetUnitCollisionVolumeData = Spring.GetUnitCollisionVolumeData
 local spSetUnitCollisionVolumeData = Spring.SetUnitCollisionVolumeData
 local spSetUnitMidAndAimPos = Spring.SetUnitMidAndAimPos
-local spSetUnitRadiusAndHeight = Spring.SetUnitRadiusAndHeight
--- local spGetPieceList = Spring.GetUnitPieceList -- todo
--- local spSetPieceCollisionData = Spring.SetUnitPieceCollisionVolumeData -- todo
 
 -- Local state
 
