@@ -150,15 +150,15 @@ local function surf(unitID)
 	local ratioY = shapeDimensionRatio * stretch
 	local ratioZ = shapeDimensionRatio
 
-	local min = math.min(volume[1], volume[2], volume[3])
-	local max = math.max(volume[1], volume[2], volume[3])
+	local minXYZ = math.min(volume[1], volume[2], volume[3])
+	local maxXYZ = math.max(volume[1], volume[2], volume[3])
 
-	if max / min > 1.125 then
+	if maxXYZ / minXYZ > 1.125 then
 		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
 		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
-		ratioX = ratioX / (1 + (volume[1] / min - 0.5) * 0.25 * upward)
-		ratioY = ratioY / (1 - (volume[2] / min - 0.5) * 0.17 * upward)
-		ratioZ = ratioZ / (1 + (volume[3] / min - 0.5) * 0.25 * upward)
+		ratioX = ratioX / (1 + (volume[1] / minXYZ - 0.5) * 0.25 * upward)
+		ratioY = ratioY / (1 - (volume[2] / minXYZ - 0.5) * 0.17 * upward)
+		ratioZ = ratioZ / (1 + (volume[3] / minXYZ - 0.5) * 0.25 * upward)
 	end
 
 	spSetUnitCollisionVolumeData(
