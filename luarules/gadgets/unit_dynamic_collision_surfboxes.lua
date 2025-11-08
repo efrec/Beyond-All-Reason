@@ -68,7 +68,6 @@ end
 local surferUnitData = {} -- { volume, position }
 local surferDefData = {} -- caches the unit data
 local surfersInWater = {} -- units that are actually updated
-local surfingYOffset = {} -- going to try something
 local surfersDiving = {} -- forced to use its normal collider
 local isFloatingUnit = {}
 local gameFrame = 0
@@ -109,6 +108,7 @@ local function restoreVolume(unitID)
 	local data = surferUnitData[unitID]
 	if data then
 		spSetUnitCollisionVolumeData(unitID, unpack(data.volume))
+		spSetUnitMidAndAimPos(unitID, unpack(data.position))
 	end
 end
 
@@ -158,13 +158,11 @@ local function surf(unitID)
 	)
 
 	-- We can move the unit mid position, especially, to control its collision detection.
-	local offsetLast = surfingYOffset[unitID] or 0
-	surfingYOffset[unitID] = yOffset
 	local position = data.position
 	spSetUnitMidAndAimPos(
 		unitID,
 		position[1],
-		position[2] + yOffset - offsetLast,
+		position[2] + yOffset * 0.5, -- even smaller shift
 		position[3],
 		position[4],
 		position[5], -- no aimy change?
