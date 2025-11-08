@@ -182,10 +182,13 @@ end
 
 function gadget:Initialize()
 	gameFrame = Spring.GetGameFrame()
+
+	-- For luarules reload:
+	local waterLevel = Spring.GetWaterPlaneLevel()
 	for _, unitID in ipairs(Spring.GetAllUnits()) do
 		gadget:UnitCreated(unitID, Spring.GetUnitDefID(unitID), Spring.GetUnitTeam(unitID))
 		local ux, uy, uz = Spring.GetUnitPosition(unitID)
-		if uy <= Spring.GetWaterPlaneLevel() then
+		if uy <= waterLevel then
 			gadget:UnitEnteredWater(unitID, Spring.GetUnitDefID(unitID), Spring.GetUnitTeam(unitID))
 		end
 	end
