@@ -153,6 +153,10 @@ local function surf(unitID)
 	local minXYZ = math.min(volume[1], volume[2], volume[3])
 	local maxXZ = math.max(volume[1], volume[3])
 
+	-- todo: This was an OK kludge to test if this would work. We need it to also:
+	-- todo: (1) gradually reduce the yOffset in response to large changes in eccentricity
+	-- todo: (2) have a maximum change in eccentricity; e.g. a long unit => a spherical colvol
+	-- todo: (3) more accurately fit what we are trying to do; this just slightly overdoes it
 	if maxXZ / minXYZ > 1.125 then
 		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
 		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
