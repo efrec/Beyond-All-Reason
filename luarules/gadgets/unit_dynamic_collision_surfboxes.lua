@@ -45,8 +45,8 @@ local surfHeight = Spring.GetWaterPlaneLevel() + 1 + updateTime * 64 * math.cos(
 -- Inflates a bounded ellipsoid to match its bounding shape's surface and volume.
 local inflateRatios = {
 	--[[ ellipsoid ]] [0] = 1,
-	--[[ cylinder  ]] [1] = (1 + 1.5) * 0.5,
-	--[[ box       ]] [2] = (1 + 6 / math.pi) * 0.5,
+	--[[ cylinder  ]] [1] = 1.225,
+	--[[ box       ]] [2] = 1.455,
 	--[[ sphere    ]] [3] = 1,
 	--[[ footprint ]] [4] = 1, -- as sphere
 }
