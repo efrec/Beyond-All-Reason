@@ -127,7 +127,8 @@ local function surf(unitID)
 	end
 
 	local _, _, _, _, _, _, _, upward = spGetUnitDirection(unitID)
-	local height = unitHeight / math_clamp(upward, 0.3333, 1)
+	upward = math_clamp(upward, 0.3333, 1)
+	local height = unitHeight / upward
 
 	-- New offset needed for the collision volume to reach the surf[ace] height.
 	local yOffset = surfHeight - height - uy
@@ -142,15 +143,31 @@ local function surf(unitID)
 		stretch = 1
 	end
 
+	-- The ellipsoid is a more tight-fitting shape so we increase its dimensions.
 	local shapeDimensionRatio = inflateRatios[volume[7]]
+
+	local ratioX = shapeDimensionRatio
+	local ratioY = shapeDimensionRatio * stretch
+	local ratioZ = shapeDimensionRatio
+
+	local min = math.min(volume[1], volume[2], volume[3])
+	local max = math.max(volume[1], volume[2], volume[3])
+
+	if min ~= max then
+		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
+		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
+		ratioX = ratioX / (1 + (volume[1] / min - 0.5) * 0.25 * upward)
+		ratioY = ratioY / (1 - (volume[2] / min - 0.5) * 0.17 * upward)
+		ratioZ = ratioZ / (1 + (volume[3] / min - 0.5) * 0.25 * upward)
+	end
 
 	spSetUnitCollisionVolumeData(
 		unitID,
-		volume[1] * shapeDimensionRatio,
-		volume[2] * shapeDimensionRatio * stretch,
-		volume[3] * shapeDimensionRatio,
+		volume[1] * ratioX,
+		volume[2] * ratioY,
+		volume[3] * ratioZ,
 		volume[4],
-		yOffset,
+		yOffset * 0.5,
 		volume[6],
 		0, -- Ellipsoids trade great fitness for expensive detection.
 		volume[8],
@@ -162,7 +179,7 @@ local function surf(unitID)
 	spSetUnitMidAndAimPos(
 		unitID,
 		position[1],
-		position[2] + yOffset * 0.5,
+		position[2] + yOffset * 0.75,
 		position[3],
 		position[4],
 		position[5] + yOffset * 0.5,
