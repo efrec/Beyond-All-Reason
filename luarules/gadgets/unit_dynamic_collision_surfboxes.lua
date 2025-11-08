@@ -157,7 +157,6 @@ local function surf(unitID)
 		volume[9]
 	)
 
-	-- We can move the unit mid position, especially, to control its collision detection.
 	local position = data.position
 	spSetUnitMidAndAimPos(
 		unitID,
