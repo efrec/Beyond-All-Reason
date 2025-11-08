@@ -153,7 +153,7 @@ local function surf(unitID)
 	local min = math.min(volume[1], volume[2], volume[3])
 	local max = math.max(volume[1], volume[2], volume[3])
 
-	if min ~= max then
+	if max / min > 1.125 then
 		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
 		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
 		ratioX = ratioX / (1 + (volume[1] / min - 0.5) * 0.25 * upward)
