@@ -120,8 +120,10 @@ local function surf(unitID)
 	local data = surferUnitData[unitID]
 	local volume = data.volume
 
-	-- Don't switch immediately to the surfbox. Prefer to do less work.
-	if unitHeight + uy + volume[5] >= surfHeight + 2 then
+	if
+		unitHeight + uy + volume[5] >= surfHeight + 2 or -- add +2 laziness
+		unitHeight + uy <= waterDepthMax -- unit sank too far beneath water
+	then
 		restoreVolume(unitID) -- todo: don't restore if already restored
 		return
 	end
