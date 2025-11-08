@@ -76,9 +76,9 @@ local gameFrame = 0
 
 local function toUnitSpace(dx, dy, dz, frontX, frontY, frontZ, rightX, rightY, rightZ, upX, upY, upZ)
 	return
-		dx * -rightX + dy * upX + dz * frontX, -- unless unit space is weird, which it probably is
-    	dx * -rightY + dy * upY + dz * frontY,
-    	dx * -rightZ + dy * upZ + dz * frontZ
+		dx * rightX + dy * upX + dz * frontX,
+    	dx * rightY + dy * upY + dz * frontY,
+    	dx * rightZ + dy * upZ + dz * frontZ
 end
 
 local function calculateUnitMidAndAimPos(unitID)
