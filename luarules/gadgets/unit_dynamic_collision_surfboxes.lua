@@ -118,7 +118,7 @@ local function surf(unitID)
 	local volume = data.volume
 
 	-- Add some laziness (+2) so we don't waffle back and forth.
-	if unitHeight + uy + volume[5] >= surfHeight + 2 then
+	if uy < -waterDepthMax or unitHeight + uy + volume[5] >= surfHeight + 2 then
 		restoreVolume(unitID) -- todo: don't restore if already restored
 		return
 	end
@@ -154,7 +154,7 @@ local function surf(unitID)
 		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
 		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
 		ratioX = ratioX / (1 + (volume[1] / minXYZ - 0.5) * 0.33 * upward)
-		local rateY = 1 / (1 - (volume[2] / minXYZ - 0.5) * 0.20 * upward)
+		local rateY = 1 / (1 - (volume[2] / minXYZ - 0.5) * 0.20 * upward) -- not symmetrical
 		ratioZ = ratioZ / (1 + (volume[3] / minXYZ - 0.5) * 0.33 * upward)
 
 		-- Increasing shape dimension in Y means we don't need as much offset.
@@ -183,7 +183,7 @@ local function surf(unitID)
 		position[2] + yOffset * 0.75,
 		position[3],
 		position[4],
-		position[5] + yOffset * 0.5,
+		position[5] + yOffset * 0.5, -- Leave the aim point closer to the model to "look right"
 		position[6],
 		true
 	)
