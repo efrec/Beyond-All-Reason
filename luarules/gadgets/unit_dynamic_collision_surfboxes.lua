@@ -163,8 +163,12 @@ local function surf(unitID)
 		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
 		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
 		ratioX = ratioX / (1 + (volume[1] / minXYZ - 0.5) * 0.25 * upward)
-		ratioY = ratioY / (1 - (volume[2] / minXYZ - 0.5) * 0.17 * upward)
+		local rateY = 1 / (1 - (volume[2] / minXYZ - 0.5) * 0.17 * upward)
 		ratioZ = ratioZ / (1 + (volume[3] / minXYZ - 0.5) * 0.25 * upward)
+
+		-- Increasing shape dimension in Y means we don't need as much offset.
+		ratioY = ratioY * rateY
+		yOffset = yOffset - (rateY - 1) * rateY * unitHeight
 	end
 
 	spSetUnitCollisionVolumeData(
