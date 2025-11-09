@@ -120,10 +120,8 @@ local function surf(unitID)
 	local data = surferUnitData[unitID]
 	local volume = data.volume
 
-	if
-		unitHeight + uy + volume[5] >= surfHeight + 2 or -- add +2 laziness
-		unitHeight + uy <= waterDepthMax -- unit sank too far beneath water
-	then
+	-- Add some laziness (+2) so we don't waffle back and forth.
+	if unitHeight + uy + volume[5] >= surfHeight + 2 then
 		restoreVolume(unitID) -- todo: don't restore if already restored
 		return
 	end
@@ -162,13 +160,13 @@ local function surf(unitID)
 	if maxXZ / minXYZ > 1.125 then
 		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
 		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
-		ratioX = ratioX / (1 + (volume[1] / minXYZ - 0.5) * 0.25 * upward)
-		local rateY = 1 / (1 - (volume[2] / minXYZ - 0.5) * 0.17 * upward)
-		ratioZ = ratioZ / (1 + (volume[3] / minXYZ - 0.5) * 0.25 * upward)
+		ratioX = ratioX / (1 + (volume[1] / minXYZ - 0.5) * 0.33 * upward)
+		local rateY = 1 / (1 - (volume[2] / minXYZ - 0.5) * 0.20 * upward)
+		ratioZ = ratioZ / (1 + (volume[3] / minXYZ - 0.5) * 0.33 * upward)
 
 		-- Increasing shape dimension in Y means we don't need as much offset.
 		ratioY = ratioY * rateY
-		yOffset = yOffset - (rateY - 1) * rateY * unitHeight
+		yOffset = yOffset - unitHeight * rateY * (1 - rateY) * 0.5
 	end
 
 	spSetUnitCollisionVolumeData(
