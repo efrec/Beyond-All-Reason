@@ -65,8 +65,8 @@ end
 
 local surferUnitData = {} -- { volume, position }
 local surferDefData = {} -- caches the unit data
-local surfersInWater = {} -- units that are actually updated
-local surfersDiving = {} -- forced to use its normal collider
+local surfersInWater = {} -- units that are being watched
+local isUsingSurfbox = {} -- units with a modified collider
 
 -- Local functions
 
@@ -92,7 +92,6 @@ local function getUnitData(unitID, unitDefID)
 	if not data then
 		data = {
 			position = calculateUnitMidAndAimPos(unitID),
-			radius   = Spring.GetUnitRadius(unitID),
 			volume   = { spGetUnitCollisionVolumeData(unitID) },
 		}
 		surferDefData[unitDefID] = data
@@ -100,27 +99,36 @@ local function getUnitData(unitID, unitDefID)
 	return data
 end
 
-local function restoreVolume(unitID)
-	local data = surferUnitData[unitID]
-	if data then
-		spSetUnitCollisionVolumeData(unitID, unpack(data.volume))
-		spSetUnitMidAndAimPos(unitID, unpack(data.position))
+local function restoreVolume(unitID, data)
+	if not data then
+		data = surferUnitData[unitID]
+		if not data then
+			return
+		end
 	end
+
+	spSetUnitCollisionVolumeData(unitID, unpack(data.volume))
+	spSetUnitMidAndAimPos(unitID, unpack(data.position))
 end
 
 -- Surfboxes raise collision volumes to just above the water level so units that are
 -- able to traverse water deeper than their own height can be attacked and destroyed.
 local function surf(unitID)
+	local hasSurfbox = isUsingSurfbox[unitID]
+	local data = surferUnitData[unitID]
+	local volume = data.volume
+	local unitOffset = volume[5]
 	local unitHeight = spGetUnitHeight(unitID)
 	local ux, uy, uz = spGetUnitPosition(unitID)
 
-	local data = surferUnitData[unitID]
-	local volume = data.volume
-
-	-- Add some laziness (+2) so we don't waffle back and forth.
-	if uy < -waterDepthMax or unitHeight + uy + volume[5] >= surfHeight + 2 then
-		restoreVolume(unitID) -- todo: don't restore if already restored
+	if uy < -waterDepthMax or uy + unitOffset + unitHeight >= surfHeight + (hasSurfbox and -1 or 1) * 2 then
+		if hasSurfbox then
+			isUsingSurfbox[unitID] = nil
+			restoreVolume(unitID, data)
+		end
 		return
+	elseif not hasSurfbox then
+		isUsingSurfbox[unitID] = true
 	end
 
 	local _, _, _, _, _, _, _, upward = spGetUnitDirection(unitID)
@@ -132,10 +140,10 @@ local function surf(unitID)
 
 	-- Split the difference between stretching the volume and lifting it up, with
 	-- the goal of maintaining multiple, but much smaller, deltas in the result..
-	local stretch = (1 + (yOffset - volume[5]) / unitHeight) * 0.5
+	local stretch = (1 + (yOffset - unitOffset) / unitHeight) * 0.5
 
 	if stretch > 1 then
-		yOffset = (volume[5] + yOffset) * 0.5 -- ...else this value can be large.
+		yOffset = (unitOffset + yOffset) * 0.5 -- ...else this value can be large.
 	else
 		stretch = 1
 	end
@@ -221,6 +229,7 @@ end
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
 	surferUnitData[unitID] = nil
 	surfersInWater[unitID] = nil
+	isUsingSurfbox[unitID] = nil
 end
 
 function gadget:UnitEnteredWater(unitID, unitDefID, unitTeam)
@@ -231,7 +240,11 @@ end
 
 function gadget:UnitLeftWater(unitID, unitDefID, unitTeam)
 	if surfersInWater[unitID] then
-		restoreVolume(unitID)
 		surfersInWater[unitID] = nil
+
+		if isUsingSurfbox[unitID] then
+			isUsingSurfbox[unitID] = nil
+			restoreVolume(unitID)
+		end
 	end
 end
