@@ -51,15 +51,14 @@ local inflateRatios = {
 }
 
 local canSurf = {} -- units that will have their colvols dynamically replaced
-local canFloat = {} -- units that need to be able to float above surfer units
 
 for unitDefID, unitDef in pairs(UnitDefs) do
 	if unitDef.customParams.has_surfing_colvol then
 		canSurf[unitDefID] = true
-	else
+
 		local is = unitDef.modCategories
 		if (is.ship or is.hover or is.vtol) and not (is.underwater or is.canbeuw) then
-			canFloat[unitDefID] = true
+			Spring.Log("[HITBOXES]", LOG.WARNING, "Floating unit assigned a surfbox: " .. unitDef.name)
 		end
 	end
 end
@@ -68,8 +67,6 @@ local surferUnitData = {} -- { volume, position }
 local surferDefData = {} -- caches the unit data
 local surfersInWater = {} -- units that are actually updated
 local surfersDiving = {} -- forced to use its normal collider
-local isFloatingUnit = {}
-local gameFrame = 0
 
 -- Local functions
 
@@ -153,10 +150,6 @@ local function surf(unitID)
 	local minXYZ = math.min(volume[1], volume[2], volume[3])
 	local maxXZ = math.max(volume[1], volume[3])
 
-	-- todo: This was an OK kludge to test if this would work. We need it to also:
-	-- todo: (1) gradually reduce the yOffset in response to large changes in eccentricity
-	-- todo: (2) have a maximum change in eccentricity; e.g. a long unit => a spherical colvol
-	-- todo: (3) more accurately fit what we are trying to do; this just slightly overdoes it
 	if maxXZ / minXYZ > 1.125 then
 		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
 		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
@@ -196,21 +189,12 @@ local function surf(unitID)
 	)
 end
 
--- Sneak one unit beneath another by simply setting its collision volume back to normal.
-local function duck(unitID, collideeID)
-	-- todo: only restore the ordinary volume when the colliddee is above us, not just on any collision
-	-- todo: check impacted unit's wanted speed & smooth out the collision (doesn't have to be removed completely)
-	surfersDiving[unitID] = gameFrame
-	restoreVolume(unitID)
-end
-
 -- Engine events
 
 function gadget:Initialize()
-	gameFrame = Spring.GetGameFrame()
-
 	-- For luarules reload:
 	local waterLevel = Spring.GetWaterPlaneLevel()
+
 	for _, unitID in ipairs(Spring.GetAllUnits()) do
 		gadget:UnitCreated(unitID, Spring.GetUnitDefID(unitID), Spring.GetUnitTeam(unitID))
 		local ux, uy, uz = Spring.GetUnitPosition(unitID)
@@ -222,29 +206,21 @@ end
 
 function gadget:GameFrame(n)
 	if n % updateFrames == 0 then
-		local update = n - updateFrames
 		for unitID in pairs(surfersInWater) do
-			if not surfersDiving[unitID] or surfersDiving[unitID] >= update then
-				surf(unitID)
-			end
+			surf(unitID)
 		end
 	end
-	gameFrame = n
 end
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
 	if canSurf[unitDefID] then
 		surferUnitData[unitID] = getUnitData(unitID, unitDefID)
-	elseif canFloat[unitDefID] then
-		isFloatingUnit[unitID] = true
 	end
 end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
 	surferUnitData[unitID] = nil
 	surfersInWater[unitID] = nil
-	surfersDiving[unitID] = nil
-	isFloatingUnit[unitID] = nil
 end
 
 function gadget:UnitEnteredWater(unitID, unitDefID, unitTeam)
@@ -257,16 +233,5 @@ function gadget:UnitLeftWater(unitID, unitDefID, unitTeam)
 	if surfersInWater[unitID] then
 		restoreVolume(unitID)
 		surfersInWater[unitID] = nil
-		surfersDiving[unitID] = nil
-	end
-end
-
-function gadget:UnitUnitCollision(colliderID, collideeID)
-	-- Currently ignoring that a submarine could move above surfer:
-	if surferUnitData[colliderID] and isFloatingUnit[collideeID] then
-		duck(colliderID, collideeID)
-	end
-	if surferUnitData[collideeID] and isFloatingUnit[colliderID] then
-		duck(collideeID, colliderID)
 	end
 end
