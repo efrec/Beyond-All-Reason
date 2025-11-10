@@ -21,7 +21,7 @@ end
 ---@type number Max unit height/water depth for dynamic surfboxes.
 local waterDepthMax = 22
 ---@type number Time between updates, in seconds.
-local updateTime = 0.1
+local updateTime = 0.25
 
 -- Globals
 
@@ -38,8 +38,15 @@ local spSetUnitMidAndAimPos = Spring.SetUnitMidAndAimPos
 
 local updateFrames = math_clamp(math.round(updateTime * Game.gameSpeed), 1, Game.gameSpeed)
 
--- The surf height = water height + tiny nudge + update interval * some unit speed * some incline
-local surfHeight = Spring.GetWaterPlaneLevel() + 1 + updateTime * 64 * math.cos(math.rad(45)) -- approx +5.5
+local surfHeight = 0 -- minimum elevation that colliders try to maintain
+do
+	local waterLevel = Spring.GetWaterPlaneLevel()
+	local unitSpeedFast = 100 -- some typical but quick unit speed
+	local waterSlowdown = 0.27 -- just eyeballing it here
+	local shoreIncline = 22 -- natural coasts are ~4 to ~22 degrees
+	local heightChangeMax = unitSpeedFast * (1 - waterSlowdown) * math.sin(math.rad(shoreIncline)) * updateTime
+	surfHeight = waterLevel + heightChangeMax + 0.5 -- add nudge
+end
 
 -- Inflates a bounded ellipsoid to match its bounding shape's surface and volume.
 local inflateRatios = {
@@ -84,7 +91,7 @@ local function calculateUnitMidAndAimPos(unitID)
 	local fx, fy, fz, rx, ry, rz, ux, uy, uz = spGetUnitDirection(unitID)
 	mx, my, mz = toUnitSpace(mx - bx, my - by, mz - bz, fx, fy, fz, rx, ry, rz, ux, uy, uz)
 	ax, ay, az = toUnitSpace(ax - bx, ay - by, az - bz, fx, fy, fz, rx, ry, rz, ux, uy, uz)
-	return { mx, my, mz, ax, ay, az, true } -- todo: invert ay?
+	return { mx, my, mz, ax, ay, az, true }
 end
 
 local function getUnitData(unitID, unitDefID)
