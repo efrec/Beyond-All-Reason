@@ -8,7 +8,7 @@ function gadget:GetInfo()
 		date    = "2025",
 		license = "GNU GPL, v2 or later",
 		layer   = 1, -- after unit_dynamic_collision_volume.lua
-		enabled = true,
+		enabled = Spring.GetModOptions().experimental_unit_surfboxes,
 	}
 end
 

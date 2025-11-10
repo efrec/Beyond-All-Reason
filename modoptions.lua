@@ -1453,6 +1453,15 @@ local options = {
         def  	= false,
     },
 
+	{
+        key    	= "experimental_unit_surfboxes",
+        name   	= "Fish in a Barrel",
+        desc   	= "Scouts submerged in very shallow water can be shot and killed",
+        type   	= "bool",
+        section = "options_experimental",
+        def  	= false,
+    },
+
     -- Hidden Tests
 
     {
