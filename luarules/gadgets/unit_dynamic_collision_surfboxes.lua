@@ -143,7 +143,7 @@ local function surf(unitID)
 	local stretch = (1 + (yOffset - unitOffset) / unitHeight) * 0.5
 
 	if stretch > 1 then
-		yOffset = (unitOffset + yOffset) * 0.5 -- ...else this value can be large.
+		yOffset = (yOffset + unitOffset) * 0.5 -- ...else this value can be large.
 	else
 		stretch = 1
 	end
@@ -158,17 +158,15 @@ local function surf(unitID)
 	local minXYZ = math.min(volume[1], volume[2], volume[3])
 	local maxXZ = math.max(volume[1], volume[3])
 
-	-- todo: un-calvinball this math; I added things to fix other things instead of redoing the math
-	if maxXZ / minXYZ > 1.125 then
-		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
-		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
-		ratioX = ratioX / (1 + (volume[1] / minXYZ - 0.5) * 0.33 * upward)
-		local rateY = 1 / (1 - (volume[2] / minXYZ - 0.5) * 0.20 * upward) -- not symmetrical
-		ratioZ = ratioZ / (1 + (volume[3] / minXYZ - 0.5) * 0.33 * upward)
-
-		-- Increasing shape dimension in Y means we don't need as much offset.
+	-- Prevent misses when targeting the collider's near border by exchanging some
+	-- of the shape's eccentricity in the XZ axes with its Y axis (in unit space).
+	if maxXZ / minXYZ > 1.25 then
+		-- Exchange less eccentricity between axes as the unit tilts more.
+		ratioX = ratioX / (1 + (volume[1] / minXYZ - 0.5) * 0.30 * upward)
+		local rateY = 1 / (1 - (volume[2] / minXYZ - 0.5) * 0.23 * upward) -- not symmetrical
+		ratioZ = ratioZ / (1 + (volume[3] / minXYZ - 0.5) * 0.30 * upward)
 		ratioY = ratioY * rateY
-		yOffset = yOffset + unitHeight * rateY * (rateY - 1) * 0.5
+		yOffset = yOffset + (rateY * rateY - rateY) * (unitHeight * 0.5) -- less lift
 	end
 
 	spSetUnitCollisionVolumeData(
