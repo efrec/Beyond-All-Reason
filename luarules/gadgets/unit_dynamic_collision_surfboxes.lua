@@ -158,6 +158,7 @@ local function surf(unitID)
 	local minXYZ = math.min(volume[1], volume[2], volume[3])
 	local maxXZ = math.max(volume[1], volume[3])
 
+	-- todo: un-calvinball this math; I added things to fix other things instead of redoing the math
 	if maxXZ / minXYZ > 1.125 then
 		-- Prevent targetBorder = 1 setting from causing misses by exchanging the
 		-- volume's eccentricity in the unit's X and Z axes over to its Y axis.
