@@ -168,7 +168,7 @@ local function surf(unitID)
 
 		-- Increasing shape dimension in Y means we don't need as much offset.
 		ratioY = ratioY * rateY
-		yOffset = yOffset - unitHeight * rateY * (1 - rateY) * 0.5
+		yOffset = yOffset + unitHeight * rateY * (rateY - 1) * 0.5
 	end
 
 	spSetUnitCollisionVolumeData(
