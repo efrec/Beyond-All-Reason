@@ -106,7 +106,6 @@ local function restoreVolume(unitID, data)
 			return
 		end
 	end
-
 	spSetUnitCollisionVolumeData(unitID, unpack(data.volume))
 	spSetUnitMidAndAimPos(unitID, unpack(data.position))
 end
@@ -190,7 +189,7 @@ local function surf(unitID)
 		position[2] + yOffset * 0.75,
 		position[3],
 		position[4],
-		position[5] + yOffset * 0.5, -- Leave the aim point closer to the model to "look right"
+		position[5] + yOffset * 0.5, -- keep aim point close to the model to "look right"
 		position[6],
 		true
 	)
