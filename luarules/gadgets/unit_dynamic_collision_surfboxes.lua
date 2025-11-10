@@ -121,7 +121,7 @@ local function surf(unitID)
 	local unitHeight = spGetUnitHeight(unitID)
 	local ux, uy, uz = spGetUnitPosition(unitID)
 
-	if uy < -waterDepthMax or uy + unitOffset + unitHeight >= surfHeight + (hasSurfbox and -1 or 1) * 2 then
+	if uy < -waterDepthMax or uy + unitOffset + unitHeight >= surfHeight + (hasSurfbox and 0 or 2) then
 		if hasSurfbox then
 			isUsingSurfbox[unitID] = nil
 			restoreVolume(unitID, data)
