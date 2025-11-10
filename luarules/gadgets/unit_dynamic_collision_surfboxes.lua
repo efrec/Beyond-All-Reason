@@ -19,7 +19,7 @@ end
 -- Configuration
 
 ---@type number Max unit height/water depth for dynamic surfboxes.
-local waterDepthMax = 22
+local waterDepthMax = 24
 ---@type number Time between updates, in seconds.
 local updateTime = 0.25
 
@@ -45,7 +45,8 @@ do
 	local waterSlowdown = 0.27 -- just eyeballing it here
 	local shoreIncline = 22 -- natural coasts are ~4 to ~22 degrees
 	local heightChangeMax = unitSpeedFast * (1 - waterSlowdown) * math.sin(math.rad(shoreIncline)) * updateTime
-	surfHeight = waterLevel + heightChangeMax + 0.5 -- add nudge
+	-- We partly compensate for inclines with unit tilt math later, so cut in half, but also add a nudge.
+	surfHeight = waterLevel + heightChangeMax * 0.5 + 0.5
 end
 
 -- Inflates a bounded ellipsoid to match its bounding shape's surface and volume.
@@ -127,7 +128,7 @@ local function surf(unitID)
 	local unitHeight = spGetUnitHeight(unitID)
 	local ux, uy, uz = spGetUnitPosition(unitID)
 
-	if uy < -waterDepthMax or uy + unitOffset + unitHeight >= surfHeight + (hasSurfbox and 0 or 2) then
+	if uy < -waterDepthMax or uy + unitOffset + unitHeight >= surfHeight + (hasSurfbox and 1 or -1) then
 		if hasSurfbox then
 			isUsingSurfbox[unitID] = nil
 			restoreVolume(unitID, data)
