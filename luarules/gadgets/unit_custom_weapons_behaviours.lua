@@ -77,7 +77,7 @@ local function cache(x1, x2, x3, x4, x5, x6)
 	return baseIndex
 end
 local function cache4(x1, x2, x3, x4)
-	return cache(x1, x2, x3, x4, 0, 0)
+	return cache(x1, x2, x3, x4, false, false)
 end
 
 local function parseCustomParams(weaponDef)
