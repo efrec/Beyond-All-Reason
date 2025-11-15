@@ -181,6 +181,8 @@ weaponCustomParamKeys.cruise = {
 	lockon_dist       = toPositiveNumber, -- Within this radius, disables the auto ground clearance.
 }
 
+resultCaches.cruise = {} --- unitID = <baseX, baseY, baseZ, midX, midY, midZ>
+
 local function applyCruiseCorrection(projectileID, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
 	local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ)
 	local codirection = velocityX * normalX + velocityY * normalY + velocityZ * normalZ
@@ -197,10 +199,14 @@ specialEffectFunction.cruise = function(params, projectileID)
 
 		local targetX, targetY, targetZ
 		if targetType == targetedUnit then
-			local _; -- declare a local sink var for unused values
-			_, _, _, targetX, targetY, targetZ = spGetUnitPosition(target, false, true)
-		elseif targetType == targetedGround then
-			targetX, targetY, targetZ = target[1], target[2], target[3]
+			local results = resultCaches.cruise[target]
+			if not results then
+				results = { spGetUnitPosition(target, false, true) }
+				resultCaches.cruise[target] = results
+			end
+			targetX, targetY, targetZ = results[4], results[5], results[6] -- uses mid position
+		else
+			targetX, targetY, targetZ = target[1], target[2], target[3] -- assume ground target
 		end
 
 		local distance = params.lockon_dist
