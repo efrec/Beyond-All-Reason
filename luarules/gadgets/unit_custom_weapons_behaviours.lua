@@ -61,12 +61,24 @@ local projectiles = {}
 local projectilesData = {}
 
 local gameFrame = 0
-local resultCaches = {}
-local resultPool = {}
+local results = table.new((2 ^ 10) * 6, 0) -- current cache object size is 6 max
 local resultPoolIndex = 0
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
+
+-- Save allocations when improving perf (or trying to) with cached result tables
+
+local function cache(x1, x2, x3, x4, x5, x6)
+	local baseIndex = resultPoolIndex * 6
+	resultPoolIndex = resultPoolIndex + 1
+	local t = results
+	t[baseIndex + 1], t[baseIndex + 2], t[baseIndex + 3], t[baseIndex + 4], t[baseIndex + 5], t[baseIndex + 6] = x1, x2, x3, x4, x5, x6
+	return baseIndex + 1
+end
+local function cache4(x1, x2, x3, x4)
+	return cache(x1, x2, x3, x4, 0, 0)
+end
 
 local function parseCustomParams(weaponDef)
 	local success = true
@@ -107,30 +119,6 @@ local function parseCustomParams(weaponDef)
 	if success then
 		return effectName, effectParams
 	end
-end
-
-local function getResult3(x1, x2, x3)
-	resultPoolIndex = resultPoolIndex + 1
-	local t = resultPool[resultPoolIndex]
-	if t then
-		t[1], t[2], t[3] = x1, x2, x3
-	else
-		t = { x1, x2, x3 }
-		resultPool[resultPoolIndex] = t
-	end
-	return t
-end
-
-local function getResult6(x1, x2, x3, x4, x5, x6)
-	resultPoolIndex = resultPoolIndex + 1
-	local t = resultPool[resultPoolIndex]
-	if t then
-		t[1], t[2], t[3], t[4], t[5], t[6] = x1, x2, x3, x4, x5, x6
-	else
-		t = { x1, x2, x3, x4, x5, x6 }
-		resultPool[resultPoolIndex] = t
-	end
-	return t
 end
 
 local function toWeaponDefID(value)
@@ -207,7 +195,7 @@ weaponCustomParamKeys.cruise = {
 	lockon_dist       = toPositiveNumber, -- Within this radius, disables the auto ground clearance.
 }
 
-resultCaches.cruise = {} --- unitID = <baseX, baseY, baseZ, midX, midY, midZ>
+local cruiseIndices = {} --- unitID = <baseX, baseY, baseZ, midX, midY, midZ>
 
 local function applyCruiseCorrection(projectileID, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
 	local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ)
@@ -225,12 +213,13 @@ specialEffectFunction.cruise = function(params, projectileID)
 
 		local targetX, targetY, targetZ
 		if targetType == targetedUnit then
-			local results = resultCaches.cruise[target]
-			if not results then
-				results = getResult6(spGetUnitPosition(target, false, true))
-				resultCaches.cruise[target] = results
+			local index = cruiseIndices[target]
+			if not index then
+				index = cache(spGetUnitPosition(target, false, true)) -- gets the aim position
+				cruiseIndices[target] = index
 			end
-			targetX, targetY, targetZ = results[4], results[5], results[6] -- uses aim position
+			index = index + 3 -- skip the base position float3
+			targetX, targetY, targetZ = results[index + 1], results[index + 2], results[index + 3]
 		else
 			targetX, targetY, targetZ = target[1], target[2], target[3] -- assume ground target
 		end
@@ -243,9 +232,10 @@ specialEffectFunction.cruise = function(params, projectileID)
 			if positionY < cruiseHeight then
 				projectilesData[projectileID] = true
 				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
-			elseif projectilesData[projectileID]
-				and positionY > cruiseHeight
-				and velocityY > speed * -0.25 -- Avoid going into steep dives, e.g. after cliffs.
+			elseif
+				projectilesData[projectileID] and
+				positionY > cruiseHeight and
+				velocityY > speed * -0.25 -- Avoid going into steep dives, e.g. after cliffs.
 			then
 				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
 			end
@@ -253,8 +243,6 @@ specialEffectFunction.cruise = function(params, projectileID)
 			return false
 		end
 	end
-
-	projectilesData[projectileID] = nil
 
 	return true
 end
@@ -297,7 +285,7 @@ end
 -- Based on retarget
 -- Uses no weapon customParams.
 
-resultCaches.guidance = {} -- ownerID = <isFiring, guidanceType, userTarget, guidanceTarget>
+local guidanceIndices = {} -- ownerID = <isFiring, guidanceType, userTarget, guidanceTarget>
 
 specialEffectFunction.guidance = function(projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
@@ -308,20 +296,20 @@ specialEffectFunction.guidance = function(projectileID)
 		end
 
 		local targetType, missileTarget = spGetProjectileTarget(projectileID)
-		local results = resultCaches.guidance[ownerID]
+		local index = guidanceIndices[ownerID]
 
-		if not results then
-			-- Guidance weapon must be the primary and have burst/reload > 1 frame.
-			-- This is hackish but works well to prevent spammy retargeting anyway.
-			results = {
+		if not index then
+			index = cache4(
+				-- Guidance weapon must be the primary and have burst/reload > 1 frame.
+				-- This is hackish but works well to prevent spammy retargeting anyway.
 				spGetUnitWeaponState(ownerID, 1, "nextSalvo") + 1 >= gameFrame,
 				spGetUnitWeaponTarget(ownerID, 1)
-			}
-			results.guidance[ownerID] = results
+			)
+			guidanceIndices[ownerID] = index
 		end
 
-		if results[1] and results[2] then
-			local guidanceType, guidanceTarget = results[2], results[4]
+		if results[index + 1] and results[index + 2] then
+			local guidanceType, guidanceTarget = results[index + 2], results[index + 4]
 			if not equalTargets(guidanceTarget, missileTarget) then
 				if guidanceType == 1 then
 					spSetProjectileTarget(projectileID, guidanceTarget, targetedUnit)
@@ -563,9 +551,9 @@ end
 function gadget:GameFrame(frame)
 	gameFrame = frame
 
-	for key in pairs(resultCaches) do
-		resultCaches[key] = {}
-	end
+	cruiseIndices = table.new(0, 4 * resultPoolIndex) -- close enough bruv
+	guidanceIndices = table.new(0, 6 * resultPoolIndex)
+	resultPoolIndex = 0
 
 	for projectileID, effect in pairs(projectiles) do
 		if effect(projectileID) then
