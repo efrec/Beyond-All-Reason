@@ -62,6 +62,8 @@ local projectilesData = {}
 
 local gameFrame = 0
 local resultCaches = {}
+local resultPool = {}
+local resultPoolIndex = 0
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
@@ -105,6 +107,30 @@ local function parseCustomParams(weaponDef)
 	if success then
 		return effectName, effectParams
 	end
+end
+
+local function getResult3(x1, x2, x3)
+	resultPoolIndex = resultPoolIndex + 1
+	local t = resultPool[resultPoolIndex]
+	if t then
+		t[1], t[2], t[3] = x1, x2, x3
+	else
+		t = { x1, x2, x3 }
+		resultPool[resultPoolIndex] = t
+	end
+	return t
+end
+
+local function getResult6(x1, x2, x3, x4, x5, x6)
+	resultPoolIndex = resultPoolIndex + 1
+	local t = resultPool[resultPoolIndex]
+	if t then
+		t[1], t[2], t[3], t[4], t[5], t[6] = x1, x2, x3, x4, x5, x6
+	else
+		t = { x1, x2, x3, x4, x5, x6 }
+		resultPool[resultPoolIndex] = t
+	end
+	return t
 end
 
 local function toWeaponDefID(value)
