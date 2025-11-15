@@ -74,7 +74,7 @@ local function cache(x1, x2, x3, x4, x5, x6)
 	resultPoolIndex = resultPoolIndex + 1
 	local t = results
 	t[baseIndex + 1], t[baseIndex + 2], t[baseIndex + 3], t[baseIndex + 4], t[baseIndex + 5], t[baseIndex + 6] = x1, x2, x3, x4, x5, x6
-	return baseIndex + 1
+	return baseIndex
 end
 local function cache4(x1, x2, x3, x4)
 	return cache(x1, x2, x3, x4, 0, 0)
