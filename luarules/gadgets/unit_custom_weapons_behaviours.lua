@@ -227,10 +227,10 @@ specialEffectFunction.cruise = function(params, projectileID)
 		if targetType == targetedUnit then
 			local results = resultCaches.cruise[target]
 			if not results then
-				results = { spGetUnitPosition(target, false, true) }
+				results = getResult6(spGetUnitPosition(target, false, true))
 				resultCaches.cruise[target] = results
 			end
-			targetX, targetY, targetZ = results[4], results[5], results[6] -- uses mid position
+			targetX, targetY, targetZ = results[4], results[5], results[6] -- uses aim position
 		else
 			targetX, targetY, targetZ = target[1], target[2], target[3] -- assume ground target
 		end
