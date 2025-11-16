@@ -288,7 +288,7 @@ specialEffectFunction.guidance = function(projectileID)
 		local result = guidanceResults[ownerID]
 		if not result then
 			resultPoolIndex = resultPoolIndex + 1
-			result = results[resultPoolIndex]
+			result = resultPoolCache[resultPoolIndex]
 
 			-- Guidance weapon must be the primary and have burst/reload > 1 frame.
 			-- This is hackish but works well to prevent spammy retargeting anyway.
@@ -299,8 +299,8 @@ specialEffectFunction.guidance = function(projectileID)
 
 		local targetType, missileTarget = spGetProjectileTarget(projectileID)
 
-		if results[1] and results[2] then
-			local guidanceType, guidanceTarget = results[2], results[4]
+		if result[1] and result[2] then
+			local guidanceType, guidanceTarget = result[2], result[4]
 			if not equalTargets(guidanceTarget, missileTarget) then
 				if guidanceType == 1 then
 					spSetProjectileTarget(projectileID, guidanceTarget, targetedUnit)
