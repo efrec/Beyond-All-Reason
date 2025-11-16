@@ -555,12 +555,8 @@ local clearTables = { cruiseResults, guidanceResults }
 function gadget:GameFrame(frame)
 	gameFrame = frame
 
-	for i = 1, #clearTables do
-		local clear = clearTables[i]
-		for k in pairs(clear) do
-			clear[k] = nil
-		end
-	end
+	cruiseResults = {}
+	guidanceResults = {}
 	resultPoolIndex = 0
 
 	for projectileID, effect in pairs(projectiles) do
