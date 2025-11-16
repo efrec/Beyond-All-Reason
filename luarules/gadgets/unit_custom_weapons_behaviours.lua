@@ -198,23 +198,20 @@ weaponCustomParamKeys.cruise = {
 
 local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
 
-local position = table.new(3, 0) ---@type float3
-local velocity = table.new(4, 0) ---@type float4
-local function distsq(pos1, pos2)
-	local dx, dy, dz = pos1[1] - pos2[1], pos1[2] - pos2[2], pos1[3] - pos2[3]
-	return dx * dx + dy * dy + dz * dz
-end
-local function projection(vec, x1, x2, x3)
-	return vec[2] - x2 * (vec[1] * x1 + vec[2] * x2 + vec[3] * x3)
+local function applyCruiseCorrection(projectileID, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
+	local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ)
+	local codirection = velocityX * normalX + velocityY * normalY + velocityZ * normalZ
+	velocityY = velocityY - normalY * codirection -- NB: can be a little strong on uneven terrain
+	spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
+	spSetProjectileVelocity(projectileID, velocityX, velocityY, velocityZ)
 end
 
 specialEffectFunction.cruise = function(params, projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
-		local position, velocity = position, velocity
-		position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
-		velocity[1], velocity[2], velocity[3], velocity[4] = spGetProjectileVelocity(projectileID)
-
+		local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
+		local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 		local targetType, target = spGetProjectileTarget(projectileID)
+
 		if targetType == targetedUnit then
 			local result = cruiseResults[target]
 			if not result then
@@ -228,22 +225,21 @@ specialEffectFunction.cruise = function(params, projectileID)
 			target = result
 		end
 
+		local targetX, targetY, targetZ = target[1], target[2], target[3]
 		local distance = params.lockon_dist
 
-		if distance * distance < distsq(position, target) then
-			local cruiseHeight = spGetGroundHeight(position[1], position[3]) + params.cruise_min_height
+		if distance * distance < distance3dSquared(positionX, positionY, positionZ, targetX, targetY, targetZ) then
+			local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
 
-			if position[2] < cruiseHeight then
+			if positionY < cruiseHeight then
 				projectilesData[projectileID] = true
-				spSetProjectilePosition(projectileID, position[1], cruiseHeight, position[3])
-				spSetProjectileVelocity(projectileID, velocity[1], projection(velocity, spGetGroundNormal(position[1], position[3])), velocity[3])
+				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
 			elseif
 				projectilesData[projectileID] and
-				position[2] > cruiseHeight and
-				velocity[2] > velocity[4] * -0.25 -- Avoid going into steep dives, e.g. after cliffs.
+				positionY > cruiseHeight and
+				velocityY > speed * -0.25 -- Avoid going into steep dives, e.g. after cliffs.
 			then
-				spSetProjectilePosition(projectileID, position[1], cruiseHeight, position[3])
-				spSetProjectileVelocity(projectileID, velocity[1], projection(velocity, spGetGroundNormal(position[1], position[3])), velocity[3])
+				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
 			end
 
 			return false
