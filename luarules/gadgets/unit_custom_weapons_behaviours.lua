@@ -16,7 +16,7 @@ if not gadgetHandler:IsSyncedCode() then
 	function gadget:Update(dt)
 		local count = #Spring.GetProjectilesInRectangle(0, 0, Game.mapSizeX, Game.mapSizeZ)
 		local myFps = Spring.GetFPS()
-		Spring.Echo("adjusted fps", math.round(myFps * (0.5 + math.log(count + 1))), count)
+		Spring.Echo("adjusted fps", math.round(myFps * (0.5 + 0.5 * math.log(count + 1))), count)
 	end
 	return
 end
