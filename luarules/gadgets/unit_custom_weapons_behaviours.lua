@@ -198,7 +198,7 @@ weaponCustomParamKeys.cruise = {
 
 local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
 
-local targetType, target, dx, dy, dz
+local targetType, target, dx, dy, dz, _
 
 local function isInLockonDistance(distance)
 	dx, dy, dz = positionX - target[1], positionY - target[2], positionZ - target[3]
@@ -215,7 +215,7 @@ local followGround = {
 				if not result then
 					resultPoolIndex = resultPoolIndex + 1
 					result = resultPoolCache[resultPoolIndex]
-					result[4], result[4], result[4], result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
+					_, _, _, result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
 					cruiseResults[target] = result
 				end
 				target = result
@@ -249,7 +249,7 @@ specialEffectFunction.cruise = function(params, projectileID)
 			if not result then
 				resultPoolIndex = resultPoolIndex + 1
 				result = resultPoolCache[resultPoolIndex]
-				result[4], result[4], result[4], result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
+				_, _, _, result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
 				cruiseResults[target] = result
 			end
 			target = result
