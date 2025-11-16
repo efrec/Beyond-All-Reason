@@ -13,6 +13,11 @@ function gadget:GetInfo()
 end
 
 if not gadgetHandler:IsSyncedCode() then
+	function gadget:Update(dt)
+		local count = #Spring.GetProjectilesInRectangle(0, 0, Game.mapSizeX, Game.mapSizeZ)
+		local myFps = Spring.GetFPS()
+		Spring.Echo("adjusted fps", math.round(myFps * (0.5 + math.log(count + 1))), count)
+	end
 	return
 end
 
@@ -534,15 +539,21 @@ function gadget:Initialize()
 	end
 end
 
+local count = 0
+
 function gadget:ProjectileCreated(projectileID, proOwnerID, weaponDefID)
 	if weaponDefEffect[weaponDefID] then
 		projectiles[projectileID] = weaponDefEffect[weaponDefID]
+		count = count + 1
 	end
 end
 
 function gadget:ProjectileDestroyed(projectileID)
-	projectiles[projectileID] = nil
-	projectilesData[projectileID] = nil
+	if projectiles[projectileID] then
+		projectiles[projectileID] = nil
+		projectilesData[projectileID] = nil
+		count = count - 1
+	end
 end
 
 local clearTables = { cruiseResults, guidanceResults }
@@ -563,4 +574,6 @@ function gadget:GameFrame(frame)
 			projectiles[projectileID] = nil
 		end
 	end
+
+	GG.CustomProjectilesCount = count
 end
