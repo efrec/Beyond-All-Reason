@@ -194,10 +194,6 @@ weaponCustomParamKeys.cruise = {
 local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
 local _; -- what if we just give up. what if we do.
 
-local function cruise(velocityX, velocityY, velocityZ, normalX, normalY, normalZ)
-	return velocityY - normalY * (velocityX * normalX + velocityY * normalY + velocityZ * normalZ)
-end
-
 local followGround = {
 	__call = function(params, projectileID)
 		if spGetProjectileTimeToLive(projectileID) > 0 then
