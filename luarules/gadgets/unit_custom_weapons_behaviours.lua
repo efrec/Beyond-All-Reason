@@ -224,7 +224,7 @@ specialEffectFunction.cruise = function(params, projectileID)
 			elseif
 				projectilesData[projectileID] and -- Projectile is "in cruise mode".
 				velocityY > speed * -0.25 and -- Avoid going into steep dives, e.g. after cliffs.
-				positionY ~= cruiseHeight -- Don't finely tune the path.
+				positionY > cruiseHeight -- Don't finely tune the path.
 			then
 				return applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
 			else
