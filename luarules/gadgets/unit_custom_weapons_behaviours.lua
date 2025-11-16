@@ -188,13 +188,8 @@ weaponCustomParamKeys.cruise = {
 local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
 local _; -- what if we just give up. what if we do.
 
-local function applyCruiseCorrection(projectileID, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
-	local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ)
-	local codirection = velocityX * normalX + velocityY * normalY + velocityZ * normalZ
-	velocityY = velocityY - normalY * codirection -- NB: can be a little strong on uneven terrain
-	spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
-	spSetProjectileVelocity(projectileID, velocityX, velocityY, velocityZ)
-	return false
+local function cruise(velocityX, velocityY, velocityZ, normalX, normalY, normalZ)
+	return velocityY - normalY * (velocityX * normalX + velocityY * normalY + velocityZ * normalZ)
 end
 
 specialEffectFunction.cruise = function(params, projectileID)
@@ -220,16 +215,28 @@ specialEffectFunction.cruise = function(params, projectileID)
 
 			if positionY < cruiseHeight then
 				projectilesData[projectileID] = true
-				return applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+				spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
+				spSetProjectileVelocity(
+					projectileID,
+					velocityX,
+					cruise(velocityX, velocityY, velocityZ, spGetGroundNormal(positionX, positionZ)),
+					velocityZ
+				)
 			elseif
 				projectilesData[projectileID] and -- Projectile is "in cruise mode".
 				velocityY > speed * -0.25 and -- Avoid going into steep dives, e.g. after cliffs.
 				positionY > cruiseHeight -- Don't finely tune the path.
 			then
-				return applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
-			else
-				return false
+				spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
+				spSetProjectileVelocity(
+					projectileID,
+					velocityX,
+					cruise(velocityX, velocityY, velocityZ, spGetGroundNormal(positionX, positionZ)),
+					velocityZ
+				)
 			end
+
+			return false
 		end
 	end
 
