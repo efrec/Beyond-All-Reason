@@ -539,21 +539,15 @@ function gadget:Initialize()
 	end
 end
 
-local count = 0
-
 function gadget:ProjectileCreated(projectileID, proOwnerID, weaponDefID)
 	if weaponDefEffect[weaponDefID] then
 		projectiles[projectileID] = weaponDefEffect[weaponDefID]
-		count = count + 1
 	end
 end
 
 function gadget:ProjectileDestroyed(projectileID)
-	if projectiles[projectileID] then
-		projectiles[projectileID] = nil
-		projectilesData[projectileID] = nil
-		count = count - 1
-	end
+	projectiles[projectileID] = nil
+	projectilesData[projectileID] = nil
 end
 
 local clearTables = { cruiseResults, guidanceResults }
@@ -574,6 +568,4 @@ function gadget:GameFrame(frame)
 			projectiles[projectileID] = nil
 		end
 	end
-
-	GG.CustomProjectilesCount = count
 end
