@@ -200,8 +200,8 @@ local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
 
 local targetType, target, dx, dy, dz
 
-local function isInLockonDistance(distance, target, x, y, z)
-	dx, dy, dz = x - target[1], y - target[2], z - target[3]
+local function isInLockonDistance(distance)
+	dx, dy, dz = positionX - target[1], positionY - target[2], positionZ - target[3]
 	return distance * distance >= dx * dx + dy * dy + dz * dz
 end
 
@@ -223,7 +223,7 @@ local followGround = {
 
 			positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
-			if not isInLockonDistance(params.lockon_dist, target, positionX, positionY, positionZ) then
+			if not isInLockonDistance(params.lockon_dist) then
 				local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
 				velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 
@@ -255,10 +255,9 @@ specialEffectFunction.cruise = function(params, projectileID)
 			target = result
 		end
 
-		distance = params.lockon_dist
 		positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
-		if not isInLockonDistance(params.lockon_dist, target, positionX, positionY, positionZ) then
+		if not isInLockonDistance(params.lockon_dist) then
 			local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
 			velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 
