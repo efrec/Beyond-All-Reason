@@ -204,6 +204,7 @@ local function applyCruiseCorrection(projectileID, positionX, positionY, positio
 	velocityY = velocityY - normalY * codirection -- NB: can be a little strong on uneven terrain
 	spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
 	spSetProjectileVelocity(projectileID, velocityX, velocityY, velocityZ)
+	return false
 end
 
 specialEffectFunction.cruise = function(params, projectileID)
@@ -233,16 +234,16 @@ specialEffectFunction.cruise = function(params, projectileID)
 
 			if positionY < cruiseHeight then
 				projectilesData[projectileID] = true
-				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+				return applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
 			elseif
 				projectilesData[projectileID] and
 				positionY > cruiseHeight and
 				velocityY > speed * -0.25 -- Avoid going into steep dives, e.g. after cliffs.
 			then
-				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+				return applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+			else
+				return false
 			end
-
-			return false
 		end
 	end
 
