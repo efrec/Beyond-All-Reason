@@ -53,7 +53,6 @@ local spSpawnProjectile = Spring.SpawnProjectile
 
 local gravityPerFrame = -Game.gravity / (Game.gameSpeed * Game.gameSpeed)
 
-local targetedGround = string.byte('g')
 local targetedUnit = string.byte('u')
 
 --------------------------------------------------------------------------------
@@ -63,9 +62,7 @@ local specialEffectFunction = {}
 local weaponCustomParamKeys = {} -- [effect] = { [key] = conversion function }
 
 local weaponDefEffect = {}
-
 local projectiles = {}
-local projectilesData = {}
 
 local gameFrame = 0
 local resultPoolCache = table.new(2 ^ 10, 0)
@@ -74,6 +71,12 @@ local resultPoolIndex = 0
 for i = 1, 2 ^ 10 do
 	resultPoolCache[i] = table.new(6, 0) -- max size is currently 6
 end
+
+-- Per-frame effects on projectiles are heavy enough that we genuinely can
+-- increase FPS by not repeatedly allocating high-frequency usage values:
+
+local positionX, positionY, positionZ
+local velocityX, velocityY, velocityZ, speed
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
@@ -132,12 +135,12 @@ end
 --- Weapon behaviors -----------------------------------------------------------
 
 local function isProjectileFalling(projectileID)
-	local _, velocityY = spGetProjectileVelocity(projectileID)
+	velocityX, velocityY, velocityZ = spGetProjectileVelocity(projectileID)
 	return velocityY < 0
 end
 
 local function isProjectileInWater(projectileID)
-	local _, positionY = spGetProjectilePosition(projectileID)
+	positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 	return positionY <= 0
 end
 
@@ -194,12 +197,13 @@ weaponCustomParamKeys.cruise = {
 }
 
 local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
-local _; -- what if we just give up. what if we do.
+
+local targetType, target, distance
 
 local followGround = {
 	__call = function(params, projectileID)
 		if spGetProjectileTimeToLive(projectileID) > 0 then
-			local targetType, target = spGetProjectileTarget(projectileID)
+			targetType, target = spGetProjectileTarget(projectileID)
 			if targetType == targetedUnit then
 				local result = cruiseResults[target]
 				if not result then
@@ -211,12 +215,12 @@ local followGround = {
 				target = result
 			end
 
-			local distance = params.lockon_dist
-			local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
+			distance = params.lockon_dist
+			positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
 			if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
 				local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
-				local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
+				velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 
 				if positionY ~= cruiseHeight and velocityY > speed * -0.25 then
 					spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
@@ -234,7 +238,7 @@ local followGround = {
 
 specialEffectFunction.cruise = function(params, projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
-		local targetType, target = spGetProjectileTarget(projectileID)
+		targetType, target = spGetProjectileTarget(projectileID)
 		if targetType == targetedUnit then
 			local result = cruiseResults[target]
 			if not result then
@@ -246,12 +250,12 @@ specialEffectFunction.cruise = function(params, projectileID)
 			target = result
 		end
 
-		local distance = params.lockon_dist
-		local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
+		distance = params.lockon_dist
+		positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
 		if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
 			local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
-			local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
+			velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 
 			if positionY < cruiseHeight then
 				projectiles[projectileID] = weaponDefEffect[-spGetProjectileDefID(projectileID) - 1]
@@ -443,7 +447,7 @@ local function cannonWaterPen(params, projectileID)
 	local weaponDefID, projectileParams = getProjectileArgs(params, projectileID)
 
 	spDeleteProjectile(projectileID)
-	spSpawnCEG(params.waterpenceg, projectileParams.pos[1], projectileParams.pos[2], projectileParams.pos[3])
+	spSpawnCEG(params.waterpenceg, positionX, positionY, positionZ) -- pos was set already
 
 	projectileParams.gravity = gravityPerFrame * 0.5
 
@@ -570,7 +574,6 @@ end
 
 function gadget:ProjectileDestroyed(projectileID)
 	projectiles[projectileID] = nil
-	projectilesData[projectileID] = nil
 end
 
 local clearTables = { cruiseResults, guidanceResults }
