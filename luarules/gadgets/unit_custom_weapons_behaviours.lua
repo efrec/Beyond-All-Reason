@@ -61,11 +61,11 @@ local projectiles = {}
 local projectilesData = {}
 
 local gameFrame = 0
-local results = table.new(2 ^ 10, 0)
+local resultPoolCache = table.new(2 ^ 10, 0)
 local resultPoolIndex = 0
 
 for i = 1, 2 ^ 10 do
-	results[i] = table.new(6, 0) -- max size is currently 6
+	resultPoolCache[i] = table.new(6, 0) -- max size is currently 6
 end
 
 --------------------------------------------------------------------------------
@@ -205,7 +205,7 @@ specialEffectFunction.cruise = function(params, projectileID)
 			local result = cruiseResults[target]
 			if not result then
 				resultPoolIndex = resultPoolIndex + 1
-				result = results[resultPoolIndex]
+				result = resultPoolCache[resultPoolIndex]
 				_, _, _, result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
 				cruiseResults[target] = result
 			end
