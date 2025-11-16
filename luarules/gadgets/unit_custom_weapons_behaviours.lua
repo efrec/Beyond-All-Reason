@@ -33,6 +33,7 @@ local distance3dSquared = math.distance3dSquared
 local spDeleteProjectile = Spring.DeleteProjectile
 local spGetGroundHeight = Spring.GetGroundHeight
 local spGetGroundNormal = Spring.GetGroundNormal
+local spGetProjectileDefID = Spring.GetProjectileDefID
 local spGetProjectileOwnerID = Spring.GetProjectileOwnerID
 local spGetProjectilePosition = Spring.GetProjectilePosition
 local spGetProjectileTarget = Spring.GetProjectileTarget
@@ -197,6 +198,42 @@ local function cruise(velocityX, velocityY, velocityZ, normalX, normalY, normalZ
 	return velocityY - normalY * (velocityX * normalX + velocityY * normalY + velocityZ * normalZ)
 end
 
+local followGround = {
+	__call = function(params, projectileID)
+		if spGetProjectileTimeToLive(projectileID) > 0 then
+			local targetType, target = spGetProjectileTarget(projectileID)
+			if targetType == targetedUnit then
+				local result = cruiseResults[target]
+				if not result then
+					resultPoolIndex = resultPoolIndex + 1
+					result = resultPoolCache[resultPoolIndex]
+					result[4], result[4], result[4], result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
+					cruiseResults[target] = result
+				end
+				target = result
+			end
+
+			local distance = params.lockon_dist
+			local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
+
+			if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
+				local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
+				local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
+
+				if positionY ~= cruiseHeight and velocityY > speed * -0.25 then
+					spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
+					local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ)
+					spSetProjectileVelocity(projectileID, velocityX, velocityY - normalY * (velocityX * normalX + velocityY * normalY + velocityZ * normalZ), velocityZ)
+				end
+
+				return false
+			end
+		end
+
+		return true
+	end
+}
+
 specialEffectFunction.cruise = function(params, projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
 		local targetType, target = spGetProjectileTarget(projectileID)
@@ -205,7 +242,7 @@ specialEffectFunction.cruise = function(params, projectileID)
 			if not result then
 				resultPoolIndex = resultPoolIndex + 1
 				result = resultPoolCache[resultPoolIndex]
-				_, _, _, result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
+				result[4], result[4], result[4], result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
 				cruiseResults[target] = result
 			end
 			target = result
@@ -219,26 +256,10 @@ specialEffectFunction.cruise = function(params, projectileID)
 			local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 
 			if positionY < cruiseHeight then
-				projectilesData[projectileID] = true
+				projectiles[projectileID] = weaponDefEffect[-spGetProjectileDefID(projectileID) - 1]
 				spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
-				spSetProjectileVelocity(
-					projectileID,
-					velocityX,
-					cruise(velocityX, velocityY, velocityZ, spGetGroundNormal(positionX, positionZ)),
-					velocityZ
-				)
-			elseif
-				projectilesData[projectileID] and -- Projectile is "in cruise mode".
-				velocityY > speed * -0.25 and -- Avoid going into steep dives, e.g. after cliffs.
-				positionY > cruiseHeight -- Don't finely tune the path.
-			then
-				spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
-				spSetProjectileVelocity(
-					projectileID,
-					velocityX,
-					cruise(velocityX, velocityY, velocityZ, spGetGroundNormal(positionX, positionZ)),
-					velocityZ
-				)
+				local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ)
+				spSetProjectileVelocity(projectileID, velocityX, velocityY - normalY * (velocityX * normalX + velocityY * normalY + velocityZ * normalZ), velocityZ)
 			end
 
 			return false
@@ -520,6 +541,10 @@ function gadget:Initialize()
 				if next(effectParams) then
 					-- When configured to a weapon's customParams, call the effect with its `params`:
 					weaponDefEffect[weaponDefID] = setmetatable(effectParams, metatables[effectName])
+
+					if effectName == "cruise" then
+						weaponDefEffect[-weaponDefID - 1] = setmetatable(table.copy(effectParams), followGround)
+					end
 				else
 					-- Otherwise, call the effect directly (skips the `params` arg):
 					weaponDefEffect[weaponDefID] = specialEffectFunction[effectName]
