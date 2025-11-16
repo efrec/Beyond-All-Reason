@@ -71,16 +71,6 @@ end
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
--- Save allocations when improving perf (or trying to) with cached result tables
-
-local function cache(pool, x1, x2, x3, x4, x5, x6)
-	local poolIndex = resultPoolIndex + 1
-	resultPoolIndex = resultPoolIndex + 1
-	local pt = pool[poolIndex]
-	pt[1], pt[2], pt[3], pt[4], pt[5], pt[6] = x1, x2, x3, x4, x5, x6
-	return poolIndex
-end
-
 local function parseCustomParams(weaponDef)
 	local success = true
 
