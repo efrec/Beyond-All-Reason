@@ -546,7 +546,7 @@ function gadget:GameFrame(frame)
 
 	for i = 1, #clearTables do
 		local clear = clearTables[i]
-		for k, v in pairs(clear) do
+		for k in pairs(clear) do
 			clear[k] = nil
 		end
 	end
