@@ -61,10 +61,25 @@ local projectiles = {}
 local projectilesData = {}
 
 local gameFrame = 0
-local resultCaches = {}
+local results = table.new(2 ^ 10, 0)
+local resultPoolIndex = 0
+
+for i = 1, 2 ^ 10 do
+	results[i] = table.new(6, 0) -- max size is currently 6
+end
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
+
+-- Save allocations when improving perf (or trying to) with cached result tables
+
+local function cache(pool, x1, x2, x3, x4, x5, x6)
+	local poolIndex = resultPoolIndex + 1
+	resultPoolIndex = resultPoolIndex + 1
+	local pt = pool[poolIndex]
+	pt[1], pt[2], pt[3], pt[4], pt[5], pt[6] = x1, x2, x3, x4, x5, x6
+	return poolIndex
+end
 
 local function parseCustomParams(weaponDef)
 	local success = true
@@ -181,48 +196,56 @@ weaponCustomParamKeys.cruise = {
 	lockon_dist       = toPositiveNumber, -- Within this radius, disables the auto ground clearance.
 }
 
+local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
+local _; -- what if we just give up. what if we do.
+-- local counter = 0
+-- local firster = 0
+
 local function applyCruiseCorrection(projectileID, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
 	local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ)
 	local codirection = velocityX * normalX + velocityY * normalY + velocityZ * normalZ
 	velocityY = velocityY - normalY * codirection -- NB: can be a little strong on uneven terrain
 	spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
 	spSetProjectileVelocity(projectileID, velocityX, velocityY, velocityZ)
+	return false
 end
 
 specialEffectFunction.cruise = function(params, projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
-		local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
-		local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 		local targetType, target = spGetProjectileTarget(projectileID)
-
-		local targetX, targetY, targetZ
 		if targetType == targetedUnit then
-			local _; -- declare a local sink var for unused values
-			_, _, _, targetX, targetY, targetZ = spGetUnitPosition(target, false, true)
-		elseif targetType == targetedGround then
-			targetX, targetY, targetZ = target[1], target[2], target[3]
+			local result = cruiseResults[target]
+			if not result then
+				-- firster = firster + 1
+				resultPoolIndex = resultPoolIndex + 1
+				result = results[resultPoolIndex]
+				_, _, _, result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
+				cruiseResults[target] = result
+			end
+			target = result
 		end
 
 		local distance = params.lockon_dist
+		local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
-		if distance * distance < distance3dSquared(positionX, positionY, positionZ, targetX, targetY, targetZ) then
+		if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
 			local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
+			local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 
 			if positionY < cruiseHeight then
 				projectilesData[projectileID] = true
-				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
-			elseif projectilesData[projectileID]
-				and positionY > cruiseHeight
-				and velocityY > speed * -0.25 -- Avoid going into steep dives, e.g. after cliffs.
+				return applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+			elseif
+				projectilesData[projectileID] and
+				positionY > cruiseHeight and
+				velocityY > speed * -0.25 -- Avoid going into steep dives, e.g. after cliffs.
 			then
-				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+				return applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+			else
+				return false
 			end
-
-			return false
 		end
 	end
-
-	projectilesData[projectileID] = nil
 
 	return true
 end
@@ -265,7 +288,7 @@ end
 -- Based on retarget
 -- Uses no weapon customParams.
 
-resultCaches.guidance = {} -- ownerID = <isFiring, guidanceType, userTarget, guidanceTarget>
+local guidanceResults = {} -- ownerID = <isFiring, guidanceType, userTarget, guidanceTarget>
 
 specialEffectFunction.guidance = function(projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
@@ -275,18 +298,19 @@ specialEffectFunction.guidance = function(projectileID)
 			return true
 		end
 
-		local targetType, missileTarget = spGetProjectileTarget(projectileID)
-		local results = resultCaches.guidance[ownerID]
+		local result = guidanceResults[ownerID]
+		if not result then
+			resultPoolIndex = resultPoolIndex + 1
+			result = results[resultPoolIndex]
 
-		if not results then
 			-- Guidance weapon must be the primary and have burst/reload > 1 frame.
 			-- This is hackish but works well to prevent spammy retargeting anyway.
-			results = {
-				spGetUnitWeaponState(ownerID, 1, "nextSalvo") + 1 >= gameFrame,
-				spGetUnitWeaponTarget(ownerID, 1)
-			}
-			resultCaches.guidance[ownerID] = results
+			result[1] = spGetUnitWeaponState(ownerID, 1, "nextSalvo") + 1 >= gameFrame
+			result[2], result[3], result[4] = spGetUnitWeaponTarget(ownerID, 1)
+			guidanceResults[ownerID] = result
 		end
+
+		local targetType, missileTarget = spGetProjectileTarget(projectileID)
 
 		if results[1] and results[2] then
 			local guidanceType, guidanceTarget = results[2], results[4]
@@ -528,16 +552,27 @@ function gadget:ProjectileDestroyed(projectileID)
 	projectilesData[projectileID] = nil
 end
 
+local clearTables = { cruiseResults, guidanceResults }
+
 function gadget:GameFrame(frame)
 	gameFrame = frame
 
-	for key in pairs(resultCaches) do
-		resultCaches[key] = {}
+	-- cruiseResults = table.new(0, 2 ^ 5)
+	-- guidanceResults = table.new(0, 2 ^ 5)
+	for i = 1, #clearTables do
+		local clear = clearTables[i]
+		for k, v in pairs(clear) do
+			clear[k] = nil
+		end
 	end
+	resultPoolIndex = 0
 
 	for projectileID, effect in pairs(projectiles) do
 		if effect(projectileID) then
 			projectiles[projectileID] = nil
 		end
 	end
+
+	-- Spring.Echo(frame, "firster", firster, "counter", counter)
+	-- firster, counter = 0, 0
 end
