@@ -198,8 +198,6 @@ weaponCustomParamKeys.cruise = {
 
 local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
 local _; -- what if we just give up. what if we do.
--- local counter = 0
--- local firster = 0
 
 local function applyCruiseCorrection(projectileID, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
 	local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ)
@@ -216,7 +214,6 @@ specialEffectFunction.cruise = function(params, projectileID)
 		if targetType == targetedUnit then
 			local result = cruiseResults[target]
 			if not result then
-				-- firster = firster + 1
 				resultPoolIndex = resultPoolIndex + 1
 				result = results[resultPoolIndex]
 				_, _, _, result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
@@ -557,8 +554,6 @@ local clearTables = { cruiseResults, guidanceResults }
 function gadget:GameFrame(frame)
 	gameFrame = frame
 
-	-- cruiseResults = table.new(0, 2 ^ 5)
-	-- guidanceResults = table.new(0, 2 ^ 5)
 	for i = 1, #clearTables do
 		local clear = clearTables[i]
 		for k, v in pairs(clear) do
@@ -572,7 +567,4 @@ function gadget:GameFrame(frame)
 			projectiles[projectileID] = nil
 		end
 	end
-
-	-- Spring.Echo(frame, "firster", firster, "counter", counter)
-	-- firster, counter = 0, 0
 end
