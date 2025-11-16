@@ -200,6 +200,7 @@ local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
 
 local targetType, target, distance
 
+-- Helper speceffect for `cruise`:
 local followGround = {
 	__call = function(params, projectileID)
 		if spGetProjectileTimeToLive(projectileID) > 0 then
