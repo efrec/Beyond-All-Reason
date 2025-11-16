@@ -198,7 +198,12 @@ weaponCustomParamKeys.cruise = {
 
 local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
 
-local targetType, target, distance
+local targetType, target, dx, dy, dz
+
+local function isInLockonDistance(distance, target, x, y, z)
+	dx, dy, dz = x - target[1], y - target[2], z - target[3]
+	return distance * distance >= dx * dx + dy * dy + dz * dz
+end
 
 -- Helper speceffect for `cruise`:
 local followGround = {
@@ -216,10 +221,9 @@ local followGround = {
 				target = result
 			end
 
-			distance = params.lockon_dist
 			positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
-			if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
+			if not isInLockonDistance(params.lockon_dist, target, positionX, positionY, positionZ) then
 				local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
 				velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 
@@ -254,7 +258,7 @@ specialEffectFunction.cruise = function(params, projectileID)
 		distance = params.lockon_dist
 		positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
-		if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
+		if not isInLockonDistance(params.lockon_dist, target, positionX, positionY, positionZ) then
 			local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
 			velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 
