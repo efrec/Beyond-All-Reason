@@ -61,23 +61,24 @@ local projectiles = {}
 local projectilesData = {}
 
 local gameFrame = 0
-local results = table.new((2 ^ 10) * 6, 0) -- current cache object size is 6 max
+local results = table.new(2 ^ 10, 0)
 local resultPoolIndex = 0
+
+for i = 1, 2 ^ 10 do
+	results[i] = table.new(6, 0) -- max size is currently 6
+end
 
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
 -- Save allocations when improving perf (or trying to) with cached result tables
 
-local function cache(x1, x2, x3, x4, x5, x6)
-	local baseIndex = resultPoolIndex * 6
+local function cache(pool, x1, x2, x3, x4, x5, x6)
+	local poolIndex = resultPoolIndex + 1
 	resultPoolIndex = resultPoolIndex + 1
-	local t = results
-	t[baseIndex + 1], t[baseIndex + 2], t[baseIndex + 3], t[baseIndex + 4], t[baseIndex + 5], t[baseIndex + 6] = x1, x2, x3, x4, x5, x6
-	return baseIndex
-end
-local function cache4(x1, x2, x3, x4)
-	return cache(x1, x2, x3, x4, false, false)
+	local pt = pool[poolIndex]
+	pt[1], pt[2], pt[3], pt[4], pt[5], pt[6] = x1, x2, x3, x4, x5, x6
+	return poolIndex
 end
 
 local function parseCustomParams(weaponDef)
@@ -195,49 +196,54 @@ weaponCustomParamKeys.cruise = {
 	lockon_dist       = toPositiveNumber, -- Within this radius, disables the auto ground clearance.
 }
 
-local cruiseIndices = {} --- unitID = <baseX, baseY, baseZ, midX, midY, midZ>
+local cruiseResults = {} --- unitID = <aimX, aimY, aimZ, ...>
 
-local function applyCruiseCorrection(projectileID, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
-	local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ)
-	local codirection = velocityX * normalX + velocityY * normalY + velocityZ * normalZ
-	velocityY = velocityY - normalY * codirection -- NB: can be a little strong on uneven terrain
-	spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
-	spSetProjectileVelocity(projectileID, velocityX, velocityY, velocityZ)
+local position = table.new(3, 0) ---@type float3
+local velocity = table.new(4, 0) ---@type float4
+local function distsq(pos1, pos2)
+	local dx, dy, dz = pos1[1] - pos2[1], pos1[2] - pos2[2], pos1[3] - pos2[3]
+	return dx * dx + dy * dy + dz * dz
+end
+local function projection(vec, x1, x2, x3)
+	return vec[2] - x2 * (vec[1] * x1 + vec[2] * x2 + vec[3] * x3)
 end
 
 specialEffectFunction.cruise = function(params, projectileID)
 	if spGetProjectileTimeToLive(projectileID) > 0 then
-		local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
-		local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
-		local targetType, target = spGetProjectileTarget(projectileID)
+		local position, velocity = position, velocity
+		position[1], position[2], position[3] = spGetProjectilePosition(projectileID)
+		velocity[1], velocity[2], velocity[3], velocity[4] = spGetProjectileVelocity(projectileID)
 
-		local targetX, targetY, targetZ
+		local targetType, target = spGetProjectileTarget(projectileID)
 		if targetType == targetedUnit then
-			local index = cruiseIndices[target]
-			if not index then
-				index = cache(spGetUnitPosition(target, false, true)) -- gets the aim position
-				cruiseIndices[target] = index
+			local result = cruiseResults[target]
+			if not result then
+				local poolIndex = resultPoolIndex + 1
+				resultPoolIndex = poolIndex
+				result = results[poolIndex]
+				cruiseResults[target] = result
+				result[4], result[5], result[6], -- swap indices, idk, wish GetUnitPosition was different
+				result[1], result[2], result[3] = spGetUnitPosition(target, false, true)
 			end
-			index = index + 3 -- skip the base position float3
-			targetX, targetY, targetZ = results[index + 1], results[index + 2], results[index + 3]
-		else
-			targetX, targetY, targetZ = target[1], target[2], target[3] -- assume ground target
+			target = result
 		end
 
 		local distance = params.lockon_dist
 
-		if distance * distance < distance3dSquared(positionX, positionY, positionZ, targetX, targetY, targetZ) then
-			local cruiseHeight = spGetGroundHeight(positionX, positionZ) + params.cruise_min_height
+		if distance * distance < distsq(position, target) then
+			local cruiseHeight = spGetGroundHeight(position[1], position[3]) + params.cruise_min_height
 
-			if positionY < cruiseHeight then
+			if position[2] < cruiseHeight then
 				projectilesData[projectileID] = true
-				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+				spSetProjectilePosition(projectileID, position[1], cruiseHeight, position[3])
+				spSetProjectileVelocity(projectileID, velocity[1], projection(velocity, spGetGroundNormal(position[1], position[3])), velocity[3])
 			elseif
 				projectilesData[projectileID] and
-				positionY > cruiseHeight and
-				velocityY > speed * -0.25 -- Avoid going into steep dives, e.g. after cliffs.
+				position[2] > cruiseHeight and
+				velocity[2] > velocity[4] * -0.25 -- Avoid going into steep dives, e.g. after cliffs.
 			then
-				applyCruiseCorrection(projectileID, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+				spSetProjectilePosition(projectileID, position[1], cruiseHeight, position[3])
+				spSetProjectileVelocity(projectileID, velocity[1], projection(velocity, spGetGroundNormal(position[1], position[3])), velocity[3])
 			end
 
 			return false
@@ -299,7 +305,7 @@ specialEffectFunction.guidance = function(projectileID)
 		local index = guidanceIndices[ownerID]
 
 		if not index then
-			index = cache4(
+			index = cache(
 				-- Guidance weapon must be the primary and have burst/reload > 1 frame.
 				-- This is hackish but works well to prevent spammy retargeting anyway.
 				spGetUnitWeaponState(ownerID, 1, "nextSalvo") + 1 >= gameFrame,
@@ -551,7 +557,7 @@ end
 function gadget:GameFrame(frame)
 	gameFrame = frame
 
-	cruiseIndices = table.new(0, 4 * resultPoolIndex) -- close enough bruv
+	cruiseResults = table.new(0, 4 * resultPoolIndex) -- close enough bruv
 	guidanceIndices = table.new(0, 6 * resultPoolIndex)
 	resultPoolIndex = 0
 
