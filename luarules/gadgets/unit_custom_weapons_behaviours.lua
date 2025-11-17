@@ -186,7 +186,7 @@ weaponCustomParamKeys.cruise = {
 local _; -- sink var for unused values
 local float3 = { 0, 0, 0 }
 local useSmoothMeshHeight = 50 -- the switch height, not the actual mesh height, see below
-local correctionStrength = 1 - ((Game.gameSpeed - 1) / Game.gameSpeed) ^ 2
+local correctionStrength = 1 - 0.5 * ((Game.gameSpeed - 1) / Game.gameSpeed) ^ 2 -- do full correction in about half a second
 
 local function applyCruiseCorrection(projectileID, elevation, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
 	if elevation > 0 then
