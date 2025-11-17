@@ -188,9 +188,13 @@ local float3 = { 0, 0, 0 }
 local useSmoothMeshHeight = 50 -- the switch height, not the actual mesh height, see below
 
 local function applyCruiseCorrection(projectileID, positionX, positionY, positionZ, groundHeight, velocityX, velocityY, velocityZ)
-	local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ, groundHeight >= useSmoothMeshHeight)
-	local codirection = velocityX * normalX + velocityY * normalY + velocityZ * normalZ
-	velocityY = velocityY - normalY * codirection -- NB: can be a little strong on uneven terrain
+	if groundHeight > 0 then
+		local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ, groundHeight >= useSmoothMeshHeight)
+		local codirection = velocityX * normalX + velocityY * normalY + velocityZ * normalZ
+		velocityY = velocityY - normalY * codirection -- NB: extremely strong correction, very snappy
+	else
+		velocityY = velocityY * 0.25 -- velocityY - 1 * velocityY => 0, but we smooth it out, instead
+	end
 	spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
 	spSetProjectileVelocity(projectileID, velocityX, velocityY, velocityZ)
 end
@@ -207,7 +211,7 @@ specialEffectFunction.cruise = function(params, projectileID)
 		local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
 		if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
-			local elevation = spGetGroundHeight(positionX, positionZ)
+			local elevation = max(spGetGroundHeight(positionX, positionZ), 0)
 			local cruiseHeight = elevation + params.cruise_min_height
 			if positionY < cruiseHeight then
 				local velocityX, velocityY, velocityZ = spGetProjectileVelocity(projectileID)
@@ -235,7 +239,7 @@ local cruiseEngaged = {
 			local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
 			if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
-				local elevation = spGetGroundHeight(positionX, positionZ)
+				local elevation = max(spGetGroundHeight(positionX, positionZ), 0)
 				local cruiseHeight = math_clamp(positionY, elevation + params.cruise_min_height, elevation + params.cruise_max_height)
 				local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 				-- Follow the ground when it slopes away, but not over steep drops, e.g. sheer cliffs.
