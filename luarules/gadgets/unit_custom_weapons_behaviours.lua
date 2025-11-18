@@ -211,7 +211,7 @@ specialEffectFunction.cruise = function(params, projectileID)
 	if positionY >= cruiseHeight or velocityY <= speed * 0.1 then
 		local avoidGround = weaponDefEffect[-1 * (spGetProjectileDefID(projectileID) + 1)]
 		projectiles[projectileID] = avoidGround
-		avoidGround()
+		avoidGround(projectileID)
 	elseif elevation > 0 and spGetProjectileTimeToLive(projectileID) > 0 and speed > 0 then
 		local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ, true)
 		if velocityY / speed <= normalY then
