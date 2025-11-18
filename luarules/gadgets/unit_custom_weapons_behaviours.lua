@@ -201,33 +201,61 @@ local function applyCruiseCorrection(projectileID, elevation, positionX, positio
 	spSetProjectileVelocity(projectileID, velocityX, velocityY, velocityZ)
 end
 
+-- First-phase `cruise` effect, allowing weapons to ascend before triggering ground avoidance.
 specialEffectFunction.cruise = function(params, projectileID)
-	if spGetProjectileTimeToLive(projectileID) > 0 then
-		local targetType, target = spGetProjectileTarget(projectileID)
-		if targetType == targetedUnit then
-			_, _, _, float3[1], float3[2], float3[3] = spGetUnitPosition(target, false, true)
-			target = float3
-		end
+	local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
+	local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
+	local elevation = math_max(spGetGroundHeight(positionX, positionZ), 0)
+	local cruiseHeight = elevation + params.cruise_min_height
 
-		local distance = params.lockon_dist
-		local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
-
-		if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
-			local elevation = math_max(spGetGroundHeight(positionX, positionZ), 0)
-			local cruiseHeight = elevation + params.cruise_min_height
-			if positionY < cruiseHeight then
-				local velocityX, velocityY, velocityZ = spGetProjectileVelocity(projectileID)
-				applyCruiseCorrection(projectileID, elevation, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
-				-- Change over to second-phase attitude controls:
-				projectiles[projectileID] = weaponDefEffect[-1 - spGetProjectileDefID(projectileID)]
-			end
-			return false
+	if positionY >= cruiseHeight or velocityY <= speed * 0.1 then
+		local avoidGround = weaponDefEffect[-1 * (spGetProjectileDefID(projectileID) + 1)]
+		projectiles[projectileID] = avoidGround
+		avoidGround()
+	elseif elevation > 0 and spGetProjectileTimeToLive(projectileID) > 0 and speed > 0 then
+		local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ, true)
+		if velocityY / speed <= normalY then
+			-- `cruise` is meant to be flight-leveling, not to give omnidirectional climb:
+			local weakResponse = responseRatio * 0.5
+			local responseY = velocityY - normalY * (velocityX * normalX + velocityY * normalY + velocityZ * normalZ)
+			velocityY = velocityY + (responseY - velocityY) * weakResponse
+			spSetProjectileVelocity(projectileID, velocityX * (1 - weakResponse * 0.5), velocityY, velocityZ * (1 - weakResponse * 0.5))
 		end
 	end
-	return true
+	return false
 end
 
--- Second-phase `cruise` effect, adding a ground-following behavior that uses `cruise_max_height`.
+-- Second-phase `cruise` effect, adding a ground-avoidance behavior that uses `cruise_min_height`.
+local cruiseWaiting = {
+	__call = function(params, projectileID)
+		if spGetProjectileTimeToLive(projectileID) > 0 then
+			local targetType, target = spGetProjectileTarget(projectileID)
+			if targetType == targetedUnit then
+				_, _, _, float3[1], float3[2], float3[3] = spGetUnitPosition(target, false, true)
+				target = float3
+			end
+
+			local distance = params.lockon_dist
+			local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
+
+			if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
+				local elevation = math_max(spGetGroundHeight(positionX, positionZ), 0)
+				local cruiseHeight = math_clamp(positionY, elevation + params.cruise_min_height, elevation + params.cruise_max_height)
+				local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
+				-- Follow the ground when it slopes away, but not over steep drops, e.g. sheer cliffs.
+				if positionY ~= cruiseHeight and (positionY > cruiseHeight or velocityY > speed * -0.25) then
+					applyCruiseCorrection(projectileID, elevation, positionX, cruiseHeight, positionZ, velocityX, velocityY, velocityZ)
+					-- Change over to third-phase attitude controls:
+					projectiles[projectileID] = weaponDefEffect[-2 * (spGetProjectileDefID(projectileID) + 1)]
+				end
+				return false
+			end
+		end
+		return true
+	end
+}
+
+-- Third-phase `cruise` effect, adding a ground-following behavior that uses `cruise_max_height`.
 local cruiseEngaged = {
 	__call = function(params, projectileID)
 		if spGetProjectileTimeToLive(projectileID) > 0 then
@@ -528,8 +556,11 @@ function gadget:Initialize()
 					weaponDefEffect[weaponDefID] = setmetatable(effectParams, metatables[effectName])
 
 					if effectName == "cruise" then
+						-- Cruise guidance has multiple stages, beginning with an ascent phase.
 						effectParams = table.copy(effectParams)
-						weaponDefEffect[-1 - weaponDefID] = setmetatable(effectParams, cruiseEngaged)
+						weaponDefEffect[-1 * (weaponDefID + 1)] = setmetatable(effectParams, cruiseWaiting)
+						effectParams = table.copy(effectParams)
+						weaponDefEffect[-2 * (weaponDefID + 1)] = setmetatable(effectParams, cruiseEngaged)
 					end
 				else
 					-- Otherwise, call the effect directly (skips the `params` arg):
