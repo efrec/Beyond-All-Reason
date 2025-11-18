@@ -20,6 +20,7 @@ end
 -- Localization ----------------------------------------------------------------
 
 local math_random = math.random
+local math_max = math.max
 local math_clamp = math.clamp
 local math_cos = math.cos
 local math_sin = math.sin
@@ -115,7 +116,7 @@ end
 
 local function toPositiveNumber(value)
 	value = tonumber(value)
-	return value and math.max(0, value) or nil
+	return value and math_max(0, value) or nil
 end
 
 --- Weapon behaviors -----------------------------------------------------------
@@ -213,7 +214,7 @@ specialEffectFunction.cruise = function(params, projectileID)
 		local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
 		if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
-			local elevation = max(spGetGroundHeight(positionX, positionZ), 0)
+			local elevation = math_max(spGetGroundHeight(positionX, positionZ), 0)
 			local cruiseHeight = elevation + params.cruise_min_height
 			if positionY < cruiseHeight then
 				local velocityX, velocityY, velocityZ = spGetProjectileVelocity(projectileID)
@@ -241,7 +242,7 @@ local cruiseEngaged = {
 			local positionX, positionY, positionZ = spGetProjectilePosition(projectileID)
 
 			if distance * distance < distance3dSquared(positionX, positionY, positionZ, target[1], target[2], target[3]) then
-				local elevation = max(spGetGroundHeight(positionX, positionZ), 0)
+				local elevation = math_max(spGetGroundHeight(positionX, positionZ), 0)
 				local cruiseHeight = math_clamp(positionY, elevation + params.cruise_min_height, elevation + params.cruise_max_height)
 				local velocityX, velocityY, velocityZ, speed = spGetProjectileVelocity(projectileID)
 				-- Follow the ground when it slopes away, but not over steep drops, e.g. sheer cliffs.
@@ -348,7 +349,7 @@ weaponCustomParamKeys.sector_fire = {
 	-- Forms a ring from the weapon's (max range) * (reduction) to its max range.
 	max_range_reduction = function(value)
 		value = tonumber(value)
-		return value and math.clamp(value, 0, 1) or nil
+		return value and math_clamp(value, 0, 1) or nil
 	end,
 	-- Forms a section in that ring between (spread_angle) * 0.5 to the left and right of centerline.
 	spread_angle = function(value)
