@@ -187,16 +187,17 @@ weaponCustomParamKeys.cruise = {
 local _; -- sink var for unused values
 local float3 = { 0, 0, 0 }
 local useSmoothMeshHeight = 50 -- the switch height, not the actual mesh height, see below
-local responseFrames = math.round(0.1 * Game.gameSpeed)
+local responseTime = math.round(0.1 * Game.gameSpeed) -- spread the response over N frames
+local responseRatio = (1 + 1 / responseTime - 1 / (responseTime ^ 2)) / responseTime -- via taylor expansion
 
 local function applyCruiseCorrection(projectileID, elevation, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
 	if elevation > 0 then
 		local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ, elevation >= useSmoothMeshHeight)
 		local responseY = velocityY - normalY * (velocityX * normalX + velocityY * normalY + velocityZ * normalZ)
-		velocityY = velocityY + (responseY - velocityY) / responseFrames
+		velocityY = velocityY + (responseY - velocityY) * responseRatio
 	else
-		-- Choose the up direction as the normal, so responseY == 0.
-		velocityY = velocityY - velocityY / responseFrames
+		-- Choose the up direction as the normal (so responseY == 0).
+		velocityY = velocityY - velocityY * responseRatio
 	end
 	spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
 	spSetProjectileVelocity(projectileID, velocityX, velocityY, velocityZ)
