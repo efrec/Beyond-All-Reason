@@ -191,14 +191,12 @@ local responseTime = math.round(0.1 * Game.gameSpeed) -- spread the response ove
 local responseRatio = (1 + 1 / responseTime - 1 / (responseTime ^ 2)) / responseTime -- via taylor expansion
 
 local function applyCruiseCorrection(projectileID, elevation, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
+	local responseY = 0
 	if elevation > 0 then
 		local normalX, normalY, normalZ = spGetGroundNormal(positionX, positionZ, elevation >= useSmoothMeshHeight)
-		local responseY = velocityY - normalY * (velocityX * normalX + velocityY * normalY + velocityZ * normalZ)
-		velocityY = velocityY + (responseY - velocityY) * responseRatio
-	else
-		-- Choose the up direction as the normal (so responseY == 0).
-		velocityY = velocityY - velocityY * responseRatio
+		responseY = velocityY - normalY * (velocityX * normalX + velocityY * normalY + velocityZ * normalZ)
 	end
+	velocityY = velocityY + (responseY - velocityY) * responseRatio
 	spSetProjectilePosition(projectileID, positionX, positionY, positionZ)
 	spSetProjectileVelocity(projectileID, velocityX, velocityY, velocityZ)
 end
