@@ -184,16 +184,15 @@ weaponCustomParamKeys.cruise = {
 	lockon_dist       = toPositiveNumber, -- Within this radius, disables the auto ground clearance.
 }
 
-local _; -- sink var for unused values
-local float3 = { 0, 0, 0 }
-
--- Cruise parameters
-local useSmoothMeshHeight = 50 -- the switch height, not the actual mesh height, see below
-local responseRatio -- limit the response in general since this doesn't use each projectile's turn rate
+local useSmoothMeshHeight = 40 -- altitude used to switch between actual and smoothed terrain normals
+local responseRatio = 0 -- response decrease (multiplier (0, 1)) for a damper on excessive responses
 do
-	local frames = math.round(0.25 * Game.gameSpeed) -- spread the response over N frames
+	local frames = math.round(0.2 * Game.gameSpeed) -- spread the response over N frames
 	responseRatio = (1 + 1 / frames - 1 / (frames ^ 2)) / frames -- via taylor expansion
 end
+
+local _; -- sink var for unused values
+local float3 = { 0, 0, 0 }
 
 local function applyCruiseCorrection(projectileID, elevation, cruiseHeight, positionX, positionY, positionZ, velocityX, velocityY, velocityZ)
 	local responseY = 0
