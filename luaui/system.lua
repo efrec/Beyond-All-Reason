@@ -24,10 +24,6 @@ if (System == nil) then
 		tracy.ZoneText = noop
 	end
 
-	CMD.ANY = 'a'
-	CMD.NIL = 'n'
-	CMD.BUILD = 'b'
-
 	System = {
 		--
 		--  Custom Spring tables

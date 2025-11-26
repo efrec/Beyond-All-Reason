@@ -8,6 +8,7 @@ VFS.Include('common/tablefunctions.lua')
 Json = Json or VFS.Include('common/luaUtilities/json.lua')
 
 VFS.Include('common/springOverrides.lua')
+VFS.Include('common/constants.lua')
 
 local environment = Script.GetName and Script.GetName() or "LuaParser"
 
