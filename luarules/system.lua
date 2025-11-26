@@ -14,14 +14,15 @@
 if (System == nil) then
 	if tracy == nil then
 		Spring.Echo("Gadgetside tracy: No support detected, replacing tracy.* with function stubs.")
-		tracy = {}
 		local noop = function () return end
-		tracy.ZoneBeginN = noop
-		tracy.ZoneBegin = noop
-		tracy.ZoneEnd = noop
-		tracy.Message = noop
-		tracy.ZoneName = noop
-		tracy.ZoneText = noop
+		tracy = {
+			ZoneBeginN = noop,
+			ZoneBegin  = noop,
+			ZoneEnd    = noop,
+			Message    = noop,
+			ZoneName   = noop,
+			ZoneText   = noop,
+		}
 	end
 
 	System = {
