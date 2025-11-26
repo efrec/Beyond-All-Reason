@@ -41,7 +41,7 @@ Spring.SendCommands({
 })
 
 local anonymousMode = Spring.GetModOptions().teamcolors_anonymous_mode
-local allowuserwidgets = not anonymousMode and Spring.GetModOptions().allowuserwidgets
+local allowuserwidgets = anonymousMode == "disabled" and Spring.GetModOptions().allowuserwidgets
 
 if Spring.IsReplay() or Spring.GetSpectatingState() then
 	allowuserwidgets = true
