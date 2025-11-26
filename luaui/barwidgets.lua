@@ -14,6 +14,7 @@ VFS.Include(LUAUI_DIRNAME .. "Headers/keysym.h.lua", nil, VFS.ZIP)
 VFS.Include(LUAUI_DIRNAME .. "system.lua",           nil, VFS.ZIP)
 VFS.Include(LUAUI_DIRNAME .. "callins.lua",          nil, VFS.ZIP)
 VFS.Include(LUAUI_DIRNAME .. "savetable.lua",        nil, VFS.ZIP)
+VFS.Include(LUAUI_DIRNAME .. 'utilities.lua',        nil, VFS.ZIP)
 
 local gl = gl
 
@@ -39,16 +40,8 @@ Spring.SendCommands({
 	"echo LuaUI: bound F11 to the widget selector",
 })
 
-local allowuserwidgets = Spring.GetModOptions().allowuserwidgets
-
 local anonymousMode = Spring.GetModOptions().teamcolors_anonymous_mode
-if anonymousMode ~= "disabled" then
-	allowuserwidgets = false
-
-	-- disabling individual Spring functions isnt really good enough
-	-- disabling user widget draw access would probably do the job but that wouldnt be easy to do
-	Spring.SetTeamColor = function() return true end
-end
+local allowuserwidgets = not anonymousMode and Spring.GetModOptions().allowuserwidgets
 
 if Spring.IsReplay() or Spring.GetSpectatingState() then
 	allowuserwidgets = true
