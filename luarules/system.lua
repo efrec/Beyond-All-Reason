@@ -10,18 +10,24 @@
 --
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
+
 if (System == nil) then
 	if tracy == nil then
 		Spring.Echo("Gadgetside tracy: No support detected, replacing tracy.* with function stubs.")
 		tracy = {}
-		tracy.ZoneBeginN = function () return end 
-		tracy.ZoneBegin = function () return end 
-		tracy.ZoneEnd = function () return end --Spring.Echo("No Tracy") return end 
-		tracy.Message = function () return end 
-		tracy.ZoneName = function () return end 
-		tracy.ZoneText = function () return end 
+		local noop = function () return end
+		tracy.ZoneBeginN = noop
+		tracy.ZoneBegin = noop
+		tracy.ZoneEnd = noop
+		tracy.Message = noop
+		tracy.ZoneName = noop
+		tracy.ZoneText = noop
 	end
-	
+
+	CMD.ANY = 'a'
+	CMD.NIL = 'n'
+	CMD.BUILD = 'b'
+
 	System = {
 		--
 		--  Custom Spring tables
@@ -68,6 +74,11 @@ if (System == nil) then
 		sipairs = ipairs,
 
 		--
+		--  Custom libraries
+		--
+		Json = Json,
+
+		--
 		--  Standard libraries
 		--
 		io = io,
@@ -79,11 +90,6 @@ if (System == nil) then
 		string = string,
 		package = package,
 		coroutine = coroutine,
-
-		--
-		--  Custom libraries
-		--
-		Json = Json,
 
 		--
 		--  Standard functions and variables
@@ -128,8 +134,4 @@ if (System == nil) then
 
 		_VERSION       = _VERSION
 	}
-
-	System.CMD.ANY = 'a'
-	System.CMD.NIL = 'n'
-	System.CMD.BUILD = 'b'
 end

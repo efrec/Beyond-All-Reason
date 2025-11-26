@@ -11,32 +11,27 @@
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-
-
 if (System == nil) then
 	if tracy == nil then
-		Spring.Echo("Tracy: No support detected, replacing tracy.* with function stubs.")
+		Spring.Echo("Widgetside tracy: No support detected, replacing tracy.* with function stubs.")
 		tracy = {}
-		tracy.ZoneBeginN = function () return end
-		tracy.ZoneBegin = function () return end
-		tracy.ZoneEnd = function () return end --Spring.Echo("No Tracy") return end
-		tracy.Message = function () return end
-		tracy.ZoneName = function () return end
-		tracy.ZoneText = function () return end
+		local noop = function () return end
+		tracy.ZoneBeginN = noop
+		tracy.ZoneBegin = noop
+		tracy.ZoneEnd = noop
+		tracy.Message = noop
+		tracy.ZoneName = noop
+		tracy.ZoneText = noop
 	end
+
+	CMD.ANY = 'a'
+	CMD.NIL = 'n'
+	CMD.BUILD = 'b'
 
 	System = {
 		--
-		--  Custom LuaUI variables
-		--
-		Commands = Commands,
-		fontHandler = fontHandler,
-		LUAUI_DIRNAME = LUAUI_DIRNAME,
-
-		--
 		--  Custom Spring tables
 		--
-		VFS = VFS,
 		Script = Script,
 		Spring = Spring,
 		Engine = Engine,
@@ -47,6 +42,7 @@ if (System == nil) then
 		GL = GL,
 		CMD = CMD,
 		CMDTYPE = CMDTYPE,
+		VFS = VFS,
 		LOG = LOG,
 
 		UnitDefs        = UnitDefs,
@@ -55,6 +51,20 @@ if (System == nil) then
 		FeatureDefNames = FeatureDefNames,
 		WeaponDefs      = WeaponDefs,
 		WeaponDefNames  = WeaponDefNames,
+
+		--
+		--  Custom LuaUI variables
+		--
+		Commands = Commands,
+		fontHandler = fontHandler,
+		LUAUI_DIRNAME = LUAUI_DIRNAME,
+
+		--
+		-- Custom libraries
+		--
+		Json = Json,
+		RmlUi = RmlUi,
+		socket = socket,
 
 		--
 		--  Standard libraries
@@ -68,14 +78,6 @@ if (System == nil) then
 		string = string,
 		package = package,
 		coroutine = coroutine,
-
-		-- Custom libraries
-
-		Json = Json,
-		RmlUi = RmlUi,
-
-		-- luasocket
-		socket          = socket,
 
 		--
 		--  Standard functions and variables
@@ -99,7 +101,6 @@ if (System == nil) then
 
 		unpack         = unpack,
 		select         = select,
-
 		dofile         = dofile,
 		loadfile       = loadfile,
 		loadlib        = loadlib,
