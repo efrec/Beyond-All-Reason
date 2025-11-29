@@ -94,14 +94,14 @@ local function calculateUnitMidAndAimPos(unitID)
 	local fx, fy, fz, rx, ry, rz, ux, uy, uz = spGetUnitDirection(unitID)
 	mx, my, mz = toUnitSpace(mx - bx, my - by, mz - bz, fx, fy, fz, rx, ry, rz, ux, uy, uz)
 	ax, ay, az = toUnitSpace(ax - bx, ay - by, az - bz, fx, fy, fz, rx, ry, rz, ux, uy, uz)
-	return { mx, my, mz, ax, ay, az, true }
+	return mx, my, mz, ax, ay, az, true
 end
 
 local function getUnitData(unitID, unitDefID)
 	local data = surferDefData[unitDefID]
 	if not data then
 		data = {
-			position = calculateUnitMidAndAimPos(unitID),
+			position = { calculateUnitMidAndAimPos(unitID) },
 			volume   = { spGetUnitCollisionVolumeData(unitID) },
 		}
 		surferDefData[unitDefID] = data
