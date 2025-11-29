@@ -25,6 +25,8 @@ local updateTime = 0.25
 
 -- Globals
 
+local math_min = math.min
+local math_max = math.max
 local math_clamp = math.clamp
 
 local spGetUnitHeight = Spring.GetUnitHeight
@@ -72,7 +74,7 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 end
 
 local surferUnitData = {} -- { volume, position }
-local surferDefData = {} -- caches the unit data
+local surferDefData = {}  -- caches the unit data
 local surfersInWater = {} -- units that are being watched
 local isUsingSurfbox = {} -- units with a modified collider
 
@@ -81,8 +83,8 @@ local isUsingSurfbox = {} -- units with a modified collider
 local function toUnitSpace(dx, dy, dz, frontX, frontY, frontZ, rightX, rightY, rightZ, upX, upY, upZ)
 	return
 		dx * rightX + dy * upX + dz * frontX,
-    	dx * rightY + dy * upY + dz * frontY,
-    	dx * rightZ + dy * upZ + dz * frontZ
+		dx * rightY + dy * upY + dz * frontY,
+		dx * rightZ + dy * upZ + dz * frontZ
 end
 
 local function calculateUnitMidAndAimPos(unitID)
@@ -162,8 +164,8 @@ local function surf(unitID)
 	local ratioY = shapeDimensionRatio * stretch
 	local ratioZ = shapeDimensionRatio
 
-	local minXYZ = math.min(volume[1], volume[2], volume[3])
-	local maxXZ = math.max(volume[1], volume[3])
+	local minXYZ = math_min(volume[1], volume[2], volume[3])
+	local maxXZ = math_max(volume[1], volume[3])
 
 	-- Prevent misses when targeting the collider's near border by exchanging some
 	-- of the shape's eccentricity in the XZ axes with its Y axis (in unit space).
