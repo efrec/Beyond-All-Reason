@@ -124,12 +124,130 @@ local function calculateUnitMidAndAimPos(unitID)
 	return mx, my, mz, ax, ay, az, true
 end
 
+local getCollisionVolumeConfig
+do
+	local unitCollisionVolume, pieceCollisionVolume, dynamicPieceCollisionVolume = include("LuaRules/Configs/CollisionVolumes.lua")
+
+	---Unified output data format for our various collision volumes.
+	---@alias UnitCollisionVolume ColVolOnOffMap|ColVolPieceList|ColVolDynamicPieceList
+
+	---@class ColVolOnOffMap
+	---@field on ColVolConfigData|ColVolPieceList
+	---@field off ColVolConfigData|ColVolPieceList
+
+	---@class ColVolPieceList
+	---@field [UnitPieceKey] ColVolConfigData Numeric string keys "0"..."65535"
+
+	---@class ColVolDynamicPieceList
+	---@field [UnitPieceKey] ColVolConfigData Numeric string keys "0"..."65535"
+	---@field offsets float3
+
+	---@alias UnitPieceKey "0"|"1"|"2"|"3"|...|"65536"
+
+	---@class ColVolConfigData
+	---@field [1] number? scaleX
+	---@field [2] number? scaleY
+	---@field [3] number? scaleZ
+	---@field [4] number? offsetX
+	---@field [5] number? offsetY
+	---@field [6] number? offsetZ
+	---@field [7] 0|1|2|3? volumeType
+	---@field [8] boolean? useContinuousHitTest
+	---@field [9] 0|1|2? primaryAxis not used in configs
+
+	---@type (ColVolOnOffMap|ColVolPieceList|ColVolDynamicPieceList)[]
+	local configs = { unitCollisionVolume, pieceCollisionVolume, dynamicPieceCollisionVolume }
+
+	local function isColVolData(a)
+		-- NB: This data isn't regularized. This is a reasonable view of them:
+		return (a[1] and a[2] and a[3]) or (a[4] and a[5] and a[6]) or a[7] or a[8] or a[9] -- 10 unused
+	end
+
+	local function isOnOffMap(t)
+		return t.on and t.off and true or false
+	end
+
+	local function isPieceList(tbl)
+		local noBadKeys = true
+		for key in pairs(tbl) do
+			local num = tonumber(key)
+			if not num then
+				noBadKeys = noBadKeys and key == "offsets"
+			elseif type(key) ~= "string" then
+				noBadKeys = false
+			elseif num ~= math.clamp(num, 0, 65535) then
+				noBadKeys = false
+			elseif num ~= math.round(num) then
+				noBadKeys = false
+			end
+		end
+		return noBadKeys
+	end
+
+	---@return ColVolConfigData
+	local function toVolumeData(tbl)
+		local out = table.new(8, 0) -- still not including 9 and 10
+		for i = 1, 8 do
+			out[i] = tbl[i] or 0 -- regularize
+		end
+		return out
+	end
+
+	---@return ColVolPieceList|ColVolDynamicPieceList
+	local function toPieceList(tbl)
+		local out = {}
+		for k, v in pairs(tbl) do
+			if type(k) == "string" and tonumber(k) then
+				out[k] = toVolumeData(v)
+			end
+		end
+		if tbl.offsets then
+			out.offsets = tbl.offsets
+		end
+		return out
+	end
+
+	---@param unitName string
+	---@return UnitCollisionVolume?
+	getCollisionVolumeConfig = function(unitName)
+		local data
+
+		for _, tbl in ipairs(configs) do
+			if not data then
+				data = tbl[unitName]
+			elseif tbl[unitName] then
+				Spring.Log("SurfBox", LOG.ERROR, "Unit with multiple colvol configs found.")
+			end
+		end
+
+		if not data then
+			return
+		end
+
+		if isOnOffMap(data) then
+			local out = {}
+			local onVal = data.on
+			local offVal = data.off
+			out.on = isPieceList(onVal) and toPieceList(onVal) or toVolumeData(onVal)
+			out.off = isPieceList(offVal) and toPieceList(offVal) or toVolumeData(offVal)
+			return out
+		elseif isPieceList(data) then
+			return toPieceList(data)
+		elseif isColVolData(data) then
+			return -- { unit = toVolumeData(data) } -- there is no point to this
+		else
+			Spring.Log("SurfBox", LOG.ERROR, "Malformed colvol data found.")
+		end
+	end
+end
+
 local function getUnitData(unitID, unitDefID)
 	local data = surferDefData[unitDefID]
 	if not data then
 		data = {
 			position = { calculateUnitMidAndAimPos(unitID) },
 			volume   = { spGetUnitCollisionVolumeData(unitID) },
+			custom   = getCollisionVolumeConfig(UnitDefs[unitDefID].name),
 		}
 		surferDefData[unitDefID] = data
 	end
