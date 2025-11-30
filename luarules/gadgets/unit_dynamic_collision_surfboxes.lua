@@ -60,15 +60,42 @@ local inflateRatios = {
 	--[[ footprint ]] [4] = 1, -- as sphere
 }
 
-local canSurf = {} -- units that will have their colvols dynamically replaced
-
-for unitDefID, unitDef in pairs(UnitDefs) do
-	if unitDef.customParams.has_surfing_colvol then
-		canSurf[unitDefID] = true
-
+local canSurf = table.new(#UnitDefs, 0)
+do
+	local function isValidSurfDef(unitDef)
 		local is = unitDef.modCategories
-		if (is.ship or is.hover or is.vtol) and not (is.underwater or is.canbeuw) then
-			Spring.Log("[HITBOXES]", LOG.WARNING, "Floating unit assigned a surfbox: " .. unitDef.name)
+		return not (is.ship or is.hover or is.vtol or is.underwater) and not is.canbeuw
+	end
+
+	local function needsSurfbox(unitDef)
+		return unitDef.moveDef and unitDef.moveDef.depth >= math.max(unitDef.height * 0.6, 1)
+	end
+
+	local function isSupported(unitDef)
+		return not unitCollisionVolume[unitDef.name]
+			and not pieceCollisionVolume[unitDef.name]
+			and not dynamicPieceCollisionVolume[unitDef.name]
+	end
+
+	local useCustomUnitSet = false
+
+	for unitDefID, unitDef in ipairs(UnitDefs) do
+		if unitDef.customParams.has_surfing_colvol then
+			useCustomUnitSet = true
+			if isValidSurfDef(unitDef) and isSupported(unitDef) then
+				Spring.Log("SurfBox", LOG.INFO, "Unit assigned an ordinary surfbox: " .. unitDef.name)
+			else
+				Spring.Log("SurfBox", LOG.WARNING, "Unit given an abnormal surfbox: " .. unitDef.name)
+			end
+			canSurf[unitDefID] = true
+		else
+			canSurf[unitDefID] = false
+		end
+	end
+
+	if not useCustomUnitSet then
+		for unitDefID, unitDef in ipairs(UnitDefs) do
+			canSurf[unitDefID] = isValidSurfDef(unitDef) and needsSurfbox(unitDef) and isSupported(unitDef)
 		end
 	end
 end
