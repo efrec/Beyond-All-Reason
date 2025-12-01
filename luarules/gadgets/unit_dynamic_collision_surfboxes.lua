@@ -8,12 +8,8 @@ function gadget:GetInfo()
 		date    = "2025",
 		license = "GNU GPL, v2 or later",
 		layer   = 1, -- after unit_dynamic_collision_volume.lua
-		enabled = Spring.GetModOptions().experimental_unit_surfboxes,
+		enabled = true, -- Spring.GetModOptions().experimental_unit_surfboxes,
 	}
-end
-
-if not gadgetHandler:IsSyncedCode() then
-	return
 end
 
 -- Configuration
@@ -22,6 +18,46 @@ end
 local waterDepthMax = 24
 ---@type number Time between updates, in seconds.
 local updateTime = 0.25
+
+-- Debugging surfbox depth for maps
+
+if not gadgetHandler:IsSyncedCode() then
+	local DEBUG_MAX_WATER_DEPTH = false
+
+	if not DEBUG_MAX_WATER_DEPTH then
+		return
+	end
+
+	local GL = GL
+	local gl = gl
+	local sin, cos = math.sin, math.cos
+
+	local cx = Game.mapSizeX * 0.5
+	local cy = waterDepthMax * -1
+	local cz = Game.mapSizeZ * 0.5
+	local cr = math.hypot(cx, cz) * 1.05
+	local segments = 32
+	local angleStep = math.tau / segments
+	local color = { 1, 0.2, 0.7, 0.8 } -- bright pink
+
+	local function __FilledCircle()
+		gl.Color(color[1], color[2], color[3], color[4])
+		gl.Vertex(cx, cy, cz)
+		for i = 0, segments do
+			gl.Color(color[1], color[2], color[3], color[4])
+			gl.Vertex(cx + cos(i * angleStep) * cr, cy, cz + sin(i * angleStep) * cr)
+		end
+	end
+
+	local function DrawFilledCircle()
+		gl.DepthTest(true)
+		gl.BeginEnd(GL.TRIANGLE_FAN, __FilledCircle)
+	end
+
+	gadget.DrawWorldPreUnit = DrawFilledCircle
+
+	return
+end
 
 -- Globals
 
