@@ -2,339 +2,278 @@ local gadget = gadget ---@type Gadget
 
 function gadget:GetInfo()
 	return {
-		name      = "Dynamic collision volume & Hitsphere Scaledown",
-		desc      = "Adjusts collision volume for pop-up style units & Reduces the diameter of default sphere collision volume for 3DO models",
-		author    = "Deadnight Warrior",
-		date      = "Nov 26, 2011",
-		license   = "GNU GPL, v2 or later",
-		layer     = 0,
-		enabled   = true
+		name    = "Dynamic collision volumes",
+		desc    = "Manages collision volumes by setting, updating, and correcting them.",
+		author  = "Deadnight Warrior, efrec",
+		date    = "Nov 26, 2011",
+		license = "GNU GPL, v2 or later",
+		layer   = 0,
+		enabled = true,
 	}
 end
 
-if gadgetHandler:IsSyncedCode() then
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
 
-	-- Pop-up style unit and per piece collision volume definitions
-	local popupUnits = {}		--list of pop-up style units
-	local unitCollisionVolume, pieceCollisionVolume, dynamicPieceCollisionVolume
+local pairs = pairs
 
-	-- Localization and speedups
-	local spSetPieceCollisionData = Spring.SetUnitPieceCollisionVolumeData
-	local spGetPieceList = Spring.GetUnitPieceList
-	local spGetUnitDefID = Spring.GetUnitDefID
-	local spGetUnitCollisionData = Spring.GetUnitCollisionVolumeData
-	local spSetUnitCollisionData = Spring.SetUnitCollisionVolumeData
-	local spSetUnitRadiusAndHeight = Spring.SetUnitRadiusAndHeight
-	local spGetUnitRadius = Spring.GetUnitRadius
-	local spGetUnitHeight = Spring.GetUnitHeight
-	local spSetUnitMidAndAimPos = Spring.SetUnitMidAndAimPos
-	local spGetFeatureCollisionData = Spring.GetFeatureCollisionVolumeData
-	local spSetFeatureCollisionData = Spring.SetFeatureCollisionVolumeData
-	local spSetFeatureRadiusAndHeight = Spring.SetFeatureRadiusAndHeight
-	local spGetFeatureRadius = Spring.GetFeatureRadius
-	local spGetFeatureHeight = Spring.GetFeatureHeight
+local spGetFeatureColVolData = Spring.GetFeatureCollisionVolumeData
+local spGetFeatureDefID = Spring.GetFeatureDefID
+local spGetFeatureHeight = Spring.GetFeatureHeight
+local spGetFeatureRadius = Spring.GetFeatureRadius
+local spGetUnitArmored = Spring.GetUnitArmored
+local spGetUnitDefID = Spring.GetUnitDefID
+local spGetUnitHeight = Spring.GetUnitHeight
+local spGetUnitIsDead = Spring.GetUnitIsDead
 
-	local spArmor = Spring.GetUnitArmored
-	local pairs = pairs
-	
-	local unitDefMidAndAimPos = {} -- this is a table read from customparams mapping unitDefID to 
-	local featureDefMidAndAimPos = {} -- this is a table read from customparams mapping unitDefID to 
-		-- {unitDefID  = {aimx, aimz, aimy, midx, midy, midz}}
-	local function parseMidAndAimPos(defID, def, midAimPosTable, prefix)
-		if def.customParams then
-			if def.customParams['unit'..prefix..'pos'] then 
-				if midAimPosTable[defID] == nil then 
-					midAimPosTable[defID] = {}
-				end 
-				local midaimpossplit = string.split(def.customParams['unit'..prefix..'pos'], " ")
-				if midaimpossplit[1] and tonumber(midaimpossplit[1]) then midAimPosTable[defID][prefix..'x'] = tonumber(midaimpossplit[1]) end 
-				if midaimpossplit[2] and tonumber(midaimpossplit[2]) then midAimPosTable[defID][prefix..'y'] = tonumber(midaimpossplit[2]) end 
-				if midaimpossplit[3] and tonumber(midaimpossplit[3]) then midAimPosTable[defID][prefix..'z'] = tonumber(midaimpossplit[3]) end 
-				--Spring.Echo("Setting", 'unit'..prefix..'pos','to', midaimpossplit[1],midaimpossplit[2],midaimpossplit[3])
-			end
+local spSetFeatureColVolData = Spring.SetFeatureCollisionVolumeData
+local spSetFeatureRadiusAndHeight = Spring.SetFeatureRadiusAndHeight
+local spSetPieceColVolData = Spring.SetUnitPieceCollisionVolumeData
+local spSetUnitColVolData = Spring.SetUnitCollisionVolumeData
+local spSetUnitMidAndAimPos = Spring.SetUnitMidAndAimPos
+local spSetUnitRadiusAndHeight = Spring.SetUnitRadiusAndHeight
+
+-- Initialization --------------------------------------------------------------
+
+local unitDefColVols ---@type CollisionVolumeConfigs
+local unitDefColVolIndex ---@type table<string|integer, 1|2|3|4>
+local colvolFeatureModel ---@type table
+
+local featureModelType = {}
+for featureDefID, featureDef in ipairs(FeatureDefs) do
+	featureModelType[featureDefID] = featureDef.modeltype
+end
+
+local popupUnits = {} -- Pop-up style unit volumes
+local colvolCtrl = {} -- Managed collision volumes
+local wasCreated = {} -- Late-loading unitDef data
+
+-- Local functions -------------------------------------------------------------
+
+local function loadColVolConfigs()
+	local CollisionVolumes = VFS.Include("LuaRules/Configs/CollisionVolumes.lua")
+	unitDefColVols = CollisionVolumes.ColVolConfigs ---@type CollisionVolumeConfigs
+	unitDefColVolIndex = CollisionVolumes.UnitDefColVolIndex ---@type table<string|integer, 1|2|3|4>
+	colvolFeatureModel = CollisionVolumes.ModelToVolumeScale.FEATURE ---@type table
+
+	for unitDefID in ipairs(UnitDefs) do
+		local config = unitDefColVolIndex[unitDefID] and unitDefColVolIndex[unitDefColVolIndex[unitDefID]]
+		if not config or getmetatable(config) == nil then
+			wasCreated[unitDefID] = true -- Does not need to be created to have full colvol info available
 		end
 	end
-	
-	local is3doFeature = {}
-	for featureDefID, def in pairs(FeatureDefs) do
-		parseMidAndAimPos(featureDefID, def, featureDefMidAndAimPos, 'aim')
-		parseMidAndAimPos(featureDefID, def, featureDefMidAndAimPos, 'mid')
-		if def.modelpath:lower():find(".3do") then
-			is3doFeature[featureDefID] = true
-		end
-	end
+end
 
-	local unitName = {}
-	local unitModeltype ={}
-	local canFly = {}
-	for unitDefID, def in pairs(UnitDefs) do
-		parseMidAndAimPos(unitDefID, def, unitDefMidAndAimPos, 'aim')
-		parseMidAndAimPos(unitDefID, def, unitDefMidAndAimPos, 'mid')
-		unitName[unitDefID] = def.name
-		unitModeltype[unitDefID] = def.modeltype
-		if def.canFly then
-			canFly[unitDefID] = def.canFly
-		end
-	end
-	--unitDefMidAndAimPos[UnitDefNames['armllt'].id] = { midx = -5, midy = 0, midz= 0, aimx = -40, aimy = 20, aimz = 20}
-	--unitDefMidAndAimPos[UnitDefNames['corak'].id] = { midx = 0, midy = 0, midz= 0, aimx = -40, aimy = 20, aimz = 20}
-	--Process all initial map features
-	function gadget:Initialize()
-		--loading the file here allows to have /luarules reload dyn reload it as necessary
-		unitCollisionVolume, pieceCollisionVolume, dynamicPieceCollisionVolume = include("LuaRules/Configs/CollisionVolumes.lua")
-		local mapConfig = "LuaRules/Configs/DynCVmapCFG/" .. Game.mapName .. ".lua"
-
-		local allFeatures = Spring.GetAllFeatures()
-		if VFS.FileExists(mapConfig) then
-			local mapFeatures = VFS.Include(mapConfig)
-			for i=1,#allFeatures do
-				local featID = allFeatures[i]
-				local modelpath = FeatureDefs[Spring.GetFeatureDefID(featID)].modelpath
-				local featureModel = modelpath:lower()
-				if featureModel:len() > 4 then
-					local featureModelTrim = featureModel:sub(1,-5) -- featureModel:match("/.*%."):sub(2,-2)
-					if mapFeatures[featureModelTrim] then
-						local p = mapFeatures[featureModelTrim]
-						spSetFeatureCollisionData(featID, p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9])
-						spSetFeatureRadiusAndHeight(featID, math.min(p[1], p[3])/2, p[2])
-					elseif featureModel:find(".s3o") then
-						local xs, ys, zs, xo, yo, zo, vtype, htype, axis, _ = spGetFeatureCollisionData(featID)
-						--Spring.Echo(featureModel, xs, ys, zs, xo, yo, zo, vtype, htype, axis)
-						if (vtype>=3 and xs==ys and ys==zs) then
-                            spSetFeatureCollisionData(featID, xs, ys*0.75, zs,  xo, yo-ys*0.09, zo,  1, htype, 1)
-						end
-					end
-				end
-			end
+local function updateDynamicUnitVolume(unitID, popup)
+	local state = spGetUnitArmored(unitID) and "off" or "on"
+	if popup.state ~= state and spGetUnitIsDead(unitID) == false then
+		popup.state = state
+		local colvol = popup.config[state]
+		if popup.configType == 2 then
+			spSetUnitColVolData(unitID, colvol[1], colvol[2], colvol[3], colvol[4], colvol[5], colvol[6], colvol[7], colvol[8], colvol[9])
 		else
-			for i=1,#allFeatures do
-				local featID = allFeatures[i]
-				local modelpath = FeatureDefs[Spring.GetFeatureDefID(featID)].modelpath
-				local featureModel = modelpath:lower()
-				if featureModel:find(".3do") then
-					local rs, hs
-					if (spGetFeatureRadius(featID)>47) then
-						rs, hs = 0.68, 0.60
-					else
-						rs, hs = 0.75, 0.67
-					end
-					local xs, ys, zs, xo, yo, zo, vtype, htype, axis, _ = spGetFeatureCollisionData(featID)
-					if (vtype>=3 and xs==ys and ys==zs) then
-						spSetFeatureCollisionData(featID, xs*rs, ys*hs, zs*rs,  xo, yo-ys*0.1323529*rs, zo,  vtype, htype, axis)
-					end
-					spSetFeatureRadiusAndHeight(featID, spGetFeatureRadius(featID)*rs, spGetFeatureHeight(featID)*hs)
-				elseif featureModel:find(".s3o") then
-					local xs, ys, zs, xo, yo, zo, vtype, htype, axis, _ = spGetFeatureCollisionData(featID)
-					if (vtype>=3 and xs==ys and ys==zs) then
-						spSetFeatureCollisionData(featID, xs, ys*0.75, zs,  xo, yo-ys*0.09, zo,  vtype, htype, axis)
-					end
-				end
+			for piece = 1, colvol.count do
+				local p = colvol[piece]
+				spSetPieceColVolData(unitID, piece, p[9], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8])
 			end
 		end
-		local allUnits = Spring.GetAllUnits()
-		for i=1,#allUnits do
-			local unitID = allUnits[i]
-			gadget:UnitCreated(unitID, spGetUnitDefID(unitID))
-			--gadget:UnitFinished(unitID, spGetUnitDefID(unitID))
+		local unitHeight
+		if colvol.radius or colvol.height then
+			unitHeight = colvol.height or spGetUnitHeight(unitID) or 0
+			spSetUnitRadiusAndHeight(unitID, colvol.radius, unitHeight)
+		else
+			unitHeight = spGetUnitHeight(unitID) or 0
 		end
-		for i=1,#allFeatures do
-			gadget:FeatureCreated(allFeatures[i])
+		local offset = colvol.offset
+		if offset then
+			spSetUnitMidAndAimPos(unitID, offset[1], unitHeight * 0.5, offset[3], offset[4], offset[5], offset[6], true)
+		else
+			spSetUnitMidAndAimPos(unitID, 0, unitHeight * 0.5, 0, 0, unitHeight * 0.5, 0, true)
 		end
 	end
+end
 
-	--Reduces the diameter of default (unspecified) collision volume for 3DO models,
-	--for S3O models it's not needed and will in fact result in wrong collision volume
-	--also handles per piece collision volume definitions
-	--also makes sure subs are underwater
-	function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-		if unitDefMidAndAimPos[unitDefID] then 
-			local midAndAimPos = unitDefMidAndAimPos[unitDefID]
-			Spring.SetUnitMidAndAimPos(unitID, 
-				midAndAimPos['midx'] or 0,
-				midAndAimPos['midy'] or 0,
-				midAndAimPos['midz'] or 0,
-				(midAndAimPos['aimx'] or 0) * -1, -- because engine is bugged
-				midAndAimPos['aimy'] or 0,
-				midAndAimPos['aimz'] or 0, -- relative?
-				true)
-		end
-		if pieceCollisionVolume[unitName[unitDefID]] then
-			local t = pieceCollisionVolume[unitName[unitDefID]]
-			for pieceIndex=0, #spGetPieceList(unitID)-1 do
-				local p = t[tostring(pieceIndex)]
-				if p then
-					spSetPieceCollisionData(unitID, pieceIndex + 1, true, p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8])
-				else
-					spSetPieceCollisionData(unitID, pieceIndex + 1, false, 1, 1, 1, 0, 0, 0, 1, 1)
-				end
-				if t.offsets then
-					p = t.offsets
-					spSetUnitMidAndAimPos(unitID, 0, spGetUnitHeight(unitID)/2, 0, p[1], p[2], p[3],true)
-				end
-			end
-		elseif dynamicPieceCollisionVolume[unitName[unitDefID]] then
-			local t = dynamicPieceCollisionVolume[unitName[unitDefID]].on
-			for pieceIndex=0, #spGetPieceList(unitID)-1 do
-				local p = t[tostring(pieceIndex)]
-				if p then
-					spSetPieceCollisionData(unitID, pieceIndex + 1, true, p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8])
-				else
-					spSetPieceCollisionData(unitID, pieceIndex + 1, false, 1, 1, 1, 0, 0, 0, 1, 1)
-				end
-			end
-		elseif unitModeltype[unitDefID] == "3do" then
-			local rs, hs, ws
-			local r = spGetUnitRadius(unitID)
-			if r>47 and not canFly[unitDefID] then
-				rs, hs, ws = 0.68, 0.68, 0.68
-			elseif not canFly[unitDefID] then
-				rs, hs, ws = 0.73, 0.73, 0.73
-			else
-				rs, hs, ws = 0.53, 0.17, 0.53
-			end
-			local xs, ys, zs, xo, yo, zo, vtype, htype, axis, _ = spGetUnitCollisionData(unitID)
-			if vtype>=3 and xs==ys and ys==zs then
-			  if ys*hs < 13 and canFly[unitDefID] then -- Limit Max V height
-			    spSetUnitCollisionData(unitID, xs*ws, 13, zs*rs,  xo, yo, zo,  1, htype, 1)
-			  elseif canFly[unitDefID] then
-				spSetUnitCollisionData(unitID, xs*ws, ys*hs, zs*rs,  xo, yo, zo,  1, htype, 1)
-			  else
-				spSetUnitCollisionData(unitID, xs*ws, ys*hs, zs*rs,  xo, yo, zo,  vtype, htype, axis)
-			  end
-			end
+local function setMapFeatureVolume(featureID, data)
+	spSetFeatureColVolData(featureID, data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9])
+	spSetFeatureRadiusAndHeight(featureID, math.min(data[1], data[3]) * 0.5, data[2])
+end
 
-			-- set aircraft size
-			if canFly[unitDefID] and UnitDefs[unitDefID].transportCapacity>0 then
-				spSetUnitRadiusAndHeight(unitID, 16, 16)
-			else
-				spSetUnitRadiusAndHeight(unitID, spGetUnitRadius(unitID)*rs, spGetUnitHeight(unitID)*hs)
-			end
+local loadedMapFeatures = false -- guard feature colvol updates that both get & set their volumeData
 
-			-- make sure underwater units are really underwater (need midpoint + model radius <0)
-			local h = spGetUnitHeight(unitID)
-			local wd = UnitDefs[unitDefID].minWaterDepth
-			if UnitDefs[unitDefID].modCategories['underwater'] and wd and wd+r>0 then
-				spSetUnitRadiusAndHeight(unitID, wd-1, h)
-			end
-		elseif unitModeltype[unitDefID] == "s3o" then
-			if canFly[unitDefID] then
-				local rs, hs, ws = 1.15, 0.33, 1.15	-- dont know why 3do uses: 0.53, 0.17, 0.53
-				local xs, ys, zs, xo, yo, zo, vtype, htype, axis, _ = spGetUnitCollisionData(unitID)
-				if vtype>=3 and xs==ys and ys==zs then
-					if ys*hs < 13 then -- Limit Max V height
-						spSetUnitCollisionData(unitID, xs*ws, 13, zs*rs,  xo, yo, zo,  3, htype, 0)
-					elseif canFly[unitDefID] then
-						spSetUnitCollisionData(unitID, xs*ws, ys*hs, zs*rs,  xo, yo, zo,  3, htype, 0)
-					else
-						spSetUnitCollisionData(unitID, xs*ws, ys*hs, zs*rs,  xo, yo, zo,  vtype, htype, axis)
-					end
-				end
-			end
-		end
-		
-		-- Check if a unit is pop-up type (the list must be entered manually)
-		-- If a building was constructed add it to the list for later radius and height scaling
-		-- Changed from UnitFinished to UnitCreated
-		-- Some building's scripting change their collision while still under construction
-		-- These buildings should be added to the list of popupUnits to update when they are created, not when finished
-		local un = unitName[unitDefID]
-		if unitCollisionVolume[un] then
-			popupUnits[unitID]={name=un, state=-1, perPiece=false}
-		elseif dynamicPieceCollisionVolume[un] then
-			popupUnits[unitID]={name=un, state=-1, perPiece=true, numPieces = #spGetPieceList(unitID)-1}
-		end
+local function getSetMapFeatureS3o(featureID)
+	local sx, sy, sz, ox, oy, oz, vtype, htype = spGetFeatureColVolData(featureID)
+	if vtype >= 3 and sx == sy and sy == sz then
+		local model = colvolFeatureModel["S3O"]
+		local scale, toOffset = model.HEIGHT_SCALE, model.HEIGHT_TO_OFFSET
+		local vType, pAxis = model.VOLUME_TYPE, model.VOLUME_AXIS -- Only used for map features? Trees, I guess?
+		spSetFeatureColVolData(featureID, sx, sy * scale, sz, ox, oy + sy * toOffset, oz, vType, htype, pAxis)
 	end
+end
 
-
-	-- Same as for 3DO units, but for features
-	function gadget:FeatureCreated(featureID, allyTeam)
-		if featureDefMidAndAimPos[featureDefID] then 
-			--Spring.SetFeatureMidAndAimPos ( number featureID, number mpX, number mpY, number mpZ, number apX, number apY, number apZ [, bool relative )
-			local midAndAimPos = featureDefMidAndAimPos[featureDefID]
-			Spring.SetFeatureMidAndAimPos(featureID, 
-				midAndAimPos['midx'] or 0,
-				midAndAimPos['midy'] or 0,
-				midAndAimPos['midz'] or 0,
-				(midAndAimPos['aimx'] or 0) * -1, -- because engine is bugged
-				midAndAimPos['aimy'] or 0,
-				midAndAimPos['aimz'] or 0-- relative?
-				)
-		end
-		if is3doFeature[Spring.GetFeatureDefID(featureID)] then
-			local rs, hs
-			if spGetFeatureRadius(featureID)>47 then
-				rs, hs = 0.68, 0.60
-			else
-				rs, hs = 0.75, 0.67
-			end
-			local xs, ys, zs, xo, yo, zo, vtype, htype, axis, _ = spGetFeatureCollisionData(featureID)
-			if vtype>=3 and xs==ys and ys==zs then
-				spSetFeatureCollisionData(featureID, xs*rs, ys*hs, zs*rs,  xo, yo-ys*0.09, zo,  vtype, htype, axis)
-			end
-			spSetFeatureRadiusAndHeight(featureID, spGetFeatureRadius(featureID)*rs, spGetFeatureHeight(featureID)*hs)
-		end
+local function getSetFeature3do(featureID)
+	local model = colvolFeatureModel["3DO"]
+	local rs, hs
+	if spGetFeatureRadius(featureID) > model.SMALL_RADIUS then
+		rs, hs = model.RADIUS_SCALE, model.HEIGHT_SCALE
+	else
+		rs, hs = model.SMALL_RADIUS_SCALE, model.SMALL_HEIGHT_SCALE
 	end
-	
-	--check if a pop-up type unit was destroyed
-	function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
-		if popupUnits[unitID] then
-			popupUnits[unitID] = nil
-		end
+	local toOffset = model.HEIGHT_TO_OFFSET
+
+	local sx, sy, sz, ox, oy, oz, vtype, htype, axis = spGetFeatureColVolData(featureID)
+	if vtype >= 3 and sx == sy and sy == sz then
+		spSetFeatureColVolData(featureID, sx * rs, sy * hs, sz * rs, ox, oy + sy * toOffset * rs, oz, vtype, htype, axis)
 	end
+	spSetFeatureRadiusAndHeight(featureID, spGetFeatureRadius(featureID) * rs, spGetFeatureHeight(featureID) * hs)
+end
 
+local function getSetFeatureS3o(featureID)
+	local sx, sy, sz, ox, oy, oz, vtype, htype, axis = spGetFeatureColVolData(featureID)
+	if vtype >= 3 and sx == sy and sy == sz then
+		local model = colvolFeatureModel["S3O"]
+		local scale, toOffset = model.HEIGHT_SCALE, model.HEIGHT_TO_OFFSET -- Ignore vType, pAxis, unlike map features.
+		spSetFeatureColVolData(featureID, sx, sy * scale, sz, ox, oy + sy * toOffset, oz, vtype, htype, axis)
+	end
+end
 
-	--Dynamic adjustment of pop-up style of units' collision volumes based on unit's ARMORED status, runs twice per second
-	--rescaling of radius and height of 3DO buildings
-	function gadget:GameFrame(n)
-		if n%15 ~= 0 then
-			return
-		end
-		local p, t, stateString, stateInt
-		for unitID,defs in pairs(popupUnits) do
-			if spArmor(unitID) then
-				stateString = "off"
-				stateInt = 0
-			else
-				stateString = "on"
-				stateInt = 1
+local function loadMapFeatures(allFeatures)
+	local mapConfig = "LuaRules/Configs/DynCVmapCFG/" .. tostring(Game.mapName) .. ".lua"
+
+	if VFS.FileExists(mapConfig) then
+		local mapFeatures = VFS.Include(mapConfig)
+		for i = 1, #allFeatures do
+			local featureID = allFeatures[i]
+			local featDefID = spGetFeatureDefID(featureID)
+			local modelPath = FeatureDefs[featDefID].modelpath:lower()
+			if modelPath:len() > 4 then
+				local mapFeature = mapFeatures[modelPath:sub(1, -5)]
+				if mapFeature then
+					setMapFeatureVolume(featureID, mapFeature)
+				elseif not loadedMapFeatures and featureModelType[featDefID] == "s3o" then
+					getSetMapFeatureS3o(featureID)
+				end
 			end
-			if defs.state ~= stateInt then
-				if defs.perPiece then
-					t = dynamicPieceCollisionVolume[defs.name][stateString]
-					for pieceIndex=0, defs.numPieces do
-						p = t[tostring(pieceIndex)]
-						if p then
-							spSetPieceCollisionData(unitID, pieceIndex + 1, true, p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8])
-						else
-							spSetPieceCollisionData(unitID, pieceIndex + 1, false, 1, 1, 1, 0, 0, 0, 1, 1)
-						end
-					end
-					if t.offsets then
-						p = t.offsets
-						local unitHeight = spGetUnitHeight(unitID)
-						if unitHeight == nil then  -- had error once, hope this nil check helps
-							popupUnits[unitID] = nil
-						else
-							spSetUnitMidAndAimPos(unitID, 0, unitHeight/2, 0, p[1], p[2], p[3],true)
-						end
-					end
-				else
-					local unitHeight = spGetUnitHeight(unitID)
-					if unitHeight == nil then  -- had error once, hope this nil check helps
-						popupUnits[unitID] = nil
-					else
-						p = unitCollisionVolume[defs.name][stateString]
-						spSetUnitCollisionData(unitID, p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9])
-						if p[10] then
-							spSetUnitMidAndAimPos(unitID, 0, unitHeight/2, 0, p[10], p[11], p[12],true)
-						end
-					end
-				end
-				if popupUnits[unitID] ~= nil then
-					popupUnits[unitID].state = stateInt
-				end
+		end
+	elseif not loadedMapFeatures then
+		for i = 1, #allFeatures do
+			local featureID = allFeatures[i]
+			local modelType = featureModelType[spGetFeatureDefID(featureID)]
+			if modelType == "3do" then
+				getSetFeature3do(featureID)
+			elseif modelType == "s3o" then
+				getSetFeatureS3o(featureID)
 			end
 		end
 	end
+end
 
+-- API controllers -------------------------------------------------------------
+
+---Fetches collision volume data "safely" without prematurely tripping the lazy-
+---loading behavior of some colvol data that is missing at initialization time.
+---@param unitDefID integer
+---@return UnitColVolConfig colvol
+---@return 1|2|3|4 colvolTypeIndex Unit:1|2, Piece:3|4, Static:1|3, Dynamic:2|4
+---@return boolean hasCompleteData Some def colvol data is fetched at UnitCreated
+GG.GetUnitDefCollisionVolumeData = function(unitDefID)
+	local configType = unitDefColVolIndex[unitDefID]
+	if wasCreated[unitDefID] then
+		local config = configType and unitDefColVols[configType]
+		return config, configType, true
+	else
+		return {}, configType, false
+	end
+end
+
+---Enable or disable manual control over collision volumes.
+GG.CollisionVolumeCtrl = function(unitID, state)
+	colvolCtrl[unitID] = state or nil
+end
+
+---Update a popup-style unit's collision volume, depending on its current state,
+---or restore a non-dynamic collision volume to its original, static dimensions.
+GG.RestoreDefaultColVol = function(unitID)
+	if popupUnits[unitID] then
+		updateDynamicUnitVolume(unitID, popupUnits[unitID])
+	else
+		local unitDefID = spGetUnitDefID(unitID)
+		gadget:UnitCreated(unitID, unitDefID)
+	end
+end
+
+-- Engine callins --------------------------------------------------------------
+
+function gadget:Initialize()
+	loadColVolConfigs()
+
+	for _, unitID in ipairs(Spring.GetAllUnits()) do
+		gadget:UnitCreated(unitID, spGetUnitDefID(unitID))
+	end
+
+	local allFeatures = Spring.GetAllFeatures()
+	loadMapFeatures(allFeatures)
+
+	if not loadedMapFeatures then
+		for i = 1, #allFeatures do
+			gadget:FeatureCreated(allFeatures[i]) -- scales features twice??
+		end
+		loadedMapFeatures = true
+	end
+end
+
+function gadget:FeatureCreated(featureID, allyTeam)
+	if featureModelType[spGetFeatureDefID(featureID)] == "3do" then
+		getSetFeature3do(featureID)
+	end
+end
+
+function gadget:UnitCreated(unitID, unitDefID, unitTeam)
+	local configType = unitDefColVolIndex[unitDefID]
+	local config = configType and unitDefColVols[configType][unitDefID]
+	if not config then
+		return
+	end
+
+	local vol = config.on
+	if vol then
+		popupUnits[unitID] = { config = config, configType = configType, state = "on" }
+	else
+		vol = config
+	end
+
+	if configType <= 2 then
+		spSetUnitColVolData(unitID, vol[1], vol[2], vol[3], vol[4], vol[5], vol[6], vol[7], vol[8], vol[9])
+	else
+		for piece = 1, vol.count do
+			local p = vol[piece]
+			spSetPieceColVolData(unitID, piece, p[9], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8])
+		end
+	end
+
+	if vol.radius or vol.height then
+		spSetUnitRadiusAndHeight(unitID, vol.radius, vol.height)
+	end
+
+	local map = vol.offsets
+	if map then
+		spSetUnitMidAndAimPos(unitID, map[1], map[2], map[3], map[4], map[5], map[6], map[7])
+	end
+
+	wasCreated[unitDefID] = true
+end
+
+function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
+	popupUnits[unitID] = nil
+	colvolCtrl[unitID] = nil
+end
+
+function gadget:GameFrame(n)
+	if n % 15 == 0 then
+		for unitID, data in pairs(popupUnits) do
+			if not colvolCtrl[unitID] then
+				updateDynamicUnitVolume(unitID, data)
+			end
+		end
+	end
 end
