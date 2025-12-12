@@ -684,14 +684,20 @@ end
 
 local function getModelPieceCollisionVolumes(unitDef)
 	local unitDefID = unitDef.id
+	local unitName = unitDef.name
 	return setmetatable({}, {
 		__index = function(self, key)
-			local pieceList = Spring.GetUnitPieceList(getUnitWithDefID(unitDefID))
+			local unitID = getUnitWithDefID(unitDefID)
+			if not unitID then
+				return
+			end
+			local pieceList = Spring.GetUnitPieceList(unitID)
 			if not pieceList then
 				return
 			end
 			setmetatable(self, nil) -- only do this once
 			getPieceColVols(unitID, pieceList, self)
+			setupPieceColVol(unitName, self)
 			return self[key]
 		end
 	})
@@ -777,7 +783,7 @@ end
 
 for _, config in ipairs(colVolConfigs) do
 	for unitName, colvol in pairs(config) do
-		setConfigMidAndAimOffsets(colvol, colvol.height or UnitDefNames[unitName].height)
+		setConfigMidAndAimOffsets(colvol, colvol.height or (UnitDefNames[unitName] and UnitDefNames[unitName].height) or 0)
 	end
 end
 
@@ -789,8 +795,8 @@ for unitDefID = 1, #UnitDefs do
 	local unitDef = UnitDefs[unitDefID]
 	local unitName = unitDef.name
 
-	local configTable = colVolConfigs[unitColVolTypeIndex[unitDefID]]
-	configTable[unitDefID] = configTable[unitName]
+	local configTable = colVolConfigs[unitColVolTypeIndex[unitName]]
+	configTable[unitDefID] = configTable and configTable[unitName]
 	unitColVolTypeIndex[unitDefID] = unitColVolTypeIndex[unitName] or false
 end
 
