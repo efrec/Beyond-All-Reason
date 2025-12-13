@@ -179,7 +179,7 @@ end
 GG.GetUnitDefCollisionVolumeData = function(unitDefID)
 	local configType = unitDefColVolIndex[unitDefID]
 	if wasCreated[unitDefID] then
-		local config = configType and unitDefColVols[configType]
+		local config = configType and unitDefColVols[configType][unitDefID]
 		return config, configType, true
 	else
 		return {}, configType, false
