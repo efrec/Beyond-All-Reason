@@ -7,6 +7,9 @@
 -- - Model scales and types for converting unit models to default volume types.
 -- - Related unit values: mostly midpoint and aimpoint derivations.
 
+local MIN_PIECE_DIM = 16 -- Model piece collision volumes need one dim >= this.
+local MIN_PIECE_VOL = 16 * 5 * 5 -- Model piece colvols need a net volume >= this.
+
 --[[  from Spring Wiki and source code, info about CollisionVolumeData
 
 Spring.GetUnitCollisionVolumeData ( number unitID ) ->
@@ -488,7 +491,23 @@ local colVolConfigs = {
 	dynamicPieceCollisionVolume,
 }
 
----Pieces that are not explicitly configured map to this default disabled piece volume.
+local function getVolumeVolume(colvol)
+	local scaleX, scaleY, scaleZ, vType = colvol[1], colvol[2], colvol[3], colvol[7]
+	local v = scaleX * scaleY * scaleZ
+	if vType == 0 or vType == 3 or vType == 4 then
+		return v * math.pi / 6
+	elseif vType == 1 then
+		return v * math.pi / 4
+	else
+		return v
+	end
+end
+
+local function isPieceColVolTooSmall(colvol)
+	return MIN_PIECE_DIM > math.max(colvol[1], colvol[2], colvol[3])
+		or MIN_PIECE_VOL > getVolumeVolume(colvol)
+end
+
 ---@type PieceCollisionVolumeData
 local pieceColVolDisabled = { 1, 1, 1, 0, 0, 0, COLVOL_SHAPE.SPHERE, COLVOL_TEST_CONT, false }
 
@@ -500,10 +519,12 @@ local function setupPieceColVol(unitName, colvol)
 		end
 	end
 	for key, value in pairs(colvol) do
-		if type(key) == "string" and tonumber(key) then
-			value[9] = true -- enable piece volume
-			colvol[tonumber(key) + 1] = value -- shift to Lua index
-			colvol[key] = nil
+		if type(key) == "string" and type(value) == "table" then
+			if tonumber(key) and not isPieceColVolTooSmall(value) then
+				value[9] = true -- enable piece volume
+				colvol[tonumber(key) + 1] = value -- shift to Lua index
+				colvol[key] = nil
+			end
 		end
 	end
 	colvol.count = #colvol
@@ -674,35 +695,6 @@ local function getUnitWithDefID(unitDefID)
 	end
 end
 
-local function getPieceColVols(unitID, pieceList, colvol)
-	local GetVolumeData = Spring.GetUnitPieceCollisionVolumeData
-	for i = 1, #pieceList do
-		local sx, sy, sz, ox, oy, oz, vType, hType, pAxis, ignore = GetVolumeData(unitID, i)
-		colvol[i] = ignore and pieceColVolDisabled or { sx, sy, sz, ox, oy, oz, vType, hType, pAxis, true }
-	end
-end
-
-local function getModelPieceCollisionVolumes(unitDef)
-	local unitDefID = unitDef.id
-	local unitName = unitDef.name
-	return setmetatable({}, {
-		__index = function(self, key)
-			local unitID = getUnitWithDefID(unitDefID)
-			if not unitID then
-				return
-			end
-			local pieceList = Spring.GetUnitPieceList(unitID)
-			if not pieceList then
-				return
-			end
-			setmetatable(self, nil) -- only do this once
-			getPieceColVols(unitID, pieceList, self)
-			setupPieceColVol(unitName, self)
-			return self[key]
-		end
-	})
-end
-
 local function hasCylinderAxis(colvol)
 	if colvol[7] == COLVOL_SHAPE.CYLINDER and (colvol[1] ~= colvol[2] or colvol[1] ~= colvol[3]) then
 		colvol[9] = (colvol[1] == colvol[2] and COLVOL_AXIS_VALUES.Z) or (colvol[1] == colvol[3] and COLVOL_AXIS_VALUES.Y)
@@ -742,12 +734,16 @@ local function getModelUnitCollisionVolume(unitDef)
 		colvol = setmetatable(colvol, {
 			__index = function(self, key)
 				if key == pAxisIndex then
-					setmetatable(self, nil) -- only do this once
-					local pAxis = select(pAxisIndex, Spring.GetUnitCollisionVolumeData(getUnitWithDefID(unitDefID)))
-					self[pAxisIndex] = pAxis or pAxisDefault -- handles failure case on first unit to spawn in
-					if scaleUnit then
-						scaleUnit(self, modelUnit, unitDef)
+					local unitID = getUnitWithDefID(unitDefID)
+					if not unitID then
+						return
 					end
+					setmetatable(self, nil) -- only do this once
+					local pAxis = select(pAxisIndex, Spring.GetUnitCollisionVolumeData(unitID))
+					self[pAxisIndex] = pAxis or pAxisDefault -- handles failure case on first unit to spawn in
+					-- if scaleUnit then
+					-- 	scaleUnit(self, modelUnit, unitDef)
+					-- end
 					return self[pAxisIndex]
 				end
 			end,
@@ -755,6 +751,53 @@ local function getModelUnitCollisionVolume(unitDef)
 	end
 
 	return colvol
+end
+
+local getMaxIndex = function(acc, value, key) return (not value or acc >= key) and acc or key end -- for what, fault tolerance? idk
+
+local function getPieceColVols(unitID, pieceList, colvol)
+	local count = table.reduce(pieceList, getMaxIndex, 0)
+	local used = {}
+	local GetVolumeData = Spring.GetUnitPieceCollisionVolumeData
+	for i = 1, count do
+		local sx, sy, sz, ox, oy, oz, vType, hType, pAxis, ignore = GetVolumeData(unitID, i)
+		if ignore then
+			colvol[i] = pieceColVolDisabled
+		else
+			colvol[i] = { sx, sy, sz, ox, oy, oz, vType, pAxis, true }
+			used[#used + 1] = i
+		end
+	end
+	while #used > 1 do
+		local i = table.remove(used)
+		local v = colvol[i]
+		if
+			MIN_PIECE_DIM > math.max(v[1], v[2], v[3]) or
+			MIN_PIECE_VOL > getVolumeVolume(v)
+		then
+			colvol[i] = pieceColVolDisabled
+		end
+	end
+	colvol.count = count
+end
+
+local function getModelPieceCollisionVolumes(unitDef)
+	local unitDefID = unitDef.id
+	return setmetatable({}, {
+		__index = function(self, key)
+			local unitID = getUnitWithDefID(unitDefID)
+			if not unitID then
+				return
+			end
+			local pieceList = Spring.GetUnitPieceList(unitID)
+			if not pieceList then
+				return
+			end
+			setmetatable(self, nil) -- only do this once
+			getPieceColVols(unitID, pieceList, self)
+			return self[key]
+		end
+	})
 end
 
 for unitName, unitDef in pairs(UnitDefNames) do
