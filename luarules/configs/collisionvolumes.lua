@@ -826,7 +826,8 @@ end
 
 for _, config in ipairs(colVolConfigs) do
 	for unitName, colvol in pairs(config) do
-		setConfigMidAndAimOffsets(colvol, colvol.height or (UnitDefNames[unitName] and UnitDefNames[unitName].height) or 0)
+		local height = colvol.height or (UnitDefNames[unitName] and UnitDefNames[unitName].height) or 0
+		setConfigMidAndAimOffsets(colvol, height)
 	end
 end
 

@@ -26,6 +26,8 @@ local spGetUnitArmored = Spring.GetUnitArmored
 local spGetUnitDefID = Spring.GetUnitDefID
 local spGetUnitHeight = Spring.GetUnitHeight
 local spGetUnitIsDead = Spring.GetUnitIsDead
+local spGetUnitDirection = Spring.GetUnitDirection
+local spGetUnitPieceMatrix = Spring.GetUnitPieceMatrix
 
 local spSetFeatureColVolData = Spring.SetFeatureCollisionVolumeData
 local spSetFeatureRadiusAndHeight = Spring.SetFeatureRadiusAndHeight
@@ -36,7 +38,7 @@ local spSetUnitRadiusAndHeight = Spring.SetUnitRadiusAndHeight
 
 -- Initialization --------------------------------------------------------------
 
-local unitDefColVols ---@type CollisionVolumeConfigs
+local unitDefColVolData = {}
 local unitDefColVolIndex ---@type table<string|integer, 1|2|3|4>
 local colvolFeatureModel ---@type table
 
@@ -53,16 +55,40 @@ local wasCreated = {} -- Late-loading unitDef data
 
 local function loadColVolConfigs()
 	local CollisionVolumes = VFS.Include("LuaRules/Configs/CollisionVolumes.lua")
-	unitDefColVols = CollisionVolumes.ColVolConfigs ---@type CollisionVolumeConfigs
+
+	local unitDefColVolConfig = CollisionVolumes.ColVolConfigs ---@type CollisionVolumeConfigs
 	unitDefColVolIndex = CollisionVolumes.UnitDefColVolIndex ---@type table<string|integer, 1|2|3|4>
-	colvolFeatureModel = CollisionVolumes.ModelToVolumeScale.FEATURE ---@type table
 
 	for unitDefID in ipairs(UnitDefs) do
-		local config = unitDefColVolIndex[unitDefID] and unitDefColVolIndex[unitDefColVolIndex[unitDefID]]
+		local configType = unitDefColVolIndex[unitDefID]
+		local config = configType and unitDefColVolConfig[configType][unitDefID]
+
+		unitDefColVolData[unitDefID] = config or false
+
 		if not config or getmetatable(config) == nil then
-			wasCreated[unitDefID] = true -- Does not need to be created to have full colvol info available
+			wasCreated[unitDefID] = true -- has full colvol info available
 		end
 	end
+
+	colvolFeatureModel = CollisionVolumes.ModelToVolumeScale.FEATURE ---@type table
+end
+
+local function getMidAimPosition(unitID, colvol, config)
+	local height = (colvol.height or spGetUnitHeight(unitID)) * 0.5
+	local map = { 0, height, 0, 0, height, 0, true }
+
+	if config.on then
+		if not config.on.offsets then
+			config.on.offsets = map
+		end
+		if not config.off.offsets then
+			config.off.offsets = map
+		end
+	else
+		colvol.offsets = map
+	end
+
+	return map
 end
 
 local function updateDynamicUnitVolume(unitID, popup)
@@ -98,8 +124,6 @@ local function setMapFeatureVolume(featureID, data)
 	spSetFeatureColVolData(featureID, data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8], data[9])
 	spSetFeatureRadiusAndHeight(featureID, math.min(data[1], data[3]) * 0.5, data[2])
 end
-
-local loadedMapFeatures = false -- guard feature colvol updates that both get & set their volumeData
 
 local function getSetMapFeatureS3o(featureID)
 	local sx, sy, sz, ox, oy, oz, vtype, htype = spGetFeatureColVolData(featureID)
@@ -150,12 +174,12 @@ local function loadMapFeatures(allFeatures)
 				local mapFeature = mapFeatures[modelPath:sub(1, -5)]
 				if mapFeature then
 					setMapFeatureVolume(featureID, mapFeature)
-				elseif not loadedMapFeatures and featureModelType[featDefID] == "s3o" then
+				elseif featureModelType[featDefID] == "s3o" then
 					getSetMapFeatureS3o(featureID)
 				end
 			end
 		end
-	elseif not loadedMapFeatures then
+	else
 		for i = 1, #allFeatures do
 			local featureID = allFeatures[i]
 			local modelType = featureModelType[spGetFeatureDefID(featureID)]
@@ -179,7 +203,7 @@ end
 GG.GetUnitDefCollisionVolumeData = function(unitDefID)
 	local configType = unitDefColVolIndex[unitDefID]
 	if wasCreated[unitDefID] then
-		local config = configType and unitDefColVols[configType][unitDefID]
+		local config = unitDefColVolData[unitDefID]
 		return config, configType, true
 	else
 		return {}, configType, false
@@ -197,9 +221,52 @@ GG.RestoreDefaultColVol = function(unitID)
 	if popupUnits[unitID] then
 		updateDynamicUnitVolume(unitID, popupUnits[unitID])
 	else
-		local unitDefID = spGetUnitDefID(unitID)
-		gadget:UnitCreated(unitID, unitDefID)
+		gadget:UnitCreated(unitID, spGetUnitDefID(unitID))
 	end
+end
+
+-- Utilities -------------------------------------------------------------------
+
+local function dotProduct(ax, ay, az, bx, by, bz)
+	return ax * bx + ay * by + az * bz
+end
+
+GG.WorldToUnitBasis = function(x, y, z, unitID)
+	local frontX, frontY, frontZ, rightX, rightY, rightZ, upX, upY, upZ = spGetUnitDirection(unitID)
+	return
+		dotProduct(x, y, z, rightX, rightY, rightZ),
+		dotProduct(x, y, z, upX, upY, upZ),
+		dotProduct(x, y, z, frontX, frontY, frontZ)
+end
+
+GG.UnitToWorldBasis = function(x, y, z, unitID)
+	local frontX, frontY, frontZ, rightX, rightY, rightZ, upX, upY, upZ = spGetUnitDirection(unitID)
+	return
+		dotProduct(x, y, z, rightX, upX, frontX),
+		dotProduct(x, y, z, rightY, upY, frontY),
+		dotProduct(x, y, z, rightZ, upZ, frontZ)
+end
+
+GG.WorldToPieceBasis = function(x, y, z, unitID, pieceID)
+	local
+	m11, m12, m13, m14, -- 4x4 matrix with some values elided
+	m21, m22, m23, m24,
+	m31, m32, m33, m34 = spGetUnitPieceMatrix(unitID, pieceID)
+	return
+		dotProduct(x, y, z, m11, m12, m13),
+		dotProduct(x, y, z, m21, m22, m23),
+		dotProduct(x, y, z, m31, m32, m33)
+end
+
+GG.PieceToWorldBasis = function(x, y, z, unitID, pieceID)
+	local
+	m11, m12, m13, m14, -- 4x4 matrix with some values elided
+	m21, m22, m23, m24,
+	m31, m32, m33, m34 = spGetUnitPieceMatrix(unitID, pieceID)
+	return
+		dotProduct(x, y, z, m11, m21, m31),
+		dotProduct(x, y, z, m12, m22, m32),
+		dotProduct(x, y, z, m13, m23, m33)
 end
 
 -- Engine callins --------------------------------------------------------------
@@ -213,13 +280,6 @@ function gadget:Initialize()
 
 	local allFeatures = Spring.GetAllFeatures()
 	loadMapFeatures(allFeatures)
-
-	if not loadedMapFeatures then
-		for i = 1, #allFeatures do
-			gadget:FeatureCreated(allFeatures[i]) -- scales features twice??
-		end
-		loadedMapFeatures = true
-	end
 end
 
 function gadget:FeatureCreated(featureID, allyTeam)
@@ -229,11 +289,7 @@ function gadget:FeatureCreated(featureID, allyTeam)
 end
 
 function gadget:UnitCreated(unitID, unitDefID, unitTeam)
-	local configType = unitDefColVolIndex[unitDefID]
-	local config = configType and unitDefColVols[configType][unitDefID]
-	if not config then
-		return
-	end
+	local config, configType = unitDefColVolData[unitDefID], unitDefColVolIndex[unitDefID]
 
 	local vol = config.on
 	if vol then
@@ -255,10 +311,8 @@ function gadget:UnitCreated(unitID, unitDefID, unitTeam)
 		spSetUnitRadiusAndHeight(unitID, vol.radius, vol.height)
 	end
 
-	local map = vol.offsets
-	if map then
-		spSetUnitMidAndAimPos(unitID, map[1], map[2], map[3], map[4], map[5], map[6], map[7])
-	end
+	local mao = vol.offsets or getMidAimPosition(unitID, vol, config)
+	spSetUnitMidAndAimPos(unitID, mao[1], mao[2], mao[3], mao[4], mao[5], mao[6], mao[7])
 
 	wasCreated[unitDefID] = true
 end
