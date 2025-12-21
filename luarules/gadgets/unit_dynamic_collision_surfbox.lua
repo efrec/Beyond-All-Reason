@@ -28,18 +28,19 @@ local debug = false
 -- Globals
 
 local math_abs = math.abs
+local math_max = math.max
 local math_min = math.min
 local math_clamp = math.clamp
 
 local spGetUnitArmored = Spring.GetUnitArmored
 local spGetUnitHeight = Spring.GetUnitHeight
 local spGetUnitPosition = Spring.GetUnitPosition
+local spGetUnitPiecePosition = Spring.GetUnitPiecePosition
 
 local spSetUnitCollisionVolumeData = Spring.SetUnitCollisionVolumeData
 local spSetUnitMidAndAimPos = Spring.SetUnitMidAndAimPos
 
-local worldToUnitBasis, unitToWorldBasis = GG.WorldToUnitBasis, GG.UnitToWorldBasis
-local worldToPieceBasis, pieceToWorldBasis = GG.WorldToPieceBasis, GG.PieceToWorldBasis
+local worldToUnitBasis, unitToWorldBasis, worldToPieceBasis, pieceToWorldBasis
 
 -- Local state
 
@@ -175,13 +176,14 @@ local function setPieceCollisionVolume(unitID, data, stretchY, offsetY)
 			local ratioY = shapeDimensionRatio * stretchY
 			local ratioZ = shapeDimensionRatio
 
-			local minXYZ = math.min(colvol[1], colvol[2], colvol[3])
-			ratioX = ratioX / (1 + (colvol[1] / minXYZ - 0.5) * 0.1667 * math_abs(upY))
-			ratioY = ratioY / (1 - (colvol[2] / minXYZ - 0.5) * 0.6667 * math_abs(upY)) -- pieces tend to be layer-caked and need more height
-			ratioZ = ratioZ / (1 + (colvol[3] / minXYZ - 0.5) * 0.1667 * math_abs(upY))
+			local minXYZ = math_min(colvol[1], colvol[2], colvol[3])
+			ratioX = ratioX / (1 + (colvol[1] / minXYZ - 0.5) * 0.1000 * math_abs(upY))
+			ratioY = ratioY / (1 - (colvol[2] / minXYZ - 0.5) * 0.5000 * math_abs(upY)) -- pieces tend to be layer-caked and need more height
+			ratioZ = ratioZ / (1 + (colvol[3] / minXYZ - 0.5) * 0.1000 * math_abs(upY))
 
 			local shiftX, shiftY, shiftZ = pieceToWorldBasis(colvol[4], colvol[5], colvol[6], unitID, piece) -- todo: whereas this cannot but could reuse the piece matrix
-			local yOffsetColVol = offsetY - colvol[5] * upY
+			local px, py, pz = spGetUnitPiecePosition(unitID, piece)
+			local offsetPieceY = offsetY - (py + colvol[5] * upY) * 0.1667 -- todo: actual coefficient; this is close
 
 			Spring.SetUnitPieceCollisionVolumeData(
 				unitID,
@@ -190,9 +192,9 @@ local function setPieceCollisionVolume(unitID, data, stretchY, offsetY)
 				colvol[1] * ratioX,
 				colvol[2] * ratioY,
 				colvol[3] * ratioZ,
-				shiftX + yOffsetColVol * upX,
-				shiftY + yOffsetColVol * upY,
-				shiftZ + yOffsetColVol * upZ,
+				shiftX + offsetPieceY * -upX,
+				shiftY + offsetPieceY * upY,
+				shiftZ + offsetPieceY * -upZ,
 				0,
 				colvol[8]
 			)
@@ -259,9 +261,15 @@ local function surf(unitID)
 		offsets[7]
 	)
 
-	if isUnitType then
+	if (colvolType == 1) or (colvolType == 2) then
 		setUnitCollisionVolume(unitID, colvolData, stretchY, offsetY, upX, upY, upZ)
 	else
+		if Spring.GetUnitDefID(unitID) == UnitDefNames.legscout.id then
+			local unitDefID = UnitDefNames.legscout.id
+			Spring.Echo("This is not possible. As you will be able to see below:")
+			Spring.Echo("legscout", colvolDefType[unitDefID], type(colvolDefType[unitDefID]), colvolDefType[unitDefID] == 1)
+			Spring.Echo(colvolData)
+		end
 		setPieceCollisionVolume(unitID, colvolData, stretchY, offsetY)
 	end
 end
@@ -273,6 +281,9 @@ function gadget:Initialize()
 		gadgetHandler:RemoveGadget()
 		return
 	end
+
+	worldToUnitBasis, unitToWorldBasis = GG.WorldToUnitBasis, GG.UnitToWorldBasis
+	worldToPieceBasis, pieceToWorldBasis = GG.WorldToPieceBasis, GG.PieceToWorldBasis
 
 	for _, unitID in ipairs(Spring.GetAllUnits()) do
 		gadget:UnitCreated(unitID, Spring.GetUnitDefID(unitID), Spring.GetUnitTeam(unitID))
