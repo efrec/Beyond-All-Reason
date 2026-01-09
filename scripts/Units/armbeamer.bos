@@ -3,7 +3,7 @@
 
 piece  base, flare, turret, sleeve, barrel;
 
-static-var lastheading, lastpitch;
+static-var lastheading, lastpitch, isTurning;
 
 // Signal definitions
 #define SIGNAL_AIM1 256
@@ -21,25 +21,25 @@ AimWeapon1(heading, pitch)
 {
 	signal SIGNAL_AIM1;
 	set-signal-mask SIGNAL_AIM1;
+
 	// values in <> are degrees per second
 	// otherwise angles are in COB angular unit (cau) - There are 65536 cau in a circle
 	// In general, 6 cau per frame ~= 1 degree per second
 	turn turret to y-axis heading speed <500.0>;
 	turn sleeve to x-axis <0.0> - pitch speed <250.0>;
-	// if the turret can turn to its new heading in one frame, just return true and do not wait for turn
-	if ( (get ABS(lastheading-heading)<3000) AND (get ABS(lastpitch-pitch)<1500) )
-	{
-		lastheading = heading;
-		lastpitch = pitch;
-		return (1);
-	}
-	// if turret needs more than one frame to turn to new heading, wait for the turn
-	// seems to take 3 frames for wait-for-turn to process
-	wait-for-turn turret around y-axis;
-	wait-for-turn sleeve around x-axis;
-	// after waiting for the turn, set the lastheading and lastpitch variables
+
+	isTurning = (get ABS(lastheading-heading)>=3000) OR (get ABS(lastpitch-pitch)>=1500);
 	lastheading = heading;
 	lastpitch = pitch;
+
+	if (isTurning)
+	{
+		// if turret needs more than one frame to turn to new heading, wait for the turn
+		// seems to take 3 frames for wait-for-turn to process
+		wait-for-turn turret around y-axis;
+		wait-for-turn sleeve around x-axis;
+	}
+
 	return (1);
 }
 
