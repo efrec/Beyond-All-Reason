@@ -690,7 +690,7 @@ local function drawStats(uDefID, uID)
 
 				local modifiers = { [defaultArmorDamage] = { armorTypes[defaultArmorIndex] } } -- [damage] = { armorClass1, armorClass2, ... }
 				local indestructible = armorTypes.indestructable
-				for index = 0, #armorTypes - 1 do
+				for index = 0, #armorTypes do
 					if index ~= indestructible then
 						local armorName = armorTypes[index]
 						local armorDamage = damages[index]
