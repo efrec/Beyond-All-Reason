@@ -46,7 +46,7 @@ local autoLowerKeys = {
 	end,
 }
 
-local autoLowerTbls = {}
+local autoLowerTbls = setmetatable({}, { __mode = "k" }) -- allow collection of tables-as-keys
 
 setAutoLowerKeys = function(tbl)
 	if not autoLowerTbls[tbl] then

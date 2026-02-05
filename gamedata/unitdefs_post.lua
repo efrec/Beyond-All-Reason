@@ -2,7 +2,6 @@
 VFS.Include("gamedata/unitdefrenames.lua")
 VFS.Include("gamedata/alldefs_post.lua")
 VFS.Include("gamedata/post_save_to_customparams.lua")
-local system = VFS.Include("gamedata/system.lua")
 
 local scavengersEnabled = false
 if Spring.GetTeamList then
@@ -210,72 +209,93 @@ local function createScavengerUnitDefs()
 	end
 end
 
+local function sortByIndex(a, b)
+	return a.index < b.index
+end
+
 local function preProcessTweakOptions()
 	local modOptions = {}
 	if Spring.GetModOptionsCopy then
 		modOptions = Spring.GetModOptionsCopy()
 	end
 
+	local configTbl = Spring.Utilities.ConfigTbl
+
 	--------------------------------------------------------------------------------
 	--------------------------------------------------------------------------------
 	-- Balance Testing
 	--
 
-	local tweaks = {}
-	for name, value in pairs(modOptions) do
-		local tweakType = name:match("^tweak([a-z]+)%d*$")
-		local index = tonumber(name:match("^tweak[a-z]+(%d*)$")) or 0
-		if (tweakType == 'defs' or tweakType == 'units') and index then
-			table.insert(tweaks, {name = name, type = tweakType, index = index, value = value})
+	local tweakDefs = {}
+	local tweakUnits = {}
+
+	do
+		local tweaks = {
+			defs  = tweakDefs,
+			units = tweakUnits,
+		}
+
+		for name, value in pairs(modOptions) do
+			local tweakType = name:match("^tweak([a-z]+)%d*$")
+			local index = tonumber(name:match("^tweak[a-z]+(%d*)$")) or 0
+			table.insert(tweaks[tweakType], {name = name, index = index, value = value})
+		end
+
+		table.sort(tweakDefs, sortByIndex)
+		table.sort(tweakUnits, sortByIndex)
+	end
+
+	local hasTweakDefs = false
+
+	for i = 1, #tweakDefs do
+		local tweak = tweakDefs[i]
+		local name = tweak.name
+		local decodeSuccess, postsFuncStr = pcall(string.base64Decode, modOptions[name])
+		if decodeSuccess then
+			local postfunc, err = loadstring(postsFuncStr)
+			if err then
+				Spring.Echo("Error parsing modoption", name, "from string", postsFuncStr, "Error: " .. err)
+			else
+				Spring.Echo("Loading ".. name .. " modoption")
+				Spring.Echo(postsFuncStr)
+				if postfunc then
+					local success, result = pcall(postfunc)
+					if success then
+						hasTweakDefs = true -- unitDef tables may be modified arbitrarily, replaced, etc.
+					else
+						Spring.Echo("Error executing tweakdef", name, postsFuncStr, "Error :" .. result)
+					end
+				end
+			end
+		else
+			Spring.Echo("Error parsing and decoding tweakdef", name, modOptions[name], "Error :" .. postsFuncStr)
 		end
 	end
 
-	table.sort(tweaks, function(a, b)
-		if a.type == 'defs' and b.type == 'units' then
-			return true
-		elseif a.type == 'units' and b.type == 'defs' then
-			return false
+	if hasTweakDefs then
+		-- Arbitrary lua code can change def tables and their subtables arbitrarily.
+		for name, unitDef in pairs(UnitDefs) do
+			unitDef = configTbl(unitDef)
 		end
-		return a.index < b.index
-	end)
+	end
 
-	for i = 1, #tweaks do
-		local tweak = tweaks[i]
+	for i = 1, #tweakUnits do
+		local tweak = tweakUnits[i]
 		local name = tweak.name
-		if tweak.type == 'defs' then
-			local decodeSuccess, postsFuncStr = pcall(string.base64Decode, modOptions[name])
-			if decodeSuccess then
-				local postfunc, err = loadstring(postsFuncStr)
-				if err then
-					Spring.Echo("Error parsing modoption", name, "from string", postsFuncStr, "Error: " .. err)
-				else
-					Spring.Echo("Loading ".. name .. " modoption")
-					Spring.Echo(postsFuncStr)
-					if postfunc then
-						local success, result = pcall(postfunc)
-						if not success then
-							Spring.Echo("Error executing tweakdef", name, postsFuncStr, "Error :" .. result)
-						end
+		local success, tweakunits = pcall(Spring.Utilities.CustomKeyToUsefulTable, modOptions[name])
+		if success then
+			if type(tweakunits) == "table" then
+				Spring.Echo("Loading ".. name .. " modoption")
+				tweakunits = configTbl(tweakunits)
+				for unitName, ud in pairs(UnitDefs) do
+					if tweakunits[unitName] then
+						Spring.Echo("Loading tweakunits for " .. unitName)
+						table.mergeInPlace(ud, tweakunits[unitName], true)
 					end
 				end
-			else
-				Spring.Echo("Error parsing and decoding tweakdef", name, modOptions[name], "Error :" .. postsFuncStr)
 			end
 		else
-			local success, tweakunits = pcall(Spring.Utilities.CustomKeyToUsefulTable, modOptions[name])
-			if success then
-				if type(tweakunits) == "table" then
-					Spring.Echo("Loading ".. name .. " modoption")
-					for unitName, ud in pairs(UnitDefs) do
-						if tweakunits[unitName] then
-							Spring.Echo("Loading tweakunits for " .. unitName)
-							table.mergeInPlace(ud, system.lowerkeys(tweakunits[unitName]), true)
-						end
-					end
-				end
-			else
-				Spring.Echo("Failed to parse modoption", name, "with value", modOptions[name])
-			end
+			Spring.Echo("Failed to parse modoption", name, "with value", modOptions[name])
 		end
 	end
 end
