@@ -22,6 +22,8 @@ local section='defs.lua'
 
 VFS_MODES = VFS.MAP .. VFS.MOD .. VFS.BASE
 
+local configTbl = Spring.Utilities.ConfigTbl -- lowercase keys, unique subtables
+
 local function LoadDefs(name)
 	local filename = 'gamedata/' .. name .. '.lua'
 	local success, result = pcall(VFS.Include, filename, nil, VFS_MODES)
@@ -35,7 +37,7 @@ local function LoadDefs(name)
 		error('Missing lua table for ' .. name)
 	end
 
-	return result
+	return configTbl(result)
 end
 
 --------------------------------------------------------------------------------
