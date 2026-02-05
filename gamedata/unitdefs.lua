@@ -21,6 +21,8 @@ local system = VFS.Include('gamedata/system.lua')
 
 local section = 'unitdefs.lua'
 
+local configTbl = Spring.Utilities.ConfigTbl -- lowercase keys, unique subtables
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 --
@@ -83,6 +85,7 @@ for _, filename in ipairs(luaFiles) do
 		elseif type(defs) ~= 'table' then
 			Spring.Log(section, LOG.ERROR, 'Bad return table from: ' .. filename)
 		else
+			defs = configTbl(defs)
 			for unitDefName, unitDef in pairs(defs) do
 				if ((type(unitDefName) == 'string') and (type(unitDef) == 'table')) then
 					unitDefs[unitDefName] = unitDef
@@ -115,7 +118,7 @@ end
 --
 
 for name, def in pairs(unitDefs) do
-	local model = def.objectName or def.objectname
+	local model = def.objectname
 	if model == nil then
 		unitDefs[name] = nil
 		Spring.Log(section, LOG.ERROR, 'removed ' .. name .. ' unitDef, missing objectname param')
@@ -130,7 +133,7 @@ end
 
 for name, def in pairs(unitDefs) do
 	local badOptions = {}
-	local buildOptions = def.buildOptions or def.buildoptions
+	local buildOptions = def.buildoptions
 	if buildOptions then
 		for i, option in ipairs(buildOptions) do
 			if unitDefs[option] == nil then

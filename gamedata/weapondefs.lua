@@ -21,6 +21,8 @@ local system = VFS.Include('gamedata/system.lua')
 
 local section = 'weapondefs.lua'
 
+local configTbl = Spring.Utilities.ConfigTbl -- lowercase keys, unique subtables
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 --
@@ -52,9 +54,10 @@ for _, filename in ipairs(luaFiles) do
 	local success, defs = pcall(VFS.Include, filename, weaponDefsEnv, VFS_MODES)
 	if (not success) then
 		Spring.Log(section, LOG.ERROR, 'Error parsing ' .. filename .. ': ' .. tostring(defs))
-	elseif (defs == nil) then
+	elseif type(defs) ~= "table" then
 		Spring.Log(section, LOG.ERROR, 'Missing return table from: ' .. filename)
 	else
+		defs = configTbl(defs)
 		for weaponDefName, weaponDef in pairs(defs) do
 			if ((type(weaponDefName) == 'string') and (type(weaponDef) == 'table')) then
 				weaponDefs[weaponDefName] = weaponDef

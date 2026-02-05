@@ -20,6 +20,8 @@ local postProcFile = 'gamedata/featuredefs_post.lua'
 local system = VFS.Include('gamedata/system.lua')
 local section='featuredefs.lua'
 
+local configTbl = Spring.Utilities.ConfigTbl -- lowercase keys, unique subtables
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 --
@@ -53,9 +55,10 @@ for _, filename in ipairs(luaFiles) do
 
 	if (not success) then
 		Spring.Log(section, LOG.ERROR, 'Error parsing ' .. filename .. ': ' .. tostring(defs))
-	elseif (defs == nil) then
+	elseif type(defs) ~= "table" then
 		Spring.Log(section, LOG.ERROR, 'Missing return table from: ' .. filename)
 	else
+		defs = configTbl(defs)
 		for featureDefName, featureDef in pairs(defs) do
 			if ((type(featureDefName) == 'string') and (type(featureDef) == 'table')) then
 				featureDefs[featureDefName] = featureDef
