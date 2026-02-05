@@ -2,21 +2,31 @@
 -- Intended for use with Lua data files that may contain user-generated data. --
 --------------------------------------------------------------------------------
 
+local autoLowerTbls = setmetatable({}, { __mode = "k" }) -- allow collection of tables-as-keys
+
 ---Creates a new table, casing any string keys found in an input
 ---table and its subtables to lowercase, and copying any others.
 ---@param T table
 ---@return table t
 local function getLowerKeys(T)
-	local t = {}
+	local t = autoLowerTbls[T] and T or {}
 
-	for key, value in pairs(T) do
-		if type(key) == "string" then
-			key = key:lower()
+	if t ~= T then
+		for key, value in pairs(T) do
+			if type(key) == "string" then
+				key = key:lower()
+			end
+			if type(value) == "table" then
+				value = getLowerKeys(value)
+			end
+			t[key] = value
 		end
-		if type(value) == "table" then
-			value = getLowerKeys(value)
+	else
+		for key, value in pairs(t) do
+			if type(value) == "table" then
+				t[key] = getLowerKeys(value)
+			end
 		end
-		t[key] = value
 	end
 
 	return t
@@ -45,8 +55,6 @@ local autoLowerKeys = {
 		rawset(tbl, key, value)
 	end,
 }
-
-local autoLowerTbls = setmetatable({}, { __mode = "k" }) -- allow collection of tables-as-keys
 
 setAutoLowerKeys = function(tbl)
 	if not autoLowerTbls[tbl] then
