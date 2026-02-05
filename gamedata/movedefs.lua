@@ -571,9 +571,13 @@ local function validate(moveDef)
 	end
 end
 
-local defs = {}
+local configTbl = Spring.Utilities.ConfigTbl -- lowercase keys, unique subtables
+
+local defs = configTbl({})
 
 for moveName, moveData in pairs(moveDatas) do
+	moveData = configTbl(moveData)
+
 	---@type MoveDefCreate
 	local moveDef = {
 		name                   = moveName,
@@ -596,14 +600,11 @@ for moveName, moveData in pairs(moveDatas) do
 		overrideUnitWaterline  = moveData.overrideUnitWaterline,
 	}
 
-	
-
 	setMaxSlope(moveDef)
 
 	if validate(moveDef) then
 		defs[#defs + 1] = moveDef
 	end
-
 end
 
 return defs
