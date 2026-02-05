@@ -50,16 +50,16 @@ local autoLowerTbls = setmetatable({}, { __mode = "k" }) -- allow collection of 
 
 setAutoLowerKeys = function(tbl)
 	if not autoLowerTbls[tbl] then
-		autoLowerTbls[tbl] = true
-
 		tbl = setmetatable(tbl, autoLowerKeys)
+		autoLowerTbls[tbl] = true
+	end
 
-		for _, value in pairs(tbl) do
-			if type(value) == "table" then
-				setAutoLowerKeys(value)
-			end
+	for _, value in pairs(tbl) do
+		if type(value) == "table" then
+			setAutoLowerKeys(value)
 		end
 	end
+
 	return tbl
 end
 
