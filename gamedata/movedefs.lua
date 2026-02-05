@@ -579,7 +579,8 @@ for moveName, moveData in pairs(moveDatas) do
 
 	---@type MoveDefCreate
 	local moveDef = {
-		name                   = moveName,
+		name                   = moveName, -- uses exact casing
+		--
 		crushstrength          = moveData.crushstrength,
 		footprintx             = moveData.footprint,
 		footprintz             = moveData.footprint,
