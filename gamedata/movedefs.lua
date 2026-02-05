@@ -540,6 +540,8 @@ local moveDatas = {
 ---@field depthMod number?
 ---@field depthModParams table?
 ---@field speedModClass integer?
+---@field subMarine boolean? (default := `false`)
+---@field overrideUnitWaterline number? (default := `false`)
 
 ---@param moveDef MoveDefCreate
 local function setMaxSlope(moveDef)
