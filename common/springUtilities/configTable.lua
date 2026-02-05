@@ -6,6 +6,9 @@ local autoLowerTbls = setmetatable({}, { __mode = "k" }) -- allow collection of 
 
 ---Creates a new table, casing any string keys found in an input
 ---table and its subtables to lowercase, and copying any others.
+---
+---When the table has the `autoLowerKeys` metatable, though, the
+---table is returned, and its subtables checked for lowercasing.
 ---@param T table
 ---@return table t
 local function getLowerKeys(T)
