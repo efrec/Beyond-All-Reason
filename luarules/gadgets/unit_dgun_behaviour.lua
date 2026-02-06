@@ -28,7 +28,7 @@ local spGetGameFrame = Spring.GetGameFrame
 
 local mathSqrt = math.sqrt
 local mathMax = math.max
-local mathRound = math.round
+local mathFloor = math.floor
 local pairsNext = next
 
 local addShieldDamage -- see unit_shield_behaviour
@@ -42,6 +42,12 @@ local function generateWeaponTtlFunction(weaponDef)
 	local range = weaponDef.range
 	local speed = weaponDef.projectilespeed
 
+	-- Rather than rounding to the nearest integer, try to minimize both
+	-- cases where `weapon->TestRange` passes but the projectile misses,
+	-- and cases where the DGun projectile overshoots its range; there's
+	-- not a perfect solution unless we are willing to use more finesse.
+	local biasTtl = 0.5 * (1 + math.clamp(speed / weaponDef.damageAreaOfEffect, 0, 1))
+
 	-- Not handling anything between 0 and 1:
 	if weaponDef.cylinderTargeting >= 1 then
 		return function(unitID, projectileID)
@@ -49,7 +55,7 @@ local function generateWeaponTtlFunction(weaponDef)
 			local px, py, pz = spGetProjectilePosition(projectileID)
 			local dx, dy, dz = spGetProjectileDirection(projectileID)
 			local projection = (px - ux) * dx + (pz - uz) * dz
-			return mathRound((range - projection) / speed)
+			return mathFloor((range - projection) / speed + biasTtl)
 		end
 	else -- treat all other as cylinder == 0:
 		return function(unitID, projectileID)
@@ -57,7 +63,7 @@ local function generateWeaponTtlFunction(weaponDef)
 			local px, py, pz = spGetProjectilePosition(projectileID)
 			local dx, dy, dz = spGetProjectileDirection(projectileID)
 			local projection = (px - ux) * dx + (py - uy) * dy + (pz - uz) * dz
-			return mathRound((range - projection) / speed)
+			return mathFloor((range - projection) / speed + biasTtl)
 		end
 	end
 end
