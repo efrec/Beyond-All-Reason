@@ -7,7 +7,9 @@
 --                                                                            --
 --------------------------------------------------------------------------------
 
-local autoLowerTbls = setmetatable({}, { __mode = "k" }) -- allow collection of tables-as-keys
+-- Track tables that have been set to auto-lowercase their keys.
+-- The "k" mode allows collection of unreferenced keys (tables).
+local autoLowerTbls = setmetatable({}, { __mode = "k" })
 
 ---Creates a new table, casing any string keys found in an input
 ---table and its subtables to lowercase, and copying any others.
