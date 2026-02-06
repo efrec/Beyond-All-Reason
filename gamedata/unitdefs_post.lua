@@ -219,7 +219,7 @@ local function preProcessTweakOptions()
 		modOptions = Spring.GetModOptionsCopy()
 	end
 
-	local configTbl = Spring.Utilities.ConfigTbl
+	local configTbl = Spring.Utilities.ConfigTbl -- lowercase keys, unique subtables
 
 	--------------------------------------------------------------------------------
 	--------------------------------------------------------------------------------
@@ -274,7 +274,7 @@ local function preProcessTweakOptions()
 	if hasTweakDefs then
 		-- Arbitrary lua code can change def tables and their subtables arbitrarily.
 		for name, unitDef in pairs(UnitDefs) do
-			unitDef = configTbl(unitDef)
+			UnitDefs[name] = configTbl(unitDef)
 		end
 	end
 
