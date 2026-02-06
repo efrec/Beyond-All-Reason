@@ -1,4 +1,4 @@
--- springFunctions/configTable.lua ---------------------------------------------
+-- springUtilities/configTable.lua ---------------------------------------------
 --                                                                            --
 -- Intended for use with Lua data files that may contain user-generated data. --
 --                                                                            --
