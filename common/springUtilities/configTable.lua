@@ -5,6 +5,23 @@
 -- This does not provide security or protection for tables beyond very simple --
 -- key-access patterns to enforce lowercasing. Do _not_ use this as security. --
 --                                                                            --
+-- General usage:                                                             --
+-- > local tbl = ConfigTbl({ myImportantKey = 10, myimportantkey = 100 })     --
+-- >                                                                          --
+-- > Spring.Echo(table.count(tbl))                                            --
+-- > Spring.Echo(tbl.myimportantkey)                                          --
+-- > Spring.Echo(tbl.myImportantKey)                                          --
+-- > tbl.myimportantkey = "a"                                                 --
+-- > tbl.myImportantKey = "b"                                                 --
+-- > Spring.Echo(tbl.myimportantkey)                                          --
+-- > Spring.Echo(tbl.myImportantKey)                                          --
+-- >                                                                          --
+-- > Result:                                                                  --
+-- > "1"                                                                      --
+-- > "100"                                                                    --
+-- > "100"                                                                    --
+-- > "b"                                                                      --
+-- > "b"                                                                      --
 --------------------------------------------------------------------------------
 
 -- Track tables that have been set to auto-lowercase their keys.
@@ -22,14 +39,22 @@ local function getLowerKeys(T)
 	local t = autoLowerTbls[T] and T or {}
 
 	if t ~= T then
+		local preferred = {} -- With mixed casings, prefer the lowercase key.
+
 		for key, value in pairs(T) do
-			if type(key) == "string" then
-				key = key:lower()
-			end
 			if type(value) == "table" then
 				value = getLowerKeys(value)
 			end
-			t[key] = value
+
+			if type(key) == "string" then
+				local lower = key:lower()
+				if key == lower or not preferred[lower] then
+					preferred[lower] = true
+					t[lower] = value
+				end
+			else
+				t[key] = value
+			end
 		end
 	else
 		for key, value in pairs(t) do
