@@ -13,6 +13,7 @@
 -- > Spring.Echo(tbl.myImportantKey)                                          --
 -- > tbl.myimportantkey = "a"                                                 --
 -- > tbl.myImportantKey = "b"                                                 --
+-- > Spring.Echo(table.count(tbl))                                            --
 -- > Spring.Echo(tbl.myimportantkey)                                          --
 -- > Spring.Echo(tbl.myImportantKey)                                          --
 -- >                                                                          --
@@ -20,6 +21,7 @@
 -- > "1"                                                                      --
 -- > "100"                                                                    --
 -- > "100"                                                                    --
+-- > "1"                                                                      --
 -- > "b"                                                                      --
 -- > "b"                                                                      --
 --------------------------------------------------------------------------------
