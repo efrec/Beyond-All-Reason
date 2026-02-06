@@ -28,6 +28,7 @@ local spGetGameFrame = Spring.GetGameFrame
 
 local mathSqrt = math.sqrt
 local mathMax = math.max
+local mathRound = math.round
 local pairsNext = next
 
 local addShieldDamage -- see unit_shield_behaviour
@@ -48,7 +49,7 @@ local function generateWeaponTtlFunction(weaponDef)
 			local px, py, pz = spGetProjectilePosition(projectileID)
 			local dx, dy, dz = spGetProjectileDirection(projectileID)
 			local projection = (px - ux) * dx + (pz - uz) * dz
-			return (range - projection) / speed
+			return mathRound((range - projection) / speed)
 		end
 	else -- treat all other as cylinder == 0:
 		return function(unitID, projectileID)
@@ -56,7 +57,7 @@ local function generateWeaponTtlFunction(weaponDef)
 			local px, py, pz = spGetProjectilePosition(projectileID)
 			local dx, dy, dz = spGetProjectileDirection(projectileID)
 			local projection = (px - ux) * dx + (py - uy) * dy + (pz - uz) * dz
-			return (range - projection) / speed
+			return mathRound((range - projection) / speed)
 		end
 	end
 end
