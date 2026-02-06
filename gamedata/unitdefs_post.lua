@@ -228,7 +228,6 @@ local function preProcessTweakOptions()
 
 	local tweakDefs = {}
 	local tweakUnits = {}
-
 	do
 		local tweaks = {
 			defs  = tweakDefs,
