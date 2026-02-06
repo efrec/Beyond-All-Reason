@@ -1,5 +1,10 @@
 -- springFunctions/configTable.lua ---------------------------------------------
+--                                                                            --
 -- Intended for use with Lua data files that may contain user-generated data. --
+--                                                                            --
+-- This does not provide security or protection for tables beyond very simple --
+-- key-access patterns to enforce lowercasing. Do _not_ use this as security. --
+--                                                                            --
 --------------------------------------------------------------------------------
 
 local autoLowerTbls = setmetatable({}, { __mode = "k" }) -- allow collection of tables-as-keys
