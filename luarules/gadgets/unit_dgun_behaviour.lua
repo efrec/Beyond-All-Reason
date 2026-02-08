@@ -42,11 +42,38 @@ local function generateWeaponTtlFunction(weaponDef)
 	local range = weaponDef.range
 	local speed = weaponDef.projectilespeed
 
-	-- Rather than rounding to the nearest integer, try to minimize both
-	-- cases where `weapon->TestRange` passes but the projectile misses,
-	-- and cases where the DGun projectile overshoots its range; there's
-	-- not a perfect solution unless we are willing to use more finesse.
-	local biasTtl = 0.5 * (1 + math.clamp(speed / weaponDef.damageAreaOfEffect, 0, 1))
+	-- Engine DGuns would have to apply a different range correction – depending on
+	-- whether the projectile were "flying" or "grounded" – since only the grounded
+	-- type produces an area of effect. But we apply our own AoE on the flying type.
+	--
+	-- When we fit the projectile TTL to the weapon range, then, we can try to make
+	-- sure we cover the full weapon range without firing too far beyond that range
+	-- by considering that small amount of area of effect on the flying projectile.
+	--
+	-- Finally: We have to make sure to minimize the cases where `weapon->TestRange`
+	-- would show that the projectile would hit but our short TTL would show a miss.
+	-- This can be over-sensitive to small effects; e.g., the bobbing of VTOL units.
+	local ttlRoundingBias = 0.5
+	do
+		-- Try to guarantee sufficient damage at the maximum range.
+		local damageToBaseArmor = weaponDef.damages[Game.armorTypes.default]
+		local edgeEffectiveness = weaponDef.edgeEffectiveness
+		local explosionRadius = weaponDef.damageAreaOfEffect * 0.5
+
+		local damageDGunMinimum = math.min(damageToBaseArmor * 0.5, 10000 * 0.5)
+		local damageDGunMaximum = math.max(damageToBaseArmor * 1.0, 10000 * 1.0)
+		local damageAtMaxRange = math.clamp(damageToBaseArmor * 0.5, damageDGunMinimum, damageDGunMaximum)
+		local targetEdgeEffect = damageAtMaxRange / damageToBaseArmor
+
+		-- See `CGameHelper::DoExplosionDamage`.
+		-- From solving: effect = (expRadius + 0.001f - expDist) / (expRadius + 0.001f - expDist * expEdgeEffect)
+		-- We get: expDist = (expRadius + 0.001f) * (1 - effect) / (1 - effect * expEdgeEffect)
+		local distanceToEffect = (explosionRadius + 0.001) * (1 - targetEdgeEffect) / (1 - targetEdgeEffect * edgeEffectiveness)
+
+		if distanceToEffect > 0 then
+			ttlRoundingBias = math.clamp(speed / distanceToEffect, 0.5, 1)
+		end
+	end
 
 	-- Not handling anything between 0 and 1:
 	if weaponDef.cylinderTargeting >= 1 then
@@ -55,7 +82,7 @@ local function generateWeaponTtlFunction(weaponDef)
 			local px, py, pz = spGetProjectilePosition(projectileID)
 			local dx, dy, dz = spGetProjectileDirection(projectileID)
 			local projection = (px - ux) * dx + (pz - uz) * dz
-			return mathFloor((range - projection) / speed + biasTtl)
+			return mathFloor((range - projection) / speed + ttlRoundingBias)
 		end
 	else -- treat all other as cylinder == 0:
 		return function(unitID, projectileID)
@@ -63,7 +90,7 @@ local function generateWeaponTtlFunction(weaponDef)
 			local px, py, pz = spGetProjectilePosition(projectileID)
 			local dx, dy, dz = spGetProjectileDirection(projectileID)
 			local projection = (px - ux) * dx + (py - uy) * dy + (pz - uz) * dz
-			return mathFloor((range - projection) / speed + biasTtl)
+			return mathFloor((range - projection) / speed + ttlRoundingBias)
 		end
 	end
 end
