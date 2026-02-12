@@ -213,7 +213,7 @@ end
 
 function gadget:Initialize()
 	-- Units that negate their XP gains still share XP to their parent (if any).
-	-- We track the negated XP gains, still, to allow custom game XP behaviors.
+	-- We track the negated XP gains, as well, to allow custom game XP behaviors.
 	GG.UnitGainedXP = experienceGainedFull
 end
 
