@@ -80,51 +80,41 @@ local function calculatePowerDiffXP(childID, parentID) -- this function calculat
 end
 
 local function setUnitCreationXP(unitID)
-	local carrierUnitID = spGetUnitRulesParam(unitID, "carrier_host_unit_id")
-	local parentUnitID = spGetUnitRulesParam(unitID, "parent_unit_id")
-
-	local parentID = carrierUnitID or parentUnitID
+	local parentID = spGetUnitRulesParam(unitID, "parent_unit_id")
 	local parentDefID = spGetUnitDefID(parentID)
 	if not parentID or not parentDefID then
 		return
 	end
 
-	local childToParent
-	if carrierUnitID then
-		if parentsInheritXP[parentDefID]:find("DRONE") then
-			childToParent = {
-				unitid = unitID,
-				parentunitid = carrierUnitID,
-				parentxpmultiplier = calculatePowerDiffXP(unitID, carrierUnitID),
-				childtype = "DRONE",
-			}
-			childrenWithParents[unitID] = childToParent
-		end
-	end
-	if parentUnitID then
-		if parentsInheritXP[parentDefID]:find("BOTCANNON") then
-			childToParent = {
-				unitid = unitID,
-				parentunitid = parentUnitID,
-				parentxpmultiplier = calculatePowerDiffXP(unitID, parentUnitID),
-				childtype = "BOTCANNON",
-			}
-			childrenWithParents[unitID] = childToParent
-		end
-	end
-	if not childToParent then
-		-- MOBILEBUILT and TURRET rules work differently, see UnitCreated:
-		childToParent = childrenWithParents[unitID]
-		if not childToParent then
+	local childData
+	if parentsInheritXP[parentDefID]:find("DRONE") then
+		childData = {
+			unitid = unitID,
+			parentunitid = parentID,
+			parentxpmultiplier = calculatePowerDiffXP(unitID, parentID),
+			childtype = "DRONE",
+		}
+		childrenWithParents[unitID] = childData
+	elseif parentsInheritXP[parentDefID]:find("BOTCANNON") then
+		childData = {
+			unitid = unitID,
+			parentunitid = parentID,
+			parentxpmultiplier = calculatePowerDiffXP(unitID, parentID),
+			childtype = "BOTCANNON",
+		}
+		childrenWithParents[unitID] = childData
+	else
+		childData = childrenWithParents[unitID] -- from :UnitCreated
+		if not childData then
 			return
 		end
 	end
 
-	parentID = childToParent.parentunitid
+	parentID = childData.parentunitid
 
 	if parentID and Spring.GetUnitIsDead(parentID) == false then
 		parentDefID = spGetUnitDefID(parentID)
-		if (childrenInheritXP[parentDefID] or ""):find(childToParent.childtype or "") then
+		if (childrenInheritXP[parentDefID] or ""):find(childData.childtype or "") then
 			local parentXP = spGetUnitExperience(parentID)
 			local initMult = inheritCreationXP[parentDefID] or 1
 			local childInitXP = parentXP * initMult
@@ -209,6 +199,14 @@ function gadget:UnitExperience(unitID, unitDefID, unitTeam, newXP, oldXP)
 	experienceGainedFull[unitID] = math.max(0, (experienceGainedFull[unitID] or 0) + gainedXP)
 
     inUnitExperience = false
+end
+
+local unitDealtDamage = {}
+
+function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projectileID, attackerID)
+	if childrenWithParents[unitID] then
+		unitDealtDamage[unitID] = true
+	end
 end
 
 function gadget:Initialize()

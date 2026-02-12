@@ -446,6 +446,7 @@ local function SpawnUnit(spawnData)
 						local dockingpiece
 						if ownerID then
 							spSetUnitRulesParam(subUnitID, "carrier_host_unit_id", ownerID, PRIVATE)
+							spSetUnitRulesParam(subUnitID, "parent_unit_id", ownerID, PRIVATE) -- for xp inheritance
 							local subUnitCount = carrierMetaList[ownerID].subUnitCount[dronetypeIndex]
 							local subunitDefID	= spGetUnitDefID(subUnitID)
 							subUnitCount = subUnitCount + 1
@@ -545,6 +546,7 @@ local function attachToNewCarrier(newCarrier, subUnitID)
 
 	if carrierMetaList[newCarrier] then
 		spSetUnitRulesParam(subUnitID, "carrier_host_unit_id", newCarrier, PRIVATE)
+		spSetUnitRulesParam(subUnitID, "parent_unit_id", newCarrier, PRIVATE) -- for inherited xp
 		local subUnitCount = carrierMetaList[newCarrier].subUnitCount
 		subUnitCount = subUnitCount + 1
 		carrierMetaList[newCarrier].subUnitCount = subUnitCount
@@ -909,6 +911,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 								carrierMetaList[newCarrier].activeRecall = false
 
 								spSetUnitRulesParam(subUnitID, "carrier_host_unit_id", newCarrier, PRIVATE)
+								spSetUnitRulesParam(subUnitID, "parent_unit_id", newCarrier, PRIVATE) -- for inherited xp
 							end
 
 						else
@@ -922,6 +925,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 							SetUnitNoSelect(subUnitID, false)
 						end
 						spSetUnitRulesParam(subUnitID, "carrier_host_unit_id", nil, PRIVATE)
+						spSetUnitRulesParam(subUnitID, "parent_unit_id", nil, PRIVATE) -- for inherited xp
 						local droneData = {
 							active = true,
 							docked = false, --
