@@ -29,6 +29,7 @@ local inheritChildrenXP = {} -- stores the value of XP rate to be derived from u
 local inheritCreationXP = {} -- multiplier of XP to inherit to newly created units, indexed by unitID
 local childrenInheritXP = {} -- stores the string that represents the types of units that will inherit the parent's XP when created
 local parentsInheritXP = {} -- stores the string that represents the types of units the parent will gain xp from
+local unitNeverGainsXP = {}
 local childrenWithParents = {} --stores the parent/child relationships format. Each entry stores key of unitID with an array of {unitID, builderID, xpInheritance}
 local mobileUnits = {}
 local turretUnits = {}
@@ -43,6 +44,7 @@ for id, def in pairs(UnitDefs) do
 	end
 	parentsInheritXP[id] = def.customParams.parentsinheritxp or ""
 	childrenInheritXP[id] = def.customParams.childreninheritxp or ""
+	unitNeverGainsXP[id] = def.customParams.no_xp_gain and true or false
 	mobileUnits[id] = (def.speed or 0) > 0
 	if def.speed == 0 and def.weapons and def.weapons[1] then
 		for i = 1, #def.weapons do
@@ -61,6 +63,8 @@ if table.count(inheritChildrenXP) == 0 then -- this enables or disables the gadg
 end
 
 local oldChildXPValues = {}
+local experienceGained = {} -- aggregated partial XP gains, applied in batches
+local experienceGainedFull = {} -- aggregated full XP gains
 
 local function calculatePowerDiffXP(childID, parentID) -- this function calculates the right proportion of XP to inherit from child as though they were attacking the target themself.
 	local childDefID = spGetUnitDefID(childID)
@@ -152,16 +156,16 @@ end
 
 function gadget:GameFrame(frame)
 	if frame%30 == 0 then
-		local parentID
-		for unitID, value in pairs(childrenWithParents) do
-			local oldXP = oldChildXPValues[unitID] or 0
+		for unitID, data in pairs(childrenWithParents) do
+			local parentID = data.parentunitid
 			local newXP = spGetUnitExperience(unitID) or 0
-			if newXP > oldXP then
-				parentID = childrenWithParents[unitID].parentunitid
+			local oldXP = oldChildXPValues[unitID] or 0
+			local addXP = experienceGained[unitID] or 0
+			if Spring.GetUnitIsDead(parentID) == false and oldXP < newXP + addXP then
 				local parentXP = spGetUnitExperience(parentID) or 0
-				local multiplier = childrenWithParents[unitID].parentxpmultiplier
-				local gainedXP = parentXP+((newXP-oldXP)*multiplier)
-				oldChildXPValues[unitID] = newXP
+				local multiplier = data.parentxpmultiplier or 1
+				local gainedXP = parentXP + multiplier * (newXP + addXP - oldXP)
+				oldChildXPValues[unitID] = newXP + addXP
 				spSetUnitExperience(parentID, gainedXP)
 			end
 		end
@@ -179,4 +183,35 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 		end
 	end
 	childrenWithParents[unitID] = nil
+end
+
+local inUnitExperience = false
+
+function gadget:UnitExperience(unitID, unitDefID, unitTeam, newXP, oldXP)
+    if not unitNeverGainsXP[unitDefID] or inUnitExperience then
+        return
+    end
+
+    inUnitExperience = true
+
+	local gainedXP = newXP - oldXP
+
+	-- Negate the gained experience.
+	Spring.AddUnitExperience(unitID, -gainedXP)
+
+	-- Keep incremental XP gains and apply them in the batch update.
+	experienceGained[unitID] = (experienceGained[unitID] or 0) + gainedXP
+	experienceGainedFull[unitID] = (experienceGainedFull[unitID] or 0) + gainedXP
+
+    inUnitExperience = false
+end
+
+function gadget:Initialize()
+	-- Units that negate their XP gains still share XP to their parent (if any).
+	-- We track the negated XP gains, still, to allow custom game XP behaviors.
+	GG.UnitGainedXP = experienceGainedFull
+end
+
+function gadget:Shutdown()
+	GG.UnitGainedXP = nil
 end
