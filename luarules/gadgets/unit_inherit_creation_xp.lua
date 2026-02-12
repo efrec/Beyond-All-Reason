@@ -81,9 +81,9 @@ end
 local function setUnitCreationXP(unitID)
 	local carrierUnitID = spGetUnitRulesParam(unitID, "carrier_host_unit_id")
 	local parentUnitID = spGetUnitRulesParam(unitID, "parent_unit_id")
+
 	local parentID = carrierUnitID or parentUnitID
 	local parentDefID = spGetUnitDefID(parentID)
-
 	if not parentID or not parentDefID then
 		return
 	end
@@ -93,28 +93,30 @@ local function setUnitCreationXP(unitID)
 		if parentsInheritXP[parentDefID]:find("DRONE") then
 			childToParent = {
 				unitid = unitID,
-				parentunitid = parentID,
-				parentxpmultiplier = calculatePowerDiffXP(unitID, parentID),
+				parentunitid = carrierUnitID,
+				parentxpmultiplier = calculatePowerDiffXP(unitID, carrierUnitID),
 				childtype = "DRONE",
 			}
 			childrenWithParents[unitID] = childToParent
 		end
-	elseif parentUnitID then
+	end
+	if parentUnitID then
 		if parentsInheritXP[parentDefID]:find("BOTCANNON") then
 			childToParent = {
 				unitid = unitID,
-				parentunitid = parentID,
-				parentxpmultiplier = calculatePowerDiffXP(unitID, parentID),
+				parentunitid = parentUnitID,
+				parentxpmultiplier = calculatePowerDiffXP(unitID, parentUnitID),
 				childtype = "BOTCANNON",
 			}
 			childrenWithParents[unitID] = childToParent
 		end
-	else
-		-- MOBILEBUILT and TURRET rules work differently, see UnitCreated:
-		childToParent = childrenWithParents[unitID]
 	end
 	if not childToParent then
-		return
+		-- MOBILEBUILT and TURRET rules work differently, see UnitCreated:
+		childToParent = childrenWithParents[unitID]
+		if not childToParent then
+			return
+		end
 	end
 
 	parentID = childToParent.parentunitid
