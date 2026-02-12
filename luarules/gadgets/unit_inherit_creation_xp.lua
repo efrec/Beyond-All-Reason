@@ -58,8 +58,9 @@ for id, def in pairs(UnitDefs) do
 	unitPowerDefs[id] = def.power
 end
 
-if table.count(inheritChildrenXP) == 0 then -- this enables or disables the gadget
-	return false
+if table.count(inheritChildrenXP) == 0 then
+	gadgetHandler:RemoveGadget()
+	return
 end
 
 local oldChildXPValues = {}
