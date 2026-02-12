@@ -198,12 +198,14 @@ function gadget:UnitExperience(unitID, unitDefID, unitTeam, newXP, oldXP)
 
 	local gainedXP = newXP - oldXP
 
-	-- Negate the gained experience.
-	Spring.AddUnitExperience(unitID, -gainedXP)
+	-- We cannot subtract XP with SetUnitExperience, so we negate the gains.
+	if gainedXP > 0 then
+		Spring.AddUnitExperience(unitID, -gainedXP)
+	end
 
 	-- Keep incremental XP gains and apply them in the batch update.
 	experienceGained[unitID] = (experienceGained[unitID] or 0) + gainedXP
-	experienceGainedFull[unitID] = (experienceGainedFull[unitID] or 0) + gainedXP
+	experienceGainedFull[unitID] = math.max(0, (experienceGainedFull[unitID] or 0) + gainedXP)
 
     inUnitExperience = false
 end
