@@ -41,17 +41,9 @@ for id, def in pairs(UnitDefs) do
 	if def.customParams.inheritcreationxpmultiplier then
 		inheritCreationXP[id] = def.customParams.inheritcreationxpmultiplier or 1
 	end
-	if def.customParams.parentsinheritxp then
-		parentsInheritXP[id] = def.customParams.parentsinheritxp or " "
-	else parentsInheritXP[id] = " "
-	end
-	if def.customParams.childreninheritxp then
-		childrenInheritXP[id] = def.customParams.childreninheritxp or " "
-	else childrenInheritXP[id] = " "
-	end
-	if def.speed and def.speed ~= 0 then
-		mobileUnits[id] = true
-	end
+	parentsInheritXP[id] = def.customParams.parentsinheritxp or ""
+	childrenInheritXP[id] = def.customParams.childreninheritxp or ""
+	mobileUnits[id] = (def.speed or 0) > 0
 	if def.speed == 0 and def.weapons and def.weapons[1] then
 		for i = 1, #def.weapons do
 			local wDef = WeaponDefs[def.weapons[i].weaponDef]
@@ -61,14 +53,14 @@ for id, def in pairs(UnitDefs) do
 			end
 		end
 	end
-	if def.power then
-		unitPowerDefs[id] = def.power
-	end
+	unitPowerDefs[id] = def.power
 end
 
-if table.count(inheritChildrenXP) <= 0 then -- this enables or disables the gadget
+if table.count(inheritChildrenXP) == 0 then -- this enables or disables the gadget
 	return false
 end
+
+local oldChildXPValues = {}
 
 local function calculatePowerDiffXP(childID, parentID) -- this function calculates the right proportion of XP to inherit from child as though they were attacking the target themself.
 	local childDefID = spGetUnitDefID(childID)
@@ -78,89 +70,89 @@ local function calculatePowerDiffXP(childID, parentID) -- this function calculat
 	end
 	local childPower = unitPowerDefs[childDefID] or 1
 	local parentPower = unitPowerDefs[parentDefID] or 1
-	return (childPower / parentPower) * (inheritChildrenXP[parentDefID] or 1)
+	local parentToChildScale = inheritChildrenXP[parentDefID] or 1
+	return (childPower / parentPower) * parentToChildScale
 end
 
-local initializeList = {}
+local function setUnitCreationXP(unitID)
+	local carrierUnitID = spGetUnitRulesParam(unitID, "carrier_host_unit_id")
+	local parentUnitID = spGetUnitRulesParam(unitID, "parent_unit_id")
+	local parentID = carrierUnitID or parentUnitID
+	local parentDefID = spGetUnitDefID(parentID)
+
+	if not parentID or not parentDefID then
+		return
+	end
+
+	local childToParent
+	if carrierUnitID then
+		if parentsInheritXP[parentDefID]:find("DRONE") then
+			childToParent = {
+				unitid = unitID,
+				parentunitid = parentID,
+				parentxpmultiplier = calculatePowerDiffXP(unitID, parentID),
+				childtype = "DRONE",
+			}
+			childrenWithParents[unitID] = childToParent
+		end
+	elseif parentUnitID then
+		if parentsInheritXP[parentDefID]:find("BOTCANNON") then
+			childToParent = {
+				unitid = unitID,
+				parentunitid = parentID,
+				parentxpmultiplier = calculatePowerDiffXP(unitID, parentID),
+				childtype = "BOTCANNON",
+			}
+			childrenWithParents[unitID] = childToParent
+		end
+	else
+		-- MOBILEBUILT and TURRET rules work differently, see UnitCreated:
+		childToParent = childrenWithParents[unitID]
+	end
+	if not childToParent then
+		return
+	end
+
+	parentID = childToParent.parentunitid
+
+	if parentID and Spring.GetUnitIsDead(parentID) == false then
+		parentDefID = spGetUnitDefID(parentID)
+		if (childrenInheritXP[parentDefID] or ""):find(childToParent.childtype or "") then
+			local parentXP = spGetUnitExperience(parentID)
+			local initMult = inheritCreationXP[parentDefID] or 1
+			local childInitXP = parentXP * initMult
+			spSetUnitExperience(unitID, childInitXP)
+			oldChildXPValues[unitID] = childInitXP
+		end
+	end
+end
+
 function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
-	if  builderID and mobileUnits[spGetUnitDefID(unitID)] and string.find(parentsInheritXP[spGetUnitDefID(builderID)], "MOBILEBUILT") then -- only mobile combat units will pass xp
+	if  builderID and mobileUnits[unitDefID] and parentsInheritXP[spGetUnitDefID(builderID)]:find("MOBILEBUILT") then -- only mobile combat units will pass xp
 		childrenWithParents[unitID] = {
 			unitid = unitID,
 			parentunitid = builderID,
 			parentxpmultiplier = calculatePowerDiffXP(unitID, builderID),
-			childinheritsXP = childrenInheritXP[spGetUnitDefID(unitID)],
 			childtype = "MOBILEBUILT",
 		}
 	end
-	if  builderID and turretUnits[spGetUnitDefID(unitID)] and string.find(parentsInheritXP[spGetUnitDefID(builderID)], "TURRET") then -- only immobile combat units will pass xp
+	if  builderID and turretUnits[unitDefID] and parentsInheritXP[spGetUnitDefID(builderID)]:find("TURRET") then -- only immobile combat units will pass xp
 		childrenWithParents[unitID] = {
 			unitid = unitID,
 			parentunitid = builderID,
 			parentxpmultiplier = calculatePowerDiffXP(unitID, builderID),
-			childinheritsXP = childrenInheritXP[spGetUnitDefID(unitID)],
 			childtype = "TURRET",
 		}
-end
+	end
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
-	initializeList[unitID] = true --must initialize after finishing building otherwise child XP inheritance won't happen
+	setUnitCreationXP(unitID)
 end
 
-local oldChildXPValues = {}
 function gadget:GameFrame(frame)
 	if frame%30 == 0 then
 		local parentID
-		for unitID, value in pairs(initializeList) do
-			local unitDefID = spGetUnitDefID(unitID)
-			local parentDefID
-			if spGetUnitRulesParam(unitID, "carrier_host_unit_id") then --estabalishes unit_carrier_spawner parenthood
-				parentID = spGetUnitRulesParam(unitID, "carrier_host_unit_id")
-				parentDefID = spGetUnitDefID(parentID)
-				if parentsInheritXP[parentDefID] ~= nil and string.find(parentsInheritXP[parentDefID], "DRONE") then
-					childrenWithParents[unitID] = {
-						unitid = unitID,
-						parentunitid = parentID,
-						parentxpmultiplier = calculatePowerDiffXP(unitID, parentID),
-						childinheritsXP = childrenInheritXP[unitDefID],
-						childtype = "DRONE",
-					}
-				end
-			end
-			if spGetUnitRulesParam(unitID, "parent_unit_id") then --estabalishes unit_explosion_spawner parenthood
-				parentID = spGetUnitRulesParam(unitID, "parent_unit_id")
-				parentDefID = spGetUnitDefID(parentID)
-				if parentsInheritXP[parentDefID] ~= nil and string.find(parentsInheritXP[parentDefID], "BOTCANNON") then
-					childrenWithParents[unitID] = {
-						unitid = unitID,
-						parentunitid = parentID,
-						parentxpmultiplier = calculatePowerDiffXP(unitID, parentID),
-						childinheritsXP = childrenInheritXP[unitDefID],
-						childtype = "BOTCANNON",
-					}
-				end
-			end
-			if childrenWithParents[unitID] then
-				parentID = childrenWithParents[unitID].parentunitid --sets parentID if it's not already set
-				parentDefID = spGetUnitDefID(parentID) -- gets the parentDefID
-			end
-			if parentID ~= nil and childrenInheritXP[parentDefID] and childrenWithParents[unitID] then --if the parent has the unitdef, set childxp to parent xp.
-				local parentTypes = childrenInheritXP[parentDefID]
-				if string.find(parentTypes, childrenWithParents[unitID].childtype) then -- if child is correct type, set xp
-					local parentXP = spGetUnitExperience(parentID)
-					spSetUnitExperience(unitID, parentXP)
-					oldChildXPValues[unitID] = parentXP --add parent xp to the oldxp value to exclude it from inheritance
-					local initMult = inheritCreationXP[parentDefID] or 1
-					local childInitXP = parentXP * initMult
-					spSetUnitExperience(unitID, childInitXP)
-					oldChildXPValues[unitID] = childInitXP  --add parent xp to the oldxp value to exclude it from inheritance
-				end
-			end
-
-			initializeList[unitID] = nil -- this concludes innitialization
-		end
-
-
 		for unitID, value in pairs(childrenWithParents) do
 			local oldXP = oldChildXPValues[unitID] or 0
 			local newXP = spGetUnitExperience(unitID) or 0
@@ -177,7 +169,6 @@ function gadget:GameFrame(frame)
 end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
-
 	local evoID = Spring.GetUnitRulesParam(unitID, "unit_evolved")
 	if evoID then
 		for id, data in pairs(childrenWithParents) do
@@ -187,6 +178,5 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 			end
 		end
 	end
-	childrenWithParents[unitID] = nil --removes units from lists when destroyed
-	initializeList[unitID] = nil
+	childrenWithParents[unitID] = nil
 end
