@@ -1002,7 +1002,7 @@ function WeaponDef_Post(name, wDef)
 			airReworkWeapon(name, wDef)
 		end
 
-		---- SHIELD CHANGES
+		-- Shields and shield interceptability
 
 		if wDef.weapontype == "DGun" then
 			wDef.interceptedbyshieldtype = 512 --make dgun (like behemoth) interceptable by shields, optionally
@@ -1011,30 +1011,8 @@ function WeaponDef_Post(name, wDef)
 		end
 
 		local shieldModOption = modOptions.experimentalshields
-
-		if shieldModOption == "absorbplasma" then
-			if wDef.shield and wDef.shield.repulser and wDef.shield.repulser ~= false then
-				wDef.shield.repulser = false
-			end
-		elseif shieldModOption == "absorbeverything" then
-			if wDef.shield and wDef.shield.repulser and wDef.shield.repulser ~= false then
-				wDef.shield.repulser = false
-			end
-			if (not wDef.interceptedbyshieldtype) or wDef.interceptedbyshieldtype ~= 1 then
-				wDef.interceptedbyshieldtype = 1
-			end
-		elseif shieldModOption == "bounceeverything" then
-			if wDef.shield then
-				wDef.shield.repulser = true
-			end
-			if (not wDef.interceptedbyshieldtype) or wDef.interceptedbyshieldtype ~= 1 then
-				wDef.interceptedbyshieldtype = 1
-			end
-		end
-
-
-		local bounceShields = shieldModOption == "bounceeverything" or shieldModOption == "bounceplasma"
-		if bounceShields then
+		local engineShields = shieldModOption == "bounceeverything" or shieldModOption == "bounceplasma" -- repulsion is engine-based
+		if engineShields then
 			local shieldPowerMultiplier = 0.529 --converts to pre-shield rework vanilla integration
 			local shieldRegenMultiplier = 0.4 --converts to pre-shield rework vanilla integration
 			if wDef.shield then
@@ -1042,24 +1020,24 @@ function WeaponDef_Post(name, wDef)
 				wDef.shield.powerregen = wDef.shield.powerregen * shieldRegenMultiplier
 				wDef.shield.startingpower = wDef.shield.startingpower * shieldPowerMultiplier
 				wDef.shield.repulser = true
+			elseif shieldModOption == "bounceeverything" then
+				wDef.interceptedbyshieldtype = 1
 			end
-		end
+		elseif wDef.shield then
+			wDef.shield.repulser = false -- disabled for custom/lua shields
+		else
+			if shieldModOption == "absorbeverything" then
+				wDef.interceptedbyshieldtype = 1
+			elseif wDef.interceptedbyshieldtype ~= 1 and wDef.weapontype ~= "Cannon" then
+				wDef.customparams.shield_aoe_penetration = true -- allows unblocked weapons' aoe to reach inside shields
+			end
 
-		-- allows unblocked weapons' aoe to reach inside shields
-		if ((not wDef.interceptedbyshieldtype or wDef.interceptedbyshieldtype ~= 1) and wDef.weapontype ~= "Cannon") then
-			wDef.customparams = wDef.customparams or {}
-			wDef.customparams.shield_aoe_penetration = true
-		end
+			if wDef.damage ~= nil then
+				-- For balance, paralyzers need to do reduced damage to shields, as their raw raw damage is outsized
+				local paralyzerShieldDamageMultiplier = 0.25
+				-- VTOL's may or may not do full damage to shields if not defined in weapondefs
+				local vtolShieldDamageMultiplier = 0
 
-		-- Due to the engine not handling overkill damage, we have to store the original shield damage values as a customParam for unit_shield_behavior.lua to reference
-		if wDef.damage ~= nil then
-			-- For balance, paralyzers need to do reduced damage to shields, as their raw raw damage is outsized
-			local paralyzerShieldDamageMultiplier = 0.25
-			-- VTOL's may or may not do full damage to shields if not defined in weapondefs
-			local vtolShieldDamageMultiplier = 0
-
-			if not bounceShields then --this is for the block-style shields gadget to use.
-				wDef.customparams = wDef.customparams or {}
 				if wDef.damage.shields then
 					wDef.customparams.shield_damage = wDef.damage.shields
 				elseif wDef.damage.default then
@@ -1086,23 +1064,6 @@ function WeaponDef_Post(name, wDef)
 			end
 		end
 
-		if modOptions.multiplier_shieldpower then
-			if wDef.shield then
-				local multiplier = modOptions.multiplier_shieldpower
-				if wDef.shield.power then
-					wDef.shield.power = wDef.shield.power * multiplier
-				end
-				if wDef.shield.powerregen then
-					wDef.shield.powerregen = wDef.shield.powerregen * multiplier
-				end
-				if wDef.shield.powerregenenergy then
-					wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * multiplier
-				end
-				if wDef.shield.startingpower then
-					wDef.shield.startingpower = wDef.shield.startingpower * multiplier
-				end
-			end
-		end
 		----------------------------------------
 
 		--Controls whether the weapon aims for the center or the edge of its target's collision volume. Clamped between -1.0 - target the far border, and 1.0 - target the near border.
@@ -1208,6 +1169,24 @@ function WeaponDef_Post(name, wDef)
 	end
 
 	-- Multipliers
+
+	if wDef.shield then
+		local powerMult = modOptions.multiplier_shieldpower
+		if powerMult ~= 1 then
+			if wDef.shield.power then
+				wDef.shield.power = wDef.shield.power * powerMult
+			end
+			if wDef.shield.powerregen then
+				wDef.shield.powerregen = wDef.shield.powerregen * powerMult
+			end
+			if wDef.shield.powerregenenergy then
+				wDef.shield.powerregenenergy = wDef.shield.powerregenenergy * powerMult
+			end
+			if wDef.shield.startingpower then
+				wDef.shield.startingpower = wDef.shield.startingpower * powerMult
+			end
+		end
+	end
 
 	-- Weapon Range
 	local rangeMult = modOptions.multiplier_weaponrange
