@@ -1,4 +1,4 @@
-local function airReworkTweaks(name, uDef)
+local function airReworkUnitTweaks(name, uDef)
 	if name == "armhawk" then
 		uDef.metalcost = 250
 		uDef.energycost = 7600
@@ -643,6 +643,19 @@ local function airReworkTweaks(name, uDef)
 	return uDef
 end
 
+local function airReworkWeaponTweaks(name, weaponDef)
+	if weaponDef.weapontype == "BeamLaser" then
+		if weaponDef.range == 300 and weaponDef.reloadtime == 0.4 then --comm lasers
+			weaponDef.damage.vtol = weaponDef.damage.default
+		else
+			weaponDef.damage.vtol = weaponDef.damage.default * 0.25
+		end
+	elseif weaponDef.weapontype == "Cannon" and weaponDef.damage.default ~= nil then
+		weaponDef.damage.vtol = weaponDef.damage.default * 0.35
+	end
+end
+
 return {
-	airReworkTweaks = airReworkTweaks,
+	airReworkUnitTweaks = airReworkUnitTweaks,
+	airReworkWeaponTweaks = airReworkWeaponTweaks,
 }

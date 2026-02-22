@@ -233,6 +233,15 @@ if not table.append then
 	end
 end
 
+if not table.appendArray then
+	function table.appendArray(target, array)
+		for i = 1, #array do
+			-- Allow filling gaps and then skipping new entries:
+			target[#target + 1] = array[i]
+		end
+	end
+end
+
 if not table.count then
 	---Count the number of values in table.
 	---Note that this always works, whereas the default length operator (#table)
