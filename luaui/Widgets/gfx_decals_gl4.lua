@@ -709,376 +709,378 @@ local buildingExplosionPositionVariation = {
 	}
 local globalDamageMult = Spring.GetModOptions().multiplier_weapondamage or 1
 local weaponConfig = {}
-for weaponDefID=1, #WeaponDefs do
-	local weaponDef = WeaponDefs[weaponDefID]
-	local nodecal = (weaponDef.customParams and weaponDef.customParams.nodecal)
-	if (not nodecal) and (not string.find(weaponDef.cegTag, 'aa')) then
-		local radius = weaponDef.damageAreaOfEffect * 1.4
+local function addWeaponConfig(weaponDef)
+	if weaponDef.customParams.nodecal then
+		return
+	end
 
-		local damage = 100
-		for cat=0, #weaponDef.damages do
-			if Game.armorTypes[cat] and Game.armorTypes[cat] == 'default' then
-				damage = weaponDef.damages[cat]
-				break
-			end
+	local radius = weaponDef.damageAreaOfEffect * 1.4
+
+	local damage = 100
+	for cat=0, #weaponDef.damages do
+		if Game.armorTypes[cat] and Game.armorTypes[cat] == 'default' then
+			damage = weaponDef.damages[cat]
+			break
+		end
+	end
+
+	-- correct damage multiplier modoption to more sane value
+	damage = (damage / globalDamageMult) + ((damage * (globalDamageMult-1))*0.25)
+
+	--local damageEffectiveness = weaponDef.edgeEffectiveness
+
+	local bwfactor = 0.5 --the mix factor of the diffuse texture to black and whiteness, 0 is original cololr, 1 is black and white
+	local radiusVariation = 0.3	-- 0.3 -> 30% larger or smaller radius
+	local alpha
+	local alphadecay
+	local heatstart
+	local heatdecay
+	local glowsustain
+	local glowadd
+	local fadeintime
+	local positionVariation = 0
+
+
+	local textures = { "t_groundcrack_17_a.tga", "t_groundcrack_21_a.tga", "t_groundcrack_10_a.tga" }
+	if weaponDef.paralyzer then
+		textures = { "t_groundcrack_17_a.tga", "t_groundcrack_10_a.tga", "t_groundcrack_10_a.tga" }
+		heatstart = 0
+		glowadd = 0
+		if weaponDef.type == 'AircraftBomb' then
+			textures = {"t_groundcrack_16_a.tga" }
+			alpha = 0.44
+			alphadecay = 0.00015
+			radius = radius * 0.75
+			radiusVariation = 1.45
+			heatstart = 100
+			heatdecay = 2.5
+			--glowsustain = 35
+			glowadd = 4
 		end
 
-		-- correct damage multiplier modoption to more sane value
-		damage = (damage / globalDamageMult) + ((damage * (globalDamageMult-1))*0.25)
-
-		--local damageEffectiveness = weaponDef.edgeEffectiveness
-
-		local bwfactor = 0.5 --the mix factor of the diffuse texture to black and whiteness, 0 is original cololr, 1 is black and white
-		local radiusVariation = 0.3	-- 0.3 -> 30% larger or smaller radius
-		local alpha
-		local alphadecay
-		local heatstart
-		local heatdecay
-		local glowsustain
-		local glowadd
-		local fadeintime
-		local positionVariation = 0
-
-
-		local textures = { "t_groundcrack_17_a.tga", "t_groundcrack_21_a.tga", "t_groundcrack_10_a.tga" }
-		if weaponDef.paralyzer then
-			textures = { "t_groundcrack_17_a.tga", "t_groundcrack_10_a.tga", "t_groundcrack_10_a.tga" }
-			heatstart = 0
-			glowadd = 0
-			if weaponDef.type == 'AircraftBomb' then
-				textures = {"t_groundcrack_16_a.tga" }
-				alpha = 0.44
-				alphadecay = 0.00015
-				radius = radius * 0.75
-				radiusVariation = 1.45
-				heatstart = 100
-				heatdecay = 2.5
-				--glowsustain = 35
-				glowadd = 4
-			end
-
-		elseif weaponDef.type == 'Cannon' then
-			if string.find(weaponDef.name, 'old_armsnipe_weapon') then
-				textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga" }
-				radius = 50
-				heatstart = 6000
-				heatdecay = 2.0
-				glowsustain = 35
-				glowadd = 4
-			end
-			if weaponDef.highTrajectory == 1 then
-				textures = { "t_groundcrack_21_a.tga", "t_groundcrack_22_a.tga", "t_groundcrack_10_a.tga" }
-				alphadecay = 0.0024
-
-			elseif string.find(weaponDef.name, 'lrpc') then
-				textures = { "t_groundcrack_09_a.tga", "t_groundcrack_05_a.tga" }
-				radius = radius * 1.3
-				radiusVariation = 0.7
-				heatstart = 6000
-				heatdecay = 0.78
-				glowadd = 2
-
-			elseif string.find(weaponDef.name, 'tremor') then
-				textures = { "t_groundcrack_17_a.tga", "t_groundcrack_21_a.tga", "t_groundcrack_10_a.tga", "t_groundcrack_09_a.tga" }
-				radius = radius * 0.96
-				radiusVariation = 0.85
-				alphadecay = 0.0026
-				heatstart = 6000
-				heatdecay = 1.5
-				glowadd = 2
-
-			elseif string.find(weaponDef.name, 'crawl_blastsmlscavboss') then
-				textures = { "t_groundcrack_21_a.tga" }
-				radius = radius * 1.7
-				--radiusVariation = 0.7
-				heatstart = 6000
-				heatdecay = 0.78
-				glowadd = 2
-			end
-
-		elseif weaponDef.type == 'Flame' then
-			-- FLAME does not work - probably does not apply a decal on engine level
-			-- textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga" }
-			-- if string.find(weaponDef.name, 'flamethrower') then
-			-- 	radius = radius * 5.8
-			-- 	heatstart = 6000
-			-- 	heatdecay = 0.78
-			-- 	alpha = 6
-			-- 	alphadecay = 0.0024
-			-- 	glowadd = 2
-			-- end
-
-		elseif weaponDef.type == 'LightningCannon' then
-			heatstart = 4000
-			heatdecay = 1.0
-			glowsustain = 10
-			alpha = 0.5
-			--glowadd = 2
-			fadeintime = 15
-			bwfactor = 0.8
-
-		elseif weaponDef.type == 'BeamLaser' then
-
-		elseif weaponDef.type == 'LaserCannon' then
-
-		elseif weaponDef.type == 'StarburstLauncher' then
-
-		elseif weaponDef.type == 'AircraftBomb' then
-			if string.find(weaponDef.name, '.advbomb') then
-				alpha = 1.1
-				radius = radius * 1.5
-				heatstart = 5500
-				heatdecay = 2.0
-				alphadecay = 0.0006
-				radiusVariation = 0.6
-				glowsustain = 35
-				glowadd = 4
-			else
-				radius = radius * 0.8
-				heatstart = 3500
-				heatdecay = 2.7
-				alphadecay = 0.0030
-				radiusVariation = 0.45
-				glowsustain = 20
-				glowadd = 1.2
-			end
-			bwfactor = 0.01
-
-		elseif weaponDef.type == 'DGun' then
+	elseif weaponDef.type == 'Cannon' then
+		if string.find(weaponDef.name, 'old_armsnipe_weapon') then
 			textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga" }
-			if string.find(weaponDef.name, 'juggernaut_fire') then
-				radius = radius * 2.4
-				heatdecay = 0.65
-				glowsustain = 40
-				glowadd = 1.3
-				bwfactor = 0.1
-			elseif string.find(weaponDef.name, 'disintegratorxl') then
-				textures = { "t_groundcrack_21_a.tga", "t_groundcrack_16_a.tga" }
-				alphadecay = 0.004
-				radius = radius * 1.7 --* (mathRandom() * 20 + 0.2)
-				radiusVariation = 1.65
-				heatdecay = 0.75
-				glowsustain = 30
-				glowadd = 1.8
-				bwfactor = 0.1
-			else
-				radius = radius * 2.5
-				heatdecay = 0.7
-				glowsustain = 40
-				glowadd = 2.5
-				bwfactor = 0
-			end
+			radius = 50
+			heatstart = 6000
+			heatdecay = 2.0
+			glowsustain = 35
+			glowadd = 4
 		end
+		if weaponDef.highTrajectory == 1 then
+			textures = { "t_groundcrack_21_a.tga", "t_groundcrack_22_a.tga", "t_groundcrack_10_a.tga" }
+			alphadecay = 0.0024
 
-		if radius > 500 then
-			textures = { "t_groundcrack_21_a.tga" }
-			heatstart = 5500
-			heatdecay = 0.5
-			glowsustain = 150
-			glowadd = 1.5
-			bwfactor = 0.1
-		end
-
-		if string.find(weaponDef.name, 'juno') then
-			textures = { "t_groundcrack_10_a.tga" }
-			radius = 700
-			alpha = 0.4
-			heatstart = 700
-			heatdecay = 0.5
-			alphadecay = 0.00005
-			--glowadd = 2.5
-			bwfactor = 0.05
-
-		elseif string.find(weaponDef.name, 'acid') then
-			textures = { "t_groundcrack_26_a.tga" }
-			radius = (radius * 5)-- * (mathRandom() * 0.15 + 0.85)
-			alpha = 6
-			heatstart = 500
-			heatdecay = 10
-			alphadecay = 0.012
-			--glowadd = 2.5
-			--glowsustain = 0
-			fadeintime = 200
-			bwfactor = 0.17
-
-		elseif string.find(weaponDef.name, 'vipersabot') then -- viper has very tiny AoE
-			radius = (radius * 4)
-
-		elseif string.find(weaponDef.name, 'armmav_weapon') then -- armmav has very tiny AoE
-			radius = (radius * 6)
-
-		elseif string.find(weaponDef.name, 'corkorg_fire') then -- Juggernaut has lots of decals on shotgun
-			alphadecay = 0.004
-
-		elseif string.find(weaponDef.name, 'exp_heavyrocket') then -- Catapult has lower AoE but big explo
-			textures = { "t_groundcrack_17_a.tga", "t_groundcrack_21_a.tga", "t_groundcrack_10_a.tga", "t_groundcrack_09_a.tga" }
-			radius = radius * 2.1
-			radiusVariation = 0.8
-			alphadecay = 0.0026
-			heatstart = 6500
-			heatdecay = 0.8
+		elseif string.find(weaponDef.name, 'lrpc') then
+			textures = { "t_groundcrack_09_a.tga", "t_groundcrack_05_a.tga" }
+			radius = radius * 1.3
+			radiusVariation = 0.7
+			heatstart = 6000
+			heatdecay = 0.78
 			glowadd = 2
 
-		elseif string.find(weaponDef.name, 'napalm') then
-			textures = { "t_groundcrack_16_a.tga" }
-			radius = radius * 1.6
-			heatstart = 4000
-			heatdecay = 0.33
-			alpha = 0.4
-			alphadecay = 0.0002
-			glowsustain = 225
-			glowadd = 4.5
+		elseif string.find(weaponDef.name, 'tremor') then
+			textures = { "t_groundcrack_17_a.tga", "t_groundcrack_21_a.tga", "t_groundcrack_10_a.tga", "t_groundcrack_09_a.tga" }
+			radius = radius * 0.96
+			radiusVariation = 0.85
+			alphadecay = 0.0026
+			heatstart = 6000
+			heatdecay = 1.5
+			glowadd = 2
 
-			--armliche
-		elseif string.find(weaponDef.name, 'arm_pidr') then
+		elseif string.find(weaponDef.name, 'crawl_blastsmlscavboss') then
 			textures = { "t_groundcrack_21_a.tga" }
-			radius = radius * 1.8
+			radius = radius * 1.7
+			--radiusVariation = 0.7
+			heatstart = 6000
+			heatdecay = 0.78
+			glowadd = 2
+		end
+
+	elseif weaponDef.type == 'Flame' then
+		-- FLAME does not work - probably does not apply a decal on engine level
+		-- textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga" }
+		-- if string.find(weaponDef.name, 'flamethrower') then
+		-- 	radius = radius * 5.8
+		-- 	heatstart = 6000
+		-- 	heatdecay = 0.78
+		-- 	alpha = 6
+		-- 	alphadecay = 0.0024
+		-- 	glowadd = 2
+		-- end
+
+	elseif weaponDef.type == 'LightningCannon' then
+		heatstart = 4000
+		heatdecay = 1.0
+		glowsustain = 10
+		alpha = 0.5
+		--glowadd = 2
+		fadeintime = 15
+		bwfactor = 0.8
+
+	elseif weaponDef.type == 'BeamLaser' then
+
+	elseif weaponDef.type == 'LaserCannon' then
+
+	elseif weaponDef.type == 'StarburstLauncher' then
+
+	elseif weaponDef.type == 'AircraftBomb' then
+		if string.find(weaponDef.name, '.advbomb') then
+			alpha = 1.1
+			radius = radius * 1.5
 			heatstart = 5500
-			heatdecay = 0.66
-			glowsustain = 100
-			glowadd = 1.5
+			heatdecay = 2.0
+			alphadecay = 0.0006
+			radiusVariation = 0.6
+			glowsustain = 35
+			glowadd = 4
+		else
+			radius = radius * 0.8
+			heatstart = 3500
+			heatdecay = 2.7
+			alphadecay = 0.0030
+			radiusVariation = 0.45
+			glowsustain = 20
+			glowadd = 1.2
+		end
+		bwfactor = 0.01
+
+	elseif weaponDef.type == 'DGun' then
+		textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga" }
+		if string.find(weaponDef.name, 'juggernaut_fire') then
+			radius = radius * 2.4
+			heatdecay = 0.65
+			glowsustain = 40
+			glowadd = 1.3
 			bwfactor = 0.1
-
-		elseif string.find(weaponDef.name, 'death_acid') then
-			textures = { "t_groundcrack_26_a.tga" }
-			radius = (radius * 5.5)-- * (mathRandom() * 0.25 + 0.75)
-			alpha = 6
-			heatstart = 550
-			heatdecay = 0.1
-			alphadecay = 0.012
+		elseif string.find(weaponDef.name, 'disintegratorxl') then
+			textures = { "t_groundcrack_21_a.tga", "t_groundcrack_16_a.tga" }
+			alphadecay = 0.004
+			radius = radius * 1.7 --* (mathRandom() * 20 + 0.2)
+			radiusVariation = 1.65
+			heatdecay = 0.75
+			glowsustain = 30
+			glowadd = 1.8
+			bwfactor = 0.1
+		else
+			radius = radius * 2.5
+			heatdecay = 0.7
+			glowsustain = 40
 			glowadd = 2.5
-			fadeintime = 200
-			bwfactor = 0.17
+			bwfactor = 0
+		end
+	end
 
-		elseif string.find(weaponDef.name, 'flamebug') then
-			textures = { "t_groundcrack_23_a.tga", "t_groundcrack_24_a.tga", "t_groundcrack_25_a.tga", "t_groundcrack_27_a.tga" }
-			radius = (radius * 5)-- * (mathRandom() * 0.7 + 0.52)
+	if radius > 500 then
+		textures = { "t_groundcrack_21_a.tga" }
+		heatstart = 5500
+		heatdecay = 0.5
+		glowsustain = 150
+		glowadd = 1.5
+		bwfactor = 0.1
+	end
+
+	if string.find(weaponDef.name, 'juno') then
+		textures = { "t_groundcrack_10_a.tga" }
+		radius = 700
+		alpha = 0.4
+		heatstart = 700
+		heatdecay = 0.5
+		alphadecay = 0.00005
+		--glowadd = 2.5
+		bwfactor = 0.05
+
+	elseif string.find(weaponDef.name, 'acid') then
+		textures = { "t_groundcrack_26_a.tga" }
+		radius = (radius * 5)-- * (mathRandom() * 0.15 + 0.85)
+		alpha = 6
+		heatstart = 500
+		heatdecay = 10
+		alphadecay = 0.012
+		--glowadd = 2.5
+		--glowsustain = 0
+		fadeintime = 200
+		bwfactor = 0.17
+
+	elseif string.find(weaponDef.name, 'vipersabot') then -- viper has very tiny AoE
+		radius = (radius * 4)
+
+	elseif string.find(weaponDef.name, 'armmav_weapon') then -- armmav has very tiny AoE
+		radius = (radius * 6)
+
+	elseif string.find(weaponDef.name, 'corkorg_fire') then -- Juggernaut has lots of decals on shotgun
+		alphadecay = 0.004
+
+	elseif string.find(weaponDef.name, 'exp_heavyrocket') then -- Catapult has lower AoE but big explo
+		textures = { "t_groundcrack_17_a.tga", "t_groundcrack_21_a.tga", "t_groundcrack_10_a.tga", "t_groundcrack_09_a.tga" }
+		radius = radius * 2.1
+		radiusVariation = 0.8
+		alphadecay = 0.0026
+		heatstart = 6500
+		heatdecay = 0.8
+		glowadd = 2
+
+	elseif string.find(weaponDef.name, 'napalm') then
+		textures = { "t_groundcrack_16_a.tga" }
+		radius = radius * 1.6
+		heatstart = 4000
+		heatdecay = 0.33
+		alpha = 0.4
+		alphadecay = 0.0002
+		glowsustain = 225
+		glowadd = 4.5
+
+		--armliche
+	elseif string.find(weaponDef.name, 'arm_pidr') then
+		textures = { "t_groundcrack_21_a.tga" }
+		radius = radius * 1.8
+		heatstart = 5500
+		heatdecay = 0.66
+		glowsustain = 100
+		glowadd = 1.5
+		bwfactor = 0.1
+
+	elseif string.find(weaponDef.name, 'death_acid') then
+		textures = { "t_groundcrack_26_a.tga" }
+		radius = (radius * 5.5)-- * (mathRandom() * 0.25 + 0.75)
+		alpha = 6
+		heatstart = 550
+		heatdecay = 0.1
+		alphadecay = 0.012
+		glowadd = 2.5
+		fadeintime = 200
+		bwfactor = 0.17
+
+	elseif string.find(weaponDef.name, 'flamebug') then
+		textures = { "t_groundcrack_23_a.tga", "t_groundcrack_24_a.tga", "t_groundcrack_25_a.tga", "t_groundcrack_27_a.tga" }
+		radius = (radius * 5)-- * (mathRandom() * 0.7 + 0.52)
+		alpha = 15
+		heatstart = 500
+		heatdecay = 0.12
+		alphadecay = 0.002
+		glowsustain = 15
+		glowadd = 2.5
+		fadeintime = 150
+		bwfactor = 0.6
+
+	elseif string.find(weaponDef.name, 'bug') then
+		textures = { "t_groundcrack_23_a.tga", "t_groundcrack_24_a.tga", "t_groundcrack_25_a.tga", "t_groundcrack_27_a.tga" }
+		if string.find(weaponDef.name, 'flamebug') then
+			radius = (radius * 5)
+		else
+			radius = (radius * 10)-- * (mathRandom() * 0.7 + 0.52)
 			alpha = 15
 			heatstart = 500
 			heatdecay = 0.12
 			alphadecay = 0.002
 			glowsustain = 15
 			glowadd = 2.5
-			fadeintime = 150
-			bwfactor = 0.6
-
-		elseif string.find(weaponDef.name, 'bug') then
-			textures = { "t_groundcrack_23_a.tga", "t_groundcrack_24_a.tga", "t_groundcrack_25_a.tga", "t_groundcrack_27_a.tga" }
-			if string.find(weaponDef.name, 'flamebug') then
-				radius = (radius * 5)
-			else
-				radius = (radius * 10)-- * (mathRandom() * 0.7 + 0.52)
-				alpha = 15
-				heatstart = 500
-				heatdecay = 0.12
-				alphadecay = 0.002
-				glowsustain = 15
-				glowadd = 2.5
-				fadeintime = 75
-				bwfactor = 0.6
-			end
-
-		elseif string.find(weaponDef.name, 'bloodyeggs') then
-			textures = { "t_groundcrack_23_a.tga" }
-			radius = (radius * 1.5)-- * (mathRandom() * 1.2 + 0.25)
-			alpha = 10
-			heatstart = 490
-			heatdecay = 0.1
-			alphadecay = 0.005
-			glowadd = 2.5
 			fadeintime = 75
 			bwfactor = 0.6
-
-		elseif string.find(weaponDef.name, 'dodo') then
-			textures = { "t_groundcrack_23_a.tga", "t_groundcrack_24_a.tga" }
-			radius = (radius * 1.2)-- * (mathRandom() * 0.15 + 0.85)
-			alpha = 10
-			heatstart = 490
-			heatdecay = 0.1
-			alphadecay = 0.002
-			glowadd = 2.5
-			bwfactor = 0.7
-
-		elseif string.find(weaponDef.name, 'armagmheat') then
-			textures = { "t_groundcrack_10_a.tga" }
-			radius = (radius * 1.6)-- * (mathRandom() * 0.15 + 0.85)
-			alpha = 1
-			heatstart = 6500
-			heatdecay = 0.5
-			alphadecay = 0.002
-			glowadd = 2.5
-			--bwfactor = 0.15
-
-		elseif string.find(weaponDef.name, 'corkorg_laser') then
-			textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga", "t_groundcrack_10_a.tga" }
-			alphadecay = 0.004
-			radius = radius * 1.1 --* (mathRandom() * 20 + 0.2)
-			radiusVariation = 0.3
-			heatstart = 6800
-			heatdecay = 0.75
-			glowsustain = 45
-			glowadd = 1.8
-			bwfactor = 0.1
-
-		elseif string.find(weaponDef.name, 'pineappleofdoom') or string.find(weaponDef.name, 'heatraylarge') or string.find(weaponDef.name, 'skybeam') or string.find(weaponDef.name, 'heat_ray') then --legbastion leginc legphoenix legaheattank
-			textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga", "t_groundcrack_05_a.tga" }
-			--textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga", "t_groundcrack_10_a.tga" }
-			alphadecay = 0.004
-			radius = radius * 0.8
-			--radiusVariation = 0.3
-			heatstart = 8000
-			heatdecay = 3.95
-			glowsustain = 20
-			glowadd = 2.8
-			bwfactor = 0.1
-
-		elseif string.find(weaponDef.name, 'starfire') then
-			textures = { "t_groundcrack_16_a.tga", "t_groundcrack_09_a.tga", "t_groundcrack_10_a.tga" }
-			alphadecay = 0.003
-			radius = radius * 1.2 --* (mathRandom() * 20 + 0.2)
-			radiusVariation = 0.6
-			heatstart = 9000
-			heatdecay = 2.5
-			glowsustain = 0
-			glowadd = 2.5
-			bwfactor = 0.3
-
-		elseif string.find(weaponDef.name, 'footstep') then
-			--textures = { "f_corkorg_a.tga" }
-			textures = { "t_groundcrack_10_a.tga" }
-			--radius = 70
-			radius = (radius * 0.7)
-			radiusVariation = 0.5 --0.03
-			alpha = 0.5
-			heatstart = 100
-			heatdecay = 0.7
-			alphadecay = 0.00055 --0.00055
-			--glowadd = 2.5
-			bwfactor = 0.4
-
-		end
-		if buildingExplosionPositionVariation[weaponDef.name] then
-			positionVariation = buildingExplosionPositionVariation[weaponDef.name]
 		end
 
-		weaponConfig[weaponDefID] = {
-			textures,
-			radius,
-			radiusVariation,
-			heatstart, -- 4
-			heatdecay, -- 5
-			alpha, -- 6
-			alphadecay, -- 7
-			bwfactor,	-- 8
-			glowsustain, --9
-			glowadd, -- 10
-			weaponDef.damageAreaOfEffect,	-- 11
-			damage,	-- 12
-			fadeintime, -- 13
-			positionVariation, --14
-		}
+	elseif string.find(weaponDef.name, 'bloodyeggs') then
+		textures = { "t_groundcrack_23_a.tga" }
+		radius = (radius * 1.5)-- * (mathRandom() * 1.2 + 0.25)
+		alpha = 10
+		heatstart = 490
+		heatdecay = 0.1
+		alphadecay = 0.005
+		glowadd = 2.5
+		fadeintime = 75
+		bwfactor = 0.6
+
+	elseif string.find(weaponDef.name, 'dodo') then
+		textures = { "t_groundcrack_23_a.tga", "t_groundcrack_24_a.tga" }
+		radius = (radius * 1.2)-- * (mathRandom() * 0.15 + 0.85)
+		alpha = 10
+		heatstart = 490
+		heatdecay = 0.1
+		alphadecay = 0.002
+		glowadd = 2.5
+		bwfactor = 0.7
+
+	elseif string.find(weaponDef.name, 'armagmheat') then
+		textures = { "t_groundcrack_10_a.tga" }
+		radius = (radius * 1.6)-- * (mathRandom() * 0.15 + 0.85)
+		alpha = 1
+		heatstart = 6500
+		heatdecay = 0.5
+		alphadecay = 0.002
+		glowadd = 2.5
+		--bwfactor = 0.15
+
+	elseif string.find(weaponDef.name, 'corkorg_laser') then
+		textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga", "t_groundcrack_10_a.tga" }
+		alphadecay = 0.004
+		radius = radius * 1.1 --* (mathRandom() * 20 + 0.2)
+		radiusVariation = 0.3
+		heatstart = 6800
+		heatdecay = 0.75
+		glowsustain = 45
+		glowadd = 1.8
+		bwfactor = 0.1
+
+	elseif string.find(weaponDef.name, 'pineappleofdoom') or string.find(weaponDef.name, 'heatraylarge') or string.find(weaponDef.name, 'skybeam') or string.find(weaponDef.name, 'heat_ray') then --legbastion leginc legphoenix legaheattank
+		textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga", "t_groundcrack_05_a.tga" }
+		--textures = { "t_groundcrack_16_a.tga", "t_groundcrack_17_a.tga", "t_groundcrack_10_a.tga" }
+		alphadecay = 0.004
+		radius = radius * 0.8
+		--radiusVariation = 0.3
+		heatstart = 8000
+		heatdecay = 3.95
+		glowsustain = 20
+		glowadd = 2.8
+		bwfactor = 0.1
+
+	elseif string.find(weaponDef.name, 'starfire') then
+		textures = { "t_groundcrack_16_a.tga", "t_groundcrack_09_a.tga", "t_groundcrack_10_a.tga" }
+		alphadecay = 0.003
+		radius = radius * 1.2 --* (mathRandom() * 20 + 0.2)
+		radiusVariation = 0.6
+		heatstart = 9000
+		heatdecay = 2.5
+		glowsustain = 0
+		glowadd = 2.5
+		bwfactor = 0.3
+
+	elseif string.find(weaponDef.name, 'footstep') then
+		--textures = { "f_corkorg_a.tga" }
+		textures = { "t_groundcrack_10_a.tga" }
+		--radius = 70
+		radius = (radius * 0.7)
+		radiusVariation = 0.5 --0.03
+		alpha = 0.5
+		heatstart = 100
+		heatdecay = 0.7
+		alphadecay = 0.00055 --0.00055
+		--glowadd = 2.5
+		bwfactor = 0.4
 
 	end
+	if buildingExplosionPositionVariation[weaponDef.name] then
+		positionVariation = buildingExplosionPositionVariation[weaponDef.name]
+	end
+
+	weaponConfig[weaponDefID] = {
+		textures,
+		radius,
+		radiusVariation,
+		heatstart, -- 4
+		heatdecay, -- 5
+		alpha, -- 6
+		alphadecay, -- 7
+		bwfactor,	-- 8
+		glowsustain, --9
+		glowadd, -- 10
+		weaponDef.damageAreaOfEffect,	-- 11
+		damage,	-- 12
+		fadeintime, -- 13
+		positionVariation, --14
+	}
+end
+for weaponDefID=0, #WeaponDefs do
+	addWeaponConfig(WeaponDefs[weaponDefID])
 end
 
 function widget:VisibleExplosion(px, py, pz, weaponID, ownerID)
