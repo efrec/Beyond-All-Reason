@@ -1051,7 +1051,7 @@ local function addWeaponConfig(weaponDef)
 		positionVariation = buildingExplosionPositionVariation[weaponDef.name]
 	end
 
-	weaponConfig[weaponDefID] = {
+	weaponConfig[weaponDef.id] = {
 		textures,
 		radius,
 		radiusVariation,
