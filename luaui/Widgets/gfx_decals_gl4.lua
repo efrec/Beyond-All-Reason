@@ -708,6 +708,7 @@ local buildingExplosionPositionVariation = {
 	--mediumBuildingExplosionGenericSelfd = 1, --coradvsol
 	}
 local globalDamageMult = Spring.GetModOptions().multiplier_weapondamage or 1
+local damageCoefficient = (1 / globalDamageMult + 0.25 * globalDamageMult - 0.25) -- for sane values with high modifiers
 local weaponConfig = {}
 local function addWeaponConfig(weaponDef)
 	if weaponDef.customParams.nodecal then
@@ -715,19 +716,7 @@ local function addWeaponConfig(weaponDef)
 	end
 
 	local radius = weaponDef.damageAreaOfEffect * 1.4
-
-	local damage = 100
-	for cat=0, #weaponDef.damages do
-		if Game.armorTypes[cat] and Game.armorTypes[cat] == 'default' then
-			damage = weaponDef.damages[cat]
-			break
-		end
-	end
-
-	-- correct damage multiplier modoption to more sane value
-	damage = (damage / globalDamageMult) + ((damage * (globalDamageMult-1))*0.25)
-
-	--local damageEffectiveness = weaponDef.edgeEffectiveness
+	local damage = weaponDef.damages[Game.armorTypes.default or 0] * damageCoefficient
 
 	local bwfactor = 0.5 --the mix factor of the diffuse texture to black and whiteness, 0 is original cololr, 1 is black and white
 	local radiusVariation = 0.3	-- 0.3 -> 30% larger or smaller radius
