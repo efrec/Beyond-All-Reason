@@ -1773,6 +1773,13 @@ function WeaponDef_Post(name, wDef)
 
 	wDef.customparams = wDef.customparams or {}
 
+	if wDef.customparams.nodecal == nil and wDef.cegtag then
+		local cegtag = wDef.cegtag:lower()
+		if cegtag:find("aa") or cegtag:find("flak") then
+			wDef.customparams.nodecal = true -- remove ground scarring
+		end
+	end
+
 	if not SaveDefsToCustomParams then
 		-------------- EXPERIMENTAL MODOPTIONS
 
