@@ -129,13 +129,12 @@ veterancyEffects.range = {
 
 	effect = function(unitID, upgrade, experience)
 		local rangeScale = (1 + upgrade[2] * experience)
-		local engageRangeBase = upgrade[3]
+		spSetUnitMaxRange(unitID, math_floor(upgrade[3] * rangeScale))
 		for index = 4, #upgrade do
 			if upgrade[index] then
 				spSetUnitWeaponState(unitID, index - 3, "range", math_floor(upgrade[index] * rangeScale))
 			end
 		end
-		spSetUnitMaxRange(unitID, math_floor(engageRangeBase * rangeScale))
 	end,
 }
 
