@@ -51,15 +51,20 @@ local gameSpeedInverse = 1 / Game.gameSpeed
 
 -- Unit veterancies ------------------------------------------------------------
 
----@type table<string, { add:(fun(unitDef:table, upgrades:table):boolean), effect:fun(unitID:integer, upgrade:table, experience:number) }>
+---@alias VeterancyEffect fun(unitID:integer, upgrade:VeterancyUpgrade, experience:number) Applied on experience gain.
+---@alias VeterancyUpgrade { [1]:VeterancyEffect, [2]:number|false, [3]:number|false } Compact upgrade information per-unitdef.
+
+---@type table<string, { add : (fun(unitDef:table, upgrades:VeterancyUpgrade[]):boolean), effect : VeterancyEffect }>
 local veterancyEffects = {}
 
+-- Reset the unit's experience upgrades from the engine (or from this gadget).
+-- Probably should be the first veterancy upgrade listed in the custom params.
 -- TODO: Remove the engine xp gains.
 -- TODO: Or else batch these updates in a GameFramePost and use UnitCreated/UnitDestroyed.
 -- TODO: The potential performance cost of resetting 1000s of tiny XP gains is ridiculous.
-veterancyEffects.none = {
+veterancyEffects.reset = {
 	add = function(unitDef, upgrades)
-		local upgrade = { veterancyEffects.none.effect }
+		local upgrade = { veterancyEffects.reset.effect }
 		local offset = #upgrade
 		for index, weapon in ipairs(unitDef.weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
@@ -80,8 +85,8 @@ veterancyEffects.none = {
 				spSetUnitMaxHealth(unitID, healthMax)
 			end
 		end
-		for index = 1, #upgrade - 1 do
-			-- TODO: Accuracy, target lead prediction, ...
+		for index = 2, #upgrade - 1 do
+			-- TODO: Accuracy, target lead prediction, ..?
 			spSetUnitWeaponState(unitID, index - 1, "reloadSpeed", upgrade[index])
 			spSetUnitWeaponState(unitID, index - 1, "", upgrade[index])
 		end
@@ -92,6 +97,7 @@ veterancyEffects.none = {
 -- You can skip weapons with the "norangexpscale" customparam.
 veterancyEffects.range = {
 	add = function(unitDef, upgrades)
+		---@type VeterancyUpgrade
 		local upgrade = {
 			veterancyEffects.range.effect,
 			tonumber(unitDef.customParams.veterancy_range_scale),
@@ -124,9 +130,9 @@ veterancyEffects.range = {
 	effect = function(unitID, upgrade, experience)
 		local rangeScale = (1 + upgrade[2] * experience)
 		local engageRangeBase = upgrade[3]
-		for index = 3, #upgrade do
+		for index = 4, #upgrade do
 			if upgrade[index] then
-				spSetUnitWeaponState(unitID, index - 2, "range", math_floor(upgrade[index] * rangeScale))
+				spSetUnitWeaponState(unitID, index - 3, "range", math_floor(upgrade[index] * rangeScale))
 			end
 		end
 		spSetUnitMaxRange(unitID, math_floor(engageRangeBase * rangeScale))
@@ -137,7 +143,7 @@ veterancyEffects.range = {
 -- Other upgrade effects that modify reload time should be before this.
 veterancyEffects.scripted_reload = {
 	add = function(unitDef, upgrades)
-		local upgrade = { veterancyEffects.scripted_reload.effect }
+		local upgrade = { veterancyEffects.scripted_reload.effect } ---@type VeterancyUpgrade
 		local offset = #upgrade
 
 		local hasUpgradeWeapon = false
@@ -219,7 +225,7 @@ function gadget:UnitExperience(unitID, unitDefID, unitTeam, experience, oldExper
 	end
 
 	-- Canonical BAR experience limit curve. Gaze upon it.
-	local experienceCurved = ((3 * experience) / (1 + 3 * experience))
+	local experienceCurved = (3 * experience) / (1 + 3 * experience)
 
 	for index = 1, #upgrades do
 		local upgrade = upgrades[index]
