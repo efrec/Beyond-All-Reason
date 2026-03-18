@@ -1,13 +1,15 @@
 
 #include "../recoil_common_includes.h"
 
-piece body, aimy1, turret, aimx1, sleeve, flare, ringinner, ringouter, blfoot, blhinge, bltoes, bltoes, brfoot, brhinge, brtoes, flfoot, flhinge, fltoes, frfoot, frhinge, frtoes;
+piece body, aimy1, turret, aimx1, sleeve, flare, ringinner, ringouter, blfoot, blhinge, bltoes, brfoot, brhinge, brtoes, flfoot, flhinge, fltoes, frfoot, frhinge, frtoes;
 
-static-var  restore_delay, animSpeed, maxSpeed, animFramesPerKeyframe, isMoving, oldhead, isfiring, targetswap, timer;
+static-var  restore_delay, animSpeed, maxSpeed, animFramesPerKeyframe, isMoving, isfiring, timer;
 
 // Signal definitions
 #define SIGNAL_AIM1 256
 #define SIGNAL_MOVE 1
+
+#include "../sweep.h"
 
 Walk() {// For C:\Users\logst\Downloads\BAR\leginc anim.blend Created by https://github.com/Beherith/Skeletor_S3O V((0, 4, 2)) 
 	set-signal-mask SIGNAL_MOVE;
@@ -499,7 +501,7 @@ SweepFire()
 {
 	while( TRUE )
 	{
-		if (targetswap == 1 AND isfiring == 1)
+		if (inTargetSwap AND isfiring)
 		{
 			emit-sfx 2048 from flare;
 			timer = timer + 1;
@@ -547,22 +549,21 @@ ExecuteRestoreAfterDelay()
     signal SIGNAL_AIM1;
     isfiring = 0;
 	hide flare;
-	oldhead = -1000000;
 	if (Stunned) {
         return (1);
     }
 	turn aimy1 to y-axis <0.0> speed <20.0>;
 	turn aimx1 to x-axis <0.0> speed <20.0>;
+	call-script Sweep_Reset();
 	timer = 0;
-	targetswap = 0;
 }
 
 RestoreAfterDelay()
 {
 	set-signal-mask SIGNAL_AIM1;
-	oldhead = -1000000;
+
 	sleep restore_delay;
-	
+
 	turn aimy1 to y-axis <0> speed <25>;
 	turn aimx1 to x-axis <0> speed <5>;
 	
@@ -577,11 +578,10 @@ Create()
 	hide flare;
 	hide aimy1;
 	hide aimx1;
-	
-	targetswap = 0; 	
+
+	call-script Sweep_Reset();
 	isfiring = 0;
 	timer = 0;
-	oldhead = -1000000;
 	
 	restore_delay = 1000;
 	isMoving = FALSE;
@@ -618,36 +618,27 @@ AimWeapon1(heading, pitch)
 {
 	signal SIGNAL_AIM1;
 	set-signal-mask SIGNAL_AIM1;
-	
-	turn aimy1 to y-axis heading speed <30>;
-	turn aimx1 to x-axis -1*pitch speed <15>;
-	
-	if (get ABS(oldhead - heading) > 500)
+	call-script Sweep_AimWeapon(heading, pitch);
+	if (inTargetSwap)
 	{
-		targetswap = 1;
-	}
-	if (get ABS(oldhead - heading) < 500)
-	{
-		oldhead = heading;
-		isfiring = 1;
+		wait-for-turn aimy1 around y-axis;
+		wait-for-turn aimx1 around x-axis;
 		start-script RestoreAfterDelay();
-		return (1);
+		isfiring = 1;
+		return (TRUE);
 	}
-	
-	wait-for-turn aimy1 around y-axis;
-	wait-for-turn aimx1 around x-axis;
-	
-	start-script RestoreAfterDelay();
-	isfiring = 1;
-	//show flare;
-	oldhead = heading;
-	return (1);
+	else
+	{
+		start-script RestoreAfterDelay();
+		isfiring = 1;
+		return (TRUE);
+	}
 }
 
 FireWeapon1()
 {
 	start-script RestoreAfterDelay();
-	targetswap = 0;
+	inTargetSwap = FALSE;
 	timer = timer + 1;
 	return (0);
 }
