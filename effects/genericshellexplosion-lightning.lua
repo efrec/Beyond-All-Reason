@@ -1668,6 +1668,138 @@ local definitions = {
   },
 }
 
+-- Area timed damage CEG effects for lightning
+
+local areaSizePresets = { 37.5, 46, 54, 63, 75, 88, 100, 125, 150, 175, 200, 225, 250, 275, 300 }
+
+local function circularAreaOfEffect(radius, ypos)
+	ypos = ypos or [[0]]
+	local angle = "r6.283 y0 "
+	local distance = "r1 p0.5 y1 " .. radius .. " x1 y1 "
+	local xpos = "a0 s1 x1"
+	local zpos = "1.57 " .. xpos
+	return angle .. distance .. xpos .. ", " .. ypos .. ", " .. zpos
+end
+
+definitions['lightning-area-repeat'] = {
+	usedefaultexplosions = false,
+
+	-- Area highlight (ground)
+	under = {
+		air        = true,
+		class      = [[CBitmapMuzzleFlame]],
+		count      = 1,
+		ground     = true,
+		water      = true,
+		properties = {
+			colormap     = [[0 0 0 0.0  0.1 0.2 0.5 0.2  0.2 0.5 1 0.4  0.1 0.2 0.5 0.2  0 0 0 0.0]],
+			dir          = [[0, 1, 0]],
+			fronttexture = [[bloodcentersplatshwhite]],
+			length       = 5,
+			size         = 75,
+			ttl          = 23, -- ~0.77s
+		},
+	},
+
+	-- Storm cloud (volumetric fill)
+	clouds = {
+		air        = true,
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		properties = {
+			airdrag            = 0.95,
+			colormap           = [[0 0 0 0.0  0.05 0.05 0.1 0.2  0 0 0 0.0]],
+			numparticles       = 1,
+			particlelife       = 23,
+			particlesize       = 50,
+			particlesizespread = 20,
+			particlespeed      = 0.2,
+			texture            = [[smoke-ice-anim]],
+			pos                = [[0, 0, 0]],
+		},
+	},
+
+	-- Lightning balls (volumetric fill kinda)
+	balls = {
+		air        = true,
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		properties = {
+			airdrag       = 0.8,
+			colormap      = [[1 1 1 0.4  0.2 0.5 1 0.8  0 0 0 0.0]],
+			numparticles  = 1,
+			particlelife  = 8,
+			particlesize  = 15,
+			particlespeed = 1,
+			texture       = [[plasmaball]],
+			pos           = [[0, 0, 0]],
+		},
+	},
+
+	-- Spark sprays (maybe recolor or smth)
+	sparks = {
+		air        = true,
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		properties = {
+			airdrag       = 0.97,
+			colormap      = [[1 1 1 1  0.2 0.6 1 1  0 0 0 0.0]],
+			gravity       = [[0, -0.4, 0]],
+			numparticles  = 10,
+			particlelife  = 12,
+			particlesize  = 2,
+			particlespeed = 8,
+			texture       = [[flare2]],
+			pos           = [[0, 0, 0]],
+		},
+	},
+
+	-- Lightning bolt prongs (maybe redo)
+	prongs = {
+		air        = true,
+		class      = [[CExpGenSpawner]],
+		count      = 1,
+		ground     = true,
+		properties = {
+			delay              = [[r22]], -- Max 0.73s delay (randomized start)
+			explosiongenerator = [[custom:lightning_stormbolt]],
+			pos                = [[0, 0, 0]],
+		},
+	},
+}
+
+for i = 1, #areaSizePresets do
+	local radius = areaSizePresets[i] -- pretty sure it's diameter lol
+	local expgen = table.copy(definitions['lightning-area-repeat'])
+
+	local groundPos = circularAreaOfEffect(radius, 0)
+	local airPos = circularAreaOfEffect(radius, "5 r35")
+
+	local areaScale = (radius / 75) ^ 2
+	local boltCount = math.max(3, math.ceil(15 * areaScale))
+	local particleCount = math.max(2, math.ceil(8 * areaScale))
+
+	expgen.under.properties.size = radius * 2
+
+	expgen.prongs.count = boltCount
+	expgen.prongs.properties.pos = groundPos
+	-- delay is fixed at r22 in template for non-staggered burst
+
+	expgen.clouds.count = particleCount
+	expgen.clouds.properties.pos = airPos
+
+	expgen.balls.count = particleCount * 2
+	expgen.balls.properties.pos = airPos
+
+	expgen.sparks.count = particleCount
+	expgen.sparks.properties.pos = airPos
+
+	local name = 'lightning-area-' .. math.floor(radius) .. '-repeat'
+	definitions[name] = expgen
+end
+
+definitions['lightning-area-repeat'] = nil
+
 -- add purple scavenger variants
 local scavengerDefs = {}
 for k,v in pairs(definitions) do

@@ -180,11 +180,19 @@ return {
 				turret = true,
 				weapontype = "LightningCannon",
 				weaponvelocity = 400,
+				-- customparams = {
+				-- 	spark_ceg = "genericshellexplosion-splash-lightning",
+				-- 	spark_forkdamage = "0.33",
+				-- 	spark_maxunits = "2",
+				-- 	spark_range = "60",
+				-- },
 				customparams = {
-					spark_ceg = "genericshellexplosion-splash-lightning",
-					spark_forkdamage = "0.33",
-					spark_maxunits = "2",
-					spark_range = "60",
+					area_onhit_ceg = "lightning-area-75-repeat",
+					area_onhit_damageCeg = "burnflamexl-gen", -- I guess
+					area_onhit_resistance = "lightning",
+					area_onhit_damage = 60,
+					area_onhit_range = 75,
+					area_onhit_time = 3.5,
 				},
 				damage = {
 					default = 22,
