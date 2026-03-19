@@ -1859,42 +1859,24 @@ definitions['lightning-area-repeat'] = {
 		water      = true,
 		underwater = true,
 		properties = {
+			-- animParams   = [[8,8,90 r60]], -- todo
+			castShadow   = false,
 			colormap     = [[0 0 0 0  0.1 0.2 0.5 0.05  0.2 0.5 1 0.05  0.1 0.2 0.5 0.05  0 0 0 0.0]],
 			dir          = [[dir]],
+			drawOrder    = -2,
 			frontoffset  = 0,
-			fronttexture = [[brightblueexplo]],
-			-- animParams   = [[8,8,90 r60]], -- todo
+			fronttexture = [[plasmaball]],
 			length       = 0,
+			pos          = [[0, 5, 0]],
+			rotParams    = [[-4 r8, -4 r8, -180 r360]],
 			sidetexture  = [[none]],
 			size         = 75,
 			sizegrowth   = [[-0.5 r1.2]],
 			ttl          = 22 * 1.5,
-			pos          = [[0, 5, 0]],
-			rotParams    = [[-4 r8, -4 r8, -180 r360]],
-			drawOrder    = -2,
-			castShadow   = false,
 		},
 	},
 
-	-- Static clouds (low volumetric fill)
-	clouds = {
-		class      = [[CSimpleParticleSystem]],
-		count      = 1,
-		air        = true,
-		properties = {
-			airdrag            = 0.95,
-			colormap           = [[0 0 0 0.0  0.05 0.05 0.1 0.2  0 0 0 0.0]],
-			numparticles       = 1,
-			particlelife       = 23,
-			particlesize       = 50,
-			particlesizespread = 20,
-			particlespeed      = 0.2,
-			texture            = [[smoke-ice-anim]],
-			dir                = [[dir]],
-			pos                = [[0, 0, 0]],
-		},
-	},
-
+	-- Various ground lightning effects (low lighting and volume fill)
 	lightningground = {
 		class      = [[CExpGenSpawner]],
 		count      = 1,
@@ -1910,22 +1892,54 @@ definitions['lightning-area-repeat'] = {
 		},
 	},
 
-	-- Lightning balls (volumetric fill kinda) -- todo
-	-- balls = {
-	-- 	air        = true,
-	-- 	class      = [[CSimpleParticleSystem]],
-	-- 	count      = 1,
-	-- 	properties = {
-	-- 		airdrag       = 0.8,
-	-- 		colormap      = [[1 1 1 0.4  0.2 0.5 1 0.8  0 0 0 0.0]],
-	-- 		numparticles  = 1,
-	-- 		particlelife  = 8,
-	-- 		particlesize  = 15,
-	-- 		particlespeed = 1,
-	-- 		texture       = [[plasmaball]],
-	-- 		pos           = [[0, 0, 0]],
-	-- 	},
-	-- },
+	-- Static clouds (low volumetric fill)
+	clouds = {
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		air        = true,
+		properties = {
+			airdrag            = 0.95,
+			colormap           = [[0 0 0 0.0  0.05 0.05 0.1 0.2  0 0 0 0.0]],
+			dir                = [[dir]],
+			numparticles       = 1,
+			particlelife       = 23,
+			particlesize       = 50,
+			particlesizespread = 20,
+			particlespeed      = 0.2,
+			pos                = [[0, 0, 0]],
+			texture            = [[smoke-ice-anim]],
+		},
+	},
+
+	-- Lightning balls (high volumetric fill) -- todo
+	balls = {
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		air        = true,
+		ground     = true,
+		water      = true,
+		underwater = true,
+		properties = {
+			airdrag             = 0.8,
+			colormap            = [[0 0 0 0.01  0.4 1 0.66 0.03  0 0 0 0.01]],
+			directional         = true,
+			emitrot             = 80,
+			emitrotspread       = 0,
+			emitvector          = [[0, 1, 0]],
+			gravity             = [[0, 0, 0]],
+			numparticles        = 1,
+			particlelife        = 3,
+			particlelifespread  = 0,
+			particlesize        = 1.8,
+			particlesizespread  = 7.5,
+			particlespeed       = 0.01,
+			particlespeedspread = 0,
+			pos                 = [[0, 0, 0]],
+			sizegrowth          = 0,
+			sizemod             = 1.0,
+			texture             = [[lightbw]],
+		},
+	},
 
 	-- Lightning bolt prongs -- todo
 	-- prongs = {
