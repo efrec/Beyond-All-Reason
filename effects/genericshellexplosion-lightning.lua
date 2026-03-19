@@ -1681,31 +1681,206 @@ local function circularAreaOfEffect(radius, ypos)
 	return angle .. distance .. xpos .. ", " .. ypos .. ", " .. zpos
 end
 
+definitions['lightning-flash'] = {
+	electricity = {
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		air        = true,
+		ground     = true,
+		water      = true,
+		underwater = false,
+		properties = {
+			airdrag             = 0.89,
+			colormap            =
+			[[0 0 0 0.0	 1 1 1 0.04	 0 0 0 0.0 	 0 0 0 0.0 	 0 0 0 0.0   1 1 1 0.04   0 0 0 0.0   0 0 0 0.0   1 1 1 0.03   0 0 0 0.0	]],
+			directional         = false,
+			emitrot             = 90,
+			emitrotspread       = 45,
+			emitvector          = [[0, 1, 0]],
+			gravity             = [[0, -0.07, 0]],
+			numparticles        = [[0.4 r0.9]],
+			particlelife        = 2,
+			particlelifespread  = 15,
+			particlesize        = 12,
+			particlesizespread  = 6.5,
+			particlespeed       = 0.5,
+			particlespeedspread = 1.5,
+			rotParams           = [[-5 r10, 0, -180 r360]],
+			pos                 = [[0, 5, 0]],
+			sizegrowth          = 0.22,
+			sizemod             = 1.0,
+			texture             = [[whitelightb]],
+		},
+	},
+}
+
+definitions['lightning-ground-repeat'] = {
+	usedefaultexplosions = false,
+	-- Low volumetric fill, always spawns and so is much larger
+	shockmattalways = {
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		air        = true,
+		ground     = true,
+		properties = {
+			airdrag             = 0.9,
+			colormap            =
+			[[0.18 0.22 0.25 0.6   0.40 0.45 0.77 0.8   0.15 0.20 0.40 0.4   0.39 0.45 0.72 1   0.34 0.40 0.67 0.9   0.10 0.15 0.35 0.5   0.27 0.35 0.63 0.8   0.29 0.35 0.58 0.7   0.22 0.28 0.48 0.6   0.10 0.11 0.12 0.50   0.05 0.06 0.08 0.4   0 0 0 0.01]],
+			directional         = false,
+			emitrot             = 90,
+			emitrotspread       = 5,
+			emitvector          = [[0, 0.7, 0]],
+			gravity             = [[-0.025 r0.05, 0.03 r0.11, -0.025 r0.05]],
+			numparticles        = 1, -- always one, a little larger, try to guarantee the area is covered basically
+			particlelife        = 44,
+			particlelifespread  = 44,
+			particlesize        = 64,
+			particlesizespread  = 100,
+			particlespeed       = 3.20,
+			particlespeedspread = 5.20,
+			rotParams           = [[-5 r10, -20 r40, -180 r360]],
+			-- animParams          = [[16,6,88 r55]], -- todo
+			pos                 = [[-3 r6, -12 r25, -3 r6]],
+			sizegrowth          = [[1.10 r1.05]],
+			sizemod             = 0.98,
+			texture             = [[whitelightb]],
+			castShadow          = false,
+			drawOrder           = 2,
+		},
+	},
+	-- Low volumetric fill, random change so is smaller and more animated
+	shockmattrandom = {
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		air        = true,
+		ground     = true,
+		properties = {
+			airdrag             = 0.92,
+			colormap            =
+			[[0.18 0.22 0.25 0.6   0.40 0.77 0.75 0.8   0.10 0.20 0.25 0.4   0.39 0.58 0.72 1.0   0.34 0.54 0.67 0.9   0.27 0.49 0.63 0.8   0.08 0.15 0.20 0.3   0.29 0.39 0.58 0.7   0.22 0.29 0.48 0.6   0.12 0.06 0.11 0.5   0.07 0.009 0.016 0.4   0 0 0 0.01]],
+			directional         = false,
+			emitrot             = 90,
+			emitrotspread       = 5,
+			emitvector          = [[0, 0.7, 0]],
+			gravity             = [[-0.025 r0.05, 0.03 r0.11, -0.025 r0.05]],
+			numparticles        = [[0.1 r1]], -- less often, spawn smaller fires to give a more natural look
+			particlelife        = 44,
+			particlelifespread  = 66,
+			particlesize        = 46,
+			particlesizespread  = 130,
+			particlespeed       = 3.20,
+			particlespeedspread = 5.20,
+			rotParams           = [[-5 r10, -20 r40, -180 r360]],
+			-- animParams          = [[16,6,88 r55]], -- todo
+			pos                 = [[-32 r16, -12 r44, -32 r16]],
+			sizegrowth          = [[1.10 r1.05]],
+			sizemod             = 0.98,
+			texture             = [[whitelightb]],
+			castShadow          = false,
+			drawOrder           = 2,
+		},
+	},
+	-- Shadow-toned electrical arc, produces contrast within the area, stimulates depth perception
+	shockdark = {
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		air        = true,
+		ground     = true,
+		properties = {
+			airdrag             = 0.93,
+			colormap            =
+			[[0.01 0.01 0.01 0.01   0.01 0.02 0.02 0.2   0.05 0.05 0.1 0.1   0.18 0.20 0.26 0.33   0.29 0.27 0.36 0.72   0.40 0.28 0.34 0.88   0.20 0.29 0.33 0.7   0.08 0.10 0.15 0.2   0.18 0.27 0.33 0.83   0.14 0.22 0.29 0.80   0.13 0.20 0.29 0.75   0.11 0.16 0.22 0.55   0.09 0.06 0.05 0.35   0.023 0.022 0.021 0.2   0.01 0.01 0.01 0.01   0 0 0 0.01]],
+			directional         = false,
+			emitrot             = 85,
+			emitrotspread       = 25,
+			emitvector          = [[r0.28 0.56, 0.9, r0.28 0.56]],
+			gravity             = [[-0.02 r0.04, 0.015 r0.032, -0.02 r0.04]],
+			numparticles        = [[0.3 r0.7]],
+			particlelife        = 44,
+			particlelifespread  = 44,
+			particlesize        = 44,
+			particlesizespread  = 88,
+			particlespeed       = 0.10,
+			particlespeedspread = 0.16,
+			rotParams           = [[-5 r10, 0, -180 r360]],
+			-- animParams          = [[16,6,80 r55]], -- todo
+			pos                 = [[0, 60 r25, 0]],
+			sizegrowth          = [[1.3 r1.1]],
+			sizemod             = 0.99,
+			texture             = [[whitelightb]],
+			castShadow          = false,
+			drawOrder           = 3,
+		},
+	},
+	-- Sporadic sparking, more like a burning spark than a lightning spark
+	sparks = {
+		class      = [[CSimpleParticleSystem]],
+		count      = 1,
+		air        = true,
+		ground     = true,
+		water      = true,
+		underwater = true,
+		properties = {
+			airdrag             = 0.92,
+			colormap            = [[0 0 0 0.01   0 0 0 0.01  1 0.88 0.77 0.030   0.8 0.55 0.3 0.015   0 0 0 0]],
+			directional         = true,
+			emitrot             = 35,
+			emitrotspread       = 22,
+			emitvector          = [[0, 1, 0]],
+			gravity             = [[-0.4 r0.8, -0.1 r0.3, -0.4 r0.8]],
+			numparticles        = [[0.23 r1]],
+			particlelife        = 11,
+			particlelifespread  = 11,
+			particlesize        = -24,
+			particlesizespread  = -8,
+			particlespeed       = 9,
+			particlespeedspread = 4,
+			pos                 = [[-7 r14, 17 r15, -7 r14]],
+			sizegrowth          = 0.04,
+			sizemod             = 0.91,
+			texture             = [[gunshotxl2]],
+			useairlos           = false,
+			drawOrder           = 2,
+		},
+	},
+}
+
+-- use 75 as the reference size, ~0.77s effect duration
+-- set a bunch of 
 definitions['lightning-area-repeat'] = {
 	usedefaultexplosions = false,
 
 	-- Area highlight (ground)
 	under = {
-		air        = true,
 		class      = [[CBitmapMuzzleFlame]],
 		count      = 1,
+		air        = false,
 		ground     = true,
 		water      = true,
+		underwater = true,
 		properties = {
-			colormap     = [[0 0 0 0.0  0.1 0.2 0.5 0.2  0.2 0.5 1 0.4  0.1 0.2 0.5 0.2  0 0 0 0.0]],
-			dir          = [[0, 1, 0]],
-			fronttexture = [[bloodcentersplatshwhite]],
-			length       = 5,
+			colormap     = [[0 0 0 0  0.1 0.2 0.5 0.05  0.2 0.5 1 0.05  0.1 0.2 0.5 0.05  0 0 0 0.0]],
+			dir          = [[dir]],
+			frontoffset  = 0,
+			fronttexture = [[brightblueexplo]],
+			-- animParams   = [[8,8,90 r60]], -- todo
+			length       = 0,
+			sidetexture  = [[none]],
 			size         = 75,
-			ttl          = 23, -- ~0.77s
+			sizegrowth   = [[-0.5 r1.2]],
+			ttl          = 22 * 1.5,
+			pos          = [[0, 5, 0]],
+			rotParams    = [[-4 r8, -4 r8, -180 r360]],
+			drawOrder    = -2,
+			castShadow   = false,
 		},
 	},
 
-	-- Storm cloud (volumetric fill)
+	-- Static clouds (low volumetric fill)
 	clouds = {
-		air        = true,
 		class      = [[CSimpleParticleSystem]],
 		count      = 1,
+		air        = true,
 		properties = {
 			airdrag            = 0.95,
 			colormap           = [[0 0 0 0.0  0.05 0.05 0.1 0.2  0 0 0 0.0]],
@@ -1715,84 +1890,86 @@ definitions['lightning-area-repeat'] = {
 			particlesizespread = 20,
 			particlespeed      = 0.2,
 			texture            = [[smoke-ice-anim]],
+			dir                = [[dir]],
 			pos                = [[0, 0, 0]],
 		},
 	},
 
-	-- Lightning balls (volumetric fill kinda)
-	balls = {
-		air        = true,
-		class      = [[CSimpleParticleSystem]],
-		count      = 1,
-		properties = {
-			airdrag       = 0.8,
-			colormap      = [[1 1 1 0.4  0.2 0.5 1 0.8  0 0 0 0.0]],
-			numparticles  = 1,
-			particlelife  = 8,
-			particlesize  = 15,
-			particlespeed = 1,
-			texture       = [[plasmaball]],
-			pos           = [[0, 0, 0]],
-		},
-	},
-
-	-- Spark sprays (maybe recolor or smth)
-	sparks = {
-		air        = true,
-		class      = [[CSimpleParticleSystem]],
-		count      = 1,
-		properties = {
-			airdrag       = 0.97,
-			colormap      = [[1 1 1 1  0.2 0.6 1 1  0 0 0 0.0]],
-			gravity       = [[0, -0.4, 0]],
-			numparticles  = 10,
-			particlelife  = 12,
-			particlesize  = 2,
-			particlespeed = 8,
-			texture       = [[flare2]],
-			pos           = [[0, 0, 0]],
-		},
-	},
-
-	-- Lightning bolt prongs (maybe redo)
-	prongs = {
-		air        = true,
+	lightningground = {
 		class      = [[CExpGenSpawner]],
 		count      = 1,
+		air        = true,
 		ground     = true,
+		water      = true,
+		underwater = true,
 		properties = {
-			delay              = [[r22]], -- Max 0.73s delay (randomized start)
-			explosiongenerator = [[custom:lightning_stormbolt]],
-			pos                = [[0, 0, 0]],
+			delay              = [[r9]],
+			dir                = [[dir]],
+			explosiongenerator = [[custom:lightning-ground-repeat]],
+			pos                = [[-15 r30, 4 r12, -15 r30]],
 		},
 	},
+
+	-- Lightning balls (volumetric fill kinda) -- todo
+	-- balls = {
+	-- 	air        = true,
+	-- 	class      = [[CSimpleParticleSystem]],
+	-- 	count      = 1,
+	-- 	properties = {
+	-- 		airdrag       = 0.8,
+	-- 		colormap      = [[1 1 1 0.4  0.2 0.5 1 0.8  0 0 0 0.0]],
+	-- 		numparticles  = 1,
+	-- 		particlelife  = 8,
+	-- 		particlesize  = 15,
+	-- 		particlespeed = 1,
+	-- 		texture       = [[plasmaball]],
+	-- 		pos           = [[0, 0, 0]],
+	-- 	},
+	-- },
+
+	-- Lightning bolt prongs -- todo
+	-- prongs = {
+	-- 	class      = [[CExpGenSpawner]],
+	-- 	count      = 1,
+	-- 	air        = true,
+	-- 	ground     = true,
+	-- 	properties = {
+	-- 		delay              = [[r22]],
+	-- 		dir                = [[dir]],
+	-- 		explosiongenerator = [[custom:lightning-flash]],
+	-- 		pos                = [[0, 0, 0]],
+	-- 	},
+	-- },
 }
 
+-- todo: both totally made up
+local radiusShock = 48 -- size of lightning texture effect
+local radiusShockLarge = 72 -- size of larger lightning effect
+
 for i = 1, #areaSizePresets do
-	local radius = areaSizePresets[i] -- pretty sure it's diameter lol
 	local expgen = table.copy(definitions['lightning-area-repeat'])
 
-	local groundPos = circularAreaOfEffect(radius, 0)
-	local airPos = circularAreaOfEffect(radius, "5 r35")
+	local radius = areaSizePresets[i] -- pretty sure it's a diameter lol
+	local radiusEffect = radius <= 100 and radiusShock or radiusShockLarge
+	local inset = radiusEffect * 0.5
 
-	local areaScale = (radius / 75) ^ 2
-	local boltCount = math.max(3, math.ceil(15 * areaScale))
+	local areaScale = 0.2 * (radius / radiusEffect) ^ 2
 	local particleCount = math.max(2, math.ceil(8 * areaScale))
+	local boltCount = math.max(3, math.ceil(15 * areaScale))
+
+	local posArea = circularAreaOfEffect(radius - inset, [[8 r]] .. radiusEffect * 0.3333)
+	local posGround = circularAreaOfEffect(radius - inset, [[-8 r]] .. radiusEffect * 0.3333)
 
 	expgen.under.properties.size = radius * 2
 
-	expgen.prongs.count = boltCount
-	expgen.prongs.properties.pos = groundPos
-	-- delay is fixed at r22 in template for non-staggered burst
-
 	expgen.clouds.count = particleCount
-	expgen.clouds.properties.pos = airPos
+	expgen.clouds.properties.pos = posArea
 
-	expgen.balls.count = particleCount * 2
-	expgen.balls.properties.pos = airPos
+	-- expgen.balls.count = particleCount * 2
+	-- expgen.balls.properties.pos = airPos
 
-	expgen.sparks.count = particleCount
-	expgen.sparks.properties.pos = airPos
+	-- expgen.prongs.count = boltCount
+	-- expgen.prongs.properties.pos = groundPos
 
 	local name = 'lightning-area-' .. math.floor(radius) .. '-repeat'
 	definitions[name] = expgen
