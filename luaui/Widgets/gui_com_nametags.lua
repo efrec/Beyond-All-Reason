@@ -89,6 +89,12 @@ local playerRankImages = "luaui\\images\\advplayerslist\\ranks\\"
 --------------------------------------------------------------------------------
 
 local ColorIsDark = Spring.Utilities.Color.ColorIsDark
+local GetDarkOutlineColor = Spring.Utilities.Color.GetDarkOutlineColor
+local black = { 0, 0, 0, 1 }
+
+local function getColorOutline(r, g, b)
+	return ColorIsDark(r, g, b) and { GetDarkOutlineColor(r, g, b) } or black
+end
 
 local GL_GREATER = GL.GREATER
 local GL_SRC_ALPHA = GL.SRC_ALPHA
@@ -230,10 +236,7 @@ local function GetCommAttributes(unitID, unitDefID)
 	end
 
 	local r, g, b, a = spGetTeamColor(team)
-	local bgColor = { 0, 0, 0, 1 }
-	if ColorIsDark(r, g, b) then
-		bgColor = { 1, 1, 1, 1 }	-- try to keep these values the same as the playerlist
-	end
+	local bgColor = { getColorOutline(r, g, b) }
 
 	local skill
 	if showSkillValue then
@@ -278,10 +281,7 @@ local function createComnameList(attributes)
 		if (anonymousMode == "disabled" or spec) and showPlayerRank and attributes[6] and not isSinglePlayer then
 			x = (playerRankSize*0.5)
 		end
-		local outlineColor = { 0, 0, 0, 1 }
-		if ColorIsDark(attributes[2][1], attributes[2][2], attributes[2][3]) then
-			outlineColor = { 1, 1, 1, 1 }		-- try to keep these values the same as the playerlist
-		end
+		local outlineColor = { getColorOutline(attributes[2][1], attributes[2][2], attributes[2][3]) }
 		local name = attributes[1]
 		if anonymousMode ~= "disabled" and not spec then
 			name = anonymousName
@@ -501,11 +501,7 @@ local function createComnameIconList(unitID, attributes)
 		if x and y and z then
 			x, z = spWorldToScreenCoords(x, y, z)
 
-			local outlineColor = { 0, 0, 0, 1 }
-			if ColorIsDark(attributes[2][1], attributes[2][2], attributes[2][3]) then
-				-- try to keep these values the same as the playerlist
-				outlineColor = { 1, 1, 1, 1 }
-			end
+			local outlineColor = { getColorOutline(attributes[2][1], attributes[2][2], attributes[2][3]) }
 			local name = attributes[1]
 			if anonymousMode ~= "disabled" and (not spec) then
 				name = anonymousName

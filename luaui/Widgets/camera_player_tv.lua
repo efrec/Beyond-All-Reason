@@ -71,6 +71,7 @@ local spGetTeamColor = Spring.GetTeamColor
 local spGetPlayerInfo = Spring.GetPlayerInfo
 
 local ColorIsDark = Spring.Utilities.Color.ColorIsDark
+local GetDarkOutlineColor = Spring.Utilities.Color.GetDarkOutlineColor
 
 local aiTeams = {}
 local teamColorKeys = {}
@@ -596,7 +597,7 @@ local function drawContent()
 						font2:Begin()
 						font2:SetTextColor(r, g, b, 1)
 						if ColorIsDark(r, g, b) then
-							font2:SetOutlineColor(1, 1, 1, 1)
+							font2:SetOutlineColor(GetDarkOutlineColor(r, g, b))
 						else
 							font2:SetOutlineColor(0, 0, 0, 1)
 						end

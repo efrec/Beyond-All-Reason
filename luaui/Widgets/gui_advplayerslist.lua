@@ -124,6 +124,7 @@ local Spring_GetTeamStatsHistory = Spring.GetTeamStatsHistory
 local ColorString = Spring.Utilities.Color.ToString
 local ColorArray = Spring.Utilities.Color.ToIntArray
 local ColorIsDark = Spring.Utilities.Color.ColorIsDark
+local GetDarkOutlineColor = Spring.Utilities.Color.GetDarkOutlineColor
 
 local gl_Texture = gl.Texture
 local gl_Color = gl.Color
@@ -293,13 +294,13 @@ local absentName = " --- "
 local gameStarted = false
 local gameStartRefreshed = spGetGameFrame() > 30
 
-local isSinglePlayer = Spring.Utilities.Gametype.IsSinglePlayer()
+-- local isSinglePlayer = Spring.Utilities.Gametype.IsSinglePlayer()
 
-local isSingle = false
-if not mySpecStatus then
-	local teamList = Spring.GetTeamList(myAllyTeamID) or {}
-	isSingle = #teamList == 1
-end
+-- local isSingle = false
+-- if not mySpecStatus then
+-- 	local teamList = Spring.GetTeamList(myAllyTeamID) or {}
+-- 	isSingle = #teamList == 1
+-- end
 --------------------------------------------------------------------------------
 -- Button check variable
 --------------------------------------------------------------------------------
@@ -1232,7 +1233,7 @@ function CreatePlayer(playerID)
         red = tred,
         green = tgreen,
         blue = tblue,
-        dark = ColorIsDark(tred, tgreen, tblue),
+		darkColor = ColorIsDark(tred, tgreen, tblue) and { GetDarkOutlineColor(tred, tgreen, tblue) } or false,
         side = tside,
         pingLvl = tpingLvl,
         cpuLvl = tcpuLvl,
@@ -1328,7 +1329,7 @@ function CreatePlayerFromTeam(teamID)
         red = tred,
         green = tgreen,
         blue = tblue,
-        dark = ColorIsDark(tred, tgreen, tblue),
+		darkColor = ColorIsDark(tred, tgreen, tblue) and { GetDarkOutlineColor(tred, tgreen, tblue) } or false,
         side = tside,
         totake = ttotake,
         dead = tdead,
@@ -2250,12 +2251,12 @@ function DrawPlayer(playerID, leader, vOffset, mouseX, mouseY, onlyMainList, onl
 
     tipY = nil
 
-    local dark, rank, skill, country
+    local outlineColor, rank, skill, country
     if onlyMainList then
         --local red = player[playerID].red
         --local green = player[playerID].green
         --local blue = player[playerID].blue
-        dark = player[playerID].dark
+        outlineColor = player[playerID].darkColor
         rank = player[playerID].rank
         skill = player[playerID].skill
         country = player[playerID].country
@@ -2310,10 +2311,10 @@ function DrawPlayer(playerID, leader, vOffset, mouseX, mouseY, onlyMainList, onl
 
 	if onlyMainList then
 		if m_allyID.active and not spec then
-			DrawAllyID(allyteam, posY, dark, dead)
+			DrawAllyID(allyteam, posY, outlineColor, dead)
 		end
 		if m_playerID.active and not ai and playerID < 255 then
-			DrawPlayerID(playerID, posY, dark, spec)
+			DrawPlayerID(playerID, posY, outlineColor, spec)
 		end
 	end
     if tipY and accountID then
@@ -2357,10 +2358,10 @@ function DrawPlayer(playerID, leader, vOffset, mouseX, mouseY, onlyMainList, onl
             end
             if onlyMainList then
                 if m_ID.active and not dead then
-                    DrawID(team, posY, dark, dead)
+                    DrawID(team, posY, outlineColor, dead)
                 end
                 if m_skill.active then
-                    DrawSkill(skill, posY, dark)
+                    DrawSkill(skill, posY, outlineColor)
                 end
 
             end
@@ -2374,10 +2375,10 @@ function DrawPlayer(playerID, leader, vOffset, mouseX, mouseY, onlyMainList, onl
                 DrawCountry(country, posY)
             end
             if name ~= absentName and m_side.active then
-                DrawSidePic(team, playerID, posY, leader, dark, ai)
+                DrawSidePic(team, playerID, posY, leader, outlineColor, ai)
             end
             if m_name.active then
-                DrawName(name, nameIsAlias, team, posY, dark, playerID, accountID, desynced)
+                DrawName(name, nameIsAlias, team, posY, outlineColor, playerID, accountID, desynced)
             end
         end
 
@@ -2623,7 +2624,7 @@ function DrawIncome(energy, metal, posY, dead)
     font:End()
 end
 
-function DrawSidePic(team, playerID, posY, leader, dark, ai)
+function DrawSidePic(team, playerID, posY, leader, outlineColor, ai)
     gl_Color(1, 1, 1, 1)
     if gameStarted then
         if leader then
@@ -2770,7 +2771,7 @@ function DrawAlliances(alliances, posY)
     end
 end
 
-function DrawName(name, nameIsAlias, team, posY, dark, playerID, accountID, desynced)
+function DrawName(name, nameIsAlias, team, posY, outlineColor, playerID, accountID, desynced)
     local willSub = ""
     local ignored = WG.ignoredAccounts and (WG.ignoredAccounts[accountID] or WG.ignoredAccounts[name] ~= nil)
     local isAbsent = false
@@ -2815,8 +2816,8 @@ function DrawName(name, nameIsAlias, team, posY, dark, playerID, accountID, desy
     font2:Begin(useRenderToTexture)
     local fontsize = (isAbsent and 9 or 14) * math.clamp(1+((1-(vsy/1200))*0.5), 1, 1.2)
     fontsize = fontsize * (playerScale + ((1-playerScale)*0.25))
-    if dark then
-        font2:SetOutlineColor(0.9, 0.9, 0.9, 1)
+    if outlineColor then
+        font2:SetOutlineColor(outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4])
     else
         font2:SetOutlineColor(0, 0, 0, 1)
     end
@@ -2834,13 +2835,13 @@ function DrawName(name, nameIsAlias, team, posY, dark, playerID, accountID, desy
     --desynced = playerID == 1
     local pScale = (0.5+playerScale)*0.67  --dont scale too much for the already smaller bonus font
 	if desynced then
-        if dark then
+        if outlineColor then
             font2:SetOutlineColor(0, 0, 0, 1)
         end
 		font2:SetTextColor(1,0.45,0.45,1)
 		font2:Print(Spring.I18N('ui.playersList.desynced'), m_name.posX + widgetPosX + 5 + xPadding + (font2:GetTextWidth(nameText)*14*pScale), posY + (5.7*playerScale), 8*pScale, "o")
 	elseif player[playerID] and not player[playerID].dead and player[playerID].incomeMultiplier and player[playerID].incomeMultiplier ~= 1 then
-        if dark then
+        if outlineColor then
             font2:SetOutlineColor(0, 0, 0, 1)
         end
         if player[playerID].incomeMultiplier > 1 then
@@ -2869,7 +2870,7 @@ function DrawName(name, nameIsAlias, team, posY, dark, playerID, accountID, desy
     end
 end
 
-function DrawSmallName(name, nameIsAlias, team, posY, dark, playerID, accountID, alpha)
+function DrawSmallName(name, nameIsAlias, team, posY, outlineColor, playerID, accountID, alpha)
     if team == nil then
         return
     end
@@ -2914,7 +2915,7 @@ function DrawSmallName(name, nameIsAlias, team, posY, dark, playerID, accountID,
     end
 end
 
-function DrawAllyID(allyID, posY, dark, dead)
+function DrawAllyID(allyID, posY, outlineColor, dead)
     local spacer = ""
     if allyID < 10 then
         spacer = " "
@@ -2927,7 +2928,7 @@ function DrawAllyID(allyID, posY, dark, dead)
     font:End()
 end
 
-function DrawPlayerID(playerID, posY, dark, spec)
+function DrawPlayerID(playerID, posY, outlineColor, spec)
     local spacer = ""
     if playerID < 10 then
         spacer = " "
@@ -2942,7 +2943,7 @@ function DrawPlayerID(playerID, posY, dark, spec)
     font:End()
 end
 
-function DrawID(teamID, posY, dark, dead)
+function DrawID(teamID, posY, outlineColor, dead)
     local spacer = ""
     if teamID < 10 then
         spacer = " "
@@ -2955,7 +2956,7 @@ function DrawID(teamID, posY, dark, dead)
     font:End()
 end
 
-function DrawSkill(skill, posY, dark)
+function DrawSkill(skill, posY, outlineColor)
     local fontsize = 9.5 * (playerScale + ((1-playerScale)*0.25)) * math.clamp(1+((1-(vsy/1200))*0.75), 1, 1.25)
     font:Begin(useRenderToTexture)
     font:Print(skill, m_skill.posX + widgetPosX + (4.5*playerScale), posY + (5.3*playerScale), fontsize, "o")
@@ -3800,7 +3801,7 @@ function CheckPlayersChange()
 				else
 					player[i].red, player[i].green, player[i].blue = Spring_GetTeamColor(teamID)
 				end
-                player[i].dark = ColorIsDark(player[i].red, player[i].green, player[i].blue)
+                player[i].darkColor = ColorIsDark(tred, tgreen, tblue) and { GetDarkOutlineColor(tred, tgreen, tblue) } or false
                 player[i].skill = GetSkill(i)
                 sorting = true
             end
