@@ -33,8 +33,69 @@ SaveDefsToCustomParams = false
 -------------------------
 
 function PrebakeUnitDefs()
+	local airLabs = { armap = true, corap = true, legap = true }
+	local antiAir = (UnitDefs.armrl and UnitDefs.armrl.weapondefs.armrl_missile.damage.vtol) or 115
+	local transports = {
+		armatlas      = "light",
+		armhvytrans   = "heavy",
+		armdfly       = "armdfly",
+
+		corvalk       = "light",
+		corhvytrans   = "heavy",
+		corseah       = "corseah",
+
+		leglts        = "light",
+		legatrans     = "heavy",
+		legstronghold = "legstronghold",
+	}
+
+	local tweaks = {
+		light = {
+			health        = antiAir * 2, -- from 265|280 to 230
+			sightdistance = 462, -- from 430
+		},
+		heavy = {
+			health        = antiAir * 5, -- from 630|800 to 575
+			metalcost     = 150, -- from 190
+			speed         = 100, -- from 110|100
+			maxdec        = 0.44, -- from 0.75
+			turnrate      = 425, -- from 550
+			customparams  = {
+				techlevel = 2, -- from 1
+			},
+		},
+		armdfly = {
+			health = 1300, -- from 1170
+			speed  = 190, -- from 225
+		},
+		corseah = {
+			health = 1750, -- from 2200
+			speed  = 180, -- from 200
+		},
+		legstronghold = {
+			health = 2200, -- from 2600
+			speed = 160, -- from 175
+		},
+	}
+
+	local function isHeavyTransport(name)
+		return transports[name] == "heavy"
+	end
+
+	local insert, merge, filter = table.insert, table.mergeInPlace, table.removeIf
+
 	for name, unitDef in pairs(UnitDefs) do
-		-- UnitDef changes go here
+		if transports[name] then
+			merge(unitDef, tweaks[transports[name]], true)
+		elseif airLabs[name] then
+			filter(unitDef.buildoptions, isHeavyTransport)
+		elseif name == "armaap" then
+			insert(unitDef.buildoptions, "armhvytrans")
+		elseif name == "coraap" then
+			insert(unitDef.buildoptions, "corhvytrans")
+		elseif name == "legaap" then
+			insert(unitDef.buildoptions, "legatrans")
+		end
 	end
 end
 
