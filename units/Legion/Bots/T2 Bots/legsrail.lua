@@ -116,7 +116,7 @@ return {
 				explosiongenerator = "custom:plasmahit-sparkonly",
 				firestarter = 0,
 				hardstop = true,
-				impactonly = true,
+				-- impactonly = true, -- ! for testing: we want multiple hits from the engine vs units only
 				impulsefactor = 1,
 				intensity = 0.8,
 				name = "Railgun",

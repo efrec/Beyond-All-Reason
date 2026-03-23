@@ -132,7 +132,8 @@ local function loadPenetratorWeaponDefs()
 
 	for weaponDefID, weaponDef in pairs(WeaponDefs) do
 		local custom = weaponDef.customParams
-		if weaponDef.impactOnly and weaponDef.noExplode and tobool(custom.overpenetrate) then
+		-- ! For testing: Disable impactOnly so the engine just hits whatever is on the trajectory.
+		if --[[weaponDef.impactOnly and]] weaponDef.noExplode and tobool(custom.overpenetrate) then
 			local params = table.new(#Game.armorTypes, 1 + 5) -- `0` is stored in hash part
 
 			local damages = toSafeDamageArray(weaponDef.damages)
@@ -262,6 +263,14 @@ local function addPenetratorCollision(targetID, isUnit, armorType, damage, proje
 		armorType = armorType,
 		damage    = damage,
 	}
+
+	-- ! For testing:
+	local hx, hy, hz = getCollisionPosition(projectileID, targetID, isUnit)
+	if hx then
+		Spring.MarkerAddPoint(hx, hy, hz, tostring(#collisions))
+	else
+		Spring.Echo("?")
+	end
 end
 
 local sortPenetratorCollisions
