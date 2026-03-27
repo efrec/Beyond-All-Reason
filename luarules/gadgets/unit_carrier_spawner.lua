@@ -68,16 +68,18 @@ local mcSetAirMoveTypeData  = Spring.MoveCtrl.SetAirMoveTypeData
 local mapsizeX 				  = Game.mapSizeX
 local mapsizeZ 				  = Game.mapSizeZ
 
+local pairsNext = next
+local tonumber = tonumber
+local stringFind = string.find
+local strSplit = string.split
 local random = math.random
 local mathMin = math.min
 local sin    = math.sin
 local cos    = math.cos
 local diag = math.diag
-local stringFind = string.find
-local strSplit = string.split
-local tonumber = tonumber
-local pairsNext = next
 local PI = math.pi
+local ensureTable = table.ensureTable
+
 local GAME_SPEED = Game.gameSpeed
 local PRIVATE = { private = true }
 local CMD_CARRIER_SPAWN_ONOFF = GameCMD.CARRIER_SPAWN_ONOFF
@@ -344,10 +346,9 @@ local function dockUnitQueue(unitID, subUnitID)
 		return
 	end
 	carrierQueuedDockingCount = carrierQueuedDockingCount + 1
-	local dockData = carrierDockingList[carrierQueuedDockingCount] or {}
+	local dockData = ensureTable(carrierDockingList, carrierQueuedDockingCount)
 	dockData.ownerID = unitID
 	dockData.subunitID = subUnitID
-	carrierDockingList[carrierQueuedDockingCount] = dockData
 	carrierMetaList[unitID].subUnitsList[subUnitID].activeDocking = true
 end
 
@@ -382,7 +383,7 @@ local function undockUnit(unitID, subUnitID)
 			
 			if dronetype == "printer" then
 				SetUnitNoSelect(subUnitID, false)
-				spSetUnitRulesParam(subUnitID, "carrier_host_unit_id", nil, PRIVATE)
+				droneCarrierIdList[subUnitID] = nil
 				RemoveDrone(unitID,subUnitID)
 			end
 		end
@@ -563,7 +564,7 @@ local function spawnUnit(spawnData)
 						local spareDock = false
 						local dockingpiece
 						if ownerID then
-							spSetUnitRulesParam(subUnitID, "carrier_host_unit_id", ownerID, PRIVATE)
+							droneCarrierIdList[subUnitID] = ownerID
 							local subUnitCount = carrierData.subUnitCount[dronetypeIndex]
 							local subunitDefID	= spGetUnitDefID(subUnitID)
 							local subUnitDef = UnitDefs[subunitDefID]
@@ -680,7 +681,6 @@ end
 local function attachToNewCarrier(newCarrier, subUnitID)
 
 	if carrierMetaList[newCarrier] then
-		spSetUnitRulesParam(subUnitID, "carrier_host_unit_id", newCarrier, PRIVATE)
 		droneCarrierIdList[subUnitID] = newCarrier
 		local subUnitCount = carrierMetaList[newCarrier].subUnitCount
 		subUnitCount = subUnitCount + 1
@@ -858,7 +858,6 @@ function gadget:UnitCreated(unitID, unitDefID, unitTeam)
 						carrierData.cachedFireState = states.firestate
 						carrierData.cachedMoveState = states.movestate
 					end
-					--spSetUnitRulesParam(unitID, "is_carrier_unit", "enabled", PRIVATE)
 					if not(carrierMetaList[unitID].usestockpile) then
 						InsertUnitCmdDesc(unitID, 500, spawnCmd) --temporary
 					end
@@ -1039,17 +1038,18 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 						local ox, oy, oz = spGetUnitPosition(subUnitID)
 						local newCarrierCandidates = spGetUnitsInCylinder(ox, oz, carrierMetaList[unitID].controlRadius)
 						for _, newCarrierCandidate in pairsNext, newCarrierCandidates do
-							local existingCarrier = spGetUnitRulesParam(newCarrierCandidate, "carrier_host_unit_id")
+							local existingCarrier = droneCarrierIdList[newCarrierCandidate]
 							if not existingCarrier then
 								if carrierMetaList[unitID].parasite == "ally" then
+									-- FIXME
 									if spGetUnitAllyTeam(newCarrierCandidate) then
 										newCarrier = newCarrierCandidate
 									end
 								elseif carrierMetaList[unitID].parasite == "enemy" then
+									-- FIXME
 									if not spGetUnitAllyTeam(newCarrierCandidate) then
 										newCarrier = newCarrierCandidate
 									end
-
 								elseif carrierMetaList[unitID].parasite == "all" then
 									newCarrier = newCarrierCandidate
 								end
@@ -1068,8 +1068,6 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 								carrierMetaList[newCarrier].spawnRateFrames = 0
 								carrierMetaList[newCarrier].docking = false
 								carrierMetaList[newCarrier].activeRecall = false
-
-								spSetUnitRulesParam(subUnitID, "carrier_host_unit_id", newCarrier, PRIVATE)
 								droneCarrierIdList[subUnitID] = newCarrier
 							end
 
@@ -1083,7 +1081,6 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 						if not wild then
 							SetUnitNoSelect(subUnitID, false)
 						end
-						spSetUnitRulesParam(subUnitID, "carrier_host_unit_id", nil, PRIVATE)
 						droneCarrierIdList[subUnitID] = nil
 						local droneData = {
 							active = true,
@@ -1784,19 +1781,31 @@ end
 
 function gadget:Initialize()
 	gadgetHandler:RegisterAllowCommand(CMD_CARRIER_SPAWN_ONOFF)
+	gaiaTeam = Spring.GetGaiaTeamID()
 	local allUnits = Spring.GetAllUnits()
 	local unitCount = #allUnits
 	for i = 1, unitCount do
 		local unitID = allUnits[i]
 		gadget:UnitCreated(unitID, spGetUnitDefID(unitID), spGetUnitTeam(unitID))
+		-- reprocess dumped unit states
+		if spGetUnitRulesParam(unitID, "carrier_host_unit_id") then
+			droneCarrierIdList[unitID] = spGetUnitRulesParam(unitID, "carrier_host_unit_id")
+			spSetUnitRulesParam(unitID, "carrier_host_unit_id", nil, PRIVATE)
+		end
 	end
-	gaiaTeam = Spring.GetGaiaTeamID()
 	gadgetHandler:RegisterGlobal("CobUndockSequenceFinished", CobUndockSequenceFinished)
 	gadgetHandler:RegisterGlobal("CobDroneSpawnSequenceFinished", CobDroneSpawnSequenceFinished)
-	
 end
 
 function gadget:Shutdown()
+	-- dump unit states for reloads
+	for unitID, hostID in pairs(droneCarrierIdList) do
+		spSetUnitRulesParam(unitID, "carrier_host_unit_id", hostID, PRIVATE)
+	end
+end
+
+function gadget:GameOver(winningAllyTeams)
+	-- Why do we do this, again?
 	for unitID, _ in pairsNext, carrierMetaList do
 		for subUnitID,value in pairsNext, carrierMetaList[unitID].subUnitsList do
 			spDestroyUnit(subUnitID, true, true)

@@ -116,20 +116,7 @@ function gadget:GameFrame(frame)
 		for unitID, value in pairs(initializeList) do
 			local unitDefID = spGetUnitDefID(unitID)
 			local parentDefID
-			if spGetUnitRulesParam(unitID, "carrier_host_unit_id") then --estabalishes unit_carrier_spawner parenthood
-				parentID = spGetUnitRulesParam(unitID, "carrier_host_unit_id")
-				parentDefID = spGetUnitDefID(parentID)
-				if parentsInheritXP[parentDefID] ~= nil and string.find(parentsInheritXP[parentDefID], "DRONE") then
-					childrenWithParents[unitID] = {
-						unitid = unitID,
-						parentunitid = parentID,
-						parentxpmultiplier = calculatePowerDiffXP(unitID, parentID),
-						childinheritsXP = childrenInheritXP[unitDefID],
-						childtype = "DRONE",
-					}
-				end
-			end
-			if spGetUnitRulesParam(unitID, "parent_unit_id") then --estabalishes unit_explosion_spawner parenthood
+			if spGetUnitRulesParam(unitID, "parent_unit_id") then -- parent-child relationship used only in unit_explosion_spawner for now
 				parentID = spGetUnitRulesParam(unitID, "parent_unit_id")
 				parentDefID = spGetUnitDefID(parentID)
 				if parentsInheritXP[parentDefID] ~= nil and string.find(parentsInheritXP[parentDefID], "BOTCANNON") then
