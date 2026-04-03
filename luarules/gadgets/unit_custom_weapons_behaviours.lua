@@ -16,6 +16,62 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
+
+
+local shotDef = UnitDefNames.legeshotgunmech
+local shotDefID = shotDef and shotDef.id or -1
+
+local function point(x, y, z, message)
+	if not x then
+		return
+	end
+	Spring.MarkerAddPoint(x, y, z, tostring(message))
+end
+
+local function direction(x, y, z, dx, dy, dz, message)
+	if not x or not dx then
+		return
+	end
+	Spring.MarkerAddPoint(x + dx * 60, y + dy * 60, z + dz * 60, tostring(message))
+end
+
+local function horribleTest()
+	for _, unitID in ipairs(Spring.GetAllUnits()) do
+		if Spring.GetUnitDefID(unitID) == shotDefID then
+			local ux, uy, uz = Spring.GetUnitPosition(unitID)
+
+			local hx, hy, hz, hdx, hdy, hdz = Spring.GetUnitPiecePosDir(unitID, 1) -- hip
+			local hfx, hfy, hfz, hfdx, hfdy, hfdz = Spring.GetUnitPiecePosDir(unitID, 36) -- hip flare
+
+			local tx, ty, tz, tdx, tdy, tdz = Spring.GetUnitPiecePosDir(unitID, 24) -- torso
+			local tfx, tfy, tfz, tfdx, tfdy, tfdz = Spring.GetUnitPiecePosDir(unitID, 35) -- torso flare
+
+			local ax, ay, az = Spring.GetUnitWeaponVectors(unitID, 1) -- aimhull
+			local targetType, isUserTarget, target = Spring.GetUnitWeaponTarget(unitID, 1)
+
+			-- Draw some horrible garbage to make sure that we can figure this thing out.
+			local targetX, targetY, targetZ
+			if type(target) == "table" then
+				targetX, targetY, targetZ = target[1], target[2], target[3]
+			elseif target then
+				assert(type(target) == "number")
+				targetX, targetY, targetZ = Spring.GetUnitPosition(target)
+			end
+			if targetX then
+				Spring.MarkerAddPoint(targetX, targetY, targetZ, "target")
+			end
+
+			point(hx, hy, hz, "hip")
+			direction(hfx, hfy, hfz, hfdx, hfdy, hfdz, "hip flare")
+
+			point(tx, ty, tz, "torso")
+			direction(tfx, tfy, tfz, tfdx, tfdy, tfdz, "torso flare")
+		end
+	end
+end
+
+
+
 --------------------------------------------------------------------------------
 -- Localization ----------------------------------------------------------------
 
@@ -682,5 +738,9 @@ function gadget:GameFrame(frame)
 		if effect(projectileID) then
 			projectiles[projectileID] = nil
 		end
+	end
+
+	if frame % 12 == 0 then
+		horribleTest()
 	end
 end

@@ -221,6 +221,9 @@
 #define ANGLE_DIFFERENCE_GREATER_THAN(value, threshold) ABSOLUTE_GREATER_THAN(WRAPDELTA(value), threshold)
 #define ANGLE_DIFFERENCE_LESS_THAN(value, threshold) ABSOLUTE_LESS_THAN(WRAPDELTA(value), threshold)
 
+#define UNPACK_X(xz) ((xz & 0xffff0000) / 0x00010000)
+#define UNPACK_Z(xz) ((xz & 0x0000ffff))
+
 // Calculate how much sleep is needed given a delta and speed
 #define CALC_SLEEP(delta, speed) sleep(get ABS(delta / (speed + 1));
 

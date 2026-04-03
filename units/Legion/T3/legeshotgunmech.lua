@@ -113,12 +113,14 @@ return {
 				impulsefactor = 0.123,
 				name = "Targeting System",
 				noselfdamage = true,
+				proximitypriority = 0.25,
 				range = 420,
 				reloadtime = 2.5,
 				size = 0,
 				soundhit = "",
 				soundhitwet = "",
 				soundstart = "",
+				turnrate = 0, -- do not
 				turret = true,
 				weapontype = "Cannon",
 				weaponvelocity = 360,
@@ -338,12 +340,13 @@ return {
 				badtargetcategory = "VTOL",
 				def = "AIMHULL",
 				onlytargetcategory = "SURFACE",
+				weaponAimAdjustPriority = 20,
 			},
 			[2] = {
 				badtargetcategory = "VTOL",
 				def = "SHOTGUN",
 				onlytargetcategory = "SURFACE",
-				slaveto = 1;
+				slaveto = 1,
 			},
 			[3] = {
 				def = "clusterplasma",
@@ -353,7 +356,7 @@ return {
 				badtargetcategory = "VTOL",
 				def = "adv_rocket",
 				onlytargetcategory = "SURFACE",
-                slaveto = 1;
+                slaveto = 1,
 			},
 			[5] = {
 				badtargetcategory = "LIGHTAIRSCOUT",
