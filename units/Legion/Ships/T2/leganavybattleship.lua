@@ -123,6 +123,7 @@ return {
 				weapontype = "Cannon",
 				weaponvelocity = 440,
 				customparams = {
+					shared_weapon = "burst_plasma_t2_land",
 					weapons_group = 1,
 				},
 				damage = {
@@ -154,6 +155,7 @@ return {
 				weapontype = "Cannon",
 				weaponvelocity = 470,
 				customparams = {
+					shared_weapon = "burst_plasma_t2",
 					weapons_group = 2,
 				},
 				damage = {
@@ -197,9 +199,6 @@ return {
 				cylindertargeting=true,
 				weapontype = "LaserCannon",
 				weaponvelocity = 800,
-				customparams = {
-					weapons_group = 1,
-				},
 				damage = {
 					default = 20,
 					vtol = 6,

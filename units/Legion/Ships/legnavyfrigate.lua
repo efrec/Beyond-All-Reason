@@ -137,7 +137,7 @@ return {
 				weaponvelocity = 250,
 				customparams = {
 					speceffect = "torpwaterpen",
-					weapons_group = 1,
+					shared_weapon = "leg_alt_torpedo_launcher",
 				},
 				damage = {
 					commanders = 70,
@@ -182,7 +182,7 @@ return {
 				weapontype = "MissileLauncher",
 				weaponvelocity = 200,
 				customparams = {
-					weapons_group = 2,
+					shared_weapon = "leg_torpedo_launcher",
 				},
 				damage = {
 					commanders = 70,

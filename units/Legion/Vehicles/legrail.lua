@@ -140,7 +140,7 @@ return {
 				weaponvelocity = 3214,
 				customparams = {
 					overpenetrate = true,
-					weapons_group = 2,
+					shared_weapon = "railgun",
 				},
 				damage = {
 					default = 1,
@@ -184,6 +184,7 @@ return {
 				weapontype = "LaserCannon",
 				weaponvelocity = 3240,
 				customparams = {
+					shared_weapon = "aa_railgun",
 					overpenetrate = true,
 				},
 				damage = {

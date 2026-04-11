@@ -121,7 +121,7 @@ return {
 				weapontype = "MissileLauncher",
 				weaponvelocity = 2500,
 				customparams = {
-					weapons_group = 2,
+					weapons_role = "secondary",
 				},
 				damage = {
 					vtol = 37,
@@ -184,7 +184,6 @@ return {
 					dronedocktime = 2,
 					droneairtime = 60,
 					droneammo = 9,
-					weapons_group = 1,
 				},
 			},
 		},

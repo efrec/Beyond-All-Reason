@@ -137,7 +137,6 @@ return {
 				customparams = {
 					bogus = 1,
 					scavforcecommandfire = true,
-					weapons_group = 2,
 				},
 				damage = {
 					default = 0,
@@ -191,11 +190,10 @@ return {
 				weapontype = "StarburstLauncher",
 				weaponvelocity = 1600,
 				customparams = {
+					nuclear = 1,
 					place_target_on_ground = "true",
 					scavforcecommandfire = true,
 					stockpilelimit = 10,
-					nuclear = 1,
-					weapons_group = 2,
 				},
 				damage = {
 					commanders = 2500,
@@ -234,7 +232,7 @@ return {
 				weapontype = "TorpedoLauncher",
 				weaponvelocity = 290,
 				customparams = {
-					weapons_group = 1,
+					weapons_role = "secondary",
 				},
 				damage = {
 					commanders = 340,

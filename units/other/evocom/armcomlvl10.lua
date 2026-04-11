@@ -293,6 +293,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 1500,
 				customparams = {
+					shared_weapon = "disintegrator",
 					weapons_group = 1,
 				},
 				damage = {
@@ -333,6 +334,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 700,
 				customparams = {
+					shared_weapon = "shortgun",
 					weapons_group = 2,
 				},
 				damage = {
@@ -374,6 +376,7 @@ return {
 				weapontype = "DGun",
 				weaponvelocity = 300,
 				customparams = {
+					shared_weapon = "longgun",
 					weapons_group = 1,
 				},
 				damage = {
@@ -453,6 +456,7 @@ return {
 				weapontype = "LightningCannon",
 				weaponvelocity = 400,
 				customparams = {
+					shared_weapon = "armcomsealaser",
 					spark_ceg = "genericshellexplosion-splash-lightning",
 					spark_forkdamage = "0.33",
 					spark_maxunits = "12",

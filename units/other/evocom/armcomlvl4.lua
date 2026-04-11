@@ -300,6 +300,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 1500,
 				customparams = {
+					shared_weapon = "disintegrator",
 					weapons_group = 1,
 				},
 				damage = {
@@ -341,6 +342,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 900,
 				customparams = {
+					shared_weapon = "shortgun",
 					weapons_group = 2,
 				},
 				damage = {
@@ -382,6 +384,7 @@ return {
 				weapontype = "DGun",
 				weaponvelocity = 300,
 				customparams = {
+					shared_weapon = "longgun",
 					weapons_group = 1,
 				},
 				damage = {
@@ -467,7 +470,8 @@ return {
 					weapontype = "BeamLaser",
 					weaponvelocity = 1000,
 					customparams = {
-						weapons_group = 1,
+					shared_weapon = "armcomsealaser",
+					weapons_group = 1,
 					},
 					damage = {
 						default = 25,

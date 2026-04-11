@@ -254,6 +254,7 @@ return {
 				weapontype = "Flame",
 				weaponvelocity = 500,
 				customparams = {
+					shared_weapon = "corcomsealaser",
 					weapons_group = 1,
 				},
 				damage = {
@@ -295,6 +296,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 700,
 				customparams = {
+					shared_weapon = "corcomlaser",
 					weapons_group = 2,
 				},
 				damage = {
@@ -336,6 +338,7 @@ return {
 				weapontype = "DGun",
 				weaponvelocity = 300,
 				customparams = {
+					shared_weapon = "armcannon",
 					weapons_group = 1,
 				},
 				damage = {
@@ -450,6 +453,7 @@ return {
 				weapontype = "Cannon",
 				weaponvelocity = 310,
 				customparams = {
+					shared_weapon = "disintegrator",
 					weapons_group = 1,
 				},
 				damage = {

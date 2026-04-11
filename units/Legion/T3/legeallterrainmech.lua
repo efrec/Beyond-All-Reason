@@ -133,8 +133,8 @@ return {
 					cluster_def = 'cluster_munition',
 					cluster_number = 7,
 					exclude_preaim = true,
+					shared_weapon = "plasma_high",
 					smart_priority = true,
-					weapons_group = 1,
 				},
 				damage = {
 					default = 345,
@@ -198,8 +198,8 @@ return {
 					cluster_def = 'cluster_munition',
 					cluster_number = 7,
 					exclude_preaim = true,
+					shared_weapon = "plasma_low",
 					smart_backup = true,
-					weapons_group = 2,
 				},
 				damage = {
 					default = 345,

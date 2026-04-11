@@ -243,6 +243,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 700,
 				customparams = {
+					shared_weapon = "corcomsealaser",
 					weapons_group = 1,
 				},
 				damage = {
@@ -286,6 +287,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 900,
 				customparams = {
+					shared_weapon = "corcomlaser",
 					weapons_group = 2,
 				},
 				damage = {

@@ -242,6 +242,7 @@ return {
 				weapontype = "Cannon",
 				weaponvelocity = 600,
 				customparams = {
+					shared_weapon = "torpedo",
 					weapons_group = 1,
 				},
 				damage = {
@@ -283,6 +284,7 @@ return {
 				weapontype = "TorpedoLauncher",
 				weaponvelocity = 425,
 				customparams = {
+					shared_weapon = "armmg_weapon",
 					weapons_group = 2,
 				},
 				damage = {
@@ -367,6 +369,7 @@ return {
 				weapontype = "DGun",
 				weaponvelocity = 300,
 				customparams = {
+					shared_weapon = "botcannon",
 					weapons_group = 1,
 				},
 				damage = {
@@ -417,6 +420,7 @@ return {
 				weapontype = "Cannon",
 				weaponvelocity = 2000,
 				customparams = {
+					shared_weapon = "disintegrator",
 					spawns_name = "babylegshot babylegdrone babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob babyleglob",
 					spawns_expire = 25,
 					spawns_surface = "LAND", -- Available: "LAND SEA"

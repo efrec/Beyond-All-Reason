@@ -143,7 +143,7 @@ return {
 				weapontype = "MissileLauncher",
 				weaponvelocity = 680,
 				customparams = {
-					weapons_group = 2,
+					shared_weapon = "cortruck_missile",
 				},
 				damage = {
 					default = 1,
@@ -192,7 +192,7 @@ return {
 				customparams = {
 					overrange_distance = 662,
 					projectile_destruction_method = "descend",
-					weapons_group = 1,
+					shared_weapon = "cortruck_aa",
 				},
 				damage = {
 					default = 63,

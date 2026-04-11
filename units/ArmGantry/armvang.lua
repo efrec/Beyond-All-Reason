@@ -128,7 +128,7 @@ return {
 				customparams = {
 					exclude_preaim = true,
 					smart_backup = true,
-					weapons_group = 2,
+					shared_weapon = "shocker_low",
 				},
 				damage = {
 					commanders = 1100,
@@ -166,8 +166,8 @@ return {
 				weaponvelocity = 500,
 				customparams = {
 					exclude_preaim = true,
+					shared_weapon = "shocker_high",
 					smart_priority = true,
-					weapons_group = 1,
 				},
 				damage = {
 					commanders = 1100,

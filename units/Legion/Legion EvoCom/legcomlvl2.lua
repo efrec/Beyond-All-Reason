@@ -223,6 +223,7 @@ return {
 				weapontype = "LaserCannon",
 				weaponvelocity = 950,
 				customparams = {
+					shared_weapon = "torpedo",
 					weapons_group = 1,
 				},
 				damage = {
@@ -261,6 +262,7 @@ return {
 				weapontype = "TorpedoLauncher",
 				weaponvelocity = 200,
 				customparams = {
+					shared_weapon = "armmg_weapon",
 					weapons_group = 2,
 				},
 				damage = {

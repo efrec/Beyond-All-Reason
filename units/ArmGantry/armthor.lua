@@ -193,7 +193,6 @@ return {
 				customparams = {
 					shield_aoe_penetration = true,
 					stockpilelimit = 2,
-					weapons_group = 2,
 				},
 				damage = {
 					default = 80000,
@@ -237,7 +236,6 @@ return {
 					spark_forkdamage = "0.25",
 					spark_maxunits = "5",
 					spark_range = "125",
-					weapons_group = 1,
 				},
 				damage = {
 					default = 300,

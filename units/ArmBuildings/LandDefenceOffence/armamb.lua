@@ -129,8 +129,8 @@ return {
 				customparams = {
 					exclude_preaim = true,
 					norangering = 1,
+					shared_weapon = "armamb_gun_high",
 					smart_priority = true,
-					weapons_group = 1,
 				},
 				damage = {
 					default = 350,
@@ -164,7 +164,7 @@ return {
 				customparams = {
 					exclude_preaim = true,
 					smart_backup = true,
-					weapons_group = 2,
+					shared_weapon = "armamb_gun",
 				},
 				damage = {
 					default = 350,

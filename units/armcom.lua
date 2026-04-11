@@ -194,6 +194,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 900,
 				customparams = {
+					shared_weapon = "armcomsealaser",
 					weapons_group = 1,
 				},
 				damage = {
@@ -236,6 +237,7 @@ return {
 				weaponvelocity = 900,
 				customparams = {
 					norangering = 1,
+					shared_weapon = "armcomlaser",
 					weapons_group = 2,
 				},
 				damage = {

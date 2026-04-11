@@ -125,8 +125,8 @@ return {
 				weaponvelocity = 450,
 				customparams = {
 					exclude_preaim = true,
+					shared_weapon = "cortoast_gun_high",
 					smart_priority = true,
-					weapons_group = 1,
 				},
 				damage = {
 					default = 420,
@@ -161,8 +161,8 @@ return {
 				weaponvelocity = 450,
 				customparams = {
 					exclude_preaim = true,
+					shared_weapon = "cortoast_gun",
 					smart_backup = true,
-					weapons_group = 2,
 				},
 				damage = {
 					default = 420,

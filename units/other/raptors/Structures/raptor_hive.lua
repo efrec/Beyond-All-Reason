@@ -97,10 +97,6 @@ return {
 				weapontype = "Cannon",
 				weapontimer = 0.2,
 				weaponvelocity = 520,
-				customparams = {
-					weapons_group = 1,
-					weapons_role = "secondary",
-				},
 				damage = {
 					default = 1280,
 					shields = 320,
@@ -150,7 +146,6 @@ return {
 				weaponvelocity = 2000,
 				wobble = 32000,
 				customparams = {
-					weapons_group = 1,
 					weapons_role = "secondary",
 				},
 				damage = {
@@ -186,7 +181,7 @@ return {
 				weaponvelocity = 2000,
 				wobble = 0,
 				customparams = {
-					weapons_group = 2,
+					weapons_group = 1,
 				},
 				damage = {
 					raptor = 0.1,

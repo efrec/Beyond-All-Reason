@@ -41,6 +41,8 @@ end
 -- DEFS POST PROCESSING
 -------------------------
 
+local ensureTable = table.ensureTable
+
 local modOptions = Spring.GetModOptions()
 
 local holidays = Spring.Utilities.Gametype.GetCurrentHolidays()
@@ -72,19 +74,154 @@ local function round_to_frames(wd, key)
 	return sanitized_value
 end
 
-local function processWeapons(unitDefName, unitDef)
+local function processUnitWeaponDefs(unitDef)
 	for weaponDefName, weaponDef in pairs(unitDef.weapondefs) do
+		-- ! Should be moved to weapons post-processing:
+		local weaponParams = ensureTable(weaponDef, "customparams") -- maybe except for this
 		weaponDef.reloadtime = round_to_frames(weaponDef, "reloadtime")
 		weaponDef.burstrate = round_to_frames(weaponDef, "burstrate")
 
-		-- weaponDef is not processed by weapondefs_post, may not have some subtables:
-		table.ensureTable(weaponDef, "customparams")
+		-- Needed for grouping weapons and determining unit weapon capabilities:
+		if weaponDef.type == "TorpedoLauncher" and weaponDef.waterweapon == nil then
+			weaponDef.waterweapon = true
+		end
 
-		if weaponDef.customparams.cluster_def then
-			weaponDef.customparams.cluster_def = unitDefName .. "_" .. weaponDef.customparams.cluster_def
-			weaponDef.customparams.cluster_number = weaponDef.customparams.cluster_number or 5
+		-- ! Should be moved to weapons post-processing:
+		if weaponParams.cluster_def and not weaponParams.cluster_def:find("^" .. unitDef.name, nil, false) then
+			weaponParams.cluster_def = unitDef.name .. "_" .. weaponParams.cluster_def
+			weaponParams.cluster_number = weaponParams.cluster_number or 5
 		end
 	end
+end
+
+---Remove invalid weapondefs but keep weapon index positions.
+local function processUnitWeapons(unitDef)
+	local weapondefs = unitDef.weapondefs
+	for weaponNumber, weapon in ipairs(unitDef.weapons) do
+		if not weapondefs[(weapon.def or ""):lower()] then
+			weapon.def = "noweapon" -- todo: may need NOWEAPON handling in game code; this is an engine concept
+		end
+	end
+end
+
+local function processUnitWeaponGroups(weapons, weapondefs)
+	-- Some units can switch between exclusive weapon sets via unit scripts, waterweapon, etc,
+	-- generally representing physical states like "above water", "under water", or "on land".
+	-- [<0] := never active, [0] := always active, [1] := primary set, [>1] := alternate sets
+	local groups = {}
+	for weaponName, weaponDef in pairs(weapondefs) do
+		local groupNumber = 0
+		if table.any(weapons, function(weapon) return (weapon.def or ""):lower() == weaponName end) then
+			groupNumber = tonumber(weaponDef.customparams.weapons_group or 0) or 0
+		else
+			groupNumber = -1 -- The weapondef is fake, unused, used for sfx, or etc.
+		end
+		(ensureTable(groups, groupNumber))[weaponName] = weaponDef
+		weaponDef.customparams.weapons_group = groupNumber
+	end
+	groups = table.getUniqueArray(groups) -- Get compact sequence for index >= 1,
+	groups[-1], groups[0] = groups[-1], groups[0] -- then readd any indices <= 0.
+
+	-- Weapons can occupy a shared slot (same flare point, turret, etc) even within a group.
+	-- If two "shared" weapons are in the same active group, they can fire at the same time.
+	-- Otherwise, when one becomes active, its pair becomes inactive, unable to aim or fire.
+	local paired = {}
+	for weaponName, weaponDef in pairs(weapondefs) do
+		local shared = false
+
+		if weaponDef.customparams.shared_weapon and weaponDef.customparams.weapons_group >= 0 then
+			local sharedName = weaponDef.customparams.shared_weapon
+			local sharedDef = weapondefs[sharedName]
+			if sharedDef and sharedDef.customparams.weapons_group > 0 then
+				sharedDef.customparams.shared_weapon = weaponName
+				paired[sharedName] = weaponName
+				paired[weaponName] = sharedName
+				shared = true
+
+				if sharedDef.hightrajectory == 1 then
+					sharedDef.customparams.hide_dps = true
+				end
+			end
+		end
+
+		if not shared then
+			weaponDef.customparams.shared_weapon = nil
+		end
+	end
+
+	-- When a group contains a pair of shared weapons, determine if their DPS is additive.
+	local subgroups = 0
+	for i = -1, #groups do
+		local group = groups[1]
+		if group then
+			for weaponName, weaponDef in pairs(group) do
+				local weaponParams = weaponDef.customparams
+				if paired[weaponName] and group[paired[weaponName]] then
+					local sharedName = paired[weaponName]
+					local sharedDef = weapondefs[sharedName]
+					local sharedParams = sharedDef.customparams
+					local ignoreName = false
+					if (weaponParams.weapons_role or "primary") ~= (sharedParams.weapons_role or "primary") then
+						if weaponParams.weapons_role == "secondary" then
+							ignoreName = weaponName
+						elseif sharedParams.weapons_role == "secondary" then
+							ignoreName = sharedName
+						end
+					elseif (weaponDef.waterweapon or false) ~= (sharedDef.waterweapon or false) then
+						if weaponDef.waterweapon then
+
+						elseif sharedDef.waterweapon then
+
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+local function processUnitWeaponSmartSelection(customparams, weapons, weapondefs)
+	-- Remove all smart-select customparams unless all three of these are valid:
+	local priorityWeapon, backupWeapon, trajectoryWeapon
+
+	for weaponNumber, weapon in ipairs(weapons) do
+		local weaponName = (weapon.def or ""):lower()
+		local weaponDef = weapondefs[weaponName]
+		local weaponParams = weaponDef and weaponDef.customparams or {}
+
+		if weaponParams.smart_priority and not priorityWeapon then
+			priorityWeapon = weaponNumber
+		elseif weaponParams.smart_backup and not backupWeapon then
+			backupWeapon = weaponNumber
+		elseif weaponParams.smart_trajectory_checker and not trajectoryWeapon then
+			trajectoryWeapon = weaponNumber
+		end
+
+		weaponParams.smart_priority = nil
+		weaponParams.smart_backup = nil
+		weaponParams.smart_trajectory_checker = nil
+	end
+
+	if priorityWeapon and backupWeapon and trajectoryWeapon then
+		customparams.weapons_smart_select = true
+
+		if customparams.smart_weapon_cmddesc ~= "trajectory" then
+			customparams.smart_weapon_cmddesc = "default"
+		end
+
+		weapondefs[weapons[  priorityWeapon].def:lower()].customparams.smart_priority = true
+		weapondefs[weapons[    backupWeapon].def:lower()].customparams.smart_backup = true
+		weapondefs[weapons[trajectoryWeapon].def:lower()].customparams.smart_trajectory_checker = true
+	else
+		customparams.weapons_smart_select = nil
+		customparams.smart_weapon_cmddesc = nil
+	end
+end
+
+---Guarantee that all properties agree across weapons and weapondefs.
+local function processUnitWeaponDefsAndWeapons(unitDef)
+	processUnitWeaponGroups(unitDef.weapons, unitDef.weapondefs)
+	processUnitWeaponSmartSelection(unitDef.customparams, unitDef.weapons, unitDef.weapondefs)
 end
 
 -- uDef.movementclass lists
@@ -160,6 +297,11 @@ local function unitDef_Post(name, uDef)
 	local buildoptions = uDef.buildoptions
 	local weapondefs = uDef.weapondefs
 	local weapons = uDef.weapons
+
+	uDef.name = name
+	if name ~= basename then
+		customparams.base_unit = basename
+	end
 
 	if not uDef.icontype then
 		uDef.icontype = name
@@ -889,7 +1031,7 @@ local function unitDef_Post(name, uDef)
 	--[[ Sanitize to whole frames (plus leeways because float arithmetic is bonkers).
          The engine uses full frames for actual reload times, but forwards the raw
          value to LuaUI (so for example calculated DPS is incorrect without sanitisation). ]]
-	processWeapons(name, uDef)
+	processUnitWeaponDefs(uDef)
 
 	-- make los height a bit more forgiving	(20 is the default)
 	--uDef.sightemitheight = (uDef.sightemitheight and uDef.sightemitheight or 20) + 20
@@ -1714,18 +1856,14 @@ local function unitDef_Post(name, uDef)
 		uDef.buildoptions = table.getUniqueArray(buildoptions)
 	end
 
-	if next(weapondefs) then
-		-- Some units can switch between exclusive weapon sets via their unit scripts.
-		-- [<0] := never active, [0] := always active, [1] := primary set, [>1] := alternate sets
-		for weaponName, weaponDef in pairs(weapondefs) do
-			local groupNumber = 0
-			if table.any(weapons, function(weapon) return weaponName:lower() == (weapon.def or ""):lower() end) then
-				groupNumber = tonumber(weaponDef.customparams.weapons_group or 0) or 0
-			else
-				groupNumber = -1
-			end
-			weaponDef.customparams.weapons_group = groupNumber
-		end
+	if next(weapons) and next(weapondefs) then
+		processUnitWeaponDefs(uDef) -- Reapply after modoptions.
+		processUnitWeapons(uDef)
+		processUnitWeaponDefsAndWeapons(uDef)
+	elseif next(weapons) then
+		uDef.weapons = {}
+	else
+		-- Maybe okay to allow units to have unused weapondefs for some scripted effects.
 	end
 
 	-- Suppress engine default piece explosion effects (handled by gfx_death_fire_smoke_gl4 widget)

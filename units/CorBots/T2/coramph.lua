@@ -122,7 +122,7 @@ return {
 				weapontype = "TorpedoLauncher",
 				weaponvelocity = 135,
 				customparams = {
-					weapons_group = 2,
+					shared_weapon = "coramph_weapon2",
 				},
 				damage = {
 					default = 250,
@@ -158,7 +158,7 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 700,
 				customparams = {
-					weapons_group = 1,
+					shared_weapon = "coramph_weapon1",
 				},
 				damage = {
 					default = 150,

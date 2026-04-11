@@ -122,7 +122,7 @@ return {
 				customparams = {
 					exclude_preaim = true,
 					smart_priority = true,
-					weapons_group = 1,
+					shared_weapon = "plasma_high",
 				},
 				damage = {
 					default = 350,
@@ -156,8 +156,8 @@ return {
 				weaponvelocity = 600,
 				customparams = {
 					exclude_preaim = true,
+					shared_weapon = "plasma",
 					smart_backup = true,
-					weapons_group = 2,
 				},
 				damage = {
 					default = 350,
