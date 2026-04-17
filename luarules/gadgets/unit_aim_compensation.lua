@@ -547,13 +547,13 @@ end
 local function buildRotation(dx0, dy0, dz0, dx1, dy1, dz1)
 	local angle = math_acos(math_clamp(dot(dx0, dy0, dz0, dx1, dy1, dz1), -1.0, 1.0))
 	if angle <= RAD_EPSILON then
-		return 0.0, 0.0, 0.0, 0.0
+		return 0.0
 	end
 
 	local axisX, axisY, axisZ = cross(dx0, dy0, dz0, dx1, dy1, dz1)
 	local axisMag = math_diag(axisX, axisY, axisZ)
 	if axisMag <= NAN_EPSILON then
-		return 0.0, 0.0, 0.0, 0.0 -- avoid math_normalize to exit when parallel/antiparallel here
+		return 0.0 -- avoid math_normalize to exit when parallel/antiparallel here
 	end
 
 	axisX = axisX / axisMag
