@@ -425,8 +425,6 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 
 	if compensationType == "short" and isSurfaceTarget then
 		ux, uy, uz = (ux + uax) * 0.5, (uy + uay) * 0.5, (uz + uaz) * 0.5
-	elseif compensationType == "long" then
-		ux, uy, uz = umx, umy, umz
 	else
 		ux, uy, uz = umx, umy, umz
 	end
@@ -485,8 +483,6 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 
 	if compensationType == "short" and isSurfaceTarget then
 		ux, uy, uz = (ux + uax) * 0.5, (uy + uay) * 0.5, (uz + uaz) * 0.5
-	elseif compensationType == "long" then
-		ux, uy, uz = uax, uay, uaz
 	else
 		ux, uy, uz = uax, uay, uaz
 	end
