@@ -646,7 +646,7 @@ local function applyAimCorrection(projectileID, ownerID, params)
 		return
 	end
 
-	bx, by, bz = params.clamp(px, py, pz, params, bx, by, bz, isSurfaceTarget)
+	bx, by, bz = params.clamp(px, py, pz, bx, by, bz, params.range, unitRadius)
 
 	if isSurfaceTarget then
 		bx, by, bz = clampToAltitude(bx, by, bz) -- I am uncertain about this one.
