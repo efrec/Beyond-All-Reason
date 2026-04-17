@@ -429,7 +429,7 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 	local predictTime = getPredictTime(px, py, pz, ux, uy, uz, projSpeed)
 	local deltaTime = predictTime
 
-	-- It's possible that `leadingSteps` is not equal to `accurateLeading`. See setup code.
+	-- Generally, `leadingSteps` is not equal to `accurateLeading`. See setup code.
 	for i = 1, params.leadingSteps do
 		if deltaTime < 1 then
 			break
