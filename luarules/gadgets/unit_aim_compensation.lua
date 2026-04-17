@@ -433,11 +433,8 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 			-- Since we clamp to within the targeting volume after this step, time past-range is fine.
 			-- So, materialize the imaginary time component of the solution from the nearest approach:
 			local approachDistance = math_sqrt(temp1 - temp2) / gravity
-			Spring.Echo("time solution (imaginary)", i, t1, deltaTime, predictTime, approachDistance, projSpeed)
 			t1 = t1 + approachDistance / projSpeed
 			break
-		else
-			Spring.Echo("time solution (real)", i, t1, deltaTime, predictTime, cc, temp1 ^ 0.5, temp2 ^ 0.5)
 		end
 
 		t1 = math_sqrt((-cc + (isHighTrajectory and math_sqrt(temp2 - temp1) or 0)) / (gg * 0.5))
@@ -477,7 +474,7 @@ local projectiles = 0
 local compensated = 0
 local compensation = {}
 
-local function getAimDirection(params, trajectory, dx, dy, dz, predictTime)
+local function getAimDirection(params, useHighTrajectory, dx, dy, dz)
 	local gravity = params.gravity
 	local speed = params.speed
 
@@ -493,31 +490,17 @@ local function getAimDirection(params, trajectory, dx, dy, dz, predictTime)
 	local t1 = (-b - dd) / (2 * a)
 	local t2 = (-b + dd) / (2 * a)
 
-	local t = t1
-	local e = NAN_EPSILON
+	local t
 
-	if trajectory == TRAJECTORY_LOW then
-		if t1 > e then
-			t = t1
-		else
-			return
-		end
-	elseif trajectory == TRAJECTORY_HIGH then
-		if t2 > e then
+	if useHighTrajectory then
+		if t2 > NAN_EPSILON then
 			t = t2
 		else
 			return
 		end
 	else
-		-- A secret third thing (this does not exist)
-		if t1 > e then
-			if t2 > e and math_abs(predictTime - t1) > math_abs(predictTime - t2) then
-				t = t2
-			else
-				t = t1
-			end
-		elseif t2 > e then
-			t = t2
+		if t1 > NAN_EPSILON then
+			t = t1
 		else
 			return
 		end
@@ -528,7 +511,7 @@ local function getAimDirection(params, trajectory, dx, dy, dz, predictTime)
 	local vz = dz / t
 	local vw = math_diag(vx, vy, vz)
 
-	if vw > e then
+	if vw > NAN_EPSILON then
 		return vx / vw, vy / vw, vz / vw
 	end
 end
@@ -561,7 +544,7 @@ local function applyRotation(angle, axisX, axisY, axisZ, vx, vy, vz)
 	local resultY = vy * cosAngle + (axisZ * vx - axisX * vz) * sinAngle + axisY * cosTerm
 	local resultZ = vz * cosAngle + (axisX * vy - axisY * vx) * sinAngle + axisZ * cosTerm
 
-	return angle, resultX, resultY, resultZ
+	return resultX, resultY, resultZ
 end
 
 local function applyAimCorrection(projectileID, ownerID, params)
@@ -622,8 +605,8 @@ local function applyAimCorrection(projectileID, ownerID, params)
 		return
 	end
 
-	Spring.MarkerAddPoint(ex, ey, ez, ("e<%.2f, %.2f, %.2f"):format(ex, ey, ez))
-	Spring.MarkerAddPoint(bx, by, bz, ("b<%.2f, %.2f, %.2f"):format(bx, by, bz))
+	-- Spring.MarkerAddPoint(ex, ey, ez, ("e<%.2f, %.2f, %.2f"):format(ex, ey, ez))
+	-- Spring.MarkerAddPoint(bx, by, bz, ("b<%.2f, %.2f, %.2f"):format(bx, by, bz))
 
 	bx, by, bz = params.clamp(px, py, pz, bx, by, bz, params.range, unitRadius)
 
@@ -631,12 +614,12 @@ local function applyAimCorrection(projectileID, ownerID, params)
 		bx, by, bz = clampToAltitude(bx, by, bz, unitRadius)
 	end
 
-	local edx, edy, edz = getAimDirection(params, trajectory, ex - px, ey - py, ez - pz, engineTime)
+	local edx, edy, edz = getAimDirection(params, useHighTrajectory, ex - px, ey - py, ez - pz)
 	if not edx then
 		return
 	end
 
-	local bdx, bdy, bdz = getAimDirection(params, trajectory, bx - px, by - py, bz - pz, betterTime)
+	local bdx, bdy, bdz = getAimDirection(params, useHighTrajectory, bx - px, by - py, bz - pz)
 	if not bdx then
 		return
 	end
