@@ -51,6 +51,11 @@ end
 --    a. As needed, also reduce the inaccuracy in XZ introduced by the weapondef's accuracy or
 --       spray angles, since pitching up and down amplifies these errors a significant amount.
 
+-- TODO: Try to establish a more consistent notation.
+-- TODO: Linear algebra is rough to code without inlining. Try some optimizations.
+-- TODO: I'm not sure that I have satisfied the constraints of some high-trajectory weapons.
+-- TODO: Heightmod, dance, wobble are all trajectory modifications with different effects.
+
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
@@ -439,9 +444,9 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 		temp2 = cc * cc
 
 		if temp1 >= temp2 then
-			-- Another good option would be to materialize the imaginary time component; "just add it".
 			-- Since we clamp to within the targeting volume after this step, time past-range is fine.
-			local approachDistance = math_sqrt(temp1 - temp2) / gravity -- I think idk
+			-- So, materialize the imaginary time component of the solution from the nearest approach:
+			local approachDistance = math_sqrt(temp1 - temp2) / gravity
 			t1 = t1 + approachDistance / projSpeed
 			break
 		end
