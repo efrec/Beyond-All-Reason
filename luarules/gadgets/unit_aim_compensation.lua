@@ -395,7 +395,7 @@ function clampToCone(fromX, fromY, fromZ, toX, toY, toZ, range, radius)
 	return toX, toY, toZ
 end
 
-local function pinToSurface(x, y, z, unitRadius)
+local function clampToAltitude(x, y, z, unitRadius)
 	local elevation = math_max(spGetGroundHeight(x, z), 0)
 	local altitude = math_max(unitRadius, surfaceTargetAltitude)
 	y = math_clamp(y, elevation, elevation + altitude)
@@ -649,7 +649,7 @@ local function applyAimCorrection(projectileID, ownerID, params)
 	bx, by, bz = params.clamp(px, py, pz, params, bx, by, bz, isSurfaceTarget)
 
 	if isSurfaceTarget then
-		bx, by, bz = pinToSurface(bx, by, bz) -- I am uncertain about this one.
+		bx, by, bz = clampToAltitude(bx, by, bz) -- I am uncertain about this one.
 	end
 
 	local edx, edy, edz = getAimDirection(params, trajectory, ex - px, ey - py, ez - pz, engineTime)
