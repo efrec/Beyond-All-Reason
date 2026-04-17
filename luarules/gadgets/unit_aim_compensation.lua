@@ -42,19 +42,14 @@ end
 -- 3. Clamp the new target position to be within the weapon's maximum targeting volume.
 --    a. As needed, also clamp this final target position to the surface or to a low altitude.
 --       Different targeting volumes do this differently e.g. ballistics use a line-intercept.
+-- 4. Rotate the projectile's velocity by the difference in the launch angles between the two
+--    trajectories determined by re-aiming at the points determined in (1) and (3).
+--
+-- Alternatively, if we only want to add range corrections, which are a bit safer:
 -- 4. Pitch (and only pitch) the projectile up/down by the difference of launch angles between
 --    the trajectories determined by aiming at the points determined in (1) and (3).
 --    a. As needed, also reduce the inaccuracy in XZ introduced by the weapondef's accuracy or
 --       spray angles, since pitching up and down amplifies these errors a significant amount.
---
--- Or alternatively:
---
--- 4. Rotate the projectile's velocity by the difference in the launch angles between the two
---    trajectories determined by re-aiming at the points determined in (1) and (3).
---
--- This may be more aim compensation than we want if our only intention is to avoid the worst
--- of the targeting behaviors from the engine's side of things. It is close to a replacement
--- for target leading rather than a simple compensation (though it is not a full replacement).
 
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
@@ -115,7 +110,6 @@ local DIST_EPSILON = 1e0
 local weaponAimCorrection = table.new(#WeaponDefs, 1) -- [0] is hashed
 
 local clampToCone, clampToCylinder, clampToSphere
-local pinToCone, pinToCylinder, pinToSphere
 
 local shortDuration = 0.3333 * gameSpeed
 local instantWeapons = { LightningCannon = true, Rifle = true, }
@@ -148,21 +142,17 @@ local function getAimCorrectionParams(weaponDef)
 
 	-- NB: Recoil likely does not form proper trajectory envelopes due to max projectile speed.
 	-- A falling projectile at terminal velocity "gains" orientation toward dirDown, not speed.
-	-- So, anyway, maybe these two functions are crap:
-	local clampToTargetingVolume, pinToTargetingVolume
+	local clampToTargetingVolume
 
 	if weaponDef.cylinderTargeting >= 1 then
 		clampToTargetingVolume = clampToCylinder
-		pinToTargetingVolume = pinToCylinder
 	elseif weaponDef.myGravity then
 		-- The above is always true...
 		clampToTargetingVolume = clampToCone
-		pinToTargetingVolume = pinToCone
 	else
 		-- but we could have a gravity-affected weapon with spherical targeting for nonsense reasons
 		-- like a high-trajectory weapon that reuses the laser ranging method from the Legion Medusa.
 		clampToTargetingVolume = clampToSphere
-		pinToTargetingVolume = pinToSphere
 	end
 
 	local leadLimit = false
@@ -178,7 +168,6 @@ local function getAimCorrectionParams(weaponDef)
 		trajectory   = weaponDef.highTrajectory,
 
 		clamp        = clampToTargetingVolume,
-		pin          = pinToTargetingVolume,
 
 		leadingSteps = -1, -- not a weapondef property but a weapon property
 		leadLimit    = leadLimit,
@@ -209,10 +198,6 @@ end
 
 local function dot(ax, ay, az, bx, by, bz)
 	return ax * bx + ay * by + az * bz
-end
-
-local function dotXZ(ax, az, bx, bz)
-	return ax * bx + az * bz
 end
 
 local function cross(ax, ay, az, bx, by, bz)
@@ -400,128 +385,6 @@ function clampToCone(fromX, fromY, fromZ, toX, toY, toZ, range, radius)
 	return toX, toY, toZ
 end
 
--- "Pinning" really just finds the ray-intersect of a point and a shape.
--- The target's path of motion can intersect our volumes multiple times.
--- This can be used as a full replacement for clamped nonreal solutions.
-
-function pinToSphere(params, px, py, pz, ax, ay, az, vx, vy, vz, predictTime)
-	local dx = ax - px
-	local dy = ay - py
-	local dz = az - pz
-
-	local a = dot(vx, vy, vz, vx, vy, vz)
-	local b = dot(dx, dy, dz, vx, vy, vz) * 2
-	local c = dot(dx, dy, dz, dx, dy, dz) - params.radius * params.radius
-	local d = b * b - 4 * a * c
-	if d < 0 then
-		return
-	end
-
-	local dd = math_sqrt(d)
-	local t1 = (-b - dd) / (2 * a)
-	local t2 = (-b + dd) / (2 * a)
-
-	if t1 > 0 then
-		if t2 <= 0 then
-			return t1
-		end
-		if math_abs(predictTime - t1) < math_abs(predictTime - t2) then
-			return t1
-		else
-			return t2
-		end
-	end
-
-	if t2 > 0 then
-		return t2
-	end
-end
-
-function pinToCylinder(params, px, py, pz, ax, ay, az, vx, vy, vz, predictTime)
-	local dx = ax - px
-	local dz = az - pz
-
-	local a = dotXZ(vx, vz, vx, vz)
-	local b = dotXZ(dx, dz, vx, vz) * 2
-	local c = dotXZ(dx, dz, dx, dz) - params.radius * params.radius
-	local d = b * b - 4 * a * c
-	if d < 0 then
-		return
-	end
-
-	local dd = math_sqrt(d)
-	local t1 = (-b - dd) / (2 * a)
-	local t2 = (-b + dd) / (2 * a)
-
-	local isValidT1 = false
-	local isValidT2 = false
-
-	if t1 > 0 then
-		local y = ay + vy * t1
-		isValidT1 = y >= py - params.height and y <= py + params.height
-	end
-	if t2 > 0 then
-		local y = ay + vy * t2
-		isValidT2 = y >= py - params.height and y <= py + params.height
-	end
-
-	if isValidT1 then
-		if not isValidT2 then
-			return t1
-		end
-		if math_abs(predictTime - t1) < math_abs(predictTime - t2) then
-			return t1
-		else
-			return t2
-		end
-	end
-
-	if isValidT2 then
-		return t2
-	end
-end
-
-function pinToCone(params, px, py, pz, ax, ay, az, vx, vy, vz, predictTime)
-	py = py + params.height -- py is at the base of the cone, we need apex
-
-	local dx = ax - px
-	local dy = ay - py
-	local dz = az - pz
-
-	local k = params.radius / params.height
-	local k2 = k * k
-
-	local a = dotXZ(vx, vz, vx, vz) - k2 * vy * vy
-	local b = (dotXZ(dx, dz, vx, vz) - k2 * dy * vy) * 2
-	local c = dotXZ(dx, dz, dx, dz) - k2 * dy * dy
-	local d = b * b - 4 * a * c
-	if d < 0 then
-		return
-	end
-
-	local dd = math_sqrt(d)
-	local t1 = (-b - dd) / (2 * a)
-	local t2 = (-b + dd) / (2 * a)
-
-	local isValidT1 = t1 > 0 and ay + vy * t1 <= py
-	local isValidT2 = t2 > 0 and ay + vy * t2 <= py
-
-	if isValidT1 then
-		if not isValidT2 then
-			return t1
-		end
-		if math_abs(predictTime - t1) < math_abs(predictTime - t2) then
-			return t1
-		else
-			return t2
-		end
-	end
-
-	if isValidT2 then
-		return t2
-	end
-end
-
 local function pinToSurface(x, y, z, unitRadius)
 	local elevation = math_max(spGetGroundHeight(x, z), 0)
 	local altitude = math_max(unitRadius, surfaceTargetAltitude)
@@ -578,7 +441,6 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 			-- Since we clamp to within the targeting volume after this step, time past-range is fine.
 			local approachDistance = math_sqrt(temp1 - temp2) / gravity -- I think idk
 			t1 = t1 + approachDistance / projSpeed
-			-- This replaces the "pinning" approach which was getting a little wobbly from the outset.
 			break
 		end
 
