@@ -149,13 +149,18 @@ local function getAimCorrectionParams(weaponDef)
 	-- A falling projectile at terminal velocity "gains" orientation toward dirDown, not speed.
 	local clampToTargetingVolume
 
+	-- TODO: We don't know the targeting volume for slaved weapons. These can't be processed from weapondefs, though:
+	-- local targetingDef = weaponDef
+	-- if weaponDef.customParams.speceffect == "guidance" then
+	-- 	targetingDef = need to check the weapon, not the weapondef
+	-- end
+
 	if weaponDef.cylinderTargeting >= 1 then
 		clampToTargetingVolume = clampToCylinder
-	elseif weaponDef.myGravity then
-		-- The above is always true...
+	elseif weaponDef.myGravity < 0 and (not weaponDef.tracks or weaponDef.turnRate < -weaponDef.myGravity) then
 		clampToTargetingVolume = clampToCone
 	else
-		-- but we could have a gravity-affected weapon with spherical targeting for nonsense reasons
+		-- Maybe we can have a gravity-affected weapon with spherical targeting for nonsense reasons
 		-- like a high-trajectory weapon that reuses the laser ranging method from the Legion Medusa.
 		clampToTargetingVolume = clampToSphere
 	end
