@@ -496,16 +496,25 @@ local function getAimDirection(params, trajectory, dx, dy, dz, predictTime)
 	local t = t1
 	local e = NAN_EPSILON
 
-	if trajectory == TRAJECTORY_HIGH then
+	if trajectory == TRAJECTORY_LOW then
+		if t1 > e then
+			t = t1
+		else
+			return
+		end
+	elseif trajectory == TRAJECTORY_HIGH then
 		if t2 > e then
 			t = t2
 		else
 			return
 		end
 	else
+		-- A secret third thing (this does not exist)
 		if t1 > e then
 			if t2 > e and math_abs(predictTime - t1) > math_abs(predictTime - t2) then
 				t = t2
+			else
+				t = t1
 			end
 		elseif t2 > e then
 			t = t2
@@ -621,8 +630,8 @@ local function applyAimCorrection(projectileID, ownerID, params)
 		return
 	end
 
-	-- Spring.MarkerAddPoint(ex, ey, ez, "e")
-	-- Spring.MarkerAddPoint(bx, by, bz, "b")
+	Spring.MarkerAddPoint(ex, ey, ez, "e")
+	Spring.MarkerAddPoint(bx, by, bz, "b")
 
 	bx, by, bz = params.clamp(px, py, pz, bx, by, bz, params.range, unitRadius)
 
