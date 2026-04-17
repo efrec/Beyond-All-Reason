@@ -495,7 +495,7 @@ local function getAimDirection(params, trajectory, dx, dy, dz, predictTime)
 
 	local a = 0.25 * gravity * gravity
 	local b = dy * gravity - speed * speed
-	local c = dx * dx + dy * dy + dz * dz
+	local c = dot(dx, dy, dz, dx, dy, dz)
 	local d = b * b - 4 * a * c
 	if d < 0 then
 		return
