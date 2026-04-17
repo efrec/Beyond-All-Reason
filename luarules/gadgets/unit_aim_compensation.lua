@@ -59,9 +59,18 @@ end
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
--- Avoid overshooting by aiming max-range shots onto terrain, but also try not to
--- force shots to reaim arbitrarily low, causing them to hit walls and/or allies.
-local surfaceTargetAltitude = 10.0
+local collectStatistics = true
+local applyCompensation = true
+
+local indirectHitFraction = 0.9
+local flankingMaxFraction = 1.0
+
+local logs = true
+local logVelocities = true
+
+local pings = true
+local pingImpacts = true
+local pingInformation = false
 
 --------------------------------------------------------------------------------
 -- Localization ----------------------------------------------------------------
@@ -73,6 +82,7 @@ local math_max = math.max
 local math_clamp = math.clamp
 local math_sqrt = math.sqrt
 local math_diag = math.diag
+local math_normalize = math.normalize
 local dist2dSquared = math.distance2dSquared
 local dist3dSquared = math.distance3dSquared
 local math_cos = math.cos
@@ -102,10 +112,8 @@ local gravityPerFrame = -Game.gravity / (gameSpeed ^ 2)
 local TAANG2RAD = math.tau / COBSCALE
 local TARGETTYPE_UNIT = ("u"):byte()
 
-local TRAJECTORY_LOW = 0
 local TRAJECTORY_HIGH = 1
 local TRAJECTORY_UNIT = 2
-local TRAJECTORY_DEFAULT = TRAJECTORY_LOW
 
 local RAD_EPSILON = 1e-6
 local NAN_EPSILON = 1e-5
@@ -129,8 +137,6 @@ local function getAimCorrectionParams(weaponDef)
 	local isShieldWeapon = weaponDef.type == "Shield"
 	local isInstantHit = instantWeapons[weaponDef.type] or weaponDef.projectilespeed * shortDuration >= weaponDef.range
 	local isNonballistic = weaponDef.myGravity < 0 -- 0 => use map gravity
-
-	Spring.Echo(weaponDef.name, isFakeWeapon, isShieldWeapon, isInstantHit, isNonballistic, weaponDef.myGravity)
 
 	if isFakeWeapon or isShieldWeapon or isNonballistic or isInstantHit then
 		return false
@@ -194,19 +200,11 @@ end
 --------------------------------------------------------------------------------
 -- Local functions -------------------------------------------------------------
 
-local function dot(ax, ay, az, bx, by, bz)
-	return ax * bx + ay * by + az * bz
-end
-
 local function cross(ax, ay, az, bx, by, bz)
 	return
 		ay * bz - az * by,
 		az * bx - ax * bz,
 		ax * by - ay * bx
-end
-
-local function isOnSurface(x, y, z)
-	return y <= math_max(spGetGroundHeight(x, z), 0) + 1
 end
 
 local function getPredictTimeAdapter(unitID, projectileID, params)
@@ -247,7 +245,8 @@ local function getAccuratePredictTime(unitID, projectileID, params, isHighTrajec
 	local cc = 1.0
 
 	local predictTime = getPredictTime(px, py, pz, ux, uy, uz, projSpeed)
-	local deltaTime = predictTime * predictMult
+	local deltaTime = predictTime * predictMult * 0.5 -- Multiplied by an average predictSpeedMod error.
+	local trajectory = isHighTrajectory and 1 or -1
 
 	-- Generally, `leadingSteps` is not equal to `accurateLeading`. See setup code.
 	for i = 1, params.leadingSteps do
@@ -267,10 +266,15 @@ local function getAccuratePredictTime(unitID, projectileID, params, isHighTrajec
 			break
 		end
 
-		t1 = math_sqrt((-cc + (isHighTrajectory and math_sqrt(temp2 - temp1) or 0)) / (gg * 0.5))
+		t1 = math_sqrt((-cc + trajectory * math_sqrt(temp2 - temp1)) / (gg * 0.5))
 		dt1 = (t1 - predictTime) / deltaTime
 
 		if math_abs(dt1 + NAN_EPSILON) < 1 then
+			predictTime = t1
+			break
+		end
+
+		if math_abs(t1 - predictTime) < 1 then
 			predictTime = t1
 			break
 		end
@@ -383,16 +387,9 @@ function clampToCone(fromX, fromY, fromZ, toX, toY, toZ, range, radius)
 	return toX, toY, toZ
 end
 
-local function clampToAltitude(x, y, z, unitRadius)
-	local elevation = math_max(spGetGroundHeight(x, z), 0)
-	local altitude = math_max(unitRadius, surfaceTargetAltitude)
-	y = math_clamp(y, elevation, elevation + altitude)
-	return x, y, z
-end
-
-local function getBetterTargetPosition(unitID, projectileID, params, isHighTrajectory, isSurfaceTarget)
+local function getBetterTargetPosition(unitID, projectileID, params, isHighTrajectory)
 	-- Uses no LOS access and no error parameters.
-	local ux, uy, uz, uax, uay, uaz = spGetUnitPosition(unitID, false, true)
+	local ux, uy, uz, umx, umy, umz = spGetUnitPosition(unitID, true)
 	local uvx, uvy, uvz, unitSpeed = spGetUnitVelocity(unitID)
 
 	local px, py, pz = spGetProjectilePosition(projectileID)
@@ -412,35 +409,33 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 	local cc = 1.0
 
 	-- Change our reference position to the aim position.
-	local predictTime = getPredictTime(px, py, pz, uax, uay, uaz, projSpeed)
+	local predictTime = getPredictTime(px, py, pz, umx, umy, umz, projSpeed)
 	local deltaTime = predictTime * predictMult
+	local trajectory = isHighTrajectory and 0.5 or -0.5
+
+	cc = -ss + dy * gravity -- constant-valued
 
 	-- As "better target position" would imply, enforce at least one iteration.
-	for i = 1, math_max(params.leadingSteps, 1) do
-		if deltaTime < 1 then
+	for i = 1, math_max(params.leadingSteps, 3) do
+		if deltaTime < 0.5 then
 			break
 		end
 
-		dx = uax + uvx * predictMult * predictTime - px
-		dy = uay + uvy * predictMult * predictTime - py
-		dz = uaz + uvz * predictMult * predictTime - pz
+		dx = umx + uvx * predictMult * predictTime - px
+		dy = umy + uvy * predictMult * predictTime - py
+		dz = umz + uvz * predictMult * predictTime - pz
 
-		cc = -ss - dy * gravity
 		temp1 = (dx * dx + dy * dy + dz * dz) * gg
 		temp2 = cc * cc
 
 		if temp1 >= temp2 then
-			-- Since we clamp to within the targeting volume after this step, time past-range is fine.
-			-- So, materialize the imaginary time component of the solution from the nearest approach:
-			local approachDistance = math_sqrt(temp1 - temp2) / gravity
-			t1 = t1 + approachDistance / projSpeed
 			break
 		end
 
-		t1 = math_sqrt((-cc + (isHighTrajectory and math_sqrt(temp2 - temp1) or 0)) / (gg * 0.5))
-		dt1 = 2 * (t1 - predictTime) / deltaTime
+		t1 = math_sqrt((-cc + trajectory * math_sqrt(temp2 - temp1)) / (gg * 0.5))
+		dt1 = t1 - predictTime
 
-		if math_abs(dt1 + NAN_EPSILON) < 1 then
+		if math_abs(dt1 + NAN_EPSILON) < 0.5 or math_abs(t1 - predictTime) < 0.5 then
 			predictTime = t1
 			break
 		end
@@ -449,12 +444,13 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 		predictTime = t1
 	end
 
-	predictTime = predictTime * predictMult
+	-- Get the target leading vector.
+	local leadTime = predictTime * predictMult
 
-	local leadX = uvx * predictTime
-	local leadY = uvy * predictTime
-	local leadZ = uvz * predictTime
-	local leadDistance = unitSpeed * predictTime
+	local leadX = uvx * leadTime
+	local leadY = uvy * leadTime
+	local leadZ = uvz * leadTime
+	local leadDistance = unitSpeed * leadTime
 
 	if leadDistance > params.leadLimit then
 		local ratio = params.leadLimit / (leadDistance + 0.01)
@@ -462,17 +458,15 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 	end
 
 	-- Refetch the unit position, this time with error.
-	ux, uy, uz, uax, uay, uaz = CallAsTeam(spGetProjectileTeamID(projectileID), spGetUnitPosition, unitID, false, true)
+	ux, uy, uz, umx, umy, umz = CallAsTeam(spGetProjectileTeamID(projectileID), spGetUnitPosition, unitID, false, true)
 
-	return uax + leadX, uay + leadY, uaz + leadZ, predictTime
+	return umx + leadX, umy + leadY, umz + leadZ, leadTime
 end
 
 --------------------------------------------------------------------------------
 -- Final aim compensation solution ---------------------------------------------
 
-local projectiles = 0
-local compensated = 0
-local compensation = {}
+local compensated = 0 -- needed for stats
 
 local function getAimDirection(params, useHighTrajectory, dx, dy, dz)
 	local gravity = params.gravity
@@ -494,13 +488,13 @@ local function getAimDirection(params, useHighTrajectory, dx, dy, dz)
 
 	if useHighTrajectory then
 		if t2 > NAN_EPSILON then
-			t = t2
+			t = math_sqrt(t2)
 		else
 			return
 		end
 	else
 		if t1 > NAN_EPSILON then
-			t = t1
+			t = math_sqrt(t1)
 		else
 			return
 		end
@@ -535,7 +529,7 @@ local function buildRotation(dx0, dy0, dz0, dx1, dy1, dz1)
 	return angle, axisX, axisY, axisZ
 end
 
-local function applyRotation(angle, axisX, axisY, axisZ, vx, vy, vz)
+local function applyRotation(angle, axisX, axisY, axisZ, vx, vy, vz, magnitude)
 	local cosAngle = math_cos(angle)
 	local sinAngle = math_sin(angle)
 	local cosTerm = (1 - cosAngle) * (axisX * vx + axisY * vy + axisZ * vz)
@@ -544,28 +538,25 @@ local function applyRotation(angle, axisX, axisY, axisZ, vx, vy, vz)
 	local resultY = vy * cosAngle + (axisZ * vx - axisX * vz) * sinAngle + axisY * cosTerm
 	local resultZ = vz * cosAngle + (axisX * vy - axisY * vx) * sinAngle + axisZ * cosTerm
 
+	resultX, resultY, resultZ = math_normalize(resultX, resultY, resultZ)
+	resultX, resultY, resultZ = resultX * magnitude, resultY * magnitude, resultZ * magnitude
+
 	return resultX, resultY, resultZ
 end
 
 local function applyAimCorrection(projectileID, ownerID, params)
-	-- Leave these in until we've collected enough weapon performance statistics.
-	compensation[projectileID] = "none"
-	projectiles = projectiles + 1
-
 	local targetType, targetID = spGetProjectileTarget(projectileID)
 	if targetType ~= TARGETTYPE_UNIT then
 		return
 	else
 		assert(type(targetID) == "number")
 		if not spValidUnitID(targetID) then
-			Spring.Echo("invalid")
 			return
 		end
 	end
 
 	local unitDefID, unitRadius = spGetUnitDefID(targetID), spGetUnitRadius(targetID)
 	if not unitDefID or unitRadius == 0 then
-		Spring.Echo("do not target")
 		return
 	end
 
@@ -575,44 +566,31 @@ local function applyAimCorrection(projectileID, ownerID, params)
 		return
 	end
 
-	local ux, uy, uz, midX, midY, midZ, aimX, aimY, aimZ = spGetUnitPosition(targetID, true, true)
+	local ux, uy, uz, midX, midY, midZ = spGetUnitPosition(targetID, true)
 	local px, py, pz = spGetProjectilePosition(projectileID)
 
 	local direction = (uvx * pvx + uvy * pvy + uvz * pvz) / projSpeed / unitSpeed
 	local separation = math_max(math_diag(midX - px, midY - py, midZ - pz) - unitRadius, 0) / params.range
-	local isSurfaceTarget = isOnSurface(ux, uy, uz)
-
-	local compensationType
-
-	if direction >= 0.75 or separation + direction >= 1.5 then
-		compensationType = "long"
-	else
-		return -- Other types of aim compensation are possible but let's simplify things.
+	if direction <= 0 or separation + direction <= 1 then
+		return
 	end
 
 	local trajectory = (params.trajectory == TRAJECTORY_UNIT and spValidUnitID(ownerID) and spGetUnitStates(ownerID).trajectory) or params.trajectory
 	local useHighTrajectory = trajectory == TRAJECTORY_HIGH
 
-	local ex, ey, ez, engineTime = getEngineTargetPosition(targetID, projectileID, params, useHighTrajectory)
+	local ex, ey, ez = getEngineTargetPosition(targetID, projectileID, params, useHighTrajectory)
 	if not ex then
-		Spring.Echo("no engine solution")
+		Spring.MarkerAddPoint(ux, uy, uz, "no engine solution")
 		return
 	end
 
-	local bx, by, bz, betterTime = getBetterTargetPosition(targetID, projectileID, params, useHighTrajectory, isSurfaceTarget)
+	local bx, by, bz = getBetterTargetPosition(targetID, projectileID, params, useHighTrajectory)
 	if not bx then
-		Spring.Echo("no better solution")
+		Spring.MarkerAddPoint(ux, uy, uz, "no better solution")
 		return
 	end
-
-	-- Spring.MarkerAddPoint(ex, ey, ez, ("e<%.2f, %.2f, %.2f"):format(ex, ey, ez))
-	-- Spring.MarkerAddPoint(bx, by, bz, ("b<%.2f, %.2f, %.2f"):format(bx, by, bz))
 
 	bx, by, bz = params.clamp(px, py, pz, bx, by, bz, params.range, unitRadius)
-
-	if isSurfaceTarget and separation + direction >= 0.75 then
-		bx, by, bz = clampToAltitude(bx, by, bz, unitRadius)
-	end
 
 	local edx, edy, edz = getAimDirection(params, useHighTrajectory, ex - px, ey - py, ez - pz)
 	if not edx then
@@ -628,15 +606,45 @@ local function applyAimCorrection(projectileID, ownerID, params)
 	-- Spring.GetUnitWeaponTryTarget(ownerID, ...)
 
 	local angle, ax, ay, az = buildRotation(edx, edy, edz, bdx, bdy, bdz)
-	if angle <= RAD_EPSILON or angle * (params.range * separation) ^ 2 <= DIST_EPSILON then
+	if angle <= RAD_EPSILON or angle * params.range * (separation + direction) <= DIST_EPSILON then
 		return
 	end
 
-	spSetProjectileVelocity(projectileID, applyRotation(angle, ax, ay, az, pvx, pvy, pvz))
+	local nvx, nvy, nvz = applyRotation(angle, ax, ay, az, pvx, pvy, pvz, params.speed)
+	spSetProjectileVelocity(projectileID, nvx, nvy, nvz)
+
+	-- Results -----------------------------------------------------------------
+
+	if not collectStatistics then
+		return
+	end
+
+	local attackerDefID = spGetUnitDefID(ownerID)
+	if not attackerDefID then
+		return
+	end
 
 	-- Statistics gathering:
-	compensation[projectileID] = compensationType
 	compensated = compensated + 1
+
+	-- Points targeted
+	-- Spring.MarkerAddPoint(ex, ey, ez, ("e"))
+	-- Spring.MarkerAddPoint(bx, by, bz, ("b (%.2f%% yvel)"):format(100 * (nvy - pvy) / projSpeed))
+
+	-- Derived launch angles
+	-- Spring.Echo("directions e", edx, edy, edz)
+	-- Spring.Echo("directions b", bdx, bdy, bdz)
+	-- Spring.Echo("directions p", Spring.GetProjectileDirection(projectileID))
+	-- Spring.Echo("")
+
+	-- Spring.Echo(("buildRotation(%f, %f, %f, %f, %f, %f) => %f, %f, %f, %f"):format(
+	-- 	edx, edy, edz, bdx, bdy, bdz,
+	-- 	math.deg(angle), ax, ay, az
+	-- ))
+
+	-- Spring.Echo(("start velocity: %f, %f, %f"):format(pvx, pvy, pvz))
+	-- Spring.Echo(("  end velocity: %f, %f, %f"):format(nvx, nvy, nvz))
+	-- Spring.Echo("")
 end
 
 --------------------------------------------------------------------------------
@@ -680,4 +688,91 @@ function gadget:ProjectileCreated(projectileID, ownerID, weaponDefID)
 	if weaponAimCorrection[weaponDefID] then
 		applyAimCorrection(projectileID, ownerID, weaponAimCorrection[weaponDefID])
 	end
+end
+
+--------------------------------------------------------------------------------
+-- Combat statistics -----------------------------------------------------------
+
+if not collectStatistics then
+	return
+end
+
+local testUnitDefID = {
+	[UnitDefNames.legaskirmtank and UnitDefNames.legaskirmtank.id or -1] = true,
+}
+
+local projectileTarget = {}
+local projectiles = 0
+local missed = 0
+
+local damageTotal = 0
+local splashTotal = 0
+local damageTotalTotal = 0
+
+function gadget:ProjectileCreated(projectileID, ownerID, weaponDefID)
+	if weaponAimCorrection[weaponDefID] and testUnitDefID[spGetUnitDefID(ownerID) or -1] then
+		if applyCompensation then
+			applyAimCorrection(projectileID, ownerID, weaponAimCorrection[weaponDefID])
+		end
+
+		local targetType, targetID = spGetProjectileTarget(projectileID)
+		if targetType == TARGETTYPE_UNIT then
+			projectileTarget[projectileID] = { targetID, 0 }
+		end
+		projectiles = projectiles + 1
+	end
+end
+
+local damageCheckQueue = {}
+
+function gadget:ProjectileDestroyed(projectileID, ownerID, weaponDefID)
+	if projectileTarget[projectileID] then
+		damageCheckQueue[projectileID] = projectileTarget[projectileID]
+	end
+end
+
+function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projectileID)
+	if projectileTarget[projectileID] and projectileTarget[projectileID][1] == unitID then
+		local damageRate = math_clamp(damage / Spring.GetProjectileDamages(projectileID, 0), 0, flankingMaxFraction)
+
+		projectileTarget[projectileID][2] = projectileTarget[projectileID][2] + damageRate
+
+		if damageRate > indirectHitFraction then
+			damageTotal = damageTotal + damageRate
+		else
+			splashTotal = splashTotal + damageRate
+		end
+
+		damageTotalTotal = damageTotalTotal + damageRate
+	end
+end
+
+function gadget:GameFrame(frame)
+	for projectileID, tbl in pairs(damageCheckQueue) do
+		projectileTarget[projectileID] = nil
+		if tbl[2] == 0 then
+			-- Try to assign partial credit. You can't miss a dead unit (sort of).
+			if Spring.GetUnitIsDead(tbl[1]) ~= false then
+				damageTotal = damageTotal + 0.25
+				splashTotal = splashTotal + 0.25
+				damageTotalTotal = damageTotalTotal + 0.5
+			else
+				missed = missed + 1
+			end
+		end
+	end
+
+	damageCheckQueue = {}
+
+	if frame % 300 ~= 0 then
+		return
+	end
+
+	Spring.Echo(("%d shots | %d%% corrected | %d%% damage | %d%% splash | %d%% miss"):format(
+		projectiles,
+		projectiles > 0 and 100 * compensated / projectiles or 0,
+		damageTotalTotal > 0 and 100 * damageTotal / damageTotalTotal or 100,
+		damageTotalTotal > 0 and 100 * splashTotal / damageTotalTotal or 0,
+		projectiles > 0 and missed / projectiles or 0
+	))
 end
