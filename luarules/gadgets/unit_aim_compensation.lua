@@ -59,7 +59,9 @@ end
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
-local surfaceTargetAltitude = 10.0 -- Avoid overshooting by aiming max-range shots onto terrain.
+-- Avoid overshooting by aiming max-range shots onto terrain, but also try not to
+-- force shots to reaim arbitrarily low, causing them to hit walls and/or allies.
+local surfaceTargetAltitude = 10.0
 
 --------------------------------------------------------------------------------
 -- Localization ----------------------------------------------------------------
@@ -644,8 +646,8 @@ local function applyAimCorrection(projectileID, ownerID, params)
 
 	bx, by, bz = params.clamp(px, py, pz, bx, by, bz, params.range, unitRadius)
 
-	if isSurfaceTarget then
-		bx, by, bz = clampToAltitude(bx, by, bz) -- I am uncertain about this one.
+	if isSurfaceTarget and separation + direction >= 0.75 then
+		bx, by, bz = clampToAltitude(bx, by, bz)
 	end
 
 	local edx, edy, edz = getAimDirection(params, trajectory, ex - px, ey - py, ez - pz, engineTime)
@@ -658,7 +660,7 @@ local function applyAimCorrection(projectileID, ownerID, params)
 		return
 	end
 
-	-- This is a tempting thought but we have no clue what our weapon is:
+	-- This is a tempting thought but we have no clue what our weapon is: -- TODO
 	-- Spring.GetUnitWeaponTryTarget(ownerID, ...)
 
 	local angle, ax, ay, az = buildRotation(edx, edy, edz, bdx, bdy, bdz)
