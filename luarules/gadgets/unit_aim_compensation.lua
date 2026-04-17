@@ -413,9 +413,11 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 	local temp2 = 1.0
 	local cc = 1.0
 
-	if compensationType == "short" then
+	if compensationType == "short" and isSurfaceTarget then
 		ux, uy, uz = (ux + uax) * 0.5, (uy + uay) * 0.5, (uz + uaz) * 0.5
 	elseif compensationType == "long" then
+		ux, uy, uz = umx, umy, umz
+	else
 		ux, uy, uz = umx, umy, umz
 	end
 
@@ -471,12 +473,12 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 	-- Refetch the unit position, this time with error.
 	ux, uy, uz, umx, umy, umz, uax, uay, uaz = CallAsTeam(spGetProjectileTeamID(projectileID), spGetUnitPosition, unitID, true, true)
 
-	if compensationType == "short" then
+	if compensationType == "short" and isSurfaceTarget then
 		ux, uy, uz = (ux + uax) * 0.5, (uy + uay) * 0.5, (uz + uaz) * 0.5
 	elseif compensationType == "long" then
 		ux, uy, uz = uax, uay, uaz
 	else
-		ux, uy, uz = uax, uay, uaz -- ??
+		ux, uy, uz = uax, uay, uaz
 	end
 
 	return ux + leadX, uy + leadY, uz + leadZ
