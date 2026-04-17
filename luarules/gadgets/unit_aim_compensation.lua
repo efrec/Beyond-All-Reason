@@ -607,31 +607,23 @@ local function applyAimCorrection(projectileID, ownerID, params)
 		return -- Other types of aim compensation are possible but let's simplify things.
 	end
 
-	local trajectory = params.trajectory
-	if trajectory == TRAJECTORY_UNIT then
-		if spValidUnitID(ownerID) then
-			trajectory = spGetUnitStates(ownerID).trajectory and TRAJECTORY_HIGH or TRAJECTORY_LOW
-		else
-			trajectory = TRAJECTORY_DEFAULT -- Projectile was probably spawned via game code.
-		end
-	end
+	local trajectory = (params.trajectory == TRAJECTORY_UNIT and spValidUnitID(ownerID) and spGetUnitStates(ownerID).trajectory) or params.trajectory
+	local useHighTrajectory = trajectory == TRAJECTORY_HIGH
 
-	local isHighTrajectory = trajectory == TRAJECTORY_HIGH
-
-	local ex, ey, ez, engineTime = getEngineTargetPosition(targetID, projectileID, params, isHighTrajectory)
+	local ex, ey, ez, engineTime = getEngineTargetPosition(targetID, projectileID, params, useHighTrajectory)
 	if not ex then
 		Spring.Echo("no engine solution")
 		return
 	end
 
-	local bx, by, bz, betterTime = getBetterTargetPosition(targetID, projectileID, params, isHighTrajectory, isSurfaceTarget)
+	local bx, by, bz, betterTime = getBetterTargetPosition(targetID, projectileID, params, useHighTrajectory, isSurfaceTarget)
 	if not bx then
 		Spring.Echo("no better solution")
 		return
 	end
 
-	Spring.MarkerAddPoint(ex, ey, ez, "e")
-	Spring.MarkerAddPoint(bx, by, bz, "b")
+	Spring.MarkerAddPoint(ex, ey, ez, ("e<%.2f, %.2f, %.2f"):format(ex, ey, ez))
+	Spring.MarkerAddPoint(bx, by, bz, ("b<%.2f, %.2f, %.2f"):format(bx, by, bz))
 
 	bx, by, bz = params.clamp(px, py, pz, bx, by, bz, params.range, unitRadius)
 
