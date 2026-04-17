@@ -200,7 +200,8 @@ for unitDefID = 1, #UnitDefs do
 	for index, weapon in ipairs(unitDef.weapons) do
 		local aimParams = weaponAimCorrection[weapon.weaponDef]
 		if aimParams then
-			aimParams.leadingSteps = math_max(aimParams.leadingSteps, weapon.accurateLeading, 1)
+			-- BAR units currently do not use accurateLeading. Still, for balance testing:
+			aimParams.leadingSteps = math_max(aimParams.leadingSteps, weapon.accurateLeading)
 		end
 	end
 end
@@ -263,7 +264,7 @@ local function getAccuratePredictTime(unitID, projectileID, params, isHighTrajec
 	local predictTime = getPredictTime(px, py, pz, ux, uy, uz, projSpeed)
 	local deltaTime = predictTime
 
-	-- It's possible that `leadingSteps` is not equal to `accurateLeading`. See setup code.
+	-- Generally, `leadingSteps` is not equal to `accurateLeading`. See setup code.
 	for i = 1, params.leadingSteps do
 		if deltaTime < 1 then
 			break
@@ -434,8 +435,8 @@ local function getBetterTargetPosition(unitID, projectileID, params, isHighTraje
 	local predictTime = getPredictTime(px, py, pz, ux, uy, uz, projSpeed)
 	local deltaTime = predictTime
 
-	-- Generally, `leadingSteps` is not equal to `accurateLeading`. See setup code.
-	for i = 1, params.leadingSteps do
+	-- As "better target position" would imply, enforce at least one iteration.
+	for i = 1, math_max(params.leadingSteps, 1) do
 		if deltaTime < 1 then
 			break
 		end
