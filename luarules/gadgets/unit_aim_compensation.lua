@@ -170,7 +170,7 @@ local function getAimCorrectionParams(weaponDef)
 		or weaponDef.leadLimit + weaponDef.leadBonus * 0.25 -- We just bake in some unit XP for now.
 
 	return {
-		gravity      = weaponDef.gravityAffected and (weaponDef.myGravity or gravityPerFrame) or 0,
+		gravity      = weaponDef.myGravity,
 		heightMod    = weaponDef.heightMod,
 		range        = weaponDef.range,
 		speed        = weaponDef.projectilespeed,
