@@ -619,32 +619,36 @@ local function applyAimCorrection(projectileID, ownerID, params)
 		return
 	end
 
+	-- Make sure the projectile was not spawned by game code.
 	local attackerDefID = spGetUnitDefID(ownerID)
 	if not attackerDefID then
 		return
 	end
 
-	-- Statistics gathering:
 	compensated = compensated + 1
 
-	-- Points targeted
-	-- Spring.MarkerAddPoint(ex, ey, ez, ("e"))
-	-- Spring.MarkerAddPoint(bx, by, bz, ("b (%.2f%% yvel)"):format(100 * (nvy - pvy) / projSpeed))
+	if pings then
+		-- Points targeted
+		-- Spring.MarkerAddPoint(ex, ey, ez, ("e"))
+		-- Spring.MarkerAddPoint(bx, by, bz, ("b (%.2f%% yvel)"):format(100 * (nvy - pvy) / projSpeed))
+	end
 
-	-- Derived launch angles
-	-- Spring.Echo("directions e", edx, edy, edz)
-	-- Spring.Echo("directions b", bdx, bdy, bdz)
-	-- Spring.Echo("directions p", Spring.GetProjectileDirection(projectileID))
-	-- Spring.Echo("")
+	if logs then
+		-- Derived launch angles
+		-- Spring.Echo("directions e", edx, edy, edz)
+		-- Spring.Echo("directions b", bdx, bdy, bdz)
+		-- Spring.Echo("directions p", Spring.GetProjectileDirection(projectileID))
+		-- Spring.Echo("")
 
-	-- Spring.Echo(("buildRotation(%f, %f, %f, %f, %f, %f) => %f, %f, %f, %f"):format(
-	-- 	edx, edy, edz, bdx, bdy, bdz,
-	-- 	math.deg(angle), ax, ay, az
-	-- ))
+		-- Spring.Echo(("buildRotation(%f, %f, %f, %f, %f, %f) => %f, %f, %f, %f"):format(
+		-- 	edx, edy, edz, bdx, bdy, bdz,
+		-- 	math.deg(angle), ax, ay, az
+		-- ))
 
-	-- Spring.Echo(("start velocity: %f, %f, %f"):format(pvx, pvy, pvz))
-	-- Spring.Echo(("  end velocity: %f, %f, %f"):format(nvx, nvy, nvz))
-	-- Spring.Echo("")
+		-- Spring.Echo(("start velocity: %f, %f, %f"):format(pvx, pvy, pvz))
+		-- Spring.Echo(("  end velocity: %f, %f, %f"):format(nvx, nvy, nvz))
+		-- Spring.Echo("")
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -703,11 +707,12 @@ local testUnitDefID = {
 
 local projectileTarget = {}
 local projectiles = 0
-local missed = 0
 
+local damageCheckQueue = {}
 local damageTotal = 0
 local splashTotal = 0
 local damageTotalTotal = 0
+local missed = 0
 
 function gadget:ProjectileCreated(projectileID, ownerID, weaponDefID)
 	if weaponAimCorrection[weaponDefID] and testUnitDefID[spGetUnitDefID(ownerID) or -1] then
@@ -722,8 +727,6 @@ function gadget:ProjectileCreated(projectileID, ownerID, weaponDefID)
 		projectiles = projectiles + 1
 	end
 end
-
-local damageCheckQueue = {}
 
 function gadget:ProjectileDestroyed(projectileID, ownerID, weaponDefID)
 	if projectileTarget[projectileID] then
