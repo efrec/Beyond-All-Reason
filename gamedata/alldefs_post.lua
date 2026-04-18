@@ -88,17 +88,161 @@ local function round_to_frames(wd, key)
 	return sanitized_value
 end
 
-local function processWeapons(unitDefName, unitDef)
-	for weaponDefName, weaponDef in pairs(unitDef.weapondefs) do
+-- Recoil allows weapons to be configured separately from weapondefs. This section tries to
+-- establish a 1:1 relationship so that all projectiles can derive their weapon properties.
+
+local weaponDefsToWeapons = {
+	accurateleading          = true, -- push weapondef customparams to weapon properties
+	badtargetcategory        = true,
+	burstcontrolwhenoutofarc = true,
+	def                      = false,
+	fastautoretargeting      = true,
+	fastquerypointupdate     = true,
+	maindir                  = true,
+	maxangledif              = true,
+	slaveto                  = false,
+	onlytargetcategory       = true,
+	weaponaimadjustpriority  = true,
+}
+
+local weaponsToWeaponDefs = {}
+do
+	for k, v in pairs {
+		accurateleading          = true, -- push weapon properties to weapondef customparams
+		badtargetcategory        = true,
+		burstcontrolwhenoutofarc = true,
+		def                      = false,
+		fastautoretargeting      = true,
+		fastquerypointupdate     = true,
+		maindir                  = true,
+		maxangledif              = true,
+		onlytargetcategory       = true,
+		slaveto                  = true,
+		weaponaimadjustpriority  = true,
+	} do
+		weaponsToWeaponDefs[#weaponsToWeaponDefs + 1] = v and k or nil
+	end
+	table.sort(weaponsToWeaponDefs)
+end
+
+local function processUnitWeaponsAndWeaponDefs(unitDefName, unitDef)
+	local unitParams, weapons, weapondefs = unitDef.customparams, unitDef.weapons, unitDef.weapondefs
+
+	-- Process weapons and weapondefs together.
+
+	for weaponName, weaponDef in pairs(weapondefs) do
+		local weaponParams = table.ensureTable(weaponDef, "customparams")
+		local groupNumber = tonumber(weaponParams.weapons_group or 0) or 0
+
+		local usingDef = table.filterTable(weapons, function(w) return w.def:lower() == weaponName end)
+
+		if table.count(usingDef) == 0 then
+			weaponParams.weapons_group = math.min(groupNumber, -1) -- inactive
+		else
+			weaponParams.weapons_group = math.max(groupNumber, 0) -- active
+
+			-- weapondef customparams => weapon properties:
+			for key, check in pairs(weaponDefsToWeapons) do
+				if check and weaponParams[key] ~= nil then
+					table.each(usingDef, function(w) w[key] = weaponParams[key] end)
+				end
+			end
+
+			-- weapon properties => weapondef customparams:
+			local usingDefGrouped = table.group(usingDef, function(w, i)
+				return table.concat(table.map(weaponsToWeaponDefs, function(j, key)
+					return w[key] ~= nil and w[key] or "nil", key
+				end))
+			end)
+
+			if table.count(usingDefGrouped) == 1 then
+				local groupKey, group = next(usingDefGrouped)
+				assert(group)
+				local index, weapon = next(group)
+				assert(weapon)
+
+				for _, key in ipairs(weaponsToWeaponDefs) do
+					weaponParams[key] = weapon[key]
+				end
+			else
+				-- Get unique weapondef names by appending _group:
+				local firstWeaponIndex, firstWeaponSorted = {}, {}
+				for groupKey, group in pairs(usingDefGrouped) do
+					local index = table.reduce(group, function(min, w, i) return i < min and i or min end, math.huge)
+					firstWeaponIndex[groupKey] = index
+					firstWeaponSorted[#firstWeaponSorted + 1] = index
+				end
+				table.sort(firstWeaponSorted)
+
+				for groupKey, group in pairs(usingDefGrouped) do
+					local index = table.getKeyOf(firstWeaponSorted, firstWeaponIndex[groupKey])
+					if index and index ~= 1 then
+						local uniqueName = weaponName .. "_copy_" .. index
+
+						while weapondefs[uniqueName] do
+							uniqueName = uniqueName .. "_" .. string.randomString(2)
+							Spring.Echo("Weapon naming collision", weaponName, uniqueName)
+						end
+
+						local uniqueDef = table.copy(weaponDef)
+						local uniqueParams = uniqueDef.customparams
+						weapondefs[uniqueName] = uniqueDef
+
+						local _, weapon = next(group)
+						assert(weapon)
+
+						for _, key in ipairs(weaponsToWeaponDefs) do
+							uniqueParams[key] = weapon[key]
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- Process properties shared across multiple weapondefs and/or weapons.
+
+	-- Smart weapon selection applies to multiple weapondefs and the unitdef.
+	local priorityWeapon, backupWeapon, trajectoryWeapon
+	for weaponNumber, weapon in ipairs(weapons) do
+		local weaponName = (weapon.def or ""):lower()
+		local weaponDef = weapondefs[weaponName]
+		local weaponParams = weaponDef and weaponDef.customparams or {}
+		if weaponParams.smart_priority and not priorityWeapon then
+			priorityWeapon = weaponNumber
+		elseif weaponParams.smart_backup and not backupWeapon then
+			backupWeapon = weaponNumber
+		elseif weaponParams.smart_trajectory_checker and not trajectoryWeapon then
+			trajectoryWeapon = weaponNumber
+		end
+		weaponParams.smart_priority = nil
+		weaponParams.smart_backup = nil
+		weaponParams.smart_trajectory_checker = nil
+	end
+	if priorityWeapon and backupWeapon and trajectoryWeapon then
+		unitParams.weapons_smart_select = true
+		if unitParams.smart_weapon_cmddesc ~= "trajectory" then
+			unitParams.smart_weapon_cmddesc = "default"
+		end
+		weapondefs[weapons[  priorityWeapon].def:lower()].customparams.smart_priority = true
+		weapondefs[weapons[    backupWeapon].def:lower()].customparams.smart_backup = true
+		weapondefs[weapons[trajectoryWeapon].def:lower()].customparams.smart_trajectory_checker = true
+	else
+		unitParams.weapons_smart_select = nil
+		unitParams.smart_weapon_cmddesc = nil
+	end
+
+	-- Process individual weapondef properties.
+
+	for weaponDefName, weaponDef in pairs(weapondefs) do
+		local weaponParams = weaponDef.customparams
+
 		weaponDef.reloadtime = round_to_frames(weaponDef, "reloadtime")
 		weaponDef.burstrate = round_to_frames(weaponDef, "burstrate")
 
-		-- weaponDef is not processed by weapondefs_post, may not have some subtables:
-		table.ensureTable(weaponDef, "customparams")
-
-		if weaponDef.customparams.cluster_def then
-			weaponDef.customparams.cluster_def = unitDefName .. "_" .. weaponDef.customparams.cluster_def
-			weaponDef.customparams.cluster_number = weaponDef.customparams.cluster_number or 5
+		if weaponParams.cluster_def then
+			weaponParams.cluster_def = unitDefName .. "_" .. weaponParams.cluster_def
+			weaponParams.cluster_number = weaponParams.cluster_number or 5
 		end
 	end
 end
@@ -414,10 +558,7 @@ local function unitDef_Post(name, uDef)
 		processRaptorsUnit(uDef)
 	end
 
-	--[[ Sanitize to whole frames (plus leeways because float arithmetic is bonkers).
-         The engine uses full frames for actual reload times, but forwards the raw
-         value to LuaUI (so for example calculated DPS is incorrect without sanitisation). ]]
-	processWeapons(name, uDef)
+	processUnitWeaponsAndWeaponDefs(name, uDef)
 
 	-- make los height a bit more forgiving	(20 is the default)
 	--uDef.sightemitheight = (uDef.sightemitheight and uDef.sightemitheight or 20) + 20
@@ -765,20 +906,6 @@ local function unitDef_Post(name, uDef)
 		-- Deduplicate buildoptions (various modoptions or later mods can add the same units)
 		-- Multiple unit defs can share the same table reference, so we create a new table for each
 		uDef.buildoptions = table.getUniqueArray(buildoptions)
-	end
-
-	if next(weapondefs) then
-		-- Some units can switch between exclusive weapon sets via their unit scripts.
-		-- [<0] := never active, [0] := always active, [1] := primary set, [>1] := alternate sets
-		for weaponName, weaponDef in pairs(weapondefs) do
-			local groupNumber = 0
-			if table.any(weapons, function(weapon) return weaponName:lower() == (weapon.def or ""):lower() end) then
-				groupNumber = tonumber(weaponDef.customparams.weapons_group or 0) or 0
-			else
-				groupNumber = -1
-			end
-			weaponDef.customparams.weapons_group = groupNumber
-		end
 	end
 
 	-- Suppress engine default piece explosion effects (handled by gfx_death_fire_smoke_gl4 widget)

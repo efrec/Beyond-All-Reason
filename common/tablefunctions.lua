@@ -434,6 +434,48 @@ if not table.shuffle then
 	end
 end
 
+if not table.each then
+	---Applies a function to all elements of a table.
+	---@generic K, V, RV, RK
+	---@param tbl table<K, V> The input table.
+	---@param callback fun(value: V, key: K, tbl: table<K, V>) The function to apply to each element. It receives three arguments: the element's value, its key, and the original table.
+	function table.each(tbl, callback)
+		for k, v in pairs(tbl) do
+			callback(v, k, tbl)
+		end
+	end
+end
+
+if not table.group then
+	local subtable = table.ensureTable
+
+	local function byValue(v, k, t)
+		return v
+	end
+
+	---Groups values in a table either by their exact value or by a callback function.
+	---@generic K, V, GV
+	---@param tbl table<K, V> The input table.
+	---@param callback fun(value : V, key : K, tbl: table<K, V>): GV
+	---@return table<GV, table<K, V>>
+	function table.group(tbl, callback)
+		if not callback then
+			callback = byValue
+		end
+
+		local grouped = {}
+
+		for k, v in pairs(tbl) do
+			local group = callback(k, v, tbl)
+			if group ~= nil then
+				subtable(grouped, group)[k] = v
+			end
+		end
+
+		return grouped
+	end
+end
+
 if not table.map then
 	--- Applies a function to all elements of a table and returns a new table with the results.
 	---@generic K, V, RV, RK
