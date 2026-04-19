@@ -88,8 +88,9 @@ local function round_to_frames(wd, key)
 	return sanitized_value
 end
 
--- Recoil allows weapons to be configured separately from weapondefs. This section tries to
--- establish a 1:1 relationship so that all projectiles can derive their weapon properties.
+-- The engine maps one weapondef to each weapon, but each weapondef can have many weapons.
+-- Since weapons can have their own properties, this means one weapondef can have many behaviors.
+-- This section establishes a two-way 1:1 relationship so that there are no ambiguities.
 
 local weaponDefsToWeapons = {
 	accurateleading          = true, -- push weapondef customparams to weapon properties
