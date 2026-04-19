@@ -92,8 +92,8 @@ end
 -- Since weapons have their own properties, this means one weapondef can have many behaviors.
 -- This section establishes a two-way 1:1 relationship so that there are no ambiguities.
 
-local weaponDefsToWeapons = {
-	accurateleading          = true, -- push weapondef customparams to weapon properties
+local weaponDefsToWeapons = { -- push weapondef customparams to weapon properties
+	accurateleading          = true,
 	badtargetcategory        = true,
 	burstcontrolwhenoutofarc = true,
 	def                      = false,
@@ -106,24 +106,21 @@ local weaponDefsToWeapons = {
 	weaponaimadjustpriority  = true,
 }
 
-local weaponsToWeaponDefs = {}
-do
-	for k, v in pairs {
-		accurateleading          = true, -- push weapon properties to weapondef customparams
-		badtargetcategory        = true,
-		burstcontrolwhenoutofarc = true,
-		def                      = false,
-		fastautoretargeting      = true,
-		fastquerypointupdate     = true,
-		maindir                  = true,
-		maxangledif              = true,
-		onlytargetcategory       = true,
-		slaveto                  = true,
-		weaponaimadjustpriority  = true,
-	} do
-		weaponsToWeaponDefs[#weaponsToWeaponDefs + 1] = v and k or nil
-	end
-	table.sort(weaponsToWeaponDefs)
+local weaponsToWeaponDefs = {} -- push weapon properties to weapondef customparams
+for k, v in pairs {
+	accurateleading          = true,
+	badtargetcategory        = true,
+	burstcontrolwhenoutofarc = true,
+	def                      = false,
+	fastautoretargeting      = true,
+	fastquerypointupdate     = true,
+	maindir                  = true,
+	maxangledif              = true,
+	onlytargetcategory       = true,
+	slaveto                  = true,
+	weaponaimadjustpriority  = true,
+} do
+	weaponsToWeaponDefs[#weaponsToWeaponDefs + 1] = v and k or nil
 end
 
 local function processUnitWeaponsAndWeaponDefs(unitDefName, unitDef)
