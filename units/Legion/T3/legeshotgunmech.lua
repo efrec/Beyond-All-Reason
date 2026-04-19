@@ -125,6 +125,8 @@ return {
 				customparams = {
 					bogus = 1,
 					preaim_range = 650,
+					--
+					onlytargetcategory = "SURFACE",
 				},
 				damage = {
 					default = 0,
@@ -164,6 +166,10 @@ return {
 				turret = true,
 				weapontype = "LaserCannon",
 				weaponvelocity = 969,
+				customparams = {
+					badtargetcategory = "VTOL",
+					onlytargetcategory = "SURFACE",
+				},
 				damage = {
 					default = 60,
 					vtol = 25,
@@ -196,6 +202,8 @@ return {
 					cluster_def = 'cluster_munition',
 					cluster_number = 4,
 					exclude_preaim = true,
+					--
+					onlytargetcategory = "SURFACE",
 				},
 				damage = {
 					default = 300,
@@ -283,6 +291,9 @@ return {
 					speceffect = "cruise",
 					projectile_destruction_method = "descend",
 					overrange_distance = 750,
+					--
+					badtargetcategory = "VTOL",
+					onlytargetcategory = "SURFACE",
 				},
 				damage = {
 					default = 200,
@@ -324,6 +335,11 @@ return {
 				customparams = {
 					norangering = 1,
 					weapons_role = "secondary",
+					--
+					badtargetcategory = "LIGHTAIRSCOUT",
+					burstcontrolwhenoutofarc = 2,
+					fastautoretargeting = true,
+					onlytargetcategory = "VTOL",
 				},
 				damage = {
 					vtol = 40,
@@ -337,32 +353,21 @@ return {
 		},
 		weapons = {
 			[1] = {
-				badtargetcategory = "VTOL",
 				def = "AIMHULL",
-				onlytargetcategory = "SURFACE",
 			},
 			[2] = {
-				badtargetcategory = "VTOL",
 				def = "SHOTGUN",
-				onlytargetcategory = "SURFACE",
 				slaveto = 1;
 			},
 			[3] = {
 				def = "clusterplasma",
-				onlytargetcategory = "SURFACE",
 			},
 			[4] = {
-				badtargetcategory = "VTOL",
 				def = "adv_rocket",
-				onlytargetcategory = "SURFACE",
                 slaveto = 1;
 			},
 			[5] = {
-				badtargetcategory = "LIGHTAIRSCOUT",
-				burstcontrolwhenoutofarc = 2,
 				def = "leg_t2_microflak_mobile",
-				fastautoretargeting = true,
-				onlytargetcategory = "VTOL",
 			},
 		},
 	},
