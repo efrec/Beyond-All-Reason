@@ -293,8 +293,8 @@ local categories = {}
 categories["ALL"] = function() return true end
 categories["MOBILE"] = function(uDef) return uDef.speed and uDef.speed > 0 end
 categories["NOTMOBILE"] = function(uDef) return not categories.MOBILE(uDef) end
-categories["WEAPON"] = function(uDef) return next(uDef.weapondefs) ~= nil end
-categories["NOWEAPON"] = function(uDef) return next(uDef.weapondefs) == nil end
+categories["WEAPON"] = function(uDef) return next(uDef.weapondefs) ~= nil and next(uDef.weapons) ~= nil end
+categories["NOWEAPON"] = function(uDef) return not categories.WEAPON(uDef) end
 categories["VTOL"] = function(uDef) return uDef.canfly == true end
 categories["NOTAIR"] = function(uDef) return not categories.VTOL(uDef) end
 categories["HOVER"] = function(uDef) return hoverList[uDef.movementclass] and (uDef.maxwaterdepth == nil or uDef.maxwaterdepth < 1) end -- convertible tank/boats have maxwaterdepth
