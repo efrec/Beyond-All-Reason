@@ -89,7 +89,7 @@ local function round_to_frames(wd, key)
 end
 
 -- The engine maps one weapondef to each weapon, but each weapondef can have many weapons.
--- Since weapons can have their own properties, this means one weapondef can have many behaviors.
+-- Since weapons have their own properties, this means one weapondef can have many behaviors.
 -- This section establishes a two-way 1:1 relationship so that there are no ambiguities.
 
 local weaponDefsToWeapons = {
