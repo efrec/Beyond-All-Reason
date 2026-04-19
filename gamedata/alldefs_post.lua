@@ -180,9 +180,11 @@ local function processUnitWeaponsAndWeaponDefs(unitDefName, unitDef)
 					if index and index ~= 1 then
 						local uniqueName = weaponName .. "_copy_" .. index
 
-						while weapondefs[uniqueName] do
-							uniqueName = uniqueName .. "_" .. string.randomString(2)
-							Spring.Echo("Weapon naming collision", weaponName, uniqueName)
+						if weapondefs[uniqueName] then
+							uniqueName = uniqueName .. "_"
+							repeat uniqueName = uniqueName .. string.randomString(2):lower()
+							until not weapondefs[uniqueName]
+							Spring.Log("DEFS", LOG.WARNING, ("Weapon name collision: %s, %s"):format(weaponName, uniqueName))
 						end
 
 						local uniqueDef = table.copy(weaponDef)
