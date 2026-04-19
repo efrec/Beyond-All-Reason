@@ -117,7 +117,7 @@ for k, v in pairs {
 	maindir                  = true,
 	maxangledif              = true,
 	onlytargetcategory       = true,
-	slaveto                  = true,
+	slaveto                  = false, -- maybe?
 	weaponaimadjustpriority  = true,
 } do
 	weaponsToWeaponDefs[#weaponsToWeaponDefs + 1] = v and k or nil
