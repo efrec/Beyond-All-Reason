@@ -1,24 +1,35 @@
 local data = {
 	-- Bots
 	legbart = {
-		metalcost = 450,
-		energycost = 5000,
-		buildtime = 9000,
-		health = 1600,
+		metalcost  = 450, -- :550
+		energycost = 5000, -- :5500
+		buildtime  = 9000, -- :10000
+		health     = 1600, -- :1780
+		weapondefs = {
+			clusternapalm = {
+				range      = 610, -- :625
+				reloadtime = 7, -- :4
+			},
+		},
 	},
 	legshot = {
-		energycost = 5000,
-		buildtime = 12000,
-		health = 4000,
-		damagemodifier = 0.5,
-		speed = 48,
-		customparams = { reactive_armor_health = 600 },
-		weapondefs = { legion_riot_cannon_t2 = {
-			areaofeffect = 120,
-			edgeeffectiveness = 0.8,
-			soundhitvolume = 10.0,
-			soundstartvolume = 12.0,
-		}},
+		energycost     = 5000,   -- :4750
+		buildtime      = 12000,  -- :10160
+		health         = 4000,   -- :3350
+		damagemodifier = 0.5,    -- :0.333
+		speed          = 48,     -- :50
+		customparams   = {
+			reactive_armor_health  = 600, -- :400
+			reactive_armor_restore = 15, -- :20
+		},
+		weapondefs     = {
+			legion_riot_cannon_t2 = {
+				areaofeffect      = 120, -- :144
+				edgeeffectiveness = 0.8, -- :0.9
+				soundhitvolume    = 10.0,
+				soundstartvolume  = 12.0,
+			},
+		},
 	},
 
 	-- Vehicles
@@ -27,45 +38,51 @@ local data = {
 	},
 	leghades = {
 		health = 400,
-		weapondefs = { gauss = { impulsefactor = 0.246 }},
+		weapondefs = { gauss = { impulsefactor = 0.246 } },
 	},
 	legbar = {
-		metalcost = 200,
+		metalcost  = 200,
 		energycost = 3000,
-		buildtime = 3500,
-		health = 1360,
-		speed = 42,
-		turnrate = 260,
-		weapondefs = { clusternapalm = {
-			range = 500,
-			reloadtime = 7,
-		}},
-		weapons = { [1] = {
-			maindir = "0 0 1",
-			maxangledif = 240,
-		}},
+		buildtime  = 3500,
+		health     = 1360,
+		speed      = 42,
+		turnrate   = 260,
+		weapondefs = {
+			clusternapalm = {
+				range      = 500,
+				reloadtime = 7,
+			},
+		},
+		weapons    = {
+			[1] = {
+				maindir     = "0 0 1",
+				maxangledif = 240,
+			},
+		},
 	},
 	leggat = {
-		metalcost = 360,
+		metalcost  = 360,
 		energycost = 4000,
-		buildtime = 5400,
-		health = 3000,
+		buildtime  = 5400,
+		health     = 3000,
 	},
 	leginf = {
-		energycost = 25000,
-		buildtime = 40000,
+		energycost   = 25000,
+		buildtime    = 40000,
 		customparams = {
-			area_ondeath_ceg = "fire-area-75-repeat",
-			area_ondeath_damageCeg = "burnflamexl-gen",
+			area_ondeath_ceg        = "fire-area-75-repeat",
+			area_ondeath_damageCeg  = "burnflamexl-gen",
 			area_ondeath_resistance = "fire",
-			area_ondeath_damage = 60,
-			area_ondeath_range = 75,
-			area_ondeath_time = 7,
+			area_ondeath_damage     = 60,
+			area_ondeath_range      = 75,
+			area_ondeath_time       = 7,
 		},
-		weapondefs = { rapidnapalm = {
-			range = 1250,
-			weaponvelocity = 360,
-		}},
+		weapondefs   = {
+			rapidnapalm = {
+				range          = 1250,
+				weaponvelocity = 360,
+			},
+		},
 	},
 
 	-- Air
@@ -73,26 +90,24 @@ local data = {
 		energycost = 1800,
 	},
 	legcib = {
-		weapondefs = { juno_pulse_mini = {
-			energypershot = 400,
-		}},
+		weapondefs = { juno_pulse_mini = { energypershot = 400 } },
 	},
 
 	-- Sea
-	
+
 
 	-- Structures
-	legacluster = {
+	legacluster  = {
 		health = 3850,
 	},
 	legperdition = {
 		customparams = {
-			area_ondeath_ceg = "fire-area-150-repeat",
-			area_ondeath_damageCeg = "burnflamexl-gen",
+			area_ondeath_ceg        = "fire-area-150-repeat",
+			area_ondeath_damageCeg  = "burnflamexl-gen",
 			area_ondeath_resistance = "fire",
-			area_ondeath_damage = 120,
-			area_ondeath_range = 150,
-			area_ondeath_time = 10,
+			area_ondeath_damage     = 120,
+			area_ondeath_range      = 150,
+			area_ondeath_time       = 10,
 		},
 	},
 }
@@ -127,23 +142,19 @@ local function tweaks(name, unitDef)
 
 		elseif isMachineGun(weaponName, weaponDef) then
 			weaponDef.impulsefactor = 0.5
-
 		elseif weaponDef.customparams.cluster_def then
 			local count = weaponDef.customparams.cluster_number or 5
 			weaponDef.customparams.cluster_number = count + 2
 			for armor, damage in pairs(weaponDef.damage) do
 				weaponDef.damage[armor] = math.floor(damage * 0.75)
 			end
-
 		elseif getNapalmType(weaponDef) == "normal" then
 			weaponDef.range = weaponDef.range - 15
 			local duration = weaponDef.customparams.area_onhit_time or weaponDef.reloadtime
 			weaponDef.reloadtime = duration
 			weaponDef.customparams.area_onhit_time = duration
-
 		elseif getNapalmType(weaponDef) == "heavy" then
 			weaponDef.edgeeffectiveness = 1.0
-
 		end
 	end
 end
