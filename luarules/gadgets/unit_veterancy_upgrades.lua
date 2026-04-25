@@ -23,17 +23,21 @@ end
 
 ---@alias Veterancy { add:(fun(unitDef:table, upgrades:VeterancyUpgrade[]):boolean), effect:VeterancyEffect }
 ---@alias VeterancyEffect fun(unitID:integer, upgrade:VeterancyUpgrade, experience:number) Applied on experience gain.
----@alias VeterancyUpgrade { [1]:VeterancyEffect, [2]:number|false, [3]:number|false } Compact upgrade information per-unitdef.
+---@alias VeterancyUpgrade { [1]:VeterancyEffect, [2]:any|false, [3]:any|false } Compact upgrade information per-unitdef.
 
 local table_new = table.new
 local math_floor = math.floor
+local math_round = math.round
 local math_max = math.max
 
 local spGetUnitExperience = Spring.GetUnitExperience
 local spGetUnitWeaponState = Spring.GetUnitWeaponState
 local spGetUnitIsDead = Spring.GetUnitIsDead
+local spGetUnitWeaponDamages = Spring.GetUnitWeaponDamages
+
 local spSetUnitWeaponState = Spring.SetUnitWeaponState
 local spSetUnitMaxRange = Spring.SetUnitMaxRange
+local spSetUnitWeaponDamages = Spring.SetUnitWeaponDamages
 
 local spGetCOBScriptID = Spring.GetCOBScriptID
 local spCallCOBScript = Spring.CallCOBScript
@@ -51,6 +55,9 @@ local function callUnitScript(unitID, luaEnv, methodName, ...)
 end
 
 local gameSpeedInverse = 1 / Game.gameSpeed
+local armorTypeMin = 0
+local armorTypeMax = #Game.armorTypes
+local armorTypeTargets = { default = true, vtol = true, sub = true, mine = true }
 
 -- Code ------------------------------------------------------------------------
 
@@ -86,6 +93,7 @@ do
 	end
 end
 
+-- Cache strings rather than creating garbage in a hot loop.
 local mtAppendKeyToName = {
 	__index = function(self, key)
 		local result = self.name .. tostring(key)
@@ -93,8 +101,6 @@ local mtAppendKeyToName = {
 		return result
 	end
 }
-
--- Cache strings rather than creating garbage in a hot loop.
 local calls = setmetatable({}, {
 	__index = function(self, key)
 		local tbl = table_new(6, 1)
@@ -174,6 +180,76 @@ if not useEngineXP then
 	}
 end
 
+local armorTemp = table.new(armorTypeMax, 1)
+local function applyDamages(unitID, damageMult, weapon, damages)
+	-- Avoid updates that do not change damage to the primary armor target:
+	local armorTarget = damages[-1]
+	local armorDamage = spGetUnitWeaponDamages(unitID, weapon, armorTarget)
+	if armorDamage == math_round(damages[armorTarget] * damageMult) then
+		return
+	end
+	-- Avoid nArmorTypes engine calls and repeat parsing of simple inputs:
+	local a = armorTemp
+	for i = armorTypeMin, armorTypeMax do
+		a[i] = math_round(damages[i] * damageMult)
+	end
+	spSetUnitWeaponDamages(unitID, weapon, a)
+end
+
+-- Dynamic damages per-weapon are scaled with a unit-level customparam.
+veterancyEffects.damage = {
+	add = function(unitDef, upgrades)
+		---@type VeterancyUpgrade
+		local upgrade = {
+			veterancyEffects.damage.effect,
+			tonumber(unitDef.customParams.veterancy_damage_scale or 0) or 0,
+		}
+		local offset = #upgrade
+
+		if upgrade[2] <= 0 then
+			return false
+		end
+
+		local hasUpgradeWeapon = false
+
+		for index, weapon in ipairs(unitDef.weapons) do
+			local weaponDef = WeaponDefs[weapon.weaponDef]
+			if not weaponDef.customParams.nodamagexpscale then
+				hasUpgradeWeapon = true
+				local damages = table.new(armorTypeMax, 1) -- [0] is hashed
+				local armorDamage = damages[0]
+				damages[-1] = 0 -- pack our primary damage type into the damages array
+				for i = armorTypeMin, armorTypeMax do
+					damages[i] = weaponDef.damages[i]
+					if damages[i] > armorDamage and armorTypeTargets[Game.armorTypes[i]] then
+						damages[-1], armorDamage = i, damages[i]
+					end
+				end
+				upgrade[index + offset] = damages
+			else
+				upgrade[index + offset] = false
+			end
+		end
+
+		if hasUpgradeWeapon then
+			upgrades[#upgrades + 1] = upgrade
+			return true
+		else
+			return false
+		end
+	end,
+
+	effect = function(unitID, upgrade, experience)
+		local damageMult = (1 + upgrade[2] * experience)
+		for index = 3, #upgrade do
+			if upgrade[index] then
+				applyDamages(unitID, damageMult, index - 2, upgrade[index])
+			end
+		end
+	end,
+}
+
+-- Dynamic ranges per-weapon are scaled with a unit-level customparam.
 veterancyEffects.range = {
 	add = function(unitDef, upgrades)
 		---@type VeterancyUpgrade
