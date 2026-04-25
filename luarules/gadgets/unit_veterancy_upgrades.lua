@@ -51,6 +51,8 @@ local gameSpeedInverse = 1 / Game.gameSpeed
 
 -- Unit veterancies ------------------------------------------------------------
 
+local unitVeterancyUpgrades = table.new(#UnitDefs, 0)
+
 ---@alias VeterancyEffect fun(unitID:integer, upgrade:VeterancyUpgrade, experience:number) Applied on experience gain.
 ---@alias VeterancyUpgrade { [1]:VeterancyEffect, [2]:number|false, [3]:number|false } Compact upgrade information per-unitdef.
 
@@ -171,10 +173,12 @@ veterancyEffects.scripted_reload = {
 			local weapon = index - 1
 			if upgrade[index] then
 				local reloadSpeed = spGetUnitWeaponState(unitID, weapon, "reloadTimeXP")
-				spSetUnitWeaponState(unitID, weapon, "reloadTime", reloadSpeed) -- TODO: fix feedback loop, lazy
+				-- spSetUnitWeaponState(unitID, weapon, "reloadTime", reloadSpeed) -- TODO: fix feedback loop, lazy
 				callUnitScript(unitID, unitLuaEnv, "SetReloadTime" .. weapon, reloadSpeed * 1000)
+				reloadMax = math_max(reloadMax, gameSpeedInverse, reloadSpeed)
+			else
+				reloadMax = math_max(reloadMax, gameSpeedInverse, spGetUnitWeaponState(unitID, weapon, "reloadTimeXP"))
 			end
-			reloadMax = math_max(reloadMax, gameSpeedInverse, spGetUnitWeaponState(unitID, weapon, "reloadTimeXP"))
 		end
 		callUnitScript(unitID, unitLuaEnv, "SetMaxReloadTime", reloadMax * 1000)
 	end,
@@ -182,8 +186,12 @@ veterancyEffects.scripted_reload = {
 
 -- Code ------------------------------------------------------------------------
 
-local unitVeterancyUpgrades = table.new(#UnitDefs, 0)
-do
+function gadget:Initialize()
+	-- Without this, many XP gains may be too small to reach g:UnitExperience.
+	-- We still do not capture some updates, e.g. nuclear explosions vs walls.
+	-- TODO: Move this into the game setup? Or something? Why in a gadget?
+	Spring.SetExperienceGrade(0.01)
+
 	local function getUnitVeterancyUpgrade(unitDef)
 		local upgrades = {}
 		local veterancies = unitDef.customParams.veterancy_upgrades:split(", ")
@@ -203,13 +211,6 @@ do
 			unitVeterancyUpgrades[unitDefID] = false
 		end
 	end
-end
-
-function gadget:Initialize()
-	-- Without this, many XP gains may be too small to reach g:UnitExperience.
-	-- We still do not capture some updates, e.g. nuclear explosions vs walls.
-	-- TODO: Move this into the game setup? Or something? Why in a gadget?
-	Spring.SetExperienceGrade(0.01)
 
 	if not table.any(unitVeterancyUpgrades, function(v) return v end) then
 		gadgetHandler:RemoveGadget()
