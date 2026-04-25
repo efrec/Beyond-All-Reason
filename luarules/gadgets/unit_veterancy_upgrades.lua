@@ -382,11 +382,12 @@ veterancyEffects.scripted_reload = {
 		for index = 2, #upgrade do
 			local weapon = index - 1
 			if upgrade[index] then
+				-- This assumes we only need to call SetReloadTime for scripted weapons:
 				local reloadSpeed = upgrade[index] * reloadMult
 				callUnitScript(unitID, unitLuaEnv, calls.SetReloadTime[weapon], reloadSpeed * 1000)
 				reloadMax = math_max(reloadMax, gameSpeedInverse, reloadSpeed)
 			else
-				-- The unit has a non-scripted reload time, so we fetch its live value:
+				-- The weapon has a non-scripted reload time, so we fetch its live value:
 				reloadMax = math_max(reloadMax, gameSpeedInverse, spGetUnitWeaponState(unitID, weapon, "reloadTimeXP"))
 			end
 		end
