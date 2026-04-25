@@ -7,28 +7,26 @@ end
 function gadget:GetInfo()
 	return {
 		name    = "Unit Veterancy Upgrades",
-		desc    = "Applies unit and weapon bonuses when units earn XP",
+		desc    = "Applies special unit and weapon bonuses when units earn XP",
 		author  = "efrec",
-		version = "0.0",
+		version = "1.0",
 		date    = "2026-03",
 		license = "GNU GPL, v2 or later",
-		layer   = 0,
+		layer   = 1000, -- delay until after damaging effects resolve to xp gain
 		enabled = true,
 	}
 end
 
 -- TODO: The GDD outlines veterancy effects as level-up effects that occur one at a time.
+-- These upgrades apply every time that XP is gained, provided the amount gained is >= 0.01.
+-- Since some XP gains are below this threshold, upgrades should never consider an XP-delta.
 
 local math_floor = math.floor
 local math_max = math.max
 
-local spGetUnitDefID = Spring.GetUnitDefID
-
-local spGetUnitHealth = Spring.GetUnitHealth
-local spSetUnitHealth = Spring.SetUnitHealth
-local spSetUnitMaxHealth = Spring.SetUnitMaxHealth
-
+local spGetUnitExperience = Spring.GetUnitExperience
 local spGetUnitWeaponState = Spring.GetUnitWeaponState
+local spGetUnitIsDead = Spring.GetUnitIsDead
 local spSetUnitWeaponState = Spring.SetUnitWeaponState
 local spSetUnitMaxRange = Spring.SetUnitMaxRange
 
@@ -51,75 +49,41 @@ local gameSpeedInverse = 1 / Game.gameSpeed
 
 -- Unit veterancies ------------------------------------------------------------
 
-local unitVeterancyUpgrades = table.new(#UnitDefs, 0)
+---@alias Veterancy { add : (fun(unitDef:table, upgrades:VeterancyUpgrade[]):boolean), effect : VeterancyEffect }
 
 ---@alias VeterancyEffect fun(unitID:integer, upgrade:VeterancyUpgrade, experience:number) Applied on experience gain.
+
 ---@alias VeterancyUpgrade { [1]:VeterancyEffect, [2]:number|false, [3]:number|false } Compact upgrade information per-unitdef.
 
----@type table<string, { add : (fun(unitDef:table, upgrades:VeterancyUpgrade[]):boolean), effect : VeterancyEffect }>
+---@type table<string, Veterancy>
 local veterancyEffects = {}
 
--- Reset the unit's experience upgrades from the engine (or from this gadget).
--- Probably should be the first veterancy upgrade listed in the custom params.
--- TODO: Remove the engine xp gains.
--- TODO: Or else batch these updates in a GameFramePost and use UnitCreated/UnitDestroyed.
--- TODO: The potential performance cost of resetting 1000s of tiny XP gains is ridiculous.
-veterancyEffects.reset = {
-	add = function(unitDef, upgrades)
-		local upgrade = { veterancyEffects.reset.effect }
-		local offset = #upgrade
-		for index, weapon in ipairs(unitDef.weapons) do
-			local weaponDef = WeaponDefs[weapon.weaponDef]
-			upgrade[index + offset] = weaponDef.reloadTime
-		end
-		upgrades[#upgrades + 1] = upgrade
-		return true
-	end,
-
-	effect = function(unitID, upgrade, experience)
-		local health, healthMax = spGetUnitHealth(unitID)
-		if healthMax == 0 then
-			-- ?
-		else
-			local unitDef = UnitDefs[spGetUnitDefID(unitID)] -- TODO: cache
-			if healthMax > unitDef.health then
-				spSetUnitHealth(unitID, health * (unitDef.health / healthMax))
-				spSetUnitMaxHealth(unitID, healthMax)
-			end
-		end
-		for index = 2, #upgrade - 1 do
-			-- TODO: Accuracy, target lead prediction, ..?
-			spSetUnitWeaponState(unitID, index - 1, "reloadSpeed", upgrade[index])
-			spSetUnitWeaponState(unitID, index - 1, "", upgrade[index])
-		end
-	end,
-}
-
--- Just the Gunslinger. But working now on multi-weapon units.
--- You can skip weapons with the "norangexpscale" customparam.
 veterancyEffects.range = {
 	add = function(unitDef, upgrades)
 		---@type VeterancyUpgrade
 		local upgrade = {
 			veterancyEffects.range.effect,
-			tonumber(unitDef.customParams.veterancy_range_scale),
-			0, -- max range, see below
+			tonumber(unitDef.customParams.veterancy_range_scale or 0) or 0,
+			0,
 		}
 		local offset = #upgrade
 
+		if upgrade[2] <= 0 then
+			return false
+		end
+
 		local hasUpgradeWeapon = false
-		local rangeMax = 0
+
 		for index, weapon in ipairs(unitDef.weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
 			if not weaponDef.customParams.norangexpscale then
 				hasUpgradeWeapon = true
 				upgrade[index + offset] = weaponDef.range
-				rangeMax = math.max(weaponDef.range, rangeMax)
+				upgrade[3] = math.max(weaponDef.range, upgrade[3])
 			else
 				upgrade[index + offset] = false
 			end
 		end
-		upgrade[3] = tonumber(unitDef.customParams.maxrange or rangeMax)
 
 		if hasUpgradeWeapon then
 			upgrades[#upgrades + 1] = upgrade
@@ -186,6 +150,49 @@ veterancyEffects.scripted_reload = {
 
 -- Code ------------------------------------------------------------------------
 
+local unitVeterancyUpgrades = table.new(#UnitDefs, 0)
+local isMassiveAreaAttacker = table.new(#UnitDefs, 0)
+local queuedExperienceGains = {}
+
+local function applyVeterancyUgrades(unitID, experience, upgrades)
+	-- Canonical BAR experience limit curve. Gaze upon it.
+	local experienceCurved = (3 * experience) / (1 + 3 * experience)
+
+	for index = 1, #upgrades do
+		local upgrade = upgrades[index]
+		local effect = upgrade[1]
+		effect(unitID, upgrade, experienceCurved)
+	end
+end
+
+-- Engine callins --------------------------------------------------------------
+
+function gadget:UnitExperience(unitID, unitDefID, unitTeam, experience, oldExperience)
+	if isMassiveAreaAttacker[unitDefID] then
+		queuedExperienceGains[unitID] = unitDefID
+		return
+	end
+
+	local upgrades = unitVeterancyUpgrades[unitDefID]
+
+	if not upgrades then
+		return
+	end
+
+	applyVeterancyUgrades(unitID, experience, upgrades)
+end
+
+function gadget:GameFramePost(frame)
+	if next(queuedExperienceGains) then
+		for unitID, unitDefID in pairs(queuedExperienceGains) do
+			if spGetUnitIsDead(unitID) == false then
+				applyVeterancyUgrades(unitID, spGetUnitExperience(unitID), unitVeterancyUpgrades[unitDefID])
+			end
+			queuedExperienceGains[unitID] = nil
+		end
+	end
+end
+
 function gadget:Initialize()
 	-- Without this, many XP gains may be too small to reach g:UnitExperience.
 	-- We still do not capture some updates, e.g. nuclear explosions vs walls.
@@ -204,32 +211,35 @@ function gadget:Initialize()
 		return next(upgrades) and upgrades or false
 	end
 
+	local function hasMassiveAreaWeapon(unitDef)
+		for index, weapon in ipairs(unitDef.weapons) do
+			local weaponDef = WeaponDefs[weapon.weaponDef]
+			if weaponDef.customParams.bogus ~= "1" then
+				if weaponDef.damages[0] > 100 and weaponDef.damageAreaOfEffect > 1000 then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
 	for unitDefID, unitDef in ipairs(UnitDefs) do
+		local upgrades
+
 		if type(unitDef.customParams.veterancy_upgrades) == "string" then
-			unitVeterancyUpgrades[unitDefID] = getUnitVeterancyUpgrade(unitDef)
+			upgrades = getUnitVeterancyUpgrade(unitDef)
+		end
+
+		if upgrades then
+			unitVeterancyUpgrades[unitDefID] = upgrades
+			isMassiveAreaAttacker[unitDefID] = hasMassiveAreaWeapon(unitDef)
 		else
 			unitVeterancyUpgrades[unitDefID] = false
+			isMassiveAreaAttacker[unitDefID] = false
 		end
 	end
 
 	if not table.any(unitVeterancyUpgrades, function(v) return v end) then
 		gadgetHandler:RemoveGadget()
-	end
-end
-
-function gadget:UnitExperience(unitID, unitDefID, unitTeam, experience, oldExperience)
-	local upgrades = unitVeterancyUpgrades[unitDefID]
-
-	if not upgrades then
-		return
-	end
-
-	-- Canonical BAR experience limit curve. Gaze upon it.
-	local experienceCurved = (3 * experience) / (1 + 3 * experience)
-
-	for index = 1, #upgrades do
-		local upgrade = upgrades[index]
-		local effect = upgrade[1]
-		effect(unitID, upgrade, experienceCurved)
 	end
 end
