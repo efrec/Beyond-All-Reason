@@ -64,11 +64,11 @@ local armorTypeMax = #Game.armorTypes
 local armorTypeTargets = { default = true, vtol = true, sub = true, mine = true }
 local autoHealInterval = math_round(Game.gameSpeed * 0.5) -- match engine interval
 
--- Code ------------------------------------------------------------------------
-
 local customVeterancies = Spring.GetModOptions().veterancy_rework
 local healthScale = Spring.GetModOptions().veterancy_health_scale
 local reloadScale = Spring.GetModOptions().veterancy_reload_scale
+
+-- Code ------------------------------------------------------------------------
 
 local unitVeterancyUpgrades = table_new(#UnitDefs, 0)
 local queuedExperienceGains = {}
@@ -152,7 +152,7 @@ veterancyEffects.health = {
 
 veterancyEffects.reload = {
 	add = function(unitDef, upgrades)
-		if engineVeterancies or reloadScale <= 0 then
+		if not customVeterancies or reloadScale <= 0 then
 			return false
 		end
 
@@ -179,10 +179,11 @@ veterancyEffects.reload = {
 	end,
 
 	effect = function(unitID, upgrade, experience)
-		local reloadMult = 1 + reloadScale * experience
+		local reloadDiv = 1 + reloadScale * experience
 		for index = 2, #upgrade do
 			if upgrade[index] then
-				spSetUnitWeaponState(unitID, index - 1, "reloadTimeXP", upgrade[index] * reloadMult)
+				local reloadSpeed = math_max(upgrade[index] / reloadDiv, gameSpeedInverse)
+				spSetUnitWeaponState(unitID, index - 1, "reloadTimeXP", reloadSpeed)
 			end
 		end
 	end,
@@ -388,13 +389,13 @@ veterancyEffects.scripted_reload = {
 	effect = function(unitID, upgrade, experience)
 		local unitLuaEnv = spGetScriptEnv(unitID)
 		local reloadMax = 0
-		local reloadMult = 1 + reloadScale * experience
+		local reloadDiv = 1 + reloadScale * experience
 		local s = reloadStatesTemp
 
 		for index = 2, #upgrade do
 			local weapon = index - 1
 			if upgrade[index] then
-				local reloadSpeed = upgrade[index] * reloadMult
+				local reloadSpeed = math_max(upgrade[index] / reloadDiv, gameSpeedInverse)
 				s.reloadTime, s.reloadTimeXP = reloadSpeed, reloadSpeed
 				spSetUnitWeaponState(unitID, weapon, s) -- ! Tries to sync engine/game script behaviors.
 				callUnitScript(unitID, unitLuaEnv, calls.SetReloadTime[weapon], reloadSpeed * 1000)
@@ -455,5 +456,12 @@ function gadget:Initialize()
 
 	if not table.any(unitVeterancyUpgrades, function(v) return v end) then
 		gadgetHandler:RemoveGadget()
+	end
+
+	for _, unitID in pairs(Spring.GetAllUnits()) do
+		if spGetUnitIsDead(unitID) == false and spGetUnitExperience(unitID) > 0 then
+			local unitDefID = Spring.GetUnitDefID(unitID)
+			applyVeterancyEffects(unitID, spGetUnitExperience(unitID), unitVeterancyUpgrades[unitDefID])
+		end
 	end
 end
