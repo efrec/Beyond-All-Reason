@@ -21,6 +21,11 @@ end
 -- These upgrades apply every time that XP is gained, provided the amount gained is >= 0.01.
 -- Since some XP gains are below this threshold, upgrades should never consider an XP-delta.
 
+---@alias Veterancy { add:(fun(unitDef:table, upgrades:VeterancyUpgrade[]):boolean), effect:VeterancyEffect }
+---@alias VeterancyEffect fun(unitID:integer, upgrade:VeterancyUpgrade, experience:number) Applied on experience gain.
+---@alias VeterancyUpgrade { [1]:VeterancyEffect, [2]:number|false, [3]:number|false } Compact upgrade information per-unitdef.
+
+local table_new = table.new
 local math_floor = math.floor
 local math_max = math.max
 
@@ -47,16 +52,127 @@ end
 
 local gameSpeedInverse = 1 / Game.gameSpeed
 
+-- Code ------------------------------------------------------------------------
+
+local unitVeterancyUpgrades = table_new(#UnitDefs, 0)
+local queuedExperienceGains = {}
+
+local function applyVeterancyUgrades(unitID, experience, upgrades)
+	-- Canonical BAR experience limit curve. Gaze upon it.
+	local experienceCurved = (3 * experience) / (1 + 3 * experience)
+
+	for index = 1, #upgrades do
+		local upgrade = upgrades[index]
+		local effect = upgrade[1]
+		effect(unitID, upgrade, experienceCurved)
+	end
+end
+
 -- Unit veterancies ------------------------------------------------------------
 
----@alias Veterancy { add : (fun(unitDef:table, upgrades:VeterancyUpgrade[]):boolean), effect : VeterancyEffect }
+local useEngineXP = true
+local powerScale = 0
+local healthScale = 0
+local reloadScale = 0
+do
+	local modrules = VFS.Include("gamedata/modrules")
+	if modrules and modrules.experience then
+		if modrules.experience.experienceMult == 0 then
+			useEngineXP = false
+		end
+		powerScale = modrules.experience.powerScale or powerScale
+		healthScale = modrules.experience.healthScale or healthScale
+		reloadScale = modrules.experience.reloadScale or reloadScale
+	end
+end
 
----@alias VeterancyEffect fun(unitID:integer, upgrade:VeterancyUpgrade, experience:number) Applied on experience gain.
+local mtAppendKeyToName = {
+	__index = function(self, key)
+		local result = self.name .. tostring(key)
+		self[key] = result
+		return result
+	end
+}
 
----@alias VeterancyUpgrade { [1]:VeterancyEffect, [2]:number|false, [3]:number|false } Compact upgrade information per-unitdef.
+-- Cache strings rather than creating garbage in a hot loop.
+local calls = setmetatable({}, {
+	__index = function(self, key)
+		local tbl = table_new(6, 1)
+		tbl.name = key
+		self[key] = tbl
+		setmetatable(tbl, mtAppendKeyToName)
+		return tbl
+	end
+})
 
 ---@type table<string, Veterancy>
 local veterancyEffects = {}
+
+if not useEngineXP then
+	local spSetUnitMaxHealth = Spring.SetUnitMaxHealth
+
+	veterancyEffects.power = {
+		add = function(unitDef, upgrades)
+			return false -- TODO: cannot set unit power directly via engine api
+		end,
+
+		effect = function(unitID, upgrade, experience)
+			spSetUnitMaxHealth(unitID, math_floor(upgrade[2] * (1 + healthScale * experience)))
+		end,
+	}
+
+	veterancyEffects.health = {
+		add = function(unitDef, upgrades)
+			if healthScale > 0 then
+				upgrades[#upgrades + 1] = { veterancyEffects.health.effect, unitDef.health }
+				return true
+			else
+				return false
+			end
+		end,
+
+		effect = function(unitID, upgrade, experience)
+			spSetUnitMaxHealth(unitID, math_floor(upgrade[2] * (1 + healthScale * experience)))
+		end,
+	}
+
+	veterancyEffects.reload = {
+		add = function(unitDef, upgrades)
+			if reloadScale <= 0 then
+				return false
+			end
+
+			local upgrade = { veterancyEffects.reload.effect }
+			local offset = #upgrade
+
+			local hasUpgradeWeapon = false
+			for index, weapon in ipairs(unitDef.weapons) do
+				local weaponDef = WeaponDefs[weapon.weaponDef]
+				if not weaponDef.customParams.noreloadxpscale then
+					hasUpgradeWeapon = true
+					upgrade[index + offset] = weaponDef.reload
+				else
+					upgrade[index + offset] = false
+				end
+			end
+			if hasUpgradeWeapon then
+				upgrades[#upgrades + 1] = upgrade
+				return true
+			else
+				return false
+			end
+		end,
+
+		effect = function(unitID, upgrade, experience)
+			local reloadMult = 1 + reloadScale * experience
+			for index = 2, #upgrade do
+				if upgrade[index] then
+					spSetUnitWeaponState(unitID, index - 1, "reloadTimeXP", upgrade[index] * reloadMult)
+				end
+			end
+		end,
+	}
+end
 
 veterancyEffects.range = {
 	add = function(unitDef, upgrades)
@@ -94,11 +210,11 @@ veterancyEffects.range = {
 	end,
 
 	effect = function(unitID, upgrade, experience)
-		local rangeScale = (1 + upgrade[2] * experience)
-		spSetUnitMaxRange(unitID, math_floor(upgrade[3] * rangeScale))
+		local rangeMult = (1 + upgrade[2] * experience)
+		spSetUnitMaxRange(unitID, math_floor(upgrade[3] * rangeMult))
 		for index = 4, #upgrade do
 			if upgrade[index] then
-				spSetUnitWeaponState(unitID, index - 3, "range", math_floor(upgrade[index] * rangeScale))
+				spSetUnitWeaponState(unitID, index - 3, "range", math_floor(upgrade[index] * rangeMult))
 			end
 		end
 	end,
@@ -116,7 +232,7 @@ veterancyEffects.scripted_reload = {
 			local weaponDef = WeaponDefs[weapon.weaponDef]
 			if not weaponDef.customParams.noreloadxpscale then
 				hasUpgradeWeapon = true
-				upgrade[index + offset] = weaponDef.range
+				upgrade[index + offset] = weaponDef.reload
 			else
 				upgrade[index + offset] = false
 			end
@@ -133,12 +249,12 @@ veterancyEffects.scripted_reload = {
 	effect = function(unitID, upgrade, experience)
 		local unitLuaEnv = spGetScriptEnv(unitID)
 		local reloadMax = 0
+		local reloadMult = 1 + reloadScale * experience
 		for index = 2, #upgrade do
 			local weapon = index - 1
 			if upgrade[index] then
-				local reloadSpeed = spGetUnitWeaponState(unitID, weapon, "reloadTimeXP")
-				-- spSetUnitWeaponState(unitID, weapon, "reloadTime", reloadSpeed) -- TODO: fix feedback loop, lazy
-				callUnitScript(unitID, unitLuaEnv, "SetReloadTime" .. weapon, reloadSpeed * 1000)
+				local reloadSpeed = upgrade[index] * reloadMult
+				callUnitScript(unitID, unitLuaEnv, calls.SetReloadTime[weapon], reloadSpeed * 1000)
 				reloadMax = math_max(reloadMax, gameSpeedInverse, reloadSpeed)
 			else
 				reloadMax = math_max(reloadMax, gameSpeedInverse, spGetUnitWeaponState(unitID, weapon, "reloadTimeXP"))
@@ -148,48 +264,21 @@ veterancyEffects.scripted_reload = {
 	end,
 }
 
--- Code ------------------------------------------------------------------------
-
-local unitVeterancyUpgrades = table.new(#UnitDefs, 0)
-local isMassiveAreaAttacker = table.new(#UnitDefs, 0)
-local queuedExperienceGains = {}
-
-local function applyVeterancyUgrades(unitID, experience, upgrades)
-	-- Canonical BAR experience limit curve. Gaze upon it.
-	local experienceCurved = (3 * experience) / (1 + 3 * experience)
-
-	for index = 1, #upgrades do
-		local upgrade = upgrades[index]
-		local effect = upgrade[1]
-		effect(unitID, upgrade, experienceCurved)
-	end
-end
-
 -- Engine callins --------------------------------------------------------------
 
 function gadget:UnitExperience(unitID, unitDefID, unitTeam, experience, oldExperience)
-	if isMassiveAreaAttacker[unitDefID] then
+	if unitVeterancyUpgrades[unitDefID] then
 		queuedExperienceGains[unitID] = unitDefID
-		return
 	end
-
-	local upgrades = unitVeterancyUpgrades[unitDefID]
-
-	if not upgrades then
-		return
-	end
-
-	applyVeterancyUgrades(unitID, experience, upgrades)
 end
 
 function gadget:GameFramePost(frame)
-	if next(queuedExperienceGains) then
-		for unitID, unitDefID in pairs(queuedExperienceGains) do
-			if spGetUnitIsDead(unitID) == false then
-				applyVeterancyUgrades(unitID, spGetUnitExperience(unitID), unitVeterancyUpgrades[unitDefID])
-			end
-			queuedExperienceGains[unitID] = nil
+	local gains = queuedExperienceGains
+	for unitID, unitDefID in pairs(gains) do
+		if spGetUnitIsDead(unitID) == false then
+			applyVeterancyUgrades(unitID, spGetUnitExperience(unitID), unitVeterancyUpgrades[unitDefID])
 		end
+		gains[unitID] = nil
 	end
 end
 
@@ -211,31 +300,11 @@ function gadget:Initialize()
 		return next(upgrades) and upgrades or false
 	end
 
-	local function hasMassiveAreaWeapon(unitDef)
-		for index, weapon in ipairs(unitDef.weapons) do
-			local weaponDef = WeaponDefs[weapon.weaponDef]
-			if weaponDef.customParams.bogus ~= "1" then
-				if weaponDef.damages[0] > 100 and weaponDef.damageAreaOfEffect > 1000 then
-					return true
-				end
-			end
-		end
-		return false
-	end
-
 	for unitDefID, unitDef in ipairs(UnitDefs) do
-		local upgrades
-
 		if type(unitDef.customParams.veterancy_upgrades) == "string" then
-			upgrades = getUnitVeterancyUpgrade(unitDef)
-		end
-
-		if upgrades then
-			unitVeterancyUpgrades[unitDefID] = upgrades
-			isMassiveAreaAttacker[unitDefID] = hasMassiveAreaWeapon(unitDef)
+			unitVeterancyUpgrades[unitDefID] = getUnitVeterancyUpgrade(unitDef)
 		else
 			unitVeterancyUpgrades[unitDefID] = false
-			isMassiveAreaAttacker[unitDefID] = false
 		end
 	end
 
