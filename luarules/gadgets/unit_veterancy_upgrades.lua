@@ -32,10 +32,12 @@ local math_max = math.max
 local math_min = math.min
 
 local spGetUnitExperience = Spring.GetUnitExperience
+local spGetUnitHealth = Spring.GetUnitHealth
 local spGetUnitIsDead = Spring.GetUnitIsDead
 local spGetUnitWeaponDamages = Spring.GetUnitWeaponDamages
 local spGetUnitWeaponState = Spring.GetUnitWeaponState
 
+local spSetUnitHealth = Spring.SetUnitHealth
 local spSetUnitMaxHealth = Spring.SetUnitMaxHealth
 local spSetUnitMaxRange = Spring.SetUnitMaxRange
 local spSetUnitWeaponDamages = Spring.SetUnitWeaponDamages
@@ -143,7 +145,13 @@ veterancyEffects.health = {
 	end,
 
 	effect = function(unitID, upgrade, experience)
-		spSetUnitMaxHealth(unitID, math_floor(upgrade[2] * (1 + healthScale * experience)))
+		local healthNew = math_floor(upgrade[2] * (1 + healthScale * experience))
+		local health, healthMax = spGetUnitHealth(unitID)
+		if healthNew == healthMax then
+			return
+		end
+		spSetUnitMaxHealth(unitID, healthNew)
+		spSetUnitHealth(unitID, health * healthNew / healthMax)
 	end,
 }
 
@@ -335,7 +343,8 @@ veterancyEffects.range = {
 }
 
 -- Units with scripted reload times need to be scaled via this method.
--- Other upgrade effects that modify reload time should be before this.
+-- Other upgrade effects that modify reload time should be before this,
+-- but the assumption is that the unit otherwise gains no reload bonus.
 veterancyEffects.scripted_reload = {
 	add = function(unitDef, upgrades)
 		local upgrade = { veterancyEffects.scripted_reload.effect } ---@type VeterancyUpgrade
