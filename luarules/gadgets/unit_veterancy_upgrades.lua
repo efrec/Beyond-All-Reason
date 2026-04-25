@@ -29,15 +29,17 @@ local table_new = table.new
 local math_floor = math.floor
 local math_round = math.round
 local math_max = math.max
+local math_min = math.min
 
 local spGetUnitExperience = Spring.GetUnitExperience
-local spGetUnitWeaponState = Spring.GetUnitWeaponState
 local spGetUnitIsDead = Spring.GetUnitIsDead
 local spGetUnitWeaponDamages = Spring.GetUnitWeaponDamages
+local spGetUnitWeaponState = Spring.GetUnitWeaponState
 
-local spSetUnitWeaponState = Spring.SetUnitWeaponState
+local spSetUnitMaxHealth = Spring.SetUnitMaxHealth
 local spSetUnitMaxRange = Spring.SetUnitMaxRange
 local spSetUnitWeaponDamages = Spring.SetUnitWeaponDamages
+local spSetUnitWeaponState = Spring.SetUnitWeaponState
 
 local spGetCOBScriptID = Spring.GetCOBScriptID
 local spCallCOBScript = Spring.CallCOBScript
@@ -59,23 +61,9 @@ local armorTypeMin = 0
 local armorTypeMax = #Game.armorTypes
 local armorTypeTargets = { default = true, vtol = true, sub = true, mine = true }
 
+local autoHealInterval = math_round(Game.gameSpeed * 0.5) -- match engine update rate
+
 -- Code ------------------------------------------------------------------------
-
-local unitVeterancyUpgrades = table_new(#UnitDefs, 0)
-local queuedExperienceGains = {}
-
-local function applyVeterancyUgrades(unitID, experience, upgrades)
-	-- Canonical BAR experience limit curve. Gaze upon it.
-	local experienceCurved = (3 * experience) / (1 + 3 * experience)
-
-	for index = 1, #upgrades do
-		local upgrade = upgrades[index]
-		local effect = upgrade[1]
-		effect(unitID, upgrade, experienceCurved)
-	end
-end
-
--- Unit veterancies ------------------------------------------------------------
 
 local useEngineXP = true
 local powerScale = 0
@@ -90,6 +78,20 @@ do
 		powerScale = modrules.experience.powerScale or powerScale
 		healthScale = modrules.experience.healthScale or healthScale
 		reloadScale = modrules.experience.reloadScale or reloadScale
+	end
+end
+
+local unitVeterancyUpgrades = table_new(#UnitDefs, 0)
+local queuedExperienceGains = {}
+
+local function applyVeterancyUgrades(unitID, experience, upgrades)
+	-- Canonical BAR experience limit curve. Gaze upon it.
+	local experienceCurved = (3 * experience) / (1 + 3 * experience)
+
+	for index = 1, #upgrades do
+		local upgrade = upgrades[index]
+		local effect = upgrade[1]
+		effect(unitID, upgrade, experienceCurved)
 	end
 end
 
@@ -111,84 +113,112 @@ local calls = setmetatable({}, {
 	end
 })
 
----@type table<string, Veterancy>
-local veterancyEffects = {}
+-- Increases to autoheal and idle autoheal have to be handled in game code.
+local unitAutoHeal = {}
 
-if not useEngineXP then
-	local spSetUnitMaxHealth = Spring.SetUnitMaxHealth
+-- Unit veterancies ------------------------------------------------------------
 
-	veterancyEffects.power = {
-		add = function(unitDef, upgrades)
-			return false -- TODO: cannot set unit power directly via engine api
-		end,
+local veterancyEffects = {} ---@type table<string, Veterancy>
 
-		effect = function(unitID, upgrade, experience)
-			spSetUnitMaxHealth(unitID, math_floor(upgrade[2] * (1 + healthScale * experience)))
-		end,
-	}
+-- Some effects are duplicated in-engine so are conditional on our modrules:
 
-	veterancyEffects.health = {
-		add = function(unitDef, upgrades)
-			if healthScale > 0 then
-				upgrades[#upgrades + 1] = { veterancyEffects.health.effect, unitDef.health }
-				return true
+veterancyEffects.power = {
+	add = function(unitDef, upgrades)
+		return false -- TODO: cannot set unit power directly via engine api
+	end,
+
+	effect = function(unitID, upgrade, experience)
+		spSetUnitMaxHealth(unitID, math_floor(upgrade[2] * (1 + healthScale * experience)))
+	end,
+}
+
+veterancyEffects.health = {
+	add = function(unitDef, upgrades)
+		if not useEngineXP and healthScale > 0 then
+			upgrades[#upgrades + 1] = { veterancyEffects.health.effect, unitDef.health }
+			return true
+		else
+			return false
+		end
+	end,
+
+	effect = function(unitID, upgrade, experience)
+		spSetUnitMaxHealth(unitID, math_floor(upgrade[2] * (1 + healthScale * experience)))
+	end,
+}
+
+veterancyEffects.reload = {
+	add = function(unitDef, upgrades)
+		if useEngineXP or reloadScale <= 0 then
+			return false
+		end
+
+		local upgrade = { veterancyEffects.reload.effect }
+		local offset = #upgrade
+
+		local hasUpgradeWeapon = false
+		for index, weapon in ipairs(unitDef.weapons) do
+			local weaponDef = WeaponDefs[weapon.weaponDef]
+			if not weaponDef.customParams.noreloadxpscale then
+				hasUpgradeWeapon = true
+				upgrade[index + offset] = weaponDef.reload
 			else
-				return false
+				upgrade[index + offset] = false
 			end
-		end,
+		end
 
-		effect = function(unitID, upgrade, experience)
-			spSetUnitMaxHealth(unitID, math_floor(upgrade[2] * (1 + healthScale * experience)))
-		end,
-	}
+		if hasUpgradeWeapon then
+			upgrades[#upgrades + 1] = upgrade
+			return true
+		else
+			return false
+		end
+	end,
 
-	veterancyEffects.reload = {
-		add = function(unitDef, upgrades)
-			if reloadScale <= 0 then
-				return false
+	effect = function(unitID, upgrade, experience)
+		local reloadMult = 1 + reloadScale * experience
+		for index = 2, #upgrade do
+			if upgrade[index] then
+				spSetUnitWeaponState(unitID, index - 1, "reloadTimeXP", upgrade[index] * reloadMult)
 			end
+		end
+	end,
+}
 
-			local upgrade = { veterancyEffects.reload.effect }
-			local offset = #upgrade
+-- The rest of the veterancy effects have no equivalent function in the engine:
 
-			local hasUpgradeWeapon = false
-			for index, weapon in ipairs(unitDef.weapons) do
-				local weaponDef = WeaponDefs[weapon.weaponDef]
-				if not weaponDef.customParams.noreloadxpscale then
-					hasUpgradeWeapon = true
-					upgrade[index + offset] = weaponDef.reload
-				else
-					upgrade[index + offset] = false
-				end
-			end
-			if hasUpgradeWeapon then
-				upgrades[#upgrades + 1] = upgrade
-				return true
-			else
-				return false
-			end
-		end,
+veterancyEffects.autoheal = {
+	add = function(unitDef, upgrades)
+		local upgrade = {
+			veterancyEffects.autoheal.effect,
+			tonumber(unitDef.customParams.veterancy_autoheal_scale or 0) or 0,
+			unitDef.health, -- NB: Not scaled against autoheal
+		}
+		if upgrade[2] > 0 and upgrade[3] > 0 then
+			upgrades[#upgrades + 1] = upgrade
+			return true
+		else
+			return false
+		end
+	end,
 
-		effect = function(unitID, upgrade, experience)
-			local reloadMult = 1 + reloadScale * experience
-			for index = 2, #upgrade do
-				if upgrade[index] then
-					spSetUnitWeaponState(unitID, index - 1, "reloadTimeXP", upgrade[index] * reloadMult)
-				end
-			end
-		end,
-	}
-end
+	effect = function(unitID, upgrade, experience)
+		local healScale = 1 + upgrade[2] * experience
+		local autoHealExtra = upgrade[3] * healScale -- May be in addition to base autoheal
+		unitAutoHeal[unitID] = autoHealExtra
+	end,
+}
 
+local armorTargetIndex = -1
 local armorTemp = table.new(armorTypeMax, 1)
-local function applyDamages(unitID, damageMult, weapon, damages)
+local function setDamages(unitID, damageMult, weapon, damages)
 	-- Avoid updates that do not change damage to the primary armor target:
-	local armorTarget = damages[-1]
+	local armorTarget = damages[armorTargetIndex]
 	local armorDamage = spGetUnitWeaponDamages(unitID, weapon, armorTarget)
 	if armorDamage == math_round(damages[armorTarget] * damageMult) then
 		return
 	end
-	-- Avoid nArmorTypes engine calls and repeat parsing of simple inputs:
+	-- Avoid nArmorTypes engine calls that repeat parsing of simple inputs:
 	local a = armorTemp
 	for i = armorTypeMin, armorTypeMax do
 		a[i] = math_round(damages[i] * damageMult)
@@ -214,17 +244,25 @@ veterancyEffects.damage = {
 
 		for index, weapon in ipairs(unitDef.weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
-			if not weaponDef.customParams.nodamagexpscale then
-				hasUpgradeWeapon = true
-				local damages = table.new(armorTypeMax, 1) -- [0] is hashed
-				local armorDamage = damages[0]
-				damages[-1] = 0 -- pack our primary damage type into the damages array
+			local damages = nil
+
+			if not weaponDef.customParams.nodamagexpscale and weaponDef.customParams.bogus ~= "1" then
+				damages = table.new(armorTypeMax, 1) -- [0] is hashed
+				damages[armorTargetIndex] = 0
+				local armorDamage = weaponDef.damages[0]
 				for i = armorTypeMin, armorTypeMax do
 					damages[i] = weaponDef.damages[i]
 					if damages[i] > armorDamage and armorTypeTargets[Game.armorTypes[i]] then
-						damages[-1], armorDamage = i, damages[i]
+						damages[armorTargetIndex], armorDamage = i, damages[i]
 					end
 				end
+				if armorDamage <= 0 then
+					damages = nil
+				end
+			end
+
+			if damages then
+				hasUpgradeWeapon = true
 				upgrade[index + offset] = damages
 			else
 				upgrade[index + offset] = false
@@ -243,7 +281,7 @@ veterancyEffects.damage = {
 		local damageMult = (1 + upgrade[2] * experience)
 		for index = 3, #upgrade do
 			if upgrade[index] then
-				applyDamages(unitID, damageMult, index - 2, upgrade[index])
+				setDamages(unitID, damageMult, index - 2, upgrade[index])
 			end
 		end
 	end,
@@ -271,7 +309,7 @@ veterancyEffects.range = {
 			if not weaponDef.customParams.norangexpscale then
 				hasUpgradeWeapon = true
 				upgrade[index + offset] = weaponDef.range
-				upgrade[3] = math.max(weaponDef.range, upgrade[3])
+				upgrade[3] = math_max(weaponDef.range, upgrade[3])
 			else
 				upgrade[index + offset] = false
 			end
@@ -355,6 +393,17 @@ function gadget:GameFramePost(frame)
 			applyVeterancyUgrades(unitID, spGetUnitExperience(unitID), unitVeterancyUpgrades[unitDefID])
 		end
 		gains[unitID] = nil
+	end
+
+	if frame % autoHealInterval == 0 then
+		for unitID, autoHeal in pairs(unitAutoHeal) do
+			if spGetUnitIsDead(unitID) == false then
+				local health, healthMax = Spring.GetUnitHealth(unitID)
+				if health < healthMax then
+					Spring.SetUnitHealth(unitID, math_min(health + autoHeal, healthMax))
+				end
+			end
+		end
 	end
 end
 
