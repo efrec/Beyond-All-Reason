@@ -304,7 +304,7 @@ veterancyEffects.range = {
 		local upgrade = {
 			veterancyEffects.range.effect,
 			tonumber(unitDef.customParams.veterancy_range_scale or 0) or 0,
-			0,
+			tonumber(unitDef.customParams.maxrange or 0) or 0,
 		}
 		local offset = #upgrade
 
@@ -313,9 +313,12 @@ veterancyEffects.range = {
 		end
 
 		local hasUpgradeWeapon = false
+		local weaponMaxRange = 0
+		local customMaxRange = tonumber(unitDef.customParams.maxrange or 0) or 0
 
 		for index, weapon in ipairs(unitDef.weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
+			weaponMaxRange = math_max(weaponDef.range, weaponMaxRange)
 			if not weaponDef.customParams.norangexpscale then -- OK to be a bogus weapon
 				hasUpgradeWeapon = true
 				upgrade[index + offset] = weaponDef.range
@@ -326,6 +329,14 @@ veterancyEffects.range = {
 		end
 
 		if hasUpgradeWeapon then
+			if customMaxRange ~= 0 then
+				weaponMaxRange = math_min(customMaxRange, weaponMaxRange)
+			end
+
+			if upgrade[3] < weaponMaxRange or unitDef.customParams.nomaxrangexpscale then
+				upgrade[3] = false
+			end
+
 			upgrades[#upgrades + 1] = upgrade
 			return true
 		else
@@ -335,7 +346,11 @@ veterancyEffects.range = {
 
 	effect = function(unitID, upgrade, experience)
 		local rangeMult = (1 + upgrade[2] * experience)
-		spSetUnitMaxRange(unitID, math_floor(upgrade[3] * rangeMult))
+
+		if upgrade[3] then
+			spSetUnitMaxRange(unitID, math_floor(upgrade[3] * rangeMult))
+		end
+
 		for index = 4, #upgrade do
 			if upgrade[index] then
 				spSetUnitWeaponState(unitID, index - 3, "range", math_floor(upgrade[index] * rangeMult))
@@ -343,6 +358,8 @@ veterancyEffects.range = {
 		end
 	end,
 }
+
+local reloadStatesTemp = { reloadTime = 0, reloadTimeXP = 0 }
 
 -- Units with scripted reload times need to be scaled via this method.
 -- Other upgrade effects that modify reload time should be before this,
@@ -379,11 +396,15 @@ veterancyEffects.scripted_reload = {
 		local unitLuaEnv = spGetScriptEnv(unitID)
 		local reloadMax = 0
 		local reloadMult = 1 + reloadScale * experience
+		local states = reloadStatesTemp
+
 		for index = 2, #upgrade do
 			local weapon = index - 1
 			if upgrade[index] then
-				-- This assumes we only need to call SetReloadTime for scripted weapons:
 				local reloadSpeed = upgrade[index] * reloadMult
+				states.reloadTime = reloadSpeed
+				states.reloadTimeXP = reloadSpeed
+				spSetUnitWeaponState(unitID, weapon, states)
 				callUnitScript(unitID, unitLuaEnv, calls.SetReloadTime[weapon], reloadSpeed * 1000)
 				reloadMax = math_max(reloadMax, gameSpeedInverse, reloadSpeed)
 			else
@@ -391,6 +412,7 @@ veterancyEffects.scripted_reload = {
 				reloadMax = math_max(reloadMax, gameSpeedInverse, spGetUnitWeaponState(unitID, weapon, "reloadTimeXP"))
 			end
 		end
+
 		callUnitScript(unitID, unitLuaEnv, "SetMaxReloadTime", reloadMax * 1000)
 	end,
 }
