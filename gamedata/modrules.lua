@@ -11,21 +11,6 @@ XPValues = {
 }
 
 if Spring.GetModOptions().veterancy_rework then
-	-- Controls how gaining experience changes the relative power of the unit.
-	--
-	-- The _previous_ formula used was `Power multiplier = powerScale * (1 + xp / (xp + 1))`.
-	Game.powerScale      = XPValues.powerScale
-
-	-- Controls how gaining experience increases the maxDamage (total hitpoints) of the unit.
-	--
-	-- The _previous_ formula used was `Health multiplier = healthScale * (1 + xp / (xp + 1))`.
-	Game.healthScale     = XPValues.healthScale
-
-	-- Controls how gaining experience decreases the reloadTime of the unit's weapons.
-	--
-	-- The _previous_ formula used was `Rate of fire multiplier = reloadScale * (1 + xp / (xp + 1))`.
-	Game.reloadScale     = XPValues.reloadScale
-
 	XPValues.powerScale  = 0
 	XPValues.healthScale = 0
 	XPValues.reloadScale = 0

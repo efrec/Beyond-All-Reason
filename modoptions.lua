@@ -1924,6 +1924,40 @@ local options = {
         linkwidth = 350,
     },
 
+	{
+        key		= "veterancy_rework",
+        name   	= "Veterancy Rework",
+        desc   	= "Overrides the default unit bonuses from gaining XP. Drop-in replacement for now.",
+        section = "options_experimental",
+        type   	= "number",
+        def 	= false,
+    },
+
+	{
+        key		= "veterancy_health_scale",
+        name   	= "Veterancy Rework: XP to Health",
+        desc   	= "",
+        section	= "options_experimental",
+        type   	= "number",
+        def    	= 2.5,
+        min    	= 0.0,
+        max    	= 5.0,
+        step   	= 0.001,
+    },
+
+	{
+        key		= "veterancy_reload_scale",
+        name   	= "Veterancy Rework: XP to Reload",
+        desc   	= "",
+        section	= "options_experimental",
+        type   	= "number",
+        def    	= 1.25,
+        min    	= 0.0,
+        max    	= 2,
+        step   	= 0.001,
+    },
+
+
     ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     -- Unused Options

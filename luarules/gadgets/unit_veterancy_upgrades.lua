@@ -66,25 +66,9 @@ local autoHealInterval = math_round(Game.gameSpeed * 0.5) -- match engine interv
 
 -- Code ------------------------------------------------------------------------
 
-local engineVeterancies = true
-local healthScale = Game.healthScale or 0
-local reloadScale = Game.reloadScale or 0
-do
-	local modrules = VFS.Include("gamedata/modrules")
-	if modrules then
-		if modrules.experience.experienceMult == 0 then
-			Spring.Echo("Unit experience is disabled.")
-			return
-		end
-
-		if math_max(healthScale, reloadScale, 0) == 0 then
-			healthScale = modrules.experience.healthScale or healthScale
-			reloadScale = modrules.experience.reloadScale or reloadScale
-		else
-			engineVeterancies = false
-		end
-	end
-end
+local customVeterancies = Spring.GetModOptions().veterancy_rework
+local healthScale = Spring.GetModOptions().veterancy_health_scale
+local reloadScale = Spring.GetModOptions().veterancy_reload_scale
 
 local unitVeterancyUpgrades = table_new(#UnitDefs, 0)
 local queuedExperienceGains = {}
@@ -147,7 +131,7 @@ veterancyEffects.power = {
 
 veterancyEffects.health = {
 	add = function(unitDef, upgrades)
-		if not engineVeterancies and healthScale > 0 then
+		if customVeterancies and healthScale > 0 then
 			upgrades[#upgrades + 1] = { veterancyEffects.health.effect, unitDef.health }
 			return true
 		else
