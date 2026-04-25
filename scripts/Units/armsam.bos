@@ -147,11 +147,6 @@ FireWeapon2()
 	return (0);
 }
 
-EndBurst2()
-{
-	gun_1 = !gun_1;
-}
-
 AimFromWeapon2(piecenum)
 {
 	piecenum = mlauncher;
