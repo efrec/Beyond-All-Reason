@@ -403,12 +403,11 @@ function gadget:UnitExperience(unitID, unitDefID, unitTeam, experience, oldExper
 end
 
 function gadget:GameFramePost(frame)
-	local gains = queuedExperienceGains
-	for unitID, unitDefID in pairs(gains) do
+	for unitID, unitDefID in pairs(queuedExperienceGains) do
 		if spGetUnitIsDead(unitID) == false then
 			applyVeterancyUgrades(unitID, spGetUnitExperience(unitID), unitVeterancyUpgrades[unitDefID])
 		end
-		gains[unitID] = nil
+		queuedExperienceGains[unitID] = nil
 	end
 
 	if frame % autoHealInterval == 0 then
