@@ -17,7 +17,7 @@ function gadget:GetInfo()
 	}
 end
 
--- TODO: The GDD outlines veterancy effects as level-up effects that occur one at a time.
+-- TODO: The GDD requires veterancy effects to be level-up effects that occur one at a time.
 -- These upgrades apply every time that XP is gained, provided the amount gained is >= 0.01.
 -- Since some XP gains are below this threshold, upgrades should never consider an XP-delta.
 
@@ -62,14 +62,11 @@ local gameSpeedInverse = 1 / Game.gameSpeed
 local armorTypeMin = 0
 local armorTypeMax = #Game.armorTypes
 local armorTypeTargets = { default = true, vtol = true, sub = true, mine = true }
-
 local autoHealInterval = math_round(Game.gameSpeed * 0.5) -- match engine interval
 
 -- Code ------------------------------------------------------------------------
 
 local engineVeterancies = true
--- We cannot script (and also do not care about) unit power:
--- local powerScale = Game.powerScale or 0
 local healthScale = Game.healthScale or 0
 local reloadScale = Game.reloadScale or 0
 do
@@ -91,17 +88,6 @@ end
 
 local unitVeterancyUpgrades = table_new(#UnitDefs, 0)
 local queuedExperienceGains = {}
-
-local function applyVeterancyUgrades(unitID, experience, upgrades)
-	-- Canonical BAR experience limit curve. Gaze upon it.
-	local experienceCurved = (3 * experience) / (1 + 3 * experience)
-
-	for index = 1, #upgrades do
-		local upgrade = upgrades[index]
-		local effect = upgrade[1]
-		effect(unitID, upgrade, experienceCurved)
-	end
-end
 
 -- Cache strings rather than creating garbage in a hot loop.
 local mtAppendKeyToName = {
@@ -127,6 +113,29 @@ local unitAutoHeal = {}
 -- Unit veterancies ------------------------------------------------------------
 
 local veterancyEffects = {} ---@type table<string, Veterancy>
+
+local function addVeterancyUpgrade(unitDef)
+	local upgrades = {}
+	local veterancies = unitDef.customParams.veterancy_upgrades:split(", ")
+	local addedEffect = {}
+	for _, name in ipairs(table.getUniqueArray(veterancies)) do
+		if addedEffect[name] == nil and veterancyEffects[name] then
+			addedEffect[name] = veterancyEffects[name].add(unitDef, upgrades)
+		end
+	end
+	return next(upgrades) and upgrades or false
+end
+
+local function applyVeterancyEffects(unitID, experience, upgrades)
+	-- Canonical BAR experience limit curve. Gaze upon it.
+	local experienceCurved = (3 * experience) / (1 + 3 * experience)
+
+	for index = 1, #upgrades do
+		local upgrade = upgrades[index]
+		local effect = upgrade[1]
+		effect(unitID, upgrade, experienceCurved)
+	end
+end
 
 -- Some effects are duplicated in-engine so are conditional on our modrules:
 
@@ -220,7 +229,7 @@ veterancyEffects.autoheal = {
 }
 
 local armorTargetIndex = -1
-local armorTemp = table.new(armorTypeMax, 1)
+local damagesTemp = table.new(armorTypeMax, 1)
 local function setDamages(unitID, damageMult, weapon, damages)
 	-- Avoid updates that do not change damage to the primary armor target:
 	local armorTarget = damages[armorTargetIndex]
@@ -229,11 +238,11 @@ local function setDamages(unitID, damageMult, weapon, damages)
 		return
 	end
 	-- Avoid nArmorTypes engine calls that repeat parsing of simple inputs:
-	local a = armorTemp
+	local d = damagesTemp
 	for i = armorTypeMin, armorTypeMax do
-		a[i] = math_round(damages[i] * damageMult)
+		d[i] = math_round(damages[i] * damageMult)
 	end
-	spSetUnitWeaponDamages(unitID, weapon, a)
+	spSetUnitWeaponDamages(unitID, weapon, d)
 end
 
 -- Dynamic damages per-weapon are scaled with a unit-level customparam.
@@ -396,15 +405,15 @@ veterancyEffects.scripted_reload = {
 		local unitLuaEnv = spGetScriptEnv(unitID)
 		local reloadMax = 0
 		local reloadMult = 1 + reloadScale * experience
-		local states = reloadStatesTemp
+		local s = reloadStatesTemp
 
 		for index = 2, #upgrade do
 			local weapon = index - 1
 			if upgrade[index] then
 				local reloadSpeed = upgrade[index] * reloadMult
-				states.reloadTime = reloadSpeed
-				states.reloadTimeXP = reloadSpeed
-				spSetUnitWeaponState(unitID, weapon, states)
+				s.reloadTime = reloadSpeed
+				s.reloadTimeXP = reloadSpeed
+				spSetUnitWeaponState(unitID, weapon, s)
 				callUnitScript(unitID, unitLuaEnv, calls.SetReloadTime[weapon], reloadSpeed * 1000)
 				reloadMax = math_max(reloadMax, gameSpeedInverse, reloadSpeed)
 			else
@@ -428,7 +437,7 @@ end
 function gadget:GameFramePost(frame)
 	for unitID, unitDefID in pairs(queuedExperienceGains) do
 		if spGetUnitIsDead(unitID) == false then
-			applyVeterancyUgrades(unitID, spGetUnitExperience(unitID), unitVeterancyUpgrades[unitDefID])
+			applyVeterancyEffects(unitID, spGetUnitExperience(unitID), unitVeterancyUpgrades[unitDefID])
 		end
 		queuedExperienceGains[unitID] = nil
 	end
@@ -451,25 +460,15 @@ function gadget:Initialize()
 	-- TODO: Move this into the game setup? Or something? Why in a gadget?
 	Spring.SetExperienceGrade(0.01)
 
-	local function getUnitVeterancyUpgrade(unitDef)
-		local upgrades = {}
-		local veterancies = unitDef.customParams.veterancy_upgrades:split(", ")
-		local addedEffect = {}
-		for _, name in ipairs(table.getUniqueArray(veterancies)) do
-			if addedEffect[name] == nil and veterancyEffects[name] then
-				addedEffect[name] = veterancyEffects[name].add(unitDef, upgrades)
-			end
-		end
-		return next(upgrades) and upgrades or false
-	end
-
 	for unitDefID, unitDef in ipairs(UnitDefs) do
 		if type(unitDef.customParams.veterancy_upgrades) == "string" then
-			unitVeterancyUpgrades[unitDefID] = getUnitVeterancyUpgrade(unitDef)
+			unitVeterancyUpgrades[unitDefID] = addVeterancyUpgrade(unitDef)
 		else
 			unitVeterancyUpgrades[unitDefID] = false
 		end
 	end
+
+	veterancyEffects = nil ---@diagnostic disable-line
 
 	if not table.any(unitVeterancyUpgrades, function(v) return v end) then
 		gadgetHandler:RemoveGadget()
