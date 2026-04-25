@@ -63,23 +63,29 @@ local armorTypeMin = 0
 local armorTypeMax = #Game.armorTypes
 local armorTypeTargets = { default = true, vtol = true, sub = true, mine = true }
 
-local autoHealInterval = math_round(Game.gameSpeed * 0.5) -- match engine update rate
+local autoHealInterval = math_round(Game.gameSpeed * 0.5) -- match engine interval
 
 -- Code ------------------------------------------------------------------------
 
-local useEngineXP = true
-local powerScale = 0
-local healthScale = 0
-local reloadScale = 0
+local engineVeterancies = true
+-- We cannot script (and also do not care about) unit power:
+-- local powerScale = Game.powerScale or 0
+local healthScale = Game.healthScale or 0
+local reloadScale = Game.reloadScale or 0
 do
 	local modrules = VFS.Include("gamedata/modrules")
 	if modrules and modrules.experience then
 		if modrules.experience.experienceMult == 0 then
-			useEngineXP = false
+			Spring.Echo("Unit experience is disabled.")
+			return
 		end
-		powerScale = modrules.experience.powerScale or powerScale
-		healthScale = modrules.experience.healthScale or healthScale
-		reloadScale = modrules.experience.reloadScale or reloadScale
+
+		if math_max(healthScale, reloadScale, 0) == 0 then
+			healthScale = modrules.experience.healthScale or healthScale
+			reloadScale = modrules.experience.reloadScale or reloadScale
+		else
+			engineVeterancies = false
+		end
 	end
 end
 
@@ -124,19 +130,15 @@ local veterancyEffects = {} ---@type table<string, Veterancy>
 
 -- Some effects are duplicated in-engine so are conditional on our modrules:
 
+-- TODO: We cannot script unit power.
 veterancyEffects.power = {
-	add = function(unitDef, upgrades)
-		return false -- TODO: cannot set unit power directly via engine api
-	end,
-
-	effect = function(unitID, upgrade, experience)
-		spSetUnitMaxHealth(unitID, math_floor(upgrade[2] * (1 + healthScale * experience)))
-	end,
+	add    = function(unitDef, upgrades) return false end,
+	effect = function(unitID, upgrade, experience) end,
 }
 
 veterancyEffects.health = {
 	add = function(unitDef, upgrades)
-		if not useEngineXP and healthScale > 0 then
+		if not engineVeterancies and healthScale > 0 then
 			upgrades[#upgrades + 1] = { veterancyEffects.health.effect, unitDef.health }
 			return true
 		else
@@ -157,7 +159,7 @@ veterancyEffects.health = {
 
 veterancyEffects.reload = {
 	add = function(unitDef, upgrades)
-		if useEngineXP or reloadScale <= 0 then
+		if engineVeterancies or reloadScale <= 0 then
 			return false
 		end
 
@@ -347,6 +349,10 @@ veterancyEffects.range = {
 -- but the assumption is that the unit otherwise gains no reload bonus.
 veterancyEffects.scripted_reload = {
 	add = function(unitDef, upgrades)
+		if reloadScale <= 0 then
+			return false
+		end
+
 		local upgrade = { veterancyEffects.scripted_reload.effect } ---@type VeterancyUpgrade
 		local offset = #upgrade
 
@@ -380,6 +386,7 @@ veterancyEffects.scripted_reload = {
 				callUnitScript(unitID, unitLuaEnv, calls.SetReloadTime[weapon], reloadSpeed * 1000)
 				reloadMax = math_max(reloadMax, gameSpeedInverse, reloadSpeed)
 			else
+				-- The unit has a non-scripted reload time, so we fetch its live value:
 				reloadMax = math_max(reloadMax, gameSpeedInverse, spGetUnitWeaponState(unitID, weapon, "reloadTimeXP"))
 			end
 		end
