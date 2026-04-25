@@ -48,6 +48,7 @@ return {
 			speedfactoratdepth = 10,
 			reactive_armor_health = 750,
 			reactive_armor_restore = 17,
+			veterancy_upgrades = "scripted_reload",
 		},
 		featuredefs = {
 			dead = {

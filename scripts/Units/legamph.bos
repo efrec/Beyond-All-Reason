@@ -5,7 +5,7 @@
 
 piece  base, heatray, lcheek, ldownbackleg, ldownloeg, lfin1, lfin2, lfin3, lfin4, lfin5, lfoot, lfootback, lheatsinkflap, lupbackleg, lupleg, neck, rcheek, rdownbackleg, rdownleg, rfin1, rfin2, rfin3, rfin4, rfin5, rfoot, rfootback, rheatsinkflap, rupbackleg, rupleg, tail1, tail2, tailbase, tailtip, topcheek, torpedolauncha, torpedotube, torpaimflare, torpaimx, heatrayaimflare, heatray_xy, lvent, rvent;
 
-static-var  isInWater, inWaterForm, isMoving, isAiming, isFiring, restore_delay, gun_lasthead, gun_lastpitch, torp_lasthead, torp_deploy, gun_deploy, explosions, shieldup, gameframe, lastfired, firetime, aimAdj, oldsteerheading, cooldown, adjheading;
+static-var  isInWater, inWaterForm, isMoving, isAiming, restore_delay, gun_lasthead, gun_lastpitch, torp_lasthead, torp_deploy, gun_deploy, explosions, shieldup, aimAdj, oldsteerheading, adjheading, fireBeamTime, fireBeamTimeMax, reloadBeamTime, reloadBeamTimeMax, reloadBeamTimeBase, reloadMax;
 
 static-var  Stunned;
 
@@ -16,11 +16,11 @@ static-var  Stunned;
 #define TB_FRAMES 3 // how frequently you want updates
 #include "../tilt_bank_submarine.h"
 
-
 lua_UnitScriptDecal(lightIndex, xpos,zpos, heading) 
 {
 	return 0;
 }
+
 // Signal definitions
 #define SIG_AIM				2
 #define SIG_AIM_3			8
@@ -34,17 +34,19 @@ Steering(heading, steery, currentSpeed)
 	//set-signal-mask SIGNAL_MOVE;
 	while(1)
 	{
-		if (isFiring)
+		if (fireBeamTime > 0)
 		{
-			cooldown = cooldown + 1;
-			if (cooldown > 90)
+			fireBeamTime = fireBeamTime - 1;
+			if (fireBeamTime == 0)
 			{
-				cooldown = 0;
-				isFiring = 0;
+				fireBeamTime = 0;
+				reloadBeamTime = reloadBeamTimeMax;
 				start-script RestoreAfterDelay();
 			}
 		}
-		
+
+		if (reloadBeamTime > 0) reloadBeamTime = reloadBeamTime - 1;
+
 		heading = get HEADING;
 		aimAdj = 2*(heading - oldsteerheading);
 		sleep 16;
@@ -1311,9 +1313,16 @@ UnitSpeed(){
 Create()
 {
 	start-script Steering();
-	firetime = 54;
-	lastfired = get(GAME_FRAME)-200;	
 	animspeed = 6;
+
+	fireBeamTimeMax = 60;
+	reloadBeamTimeBase = 90; // not separate from firing time
+	reloadBeamTimeMax = reloadBeamTimeBase - fireBeamTimeMax; // separate!
+	reloadMax = 0; // torpedo reload time is used to scale the beam weapon
+
+	fireBeamTime = 0;
+	reloadBeamTime = 0;
+
 	hide torpaimflare;
 	hide heatrayaimflare;
 	hide torpaimx;
@@ -1325,8 +1334,6 @@ Create()
 	isAiming = FALSE;
 	oldsteerheading = get HEADING;
 	aimAdj = 0;
-	cooldown = 0;
-	isFiring = 0;
 	restore_delay = 500;
 	adjheading = 0;
 	// Initializing with large negative values, to ensure first aim does wait-for-turn
@@ -1352,6 +1359,20 @@ Create()
 	} else {
 		call-script OpenTorpedoLauncher();
 		call-script StopWalking();
+	}
+}
+
+SetMaxReloadTime(reloadMS)
+{
+	// We can't use the per-weapon reload time function
+	// because the Telchine uses a one-frame reload to fire
+	if (reloadMax == 0)
+	{
+		reloadMax = reloadMS; // scale against max-max value
+	}
+	else
+	{
+		reloadBeamTimeMax = ((reloadBeamTimeBase * reloadMS) / reloadMax) - fireBeamTimeMax;
 	}
 }
 
@@ -1597,8 +1618,6 @@ RestoreAfterDelayGun(addTime)
 	gun_lasthead = -1000000;
 	gun_lastpitch = -1000000;
 	aimAdj = 0;
-	//cooldown = 0;
-	//isFiring = 0;
 	call-script CloseMouth();
 	gun_deploy = FALSE;
 	turn heatray_xy to y-axis <0.000000> speed <90.000000>;
@@ -1612,14 +1631,13 @@ AimPrimary(heading, pitch)
 { 
 	signal SIG_AIM_3;
 	set-signal-mask SIG_AIM_3;
-	//gameframe = get(GAME_FRAME);
 	
 	//Heatray mechanics come first
 	if ( inWaterForm )
     {
      return (0);
     }
-	
+
 	isAiming = TRUE;
 	// values in <> are degrees per second
 	// otherwise angles are in COB angular unit (cau) - There are 65536 cau in a circle
@@ -1634,13 +1652,13 @@ AimPrimary(heading, pitch)
 	{
 		adjheading = <-90>;
 	}
-	
+
 	// checks if the mouth is deployed
 	turn neck to x-axis <0> speed <50>; //Fix leftover rotation from walk anim
 	turn heatray_xy to y-axis adjheading - aimAdj speed <100.000000>;
 	turn heatray_xy to x-axis <0.000000> - pitch speed <50.000000>;
 	start-script RestoreAfterDelay();
-	if (cooldown > 30)
+	if (reloadBeamTime > 0)
 	{
 		return (0);
 	}
@@ -1673,7 +1691,10 @@ AimPrimary(heading, pitch)
 
 FirePrimary()
 {
-	isFiring = 1;
+	if (fireBeamTime == 0)
+	{
+		fireBeamTime = fireBeamTimeMax;
+	}
 	return (0);
 }
 
