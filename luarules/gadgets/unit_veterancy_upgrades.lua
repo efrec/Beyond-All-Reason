@@ -74,7 +74,7 @@ local healthScale = Game.healthScale or 0
 local reloadScale = Game.reloadScale or 0
 do
 	local modrules = VFS.Include("gamedata/modrules")
-	if modrules and modrules.experience then
+	if modrules then
 		if modrules.experience.experienceMult == 0 then
 			Spring.Echo("Unit experience is disabled.")
 			return
