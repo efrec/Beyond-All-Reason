@@ -407,9 +407,9 @@ function gadget:GameFramePost(frame)
 	if frame % autoHealInterval == 0 then
 		for unitID, autoHeal in pairs(unitAutoHeal) do
 			if spGetUnitIsDead(unitID) == false then
-				local health, healthMax = Spring.GetUnitHealth(unitID)
+				local health, healthMax = spGetUnitHealth(unitID)
 				if health < healthMax then
-					Spring.SetUnitHealth(unitID, math_min(health + autoHeal, healthMax))
+					spSetUnitHealth(unitID, math_min(health + autoHeal, healthMax))
 				end
 			end
 		end
