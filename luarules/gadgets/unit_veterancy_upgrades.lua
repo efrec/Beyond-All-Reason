@@ -314,7 +314,7 @@ veterancyEffects.range = {
 
 		for index, weapon in ipairs(unitDef.weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
-			if not weaponDef.customParams.norangexpscale then
+			if not weaponDef.customParams.norangexpscale then -- OK to be a bogus weapon
 				hasUpgradeWeapon = true
 				upgrade[index + offset] = weaponDef.range
 				upgrade[3] = math_max(weaponDef.range, upgrade[3])
@@ -353,7 +353,7 @@ veterancyEffects.scripted_reload = {
 		local hasUpgradeWeapon = false
 		for index, weapon in ipairs(unitDef.weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
-			if not weaponDef.customParams.noreloadxpscale then
+			if not weaponDef.customParams.noreloadxpscale then -- OK to be a bogus weapon
 				hasUpgradeWeapon = true
 				upgrade[index + offset] = weaponDef.reload
 			else
