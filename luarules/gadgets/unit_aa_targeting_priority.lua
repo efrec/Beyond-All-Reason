@@ -16,18 +16,25 @@ end
 if gadgetHandler:IsSyncedCode() then
 	local spGetUnitDefID = Spring.GetUnitDefID
 	local stringFind = string.find
+	local math_abs = math.abs
+	local gameSpeed = Game.gameSpeed
 
 	local PRIORITY_BOMBERS = 1
 	local PRIORITY_VTOLS = 10
 	local PRIORITY_FIGHTERS = 20
 	local PRIORITY_SCOUTS = 1000
 
+	local avoidanceTime = 30 ---@type integer Ignore targets for up to this many seconds (from zero).
+	local avoidMinimum = PRIORITY_FIGHTERS
+
 	local isAntiAirWeapon = {}
+	local avoidsAirTargets = {}
 
 	-- Pre-compute direct unitDefID → priority multiplier for all air units
 	local airPriorityMultiplier = {}
-	for unitDefID, unitDef in pairs(UnitDefs) do
+	for unitDefID, unitDef in ipairs(UnitDefs) do
 		local weapons = unitDef.weapons
+
 		if unitDef.isAirUnit then
 			local mult = PRIORITY_SCOUTS
 			if unitDef.isTransport or unitDef.isBuilder then
@@ -47,23 +54,74 @@ if gadgetHandler:IsSyncedCode() then
 			airPriorityMultiplier[unitDefID] = mult
 		end
 
-		-- Set watch on vtol-targeting weapons so AllowWeaponTarget gets called
 		for i = 1, #weapons do
 			if weapons[i].onlyTargets.vtol then
-				isAntiAirWeapon[weapons[i].weaponDef] = true
-				Script.SetWatchAllowTarget(weapons[i].weaponDef, true)
+				local weaponDefID = weapons[i].weaponDef
+				local weaponDef = WeaponDefs[weaponDefID]
+
+				isAntiAirWeapon[weaponDefID] = true
+				Script.SetWatchAllowTarget(weaponDefID, true) -- for AllowWeaponTarget access
+
+				if weapons[i].badTargets.lightairscout then
+					-- Assume that target avoidance and stock replenishment are correlated ~moderately.
+					-- And include targets at varying priority levels given more extreme restock times.
+					if math.max(weaponDef.reload + weaponDef.stockpileTime) >= avoidanceTime / 2 then
+						avoidsAirTargets[weaponDefID] = PRIORITY_FIGHTERS
+					else
+						avoidsAirTargets[weaponDefID] = PRIORITY_SCOUTS
+					end
+				end
 			end
 		end
 	end
 
-	function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-		-- No input priority means we are not returning a new priority value.
-		if defPriority and isAntiAirWeapon[attackerWeaponDefID] then
-			local mult = airPriorityMultiplier[spGetUnitDefID(targetID)]
-			if mult then
-				return true, defPriority * mult
+	local interval, generation = 0, 0
+	local unitInterval = {}
+
+	local function getUnitInterval(unitID)
+		return Spring.ValidUnitID(unitID) and ((unitID + 999983) * 7 + generation) % avoidanceTime
+	end
+
+	local function avoid(unitID)
+		return math_abs(unitInterval[unitID] - interval) > 1
+	end
+
+	function gadget:UnitCreated(unitID)
+		unitInterval[unitID] = getUnitInterval(unitID)
+	end
+	function gadget:GameFrame(frame)
+		interval = (frame % gameSpeed) % avoidanceTime
+		if interval == 0 then
+			generation = (generation + 1 + frame % gameSpeed) % avoidanceTime
+			for unitID in pairs(unitInterval) do
+				unitInterval[unitID] = getUnitInterval(unitID)
 			end
 		end
-		return true, defPriority
 	end
+	function gadget:Initialize()
+		interval = (Spring.GetGameFrame() % gameSpeed) % avoidanceTime
+		generation = ((Spring.GetGameFrame() + 1) % gameSpeed) % avoidanceTime -- ! idk is that right?
+		for _, unitID in pairs(Spring.GetAllUnits()) do
+			gadget:UnitCreated(unitID)
+		end
+	end
+
+	function gadget:AllowWeaponTarget(unitID, targetID, weaponNum, weaponDefID, priority)
+		if isAntiAirWeapon[weaponDefID] then
+			local multiplier = airPriorityMultiplier[spGetUnitDefID(targetID)]
+			if not multiplier then
+				return true, priority
+			end
+
+			if multiplier >= avoidMinimum and avoidsAirTargets[weaponDefID] and avoid(unitID) then
+				return false
+			end
+
+			if priority then
+				return true, priority * multiplier
+			end
+		end
+		return true, priority
+	end
+
 end
