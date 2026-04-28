@@ -25,7 +25,6 @@ if gadgetHandler:IsSyncedCode() then
 	local PRIORITY_SCOUTS = 1000
 
 	local avoidanceTime = 30 ---@type integer Ignore targets for up to this many seconds (from zero).
-	local avoidMinimum = PRIORITY_FIGHTERS
 
 	local isAntiAirWeapon = {}
 	local avoidsAirTargets = {}
@@ -113,7 +112,8 @@ if gadgetHandler:IsSyncedCode() then
 				return true, priority
 			end
 
-			if multiplier >= avoidMinimum and avoidsAirTargets[weaponDefID] and avoid(unitID) then
+			local avoidMinimum = avoidsAirTargets[weaponDefID]
+			if avoidMinimum and multiplier >= avoidMinimum and avoid(unitID) then
 				return false
 			end
 
