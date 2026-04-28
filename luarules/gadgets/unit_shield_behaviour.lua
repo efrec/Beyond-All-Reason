@@ -133,6 +133,7 @@ local spGetUnitIsDead               = Spring.GetUnitIsDead
 local spUseUnitResource             = Spring.UseUnitResource
 local spSetUnitRulesParam           = Spring.SetUnitRulesParam
 local spGetUnitArmored              = Spring.GetUnitArmored
+local spGetUnitTeam                 = Spring.GetUnitTeam
 
 local shieldUnitDefs                = {}
 local shieldUnitsData               = {}
@@ -552,6 +553,41 @@ function gadget:GameFrame(frame)
 		end
 		hasDestroyedData = false
 	end
+end
+
+-- Use a generally small amount of avoidance (<10):
+local GOOD_LUCK_IM_BEHIND_7000_POWER = 2
+local interceptMaskMax = Spring.GetModOptions().experimentalshields:find("everything") and math.huge or 1
+
+local avoidShieldedTargets = {}
+for weaponDefID = 0, #WeaponDefs do
+	local weaponDef = WeaponDefs[weaponDefID]
+	if weaponDef.type ~= "DGun" and weaponDef.reload >= 5 and weaponDef.interceptedByShieldType <= interceptMaskMax then
+		avoidShieldedTargets[weaponDefID] = true
+		Script.SetWatchAllowTarget(weaponDefID, true)
+	end
+end
+
+local function compareCoverage(unit1, unit2)
+	local coverages = shieldedUnits[unit1]
+	for unitID in pairs(shieldedUnits[unit2]) do
+		if coverages[unitID] then return true end
+	end
+	return false
+end
+
+function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
+	-- No input priority means we are not returning a new priority value.
+	if defPriority and avoidShieldedTargets[attackerWeaponDefID] then
+		if shieldedUnits[targetID] and (not shieldedUnits[unitID] or not compareCoverage(targetID, unitID)) then
+			return true, defPriority * GOOD_LUCK_IM_BEHIND_7000_POWER
+		end
+	end
+	return true, defPriority
+end
+
+if not next(avoidShieldedTargets) then
+	gadget.AllowWeaponTarget = nil
 end
 
 function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projectileID, attackerID,
