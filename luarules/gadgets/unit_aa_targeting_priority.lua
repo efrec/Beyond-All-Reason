@@ -22,6 +22,8 @@ if gadgetHandler:IsSyncedCode() then
 	local PRIORITY_FIGHTERS = 20
 	local PRIORITY_SCOUTS = 1000
 
+	local isAntiAirWeapon = {}
+
 	-- Pre-compute direct unitDefID → priority multiplier for all air units
 	local airPriorityMultiplier = {}
 	for unitDefID, unitDef in pairs(UnitDefs) do
@@ -48,25 +50,20 @@ if gadgetHandler:IsSyncedCode() then
 		-- Set watch on vtol-targeting weapons so AllowWeaponTarget gets called
 		for i = 1, #weapons do
 			if weapons[i].onlyTargets.vtol then
-				for wid = 1, #weapons do
-					local weapon = weapons[wid]
-					if weapon.onlyTargets and weapon.onlyTargets.vtol then
-						Script.SetWatchAllowTarget(weapon.weaponDef, true)
-					end
-				end
-				break
+				isAntiAirWeapon[weapons[i].weaponDef] = true
+				Script.SetWatchAllowTarget(weapons[i].weaponDef, true)
 			end
 		end
 	end
 
-	-- AllowWeaponTarget is only called for weapons with SetWatchAllowTarget (vtol-targeting),
-	-- so the attacker always has AA priority — no need to check hasPriorityAir or call
-	-- spGetUnitDefID on the attacker.
 	function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-		local mult = airPriorityMultiplier[spGetUnitDefID(targetID)]
-		if mult then
-			return true, (defPriority or 1.0) * mult
+		-- No input priority means we are not returning a new priority value.
+		if defPriority and isAntiAirWeapon[attackerWeaponDefID] then
+			local mult = airPriorityMultiplier[spGetUnitDefID(targetID)]
+			if mult then
+				return true, defPriority * mult
+			end
 		end
-		return true, defPriority or 1.0
+		return true, defPriority
 	end
 end
