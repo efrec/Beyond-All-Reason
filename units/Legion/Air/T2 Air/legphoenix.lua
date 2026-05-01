@@ -99,8 +99,8 @@ return {
 			skybeam = {
 				areaofeffect = 120,
 				avoidfeature = false,
-				beamtime = 0.033,
-				beamttl = 0.099,
+				beamtime = 2.1667,
+				beamttl = 3,
 				camerashake = 0.1,
 				corethickness = 0.4,
 				collidefriendly = false,
@@ -108,7 +108,7 @@ return {
 				craterboost = 0,
 				cratermult = 0,
 				edgeeffectiveness = 0.45,
-				energypershot = 17,
+				energypershot = 1105,
 				explosiongenerator = "custom:heatray-huge",
 				firestarter = 90,
 				firetolerance = 300,
@@ -118,7 +118,7 @@ return {
 				noselfdamage = true,
 				predictboost = 1,
 				proximitypriority = -1,
-				range = 950,--this is VERTICAL, not lateral
+				range = 950,
 				reloadtime = 8,
 				rgbcolor = "1 0.5 0",
 				rgbcolor2 = "0.9 1.0 0.5",
@@ -132,13 +132,10 @@ return {
 				weapontype = "BeamLaser",
 				weaponvelocity = 1500,
 				damage = {
-					commanders = 125,
-					default = 145,
-					vtol = 5,
+					commanders = 8125,
+					default = 9425,
+					vtol = 325,
 				},
-				customparams = {
-					sweepfire=7, --multiplier for displayed dps during the 'bonus' sweepfire stage, needed for DPS calcs
-				}
 			},
 			legphtarg = {--targetting only
 				areaofeffect = 121,

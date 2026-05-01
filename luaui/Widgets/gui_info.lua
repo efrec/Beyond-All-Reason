@@ -164,6 +164,16 @@ local viewSelectionCmd = { "viewselection" }
 
 local showWeaponGroups = { ["0"] = true, ["1"] = true } -- <0:=fake weapons, 0:=always active, 1:=primary set, >1:=alternate sets
 
+local function getBurst(def)
+	local salvoSize = tonumber(def.customParams.burst or def.salvoSize)
+	local projectiles = def.projectiles
+	return salvoSize * projectiles
+end
+
+local function getReload(def)
+	return tonumber(def.customParams.reload or def.reload)
+end
+
 local function refreshUnitInfo()
 	local builderTraits = {
 		canBuild   = function(def) return def.isFactory or next(def.buildOptions) ~= nil end,
@@ -307,33 +317,35 @@ local function refreshUnitInfo()
 
 
 		local function calculateLaserDPS(def, damage)
+			local fireRate = getBurst(def) / getReload(def)
 			local minIntensity = math.max(def.minIntensity, 0.5)
-			local mindps = minIntensity*(damage * def.salvoSize / def.reload)
-			local maxdps = damage * def.salvoSize / def.reload
+			local mindps = fireRate * damage * minIntensity
+			local maxdps = fireRate * damage
 			return mindps, maxdps
 		end
 
 		local function calculateWeaponDPS(def, damage)
-			local reloadDPS = damage * (def.salvoSize * def.projectiles) / def.reload
-			local stockpileDPS = damage * (def.salvoSize * def.projectiles) / (def.stockpile and def.stockpileTime/30 or def.reload)
+			local burst = getBurst(def)
+			local reloadDPS = damage * burst / getReload(def)
+			local stockpileDPS = damage * burst / (def.stockpile and def.stockpileTime/30 or getReload(def))
 			return math_min(reloadDPS, stockpileDPS), math_max(reloadDPS, stockpileDPS)
 		end
 
 		local function calculateClusterDPS(def, damage)
+			local fireRate = getBurst(def) / getReload(def)
 			local munition = unitDef.name .. '_' .. def.customParams.cluster_def
 			local cmNumber = def.customParams.cluster_number
 			local cmDamage = WeaponDefNames[munition].damages[0]
-
-			local mainDps = (def.salvoSize * def.projectiles) / def.reload * (damage)
-			local cmunDps = (def.salvoSize * def.projectiles) / def.reload * (cmNumber * cmDamage)
+			local mainDps = fireRate * (damage)
+			local cmunDps = fireRate * (cmNumber * cmDamage)
 			return mainDps, mainDps + cmunDps
 		end
 
 		local function calculateAreaDPS(def, damage)
-			local burst = def.salvoSize * def.projectiles
-			local impactDps = damage * burst / def.reload
+			local fireRate = getBurst(def) / getReload(def)
+			local impactDps = fireRate * damage
 			local areaDps = def.customParams.area_onhit_damage -- by definition
-			local damageMax = math_max(impactDps + areaDps, areaDps * burst * def.customParams.area_onhit_time / def.reload)
+			local damageMax = math_max(impactDps + areaDps, areaDps * fireRate * def.customParams.area_onhit_time / def.reload)
 			return impactDps, damageMax
 		end
 

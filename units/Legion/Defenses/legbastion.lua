@@ -103,7 +103,7 @@ return {
 				areaofeffect = 120,
 				avoidfeature = false,
 				avoidfriendly = true,
-				beamtime = 0.1,
+				beamtime = 2.5,
 				camerashake = 0.1,
 				corethickness = 0.3,
 				craterareaofeffect = 120,
@@ -133,12 +133,9 @@ return {
 				turret = true,
 				weapontype = "BeamLaser",
 				weaponvelocity = 1500,
-				customparams = {
-					sweepfire = 4,
-				},
 				damage = {
-					default = 155,
-					vtol = 15,
+					default = 11625,
+					vtol = 1125,
 				},
 			},
 		},

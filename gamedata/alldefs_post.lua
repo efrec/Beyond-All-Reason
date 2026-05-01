@@ -51,7 +51,6 @@ local holidayModels = VFS.Include("unitbasedefs/holiday_models.lua")
 
 local evocomTweaks = VFS.Include("unitbasedefs/evocom.lua").Tweaks
 local extraUnitsTweaks = VFS.Include("unitbasedefs/experimental_extra_units.lua").Tweaks
-local processRaptorsUnit = VFS.Include("unitbasedefs/raptor_unitdefs_post.lua").Tweaks
 local scavUnitsForPlayers = VFS.Include("unitbasedefs/scavenger_units_for_players.lua").Tweaks
 local legionSimpleMexes = VFS.Include("unitbasedefs/legion_simplified_mexes.lua").Tweaks
 local lateGameRebalance = VFS.Include("unitbasedefs/lategame_rebalance.lua").Tweaks
@@ -70,6 +69,8 @@ local empRework = VFS.Include("unitbasedefs/emp_rework.lua")
 local empReworkUnitTweaks = empRework.UnitTweaks
 local empReworkWeaponTweaks = empRework.WeaponTweaks
 
+local processScripts = VFS.Include("unitbasedefs/unit_scripts_post.lua").Post
+local processRaptorsUnit = VFS.Include("unitbasedefs/raptor_unitdefs_post.lua").Tweaks
 local scavWeaponDefPost = VFS.Include("gamedata/scavengers/weapondef_post.lua").scavWeaponDefPost
 
 --[[ Sanitize to whole frames (plus leeways because float arithmetic is bonkers).
@@ -418,6 +419,9 @@ local function unitDef_Post(name, uDef)
          The engine uses full frames for actual reload times, but forwards the raw
          value to LuaUI (so for example calculated DPS is incorrect without sanitisation). ]]
 	processWeapons(name, uDef)
+
+	-- Transform some defs to match the constraints/requirements of their unit scripts.
+	processScripts(name, uDef)
 
 	-- make los height a bit more forgiving	(20 is the default)
 	--uDef.sightemitheight = (uDef.sightemitheight and uDef.sightemitheight or 20) + 20

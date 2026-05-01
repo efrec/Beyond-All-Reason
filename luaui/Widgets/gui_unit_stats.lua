@@ -726,15 +726,16 @@ local function computeContent(uDefID, uID, shiftBool)
 	local totalbDamages = 0
 	local useExp = true
 	for i = 1, #wepsCompact do
-
 		local wDefId = wepsCompact[i]
 		local uWep = wDefs[wDefId]
 
+		local custom = uWep.customParams
+
 		-- Handle projectiles that spawn additional projectiles.
 		-- Many properties (might) have nothing to do with the spawned projectile:
-		local burst = uWep.salvoSize * uWep.projectiles
+		local burst = (custom.burst and tonumber(custom.burst) or uWep.salvoSize) * uWep.projectiles
+		local reload = custom.reload and tonumber(custom.reload) or uWep.reload
 		local range = uWep.range
-		local reload = uWep.reload
 		local accuracy = uWep.accuracy
 		local moveError = uWep.targetMoveError
 
@@ -743,8 +744,6 @@ local function computeContent(uDefID, uID, shiftBool)
 		local defaultArmorDamage = damages[defaultArmorIndex]
 		local baseArmorIndex = defaultArmorDamage >= damages[armorTypes.vtol] and defaultArmorIndex or armorTypes.vtol
 		local baseArmorDamage = damages[baseArmorIndex]
-
-		local custom = uWep.customParams
 
 		if custom.spark_basedamage then
 			local spDamage = custom.spark_basedamage * custom.spark_forkdamage
