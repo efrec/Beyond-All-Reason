@@ -1701,31 +1701,24 @@ end
 
 
 function gadgetHandler:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-	local allowed = true
-	local result = 1.0
-
 	if targetID == -1 and attackerWeaponNum == -1 then
 		-- The `targetPriority` return value is actually the autotarget search radius,
 		-- and applies to the unit's targeting search for its command AI, not weapons.
 		for _, g in ipairs(self.UnitAutoTargetRangeList) do
 			defPriority = g:UnitAutoTargetRange(attackerID, defPriority)
 		end
-		allowed, result = defPriority > 0, defPriority
+		return defPriority > 0, defPriority
 	else
+		local allowed = true
+		local result = defPriority
 		for _, g in ipairs(self.AllowWeaponTargetList) do
-			local targetAllowed, targetPriority = g:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-
-			if not targetAllowed then
-				allowed = false;
-				break
-			end
-			if targetPriority > result then
-				result = targetPriority
+			allowed, result = g:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum, attackerWeaponDefID, result)
+			if not allowed then
+				return false
 			end
 		end
+		return allowed, result
 	end
-
-	return allowed, result
 end
 
 
