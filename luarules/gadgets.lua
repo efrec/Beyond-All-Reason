@@ -1708,7 +1708,8 @@ function gadgetHandler:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum
 			defPriority = g:UnitAutoTargetRange(attackerID, defPriority)
 		end
 		return defPriority > 0, defPriority
-	else
+
+	elseif defPriority then
 		local allowed = true
 		local result = defPriority
 		for _, g in ipairs(self.AllowWeaponTargetList) do
@@ -1718,6 +1719,9 @@ function gadgetHandler:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum
 			end
 		end
 		return allowed, result
+
+	else
+		return true -- BAR has no opinion on _actually_ allowing weapon targets.
 	end
 end
 
