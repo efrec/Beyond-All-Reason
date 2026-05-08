@@ -1734,6 +1734,10 @@ function gadgetHandler:AllowWeaponInterceptTarget(interceptorUnitID, interceptor
 end
 
 
+function gadgetHandler:UnitAutoTargetRange(unitID, autoTargetRange)
+	-- Implementation stub; see AllowWeaponTarget.
+end
+
 --------------------------------------------------------------------------------
 --
 --  Unit call-ins
