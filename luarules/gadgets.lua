@@ -1699,26 +1699,33 @@ end
 return ((ignore and -1) or 1)
 end
 
+-- The AllowWeaponTarget engine callin has overloaded inputs and outputs. See notes below.
 
 function gadgetHandler:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
+	-- BAR does not disallow targets via AllowWeaponTarget. Short-circuit this to save on overhead.
+	-- The defPriority also represents the autotargeting search radius used in UnitAutoTargetRange.
+	if not defPriority then
+		return true
+	end
+
 	local allowed = true
-	local result = 1.0
+	local result = defPriority
 
 	if targetID == -1 and attackerWeaponNum == -1 then
 		-- The `targetPriority` return value is actually the autotarget search radius,
 		-- and applies to the unit's targeting search for its command AI, not weapons.
 		for _, g in ipairs(self.UnitAutoTargetRangeList) do
-			defPriority = g:UnitAutoTargetRange(attackerID, defPriority)
-		end
-		allowed, result = defPriority > 0, defPriority
-	else
-		for _, g in ipairs(self.AllowWeaponTargetList) do
-			local targetAllowed, targetPriority = g:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-
-			if not targetAllowed then
-				allowed = false;
+			-- However, again, BAR does not set any auto target ranges via this callin.
+			-- Instead, it is used to deny autotarget/attack command generation sweeps.
+			if g:UnitAutoTargetRange(attackerID, defPriority) <= 0 then
+				allowed = false
 				break
 			end
+		end
+	else
+		for _, g in ipairs(self.AllowWeaponTargetList) do
+			-- BAR is not allowing/disallowing any targets via this callin. We solely set target priorities:
+			local _, targetPriority = g:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
 			if targetPriority > result then
 				result = targetPriority
 			end
@@ -1726,6 +1733,14 @@ function gadgetHandler:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum
 	end
 
 	return allowed, result
+end
+
+---Sets the search radius used to generate Attack commands when a combat unit has no target.
+---@param unitID integer
+---@param autoTargetRange number
+function gadgetHandler:UnitAutoTargetRange(unitID, autoTargetRange)
+	-- Implementation stub; see AllowWeaponTarget.
+	-- The handler needs this to "see" the callin.
 end
 
 
