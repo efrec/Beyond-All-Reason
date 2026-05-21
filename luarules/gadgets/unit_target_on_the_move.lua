@@ -268,6 +268,8 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
+	local LOSMASK_PREVLOS = LosMask.PREVLOS
+
 	local function removeUnseenTarget(targetData, attackerAllyTeam)
 		if not targetData.alwaysSeen then
 			local target = targetData.target
@@ -275,7 +277,7 @@ if gadgetHandler:IsSyncedCode() then
 				return true
 			end
 			local los = spGetUnitLosState(target, attackerAllyTeam, true)
-			if not los or (los % 4 == 0) then
+			if not los or los % LOSMASK_PREVLOS == 0 then
 				return true
 			end
 		end
