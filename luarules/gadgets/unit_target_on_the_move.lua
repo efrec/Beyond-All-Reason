@@ -588,9 +588,6 @@ if gadgetHandler:IsSyncedCode() then
 						targets = CallAsTeam(teamID, spGetUnitsInCylinder, cmdParams[1], cmdParams[3], cmdParams[4], -4)
 						teamCache[allyHashe] = targets
 					end
-					if not targets then
-						Spring.MarkerAddPoint(Spring.GetUnitPosition(unitID))
-					end
 				end
 				if targets and targets[1] then
 					addTargetList = {}
