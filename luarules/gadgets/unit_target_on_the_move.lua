@@ -86,14 +86,19 @@ if gadgetHandler:IsSyncedCode() then
 	local allowNonAttackerUnit = {
 		legpede = true,
 	}
-	local function canAttack(unitDef)
-		local weapons = unitDef.weapons
-		local weaponCount = #weapons - (unitDef.shieldWeaponDef and 1 or 0)
-		return weaponCount > 0 and (unitDef.canAttack or allowNonAttackerUnit[unitDef.name]) and unitDef.maxWeaponRange > 0
+	local function canSetTarget(unitDef)
+		if (unitDef.canAttack or allowNonAttackerUnit[unitDef.name]) and unitDef.maxWeaponRange > 0 then
+			local weapons = unitDef.weapons
+			local weaponCount = #weapons - (unitDef.shieldWeaponDef and 1 or 0)
+			return weaponCount > 0
+		else
+			return false
+		end
 	end
 
 	-- TODO: We don't know what weaponDefs have submissile. We can check `nuke`, for now.
-	local function getWeaponType(weaponDef)
+	local function getWeaponType(weapon)
+		local weaponDef = WeaponDefs[weapon.weaponDef]
 		return weaponDef.waterWeapon and not weaponDef.customParams.nuke and 0 -- waterweapon
 			or 1 -- everything else apparently
 	end
@@ -103,9 +108,9 @@ if gadgetHandler:IsSyncedCode() then
 	local unitAlwaysSeen = {}
 	for unitDefID = 1, #UnitDefs do
 		local unitDef = UnitDefs[unitDefID]
-		if canAttack(unitDef) then
+		if canSetTarget(unitDef) then
 			validUnits[unitDefID] = true
-			unitWeapons[unitDefID] = table.map(unitDef.weapons, function(w, k) return getWeaponType(WeaponDefs[w.weaponDef]), k end)
+			unitWeapons[unitDefID] = table.map(unitDef.weapons, function(w, i) return (w.slavedTo == 0 and getWeaponType(w) or nil), i end)
 		end
 		unitAlwaysSeen[unitDefID] = unitDef.isBuilding or unitDef.speed == 0
 	end
@@ -205,6 +210,7 @@ if gadgetHandler:IsSyncedCode() then
 		return true
 	end
 
+	-- TODO: This is not super great. I mean, it's clear, that's nice.
 	local function removeUnitTarget(unitID, unitData, resetAim)
 		unitData.currentIndex = 0
 		unitData.inRange = false
@@ -214,6 +220,7 @@ if gadgetHandler:IsSyncedCode() then
 		spSetUnitRulesParam(unitID, "targetCoordZ", -1)
 		if resetAim then
 			for weaponNum in pairs(unitData.weapons) do
+				-- TODO: Does this work correctly on slavedTo weapons
 				spSetUnitTarget(unitID, nil, false, false, weaponNum)
 			end
 			spSetUnitTarget(unitID, nil)
@@ -621,23 +628,19 @@ if gadgetHandler:IsSyncedCode() then
 					end
 					cmdParams[4] = nil
 				end
-				local elevation = spGetGroundHeight(cmdParams[1], cmdParams[3])
+				-- TODO: targeting a sea floor
+				local elevation = math.max(spGetGroundHeight(cmdParams[1], cmdParams[3]), 0)
 				if cmdParams[2] > elevation then
 					cmdParams[2] = elevation
 				end
-				if elevation < 0 then
-					elevation = 0
-				end
 				local validTarget = false
-				for weaponNum = 1, #weapons do
-					-- TODO: Detect waterWeapons and set elevation before checking (only once).
-					if spGetUnitWeaponTestTarget(unitID, weaponNum, cmdParams[1], cmdParams[2], cmdParams[3]) then
-						validTarget = true
-						break
-					elseif cmdParams[2] < elevation and spGetUnitWeaponTestTarget(unitID, weaponNum, cmdParams[1], elevation, cmdParams[3]) then
-						cmdParams[2] = elevation
-						validTarget = true
-						break
+				for weaponNum, weaponType in pairs(weapons) do
+					-- >0: Not a waterWeapon (or maybe a submissile).
+					if weaponType > 0 or cmdParams[2] <= 0 then
+						if spGetUnitWeaponTestTarget(unitID, weaponNum, cmdParams[1], cmdParams[2], cmdParams[3]) then
+							validTarget = true
+							break
+						end
 					end
 				end
 				if validTarget then
@@ -688,7 +691,7 @@ if gadgetHandler:IsSyncedCode() then
 				end
 			elseif nParams == 3 then
 				for index, value in ipairs(unitData.targets) do
-					if type(value) == "table" and distance(value, cmdParams) < deleteMaxDistance then
+					if type(value) == "table" and distance(value, cmdParams) < cancelCommandDistance then
 						removeTarget(unitID, index)
 					end
 				end
@@ -759,10 +762,11 @@ if gadgetHandler:IsSyncedCode() then
 			-- Making something better would be a hassle but worth it.
 			for unitID, unitData in pairsNext, setTargetData do
 				local targets = unitData.targets
+				local allyTeam = unitData.allyTeam
 				local removed = 0
 
 				for index = 1, #targets do
-					if not checkTarget(unitID, targets[index].target) then
+					if not checkTarget(allyTeam, targets[index].target) then
 						targets[index].invalid = true
 						removed = removed + 1
 					end
@@ -847,6 +851,8 @@ else	-- UNSYNCED
 	local spAddWorldIcon = Spring.AddWorldIcon
 	local pairsNext = next
 	local ensureTable = table.ensureTable
+
+	local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET -- We draw only one type of icon.
 
 	local myAllyTeam = spGetMyAllyTeamID()
 	local myTeam = spGetMyTeamID()
@@ -942,15 +948,15 @@ else	-- UNSYNCED
 	end
 
 	local function drawTargetCommand(targetData)
-		if targetData and targetData.userTarget then
+		if targetData.userTarget then
 			local target = targetData.target
-			local isUnitTarget = type(target) == "number"
 
-			if isUnitTarget and spValidUnitID(target) then
-				local _, _, _, x2, y2, z2 = spGetUnitPosition(target, false, true)
-				drawUnitTarget(-target, x2, y2, z2)
-			elseif not isUnitTarget and target then
-				-- 3d coordinate target
+			if type(target) == "number" then
+				if spValidUnitID(target) then
+					local _, _, _, x2, y2, z2 = spGetUnitPosition(target, false, true)
+					drawUnitTarget(-target, x2, y2, z2)
+				end
+			else
 				local x2, y2, z2 = target[1], target[2], target[3]
 				drawUnitTarget(x2+y2+z2, x2, y2, z2)
 			end
@@ -960,21 +966,26 @@ else	-- UNSYNCED
 	local function drawCurrentTarget(unitID, unitData)
 		local _, _, _, x1, y1, z1 = spGetUnitPosition(unitID, true)
 		glVertex(x1, y1, z1)
-		drawTargetCommand(unitData.targets[unitData.targetIndex])
+		local targetData = unitData.targets[unitData.targetIndex]
+		if targetData then
+			drawTargetCommand(targetData)
+		end
 	end
 
 	local function drawTargetQueue(unitID, unitData)
 		local _, _, _, x1, y1, z1 = spGetUnitPosition(unitID, true)
 		glVertex(x1, y1, z1)
-		for _, targetData in ipairs(unitData.targets) do
-			drawTargetCommand(targetData)
+		local targets = unitData.targets
+		for i = 1, #targets do
+			drawTargetCommand(targets[i])
 		end
 	end
 
 	local function drawDecorations()
 		local init = false
-		local skipChunkSize, skipChunkLeft = 4, 40
 		local skipSize, skipLeft = 0, 0
+		local initialDrawCount = 40 -- Set the first chunk to a large size.
+		local skipChunkSize, skipChunkLeft = 4, initialDrawCount
 		local count = 0
 		for unitID, unitData in pairsNext, targetList do
 			if fullview or spGetUnitAllyTeam(unitID) == myAllyTeam then
@@ -992,6 +1003,8 @@ else	-- UNSYNCED
 						glColor(commandColour)
 						glBeginEnd(GL_LINES, drawCurrentTarget, unitID, unitData, myTeam, myAllyTeam)
 					end
+					-- We can use a gradual backoff to skip drawing decorations after very high counts.
+					-- This is ignoring the length of the drawTargetQueue, for now, so it isn't useful.
 					skipChunkLeft = skipChunkLeft - 1
 					if skipChunkLeft == 0 then
 						skipChunkLeft = skipChunkSize
@@ -1024,10 +1037,9 @@ else	-- UNSYNCED
 		-- register cursor
 		spAssignMouseCursor("settarget", "cursorsettarget", false)
 		--show the command in the queue
-		spSetCustomCommandDrawData(CMD_UNIT_SET_TARGET, "settarget", queueColour, true)
-		spSetCustomCommandDrawData(CMD_UNIT_SET_TARGET_NO_GROUND, "settargetrectangle", queueColour, true)
-		spSetCustomCommandDrawData(CMD_UNIT_SET_TARGET_RECTANGLE, "settargetnoground", queueColour, true)
-
+		spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET, "settarget", queueColour, true)
+		spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_NO_GROUND, "settargetrectangle", queueColour, true)
+		spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_RECTANGLE, "settargetnoground", queueColour, true)
 	end
 
 	function gadget:PlayerChanged(playerID)
