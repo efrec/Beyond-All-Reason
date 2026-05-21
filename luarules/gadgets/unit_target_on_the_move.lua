@@ -25,6 +25,8 @@ local isSetTargetCommand = {
 }
 
 local deleteMaxDistance = 30
+local targetLimitAdd = 40 -- bugged, target lists aren't growing past 40, idk why
+local targetLimitMax = 120
 
 local spGetUnitRulesParam = Spring.GetUnitRulesParam
 
@@ -265,11 +267,13 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function removeUnseenTarget(targetData, attackerAllyTeam)
-		local target = targetData.target
-		if not targetData.alwaysSeen and type(target) == "number" and spValidUnitID(target) then
-			local los = spGetUnitLosState(target, attackerAllyTeam, true)
-			if not los or (los % 4 == 0) then
-				return true
+		if not targetData.alwaysSeen then
+			local target = targetData.target
+			if spValidUnitID(target) then
+				local los = spGetUnitLosState(target, attackerAllyTeam, true)
+				if not los or (los % 4 == 0) then
+					return true
+				end
 			end
 		end
 		return false
@@ -331,51 +335,56 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function addUnitTargets(unitID, unitDefID, targets, append, allowSearch)
-		if spValidUnitID(unitID) then
-			local data = unitTargets[unitID] or pausedTargets[unitID]
-			if not data then
-				data = {
-					targets = {},
-					teamID = spGetUnitTeam(unitID),
-					allyTeam = spGetUnitAllyTeam(unitID),
-					weapons = unitWeapons[unitDefID],
-					currentIndex = 0,
-					inRange = false,
-				}
-			elseif not append then
-				data.targets = {}
-			end
-			local inTargetList = {}
-			for index, targetData in ipairs(data.targets) do
-				inTargetList[targetData.target] = index
-			end
-			local count = #data.targets
-			for _, targetData in ipairs(targets) do
-				if inTargetList[targetData.target] then
-					local target = data.targets[inTargetList[targetData.target]]
-					target.ignoreStop = target.ignoreStop or targetData.ignoreStop
-					target.userTarget = target.userTarget or targetData.userTarget
-					target.sent = false
-				elseif checkTarget(unitID, targetData.target) then
-					count = count + 1
-					data.targets[count] = targetData
-					targetData.sent = false
-				end
-			end
-			if count == 0 then
-				return
-			elseif data.currentIndex == 0 then
-				data.currentIndex = 1
-			end
-			unitTargets[unitID] = data
-			pausedTargets[unitID] = nil
-			checkForManualFire[unitID] = true
-			tryNextTarget(unitID, data, allowSearch)
-			sendTargetsToUnsynced(unitID)
+		local data = unitTargets[unitID] or pausedTargets[unitID]
+
+		local targetList = append and data and data.targets or {}
+		local inTargetList = {}
+		for targetIndex, targetData in pairs(targetList) do
+			inTargetList[targetData.target] = targetIndex
 		end
+
+		local count = #targetList
+		for _, targetData in ipairs(targetList) do
+			if count == targetLimitMax then
+				break
+			end
+			if inTargetList[targetData.target] then
+				local target = targetList[inTargetList[targetData.target]]
+				target.ignoreStop = target.ignoreStop or targetData.ignoreStop
+				target.userTarget = target.userTarget or targetData.userTarget
+				target.sent = false
+			elseif checkTarget(unitID, targetData.target) then
+				count = count + 1
+				targetList[count] = targetData
+				targetData.sent = false
+			end
+		end
+		if count == 0 then
+			return
+		end
+
+		if not data then
+			data = {
+				targets      = targetList,
+				teamID       = spGetUnitTeam(unitID),
+				allyTeam     = spGetUnitAllyTeam(unitID),
+				weapons      = unitWeapons[unitDefID],
+				currentIndex = 1,
+				inRange      = false,
+			}
+		elseif not append then
+			data.targets = targetList
+			data.currentIndex = 1
+		end
+
+		unitTargets[unitID] = data
+		pausedTargets[unitID] = nil
+		checkForManualFire[unitID] = true
+		tryNextTarget(unitID, data, allowSearch)
+		sendTargetsToUnsynced(unitID)
 	end
 
-	local function removeUnit(unitID, keeptrack)
+	local function removeUnit(unitID, keepTrack)
 		if unitTargets[unitID] then
 			spSetUnitTarget(unitID, nil)
 			spSetUnitRulesParam(unitID, "targetID", -1)
@@ -387,7 +396,7 @@ if gadgetHandler:IsSyncedCode() then
 			pausedTargets[unitID] = nil
 		end
 		checkForManualFire[unitID] = nil
-		if not keeptrack then
+		if not keepTrack then
 			SendToUnsynced("targetList", unitID, 0)
 		end
 	end
@@ -524,20 +533,24 @@ if gadgetHandler:IsSyncedCode() then
 	--------------------------------------------------------------------------------
 	-- Command Tracking
 
+	local searchCaches = {}
+	local subtable = table.ensureTable
+
 	local function processCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions)
 		local unitData = unitTargets[unitID] or pausedTargets[unitID]
+		local nParams = #cmdParams
 
 		if cmdID ~= CMD_UNIT_CANCEL_TARGET then
 			local addTargetList
 
 			local weapons = unitWeapons[unitDefID]
-			local append = cmdOptions.shift or false
+			local append = cmdOptions.shift
 			local userTarget = not cmdOptions.internal
 			local ignoreStop = cmdOptions.ctrl
 
-			if #cmdParams > 3 and not (#cmdParams == 4 and cmdParams[4] == 0) then
+			if nParams > 3 and not (nParams == 4 and cmdParams[4] == 0) then
 				local targets
-				if #cmdParams == 6 then
+				if nParams == 6 then
 					local top, bot, left, right
 					if cmdParams[1] < cmdParams[4] then
 						left = cmdParams[1]
@@ -553,13 +566,28 @@ if gadgetHandler:IsSyncedCode() then
 						bot = cmdParams[6]
 						top = cmdParams[3]
 					end
-					targets = CallAsTeam(teamID, spGetUnitsInRectangle, left, top, right, bot, -4)
-				elseif #cmdParams == 4 then
-					targets = CallAsTeam(teamID, spGetUnitsInCylinder, cmdParams[1], cmdParams[3], cmdParams[4], -4)
+					local teamCache = subtable(searchCaches, spGetUnitAllyTeam(unitID))
+					local allyHashe = left + top + right + bot
+					targets = teamCache[allyHashe]
+					if not targets then
+						targets = CallAsTeam(teamID, spGetUnitsInRectangle, left, top, right, bot, -4)
+						teamCache[allyHashe] = targets
+					end
+				elseif nParams == 4 then
+					local teamCache = subtable(searchCaches, spGetUnitAllyTeam(unitID))
+					local allyHashe = cmdParams[1] + cmdParams[2] + cmdParams[3] + cmdParams[4]
+					targets = teamCache[allyHashe]
+					if not targets then
+						targets = CallAsTeam(teamID, spGetUnitsInCylinder, cmdParams[1], cmdParams[3], cmdParams[4], -4)
+						teamCache[allyHashe] = targets
+					end
+					if not targets then
+						Spring.MarkerAddPoint(Spring.GetUnitPosition(unitID))
+					end
 				end
-				if targets then
+				if targets and targets[1] then
 					addTargetList = {}
-					for i = 1, #targets do
+					for i = 1, math.min(#targets, targetLimitAdd) do
 						local target = targets[i]
 						addTargetList[i] = {
 							target     = target,
@@ -569,28 +597,46 @@ if gadgetHandler:IsSyncedCode() then
 						}
 					end
 				end
-			else
-				if #cmdParams >= 3 then
-					if cmdParams[4] == 0 then
-						if cmdID == CMD_UNIT_SET_TARGET_NO_GROUND then
-							SendToUnsynced("failCommand", teamID)
-							--tracy.ZoneEnd()
-							return
-						end
-						cmdParams[4] = nil
+			elseif nParams >= 3 then
+				if cmdParams[4] == 0 then
+					if cmdID == CMD_UNIT_SET_TARGET_NO_GROUND then
+						SendToUnsynced("failCommand", teamID)
+						return
 					end
-					local target = cmdParams
-					local elevation = spGetGroundHeight(target[1], target[3])
-					if target[2] > elevation then
-						target[2] = elevation
+					cmdParams[4] = nil
+				end
+				local elevation = spGetGroundHeight(cmdParams[1], cmdParams[3])
+				if cmdParams[2] > elevation then
+					cmdParams[2] = elevation
+				end
+				if elevation < 0 then
+					elevation = 0
+				end
+				local validTarget = false
+				for weaponNum = 1, #weapons do
+					if spGetUnitWeaponTestTarget(unitID, weaponNum, cmdParams[1], cmdParams[2], cmdParams[3]) then
+						validTarget = true
+						break
+					elseif cmdParams[2] < elevation and spGetUnitWeaponTestTarget(unitID, weaponNum, cmdParams[1], elevation, cmdParams[3]) then
+						cmdParams[2] = elevation
+						validTarget = true
+						break
 					end
+				end
+				if validTarget then
+					addTargetList = {{
+						target     = cmdParams,
+						alwaysSeen = true,
+						ignoreStop = ignoreStop,
+						userTarget = userTarget,
+					}}
+				end
+			elseif nParams == 1 then
+				local target = cmdParams[1]
+				if spValidUnitID(target) and not spAreTeamsAllied(teamID, spGetUnitTeam(target)) then
 					local validTarget = false
-					for weaponNum = 1, #weapons do
-						if spGetUnitWeaponTestTarget(unitID, weaponNum, target[1], target[2], target[3]) then
-							validTarget = true
-							break
-						elseif target[2] < 0 and spGetUnitWeaponTestTarget(unitID, weaponNum, target[1], 0, target[3]) then
-							target[2] = 0 -- clip to waterlevel
+					for weaponID = 1, #weapons do
+						if spGetUnitWeaponTestTarget(unitID, weaponID, target) then
 							validTarget = true
 							break
 						end
@@ -598,34 +644,15 @@ if gadgetHandler:IsSyncedCode() then
 					if validTarget then
 						addTargetList = {{
 							target     = target,
-							alwaysSeen = true,
+							alwaysSeen = unitAlwaysSeen[spGetUnitDefID(target)],
 							ignoreStop = ignoreStop,
 							userTarget = userTarget,
 						}}
 					end
-				elseif #cmdParams == 1 then
-					local target = cmdParams[1]
-					if spValidUnitID(target) and not spAreTeamsAllied(teamID, spGetUnitTeam(target)) then
-						local validTarget = false
-						for weaponID = 1, #weapons do
-							if spGetUnitWeaponTestTarget(unitID, weaponID, target) then
-								validTarget = true
-								break
-							end
-						end
-						if validTarget then
-							addTargetList = {{
-								target     = target,
-								alwaysSeen = unitAlwaysSeen[spGetUnitDefID(target)],
-								ignoreStop = ignoreStop,
-								userTarget = userTarget,
-							}}
-						end
-					end
 				end
 			end
 			if addTargetList then
-				addUnitTargets(unitID, unitDefID, addTargetList, append, allowTargetSearch(unitID, unitData))
+				addUnitTargets(unitID, unitDefID, addTargetList, append, false)
 			end
 		elseif unitData then
 			if #cmdParams == 0 then
@@ -644,10 +671,8 @@ if gadgetHandler:IsSyncedCode() then
 				end
 			elseif #cmdParams == 3 then
 				for index, value in ipairs(unitData.targets) do
-					if type(value) == "table" then
-						if distance(value, cmdParams) < deleteMaxDistance then
-							removeTarget(unitID, index)
-						end
+					if type(value) == "table" and distance(value, cmdParams) < deleteMaxDistance then
+						removeTarget(unitID, index)
 					end
 				end
 			end
@@ -724,27 +749,21 @@ if gadgetHandler:IsSyncedCode() then
 
 		if n % 5 == 4 then
 			for unitID, unitData in pairsNext, unitTargets do
-				local targetIndex
-				local targetOffset = 0
 				local targets = unitData.targets
-				local search = allowTargetSearch(unitID, unitData)
-				-- Check each target and find first valid one
+				local removed = 0
+
 				for index = 1, #targets do
 					local targetData = targets[index]
 					if not checkTarget(unitID, targetData.target) then
 						targetData.invalid = true
-						targetOffset = targetOffset + 1
-					elseif search and setTarget(unitID, unitData, index, targetData) then
-						targetIndex = index - targetOffset
-						break
+						removed = removed + 1
 					end
 				end
 
-				if targetOffset ~= 0 then
-					removeInvalidTargets(unitID, unitData, false)
+				if removed ~= 0 then
+					removeInvalidTargets(unitID, unitData)
+					SendToUnsynced("targetIndex", unitID, unitData.currentIndex)
 				end
-
-				SendToUnsynced("targetIndex", unitID, targetIndex)
 			end
 		end
 
@@ -775,6 +794,8 @@ if gadgetHandler:IsSyncedCode() then
 				checkForManualFire[unitID] = nil
 			end
 		end
+
+		searchCaches = {}
 	end
 
 
@@ -821,6 +842,176 @@ else	-- UNSYNCED
 	local drawTarget = {}
 	local targetList = {}
 
+	function GG.getUnitTargetList(unitID)
+		return targetList[unitID] and targetList[unitID].targets
+	end
+
+	function GG.getUnitTargetIndex(unitID)
+		return targetList[unitID] and targetList[unitID].currentIndex
+	end
+
+	local function handleFailCommand(_, teamID)
+		if teamID == myTeam and not mySpec then
+			spPlaySoundFile("FailedCommand", 0.75, "ui")
+			spSetActiveCommand('settargetnoground')
+		end
+	end
+
+	local function handleTargetListEvent(_, unitID, index, alwaysSeen, ignoreStop, userTarget, targetA, targetB, targetC)
+		--tracy.ZoneBeginN(string.format("handleTargetListEvent %d %d ", unitID, index))
+		if index == 0 then
+			targetList[unitID] = nil
+			--tracy.ZoneEnd()
+			return
+		end
+		targetList[unitID] = targetList[unitID] or {}
+		if index == 1 then
+			targetList[unitID].targets = {}
+		end
+		if targetA == nil then
+			local targets = targetList[unitID].targets
+			if targets then
+				for i = index, #targets do
+					targets[i] = nil
+				end
+			end
+			return
+		end
+		targetList[unitID].targets = targetList[unitID].targets or {}
+		targetList[unitID].targets[index] = {
+			alwaysSeen = alwaysSeen,
+			ignoreStop = ignoreStop,
+			userTarget = userTarget,
+			target = (not tonumber(targetB) and targetA) or { targetA, targetB, targetC },
+		}
+		--tracy.ZoneEnd()
+	end
+
+	local function handleTargetListBatchedEvent(_, count, stride, data)
+		for i =1, count, stride do
+			local targetB = data[i+6]
+			local targetC = data[i+7]
+			if targetB < 0 then
+				targetB = nil
+			end
+			if targetC < 0 then
+				targetC = nil
+			end
+			handleTargetListEvent(_, data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], targetB, targetC)
+		end
+	end
+
+
+	local function handleTargetIndexEvent(_, unitID, index)
+		if targetList[unitID] then
+			targetList[unitID].targetIndex = index
+		end
+	end
+
+	local function handleUnitTargetDrawEvent(_, _, params)
+		drawTarget[tonumber(params[1])] = true
+		return true
+	end
+
+	local function handleTargetDrawEvent(_, _, params)
+		local teamID = tonumber(params[1])
+		local doDraw = tonumber(params[2]) ~= 0
+		drawAllTargets[teamID] = doDraw
+		return true
+	end
+
+	--function handleTargetChangeEvent(_,unitID,dataA,dataB,dataC)
+	--	if not dataB then
+	--		--single unitID format
+	--		unitTargets[unitID] = dataA
+	--	elseif dataA and dataB and dataC then
+	--		--3d coordinates format
+	--		unitTargets[unitID] = {dataA,dataB,dataC}
+	--	end
+	--    return true
+	--end
+	local unitIconsDrawn = {}
+	local function drawUnitTarget(cacheKey, x, y, z)
+		glVertex(x, y, z)
+		if not unitIconsDrawn[cacheKey] then
+			-- avoid sending WorldIcons to engine at the same unit/location
+			spAddWorldIcon(CMD_UNIT_SET_TARGET, x, y, z)
+			unitIconsDrawn[cacheKey] = true
+		end
+	end
+
+	local function drawTargetCommand(targetData)
+		if targetData and targetData.userTarget then
+			local target = targetData.target
+			local isUnitTarget = type(target) == "number"
+
+			if isUnitTarget and spValidUnitID(target) then
+				local _, _, _, x2, y2, z2 = spGetUnitPosition(target, false, true)
+				drawUnitTarget(-target, x2, y2, z2)
+			elseif not isUnitTarget and target then
+				-- 3d coordinate target
+				local x2, y2, z2 = target[1], target[2], target[3]
+				drawUnitTarget(x2+y2+z2, x2, y2, z2)
+			end
+		end
+	end
+
+	local function drawCurrentTarget(unitID, unitData)
+		local _, _, _, x1, y1, z1 = spGetUnitPosition(unitID, true)
+		glVertex(x1, y1, z1)
+		drawTargetCommand(unitData.targets[unitData.targetIndex])
+	end
+
+	local function drawTargetQueue(unitID, unitData)
+		local _, _, _, x1, y1, z1 = spGetUnitPosition(unitID, true)
+		glVertex(x1, y1, z1)
+		for _, targetData in ipairs(unitData.targets) do
+			drawTargetCommand(targetData)
+		end
+	end
+
+	local function drawDecorations()
+		local init = false
+		local skipChunkSize, skipChunkLeft = 4, 40
+		local skipSize, skipLeft = 0, 0
+		local count = 0
+		for unitID, unitData in pairsNext, targetList do
+			if fullview or spGetUnitAllyTeam(unitID) == myAllyTeam then
+				if skipLeft == 0 and (drawTarget[unitID] or drawAllTargets[spGetUnitTeam(unitID)] or spIsUnitSelected(unitID)) then
+					if not init then
+						init = true
+						glPushAttrib(GL.LINE_BITS)
+						glLineStipple("any") -- use spring's default line stipple pattern, moving
+						glDepthTest(false)
+						glLineWidth(lineWidth)
+					end
+					glColor(queueColour)
+					glBeginEnd(GL_LINE_STRIP, drawTargetQueue, unitID, unitData, myTeam, myAllyTeam)
+					if unitData.targetIndex then
+						glColor(commandColour)
+						glBeginEnd(GL_LINES, drawCurrentTarget, unitID, unitData, myTeam, myAllyTeam)
+					end
+					skipChunkLeft = skipChunkLeft - 1
+					if skipChunkLeft == 0 then
+						skipChunkLeft = skipChunkSize
+						skipSize = skipSize == 0 and 2 or math.min(skipSize * 2, 40)
+					end
+					skipLeft = skipSize
+					count = count + 1
+				else
+					skipLeft = skipLeft - 1
+				end
+			end
+		end
+		if init then
+			glColor(1, 1, 1, 1)
+			glLineStipple(false)
+			glPopAttrib()
+		end
+		drawTarget = {}
+		unitIconsDrawn = {}
+	end
+
 	function gadget:Initialize()
 		gadgetHandler:AddChatAction("targetdrawteam", handleTargetDrawEvent, "toggles drawing targets for units, params: teamID doDraw")
 		gadgetHandler:AddChatAction("targetdrawunit", handleUnitTargetDrawEvent, "toggles drawing targets for units, params: unitID")
@@ -851,163 +1042,6 @@ else	-- UNSYNCED
 		gadgetHandler:RemoveSyncAction("targetListBatched")
 		gadgetHandler:RemoveSyncAction("targetIndex")
 		gadgetHandler:RemoveSyncAction("failCommand")
-	end
-
-	function GG.getUnitTargetList(unitID)
-		return targetList[unitID] and targetList[unitID].targets
-	end
-
-	function GG.getUnitTargetIndex(unitID)
-		return targetList[unitID] and targetList[unitID].currentIndex
-	end
-
-	function handleFailCommand(_, teamID)
-		if teamID == myTeam and not mySpec then
-			spPlaySoundFile("FailedCommand", 0.75, "ui")
-			spSetActiveCommand('settargetnoground')
-		end
-	end
-
-	function handleTargetListEvent(_, unitID, index, alwaysSeen, ignoreStop, userTarget, targetA, targetB, targetC)
-		--tracy.ZoneBeginN(string.format("handleTargetListEvent %d %d ", unitID, index))
-		if index == 0 then
-			targetList[unitID] = nil
-			--tracy.ZoneEnd()
-			return
-		end
-		targetList[unitID] = targetList[unitID] or {}
-		if index == 1 then
-			targetList[unitID].targets = {}
-		end
-		if targetA == nil then
-			if targetList[unitID].targets then
-				table.remove(targetList[unitID].targets, index)
-			end
-			return
-		end
-		targetList[unitID].targets = targetList[unitID].targets or {}
-		targetList[unitID].targets[index] = {
-			alwaysSeen = alwaysSeen,
-			ignoreStop = ignoreStop,
-			userTarget = userTarget,
-			target = (not tonumber(targetB) and targetA) or { targetA, targetB, targetC },
-		}
-		--tracy.ZoneEnd()
-	end
-
-	function handleTargetListBatchedEvent(_, count, stride, data)
-		for i =1, count, stride do
-			local targetB = data[i+6]
-			local targetC = data[i+7]
-			if targetB < 0 then
-				targetB = nil
-			end
-			if targetC < 0 then
-				targetC = nil
-			end
-			handleTargetListEvent(_, data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], targetB, targetC)
-		end
-	end
-
-
-	function handleTargetIndexEvent(_, unitID, index)
-		if not targetList[unitID] then
-			return
-		end
-		targetList[unitID].targetIndex = index
-	end
-
-	function handleUnitTargetDrawEvent(_, _, params)
-		drawTarget[tonumber(params[1])] = true
-		return true
-	end
-
-	function handleTargetDrawEvent(_, _, params)
-		local teamID = tonumber(params[1])
-		local doDraw = tonumber(params[2]) ~= 0
-		drawAllTargets[teamID] = doDraw
-		return true
-	end
-
-	--function handleTargetChangeEvent(_,unitID,dataA,dataB,dataC)
-	--	if not dataB then
-	--		--single unitID format
-	--		unitTargets[unitID] = dataA
-	--	elseif dataA and dataB and dataC then
-	--		--3d coordinates format
-	--		unitTargets[unitID] = {dataA,dataB,dataC}
-	--	end
-	--    return true
-	--end
-	local unitIconsDrawn = {}
-	local function drawUnitTarget(cacheKey, x, y, z)
-		glVertex(x, y, z)
-		if not unitIconsDrawn[cacheKey] then
-			-- avoid sending WorldIcons to engine at the same unit/location
-			spAddWorldIcon(CMD_UNIT_SET_TARGET, x, y, z)
-			unitIconsDrawn[cacheKey] = true
-		end
-	end
-
-	local function drawTargetCommand(targetData, myTeam, myAllyTeam)
-
-		if targetData and targetData.userTarget then
-			local target = targetData.target
-			local isUnitTarget = type(target) == "number"
-
-			if isUnitTarget and spValidUnitID(target) then
-				local _, _, _, x2, y2, z2 = spGetUnitPosition(target, false, true)
-				drawUnitTarget(target, x2, y2, z2)
-			elseif not isUnitTarget and target then
-				-- 3d coordinate target
-				local x2, y2, z2 = target[1], target[2], target[3]
-				drawUnitTarget(x2+y2+z2, x2, y2, z2)
-			end
-		end
-	end
-
-	local function drawCurrentTarget(unitID, unitData, myTeam, myAllyTeam)
-		local _, _, _, x1, y1, z1 = spGetUnitPosition(unitID, true)
-		glVertex(x1, y1, z1)
-		drawTargetCommand(unitData.targets[unitData.targetIndex], myTeam, myAllyTeam)
-	end
-
-	local function drawTargetQueue(unitID, unitData, myTeam, myAllyTeam)
-		local _, _, _, x1, y1, z1 = spGetUnitPosition(unitID, true)
-		glVertex(x1, y1, z1)
-		for _, targetData in ipairs(unitData.targets) do
-			drawTargetCommand(targetData, myTeam, myAllyTeam)
-		end
-	end
-
-	local function drawDecorations()
-		local init = false
-		for unitID, unitData in pairsNext, targetList do
-			if drawTarget[unitID] or drawAllTargets[spGetUnitTeam(unitID)] or spIsUnitSelected(unitID) then
-				if fullview or spGetUnitAllyTeam(unitID) == myAllyTeam then
-					if not init then
-						init = true
-						glPushAttrib(GL.LINE_BITS)
-						glLineStipple("any") -- use spring's default line stipple pattern, moving
-						glDepthTest(false)
-						glLineWidth(lineWidth)
-					end
-					glColor(queueColour)
-					glBeginEnd(GL_LINE_STRIP, drawTargetQueue, unitID, unitData, myTeam, myAllyTeam)
-					if unitData.targetIndex then
-						glColor(commandColour)
-						glBeginEnd(GL_LINES, drawCurrentTarget, unitID, unitData, myTeam, myAllyTeam)
-					end
-				end
-			end
-		end
-		if init then
-			glColor(1, 1, 1, 1)
-			glLineStipple(false)
-			glPopAttrib()
-		end
-		drawTarget = {}
-		unitIconsDrawn = {}
 	end
 
 	function gadget:DrawWorld()
