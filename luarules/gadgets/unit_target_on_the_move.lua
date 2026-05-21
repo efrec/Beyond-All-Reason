@@ -12,19 +12,6 @@ function gadget:GetInfo()
 	}
 end
 
-local deleteMaxDistance = 30
-local targetLimitAdd = 40 -- bugged, target lists aren't growing past 40, idk why
-local targetLimitMax = 120
-
--- Unseen targets will be removed after max `unseenUpdateFrames` frames.
--- Should be small enough to not be evident and big enough to save perf.
-local unseenUpdateFrames = 15
-
-local CMD_UNIT_SET_TARGET_NO_GROUND = GameCMD.UNIT_SET_TARGET_NO_GROUND
-local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
-local CMD_UNIT_CANCEL_TARGET = GameCMD.UNIT_CANCEL_TARGET
-local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
-
 local spGetUnitRulesParam = Spring.GetUnitRulesParam
 
 function GG.GetUnitTarget(unitID)
@@ -44,6 +31,18 @@ function GG.GetUnitTarget(unitID)
 end
 
 if gadgetHandler:IsSyncedCode() then
+
+	local cancelCommandDistance = 30
+	local targetLimitAdd = 40
+	local targetLimitMax = 120
+
+	-- Unseen targets will be removed after max `unseenUpdateFrames` frames.
+	-- Should be small enough to not be evident and big enough to save perf.
+	local unseenUpdateFrames = 15
+
+	local pairsNext = next
+	local tremove = table.remove
+	local diag = math.diag
 
 	local spInsertUnitCmdDesc = Spring.InsertUnitCmdDesc
 	local spGetUnitAllyTeam = Spring.GetUnitAllyTeam
@@ -65,15 +64,15 @@ if gadgetHandler:IsSyncedCode() then
 	local spGetAllUnits = Spring.GetAllUnits
 	local spGetPlayerInfo = Spring.GetPlayerInfo
 
-	local tremove = table.remove
-
-	local diag = math.diag
-	local pairsNext = next
-
 	local CMD_ATTACK = CMD.ATTACK
 	local CMD_DGUN = CMD.DGUN
 	local CMD_FIGHT = CMD.FIGHT
 	local CMD_STOP = CMD.STOP
+
+	local CMD_UNIT_SET_TARGET_NO_GROUND = GameCMD.UNIT_SET_TARGET_NO_GROUND
+	local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
+	local CMD_UNIT_CANCEL_TARGET = GameCMD.UNIT_CANCEL_TARGET
+	local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
 
 	-- Explicit Attack and Manual Fire commands overrule Set Target's priority.
 	local isAttackCommand = {
@@ -83,26 +82,32 @@ if gadgetHandler:IsSyncedCode() then
 		[GameCMD.AREA_ATTACK_GROUND] = true,
 	}
 
+	-- Fastpass for units that don't have an attack command for other reasons.
+	local allowNonAttackerUnit = {
+		legpede = true,
+	}
+	local function canAttack(unitDef)
+		local weapons = unitDef.weapons
+		local weaponCount = #weapons - (unitDef.shieldWeaponDef and 1 or 0)
+		return weaponCount > 0 and (unitDef.canAttack or allowNonAttackerUnit[unitDef.name]) and unitDef.maxWeaponRange > 0
+	end
+
+	-- TODO: We don't know what weaponDefs have submissile. We can check `nuke`, for now.
+	local function getWeaponType(weaponDef)
+		return weaponDef.waterWeapon and not weaponDef.customParams.nuke and 0 -- waterweapon
+			or 1 -- everything else apparently
+	end
+
 	local validUnits = {}
-	local unitWeapons = {}
+	local unitWeapons = {} -- also encodes waterweapon as 1
 	local unitAlwaysSeen = {}
 	for unitDefID = 1, #UnitDefs do
 		local unitDef = UnitDefs[unitDefID]
-		local weapons = unitDef.weapons
-		local weaponCount = #weapons - (unitDef.shieldWeaponDef and 1 or 0)
-		if weaponCount > 0 and unitDef.canAttack and unitDef.maxWeaponRange and unitDef.maxWeaponRange > 0 then
+		if canAttack(unitDef) then
 			validUnits[unitDefID] = true
-			unitWeapons[unitDefID] = {}
-			for i=1, #weapons do
-				unitWeapons[unitDefID][i] = true
-			end
+			unitWeapons[unitDefID] = table.map(unitDef.weapons, function(w, k) return getWeaponType(WeaponDefs[w.weaponDef]), k end)
 		end
 		unitAlwaysSeen[unitDefID] = unitDef.isBuilding or unitDef.speed == 0
-	end
-
-	-- fastpass for units that don't have an attack command for other reasons
-	if UnitDefNames.legpede then
-		validUnits[UnitDefNames.legpede.id] = true
 	end
 
 	local setTargetData = {}
