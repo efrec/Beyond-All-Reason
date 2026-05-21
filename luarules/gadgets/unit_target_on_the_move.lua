@@ -111,9 +111,11 @@ if gadgetHandler:IsSyncedCode() then
 		validUnits[UnitDefNames.legpede.id] = true
 	end
 
-	local unitTargets = {}
+	local setTargetData = {}
+	local activeTargets = {}
 	local pausedTargets = {}
-	local checkForManualFire = {}
+
+	local checkForManualFire = {} -- Very actively monitors for DGun/Manual Launch.
 
 	--------------------------------------------------------------------------------
 	-- Commands
@@ -287,7 +289,7 @@ if gadgetHandler:IsSyncedCode() then
 	-- Unit adding/removal
 
 	local function sendTargetsToUnsynced(unitID)
-		for index, targetData in ipairs(unitTargets[unitID].targets) do
+		for index, targetData in ipairs(setTargetData[unitID].targets) do
 			if not targetData.sent then
 				local target = targetData.target
 				if type(target) == "number" then
@@ -301,14 +303,14 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function sendTargetsToUnsyncedBatched(unitID)
-		local targetCount = #unitTargets[unitID].targets
+		local targetCount = #setTargetData[unitID].targets
 		if targetCount == 1 then
 			sendTargetsToUnsynced(unitID)
 		elseif targetCount > 1 then
 			local data = {}
 			local count = 0
 			local stride = 8
-			for index, targetData in ipairs(unitTargets[unitID].targets) do
+			for index, targetData in ipairs(setTargetData[unitID].targets) do
 				if not targetData.sent then
 					local target = targetData.target
 					data[count + 1] = unitID
@@ -335,8 +337,7 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function addUnitTargets(unitID, unitDefID, targets, append, allowSearch)
-		local data = unitTargets[unitID] or pausedTargets[unitID]
-
+		local data = setTargetData[unitID]
 		local targetList = append and data and data.targets or {}
 		local inTargetList = {}
 		for targetIndex, targetData in pairs(targetList) do
@@ -377,7 +378,8 @@ if gadgetHandler:IsSyncedCode() then
 			data.currentIndex = 1
 		end
 
-		unitTargets[unitID] = data
+		setTargetData[unitID] = data
+		activeTargets[unitID] = data
 		pausedTargets[unitID] = nil
 		checkForManualFire[unitID] = true
 		tryNextTarget(unitID, data, allowSearch)
@@ -385,18 +387,19 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function removeUnit(unitID, keepTrack)
-		if unitTargets[unitID] then
+		if activeTargets[unitID] then
 			spSetUnitTarget(unitID, nil)
 			spSetUnitRulesParam(unitID, "targetID", -1)
 			spSetUnitRulesParam(unitID, "targetCoordX", -1)
 			spSetUnitRulesParam(unitID, "targetCoordY", -1)
 			spSetUnitRulesParam(unitID, "targetCoordZ", -1)
-			unitTargets[unitID] = nil
+			activeTargets[unitID] = nil
 		elseif pausedTargets[unitID] then
 			pausedTargets[unitID] = nil
 		end
-		checkForManualFire[unitID] = nil
 		if not keepTrack then
+			setTargetData[unitID] = nil
+			checkForManualFire[unitID] = nil
 			SendToUnsynced("targetList", unitID, 0)
 		end
 	end
@@ -421,7 +424,7 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function removeTarget(unitID, index, allowSearch)
-		local unitData = unitTargets[unitID] or pausedTargets[unitID]
+		local unitData = setTargetData[unitID]
 		tremove(unitData.targets, index)
 		if #unitData.targets == 0 then
 			removeUnit(unitID)
@@ -455,7 +458,7 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function removeStoppableTargets(unitID)
-		local unitData = unitTargets[unitID] or pausedTargets[unitID]
+		local unitData = setTargetData[unitID]
 		local targetList = unitData.targets
 		local n = #targetList
 		local m, minIndex = n, n
@@ -476,20 +479,19 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	function GG.getUnitTargetList(unitID)
-		return unitTargets[unitID] and unitTargets[unitID].targets
+		return activeTargets[unitID] and activeTargets[unitID].targets
 	end
 
 	function GG.getUnitTargetIndex(unitID)
-		return unitTargets[unitID] and unitTargets[unitID].currentIndex
+		return activeTargets[unitID] and activeTargets[unitID].currentIndex
 	end
 
 	function gadget:Initialize()
-		-- register command
 		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET)
 		gadgetHandler:RegisterCMDID(CMD_UNIT_CANCEL_TARGET)
 		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET_RECTANGLE)
 		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET_NO_GROUND)
-		-- register allowcommand callin
+
 		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET_NO_GROUND)
 		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET)
 		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET_RECTANGLE)
@@ -499,7 +501,6 @@ if gadgetHandler:IsSyncedCode() then
 			Script.SetWatchAllowTarget(weaponDefID, true)
 		end
 
-		-- load active units
 		local allUnits = spGetAllUnits()
 		for i = 1, #allUnits do
 			local unitID = allUnits[i]
@@ -512,8 +513,8 @@ if gadgetHandler:IsSyncedCode() then
 			spInsertUnitCmdDesc(unitID, unitSetTargetNoGroundCmdDesc)
 			spInsertUnitCmdDesc(unitID, unitSetTargetCircleCmdDesc)
 			spInsertUnitCmdDesc(unitID, unitCancelTargetCmdDesc)
-			if unitTargets[builderID] then
-				addUnitTargets(unitID, unitDefID, unitTargets[builderID].targets, false, "UnitCreated")
+			if setTargetData[builderID] then
+				addUnitTargets(unitID, unitDefID, setTargetData[builderID].targets, false, "UnitCreated")
 			end
 		end
 	end
@@ -537,7 +538,7 @@ if gadgetHandler:IsSyncedCode() then
 	local subtable = table.ensureTable
 
 	local function processCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions)
-		local unitData = unitTargets[unitID] or pausedTargets[unitID]
+		local unitData = setTargetData[unitID]
 		local nParams = #cmdParams
 
 		if cmdID ~= CMD_UNIT_CANCEL_TARGET then
@@ -655,9 +656,9 @@ if gadgetHandler:IsSyncedCode() then
 				addUnitTargets(unitID, unitDefID, addTargetList, append, false)
 			end
 		elseif unitData then
-			if #cmdParams == 0 then
+			if nParams == 0 then
 				removeUnit(unitID)
-			elseif #cmdParams == 1 then
+			elseif nParams == 1 then
 				if cmdOptions.alt then
 					removeTarget(unitID, cmdParams[1])
 				else
@@ -669,7 +670,7 @@ if gadgetHandler:IsSyncedCode() then
 						end
 					end
 				end
-			elseif #cmdParams == 3 then
+			elseif nParams == 3 then
 				for index, value in ipairs(unitData.targets) do
 					if type(value) == "table" and distance(value, cmdParams) < deleteMaxDistance then
 						removeTarget(unitID, index)
@@ -680,8 +681,8 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function pauseTargetting(unitID)
-		if unitTargets[unitID] and not pausedTargets[unitID] then
-			local data = unitTargets[unitID]
+		if activeTargets[unitID] and not pausedTargets[unitID] then
+			local data = activeTargets[unitID]
 			removeUnit(unitID, true)
 			pausedTargets[unitID] = data
 		end
@@ -691,39 +692,29 @@ if gadgetHandler:IsSyncedCode() then
 		addUnitTargets(unitID, Spring.GetUnitDefID(unitID), pausedTargets[unitID].targets, true)
 	end
 
-	function gadget:UnitCmdDone(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag)
-		local hasTargetData = unitTargets[unitID] or pausedTargets[unitID]
-		if not hasTargetData then
+	function gadget:UnitCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag)
+		if not setTargetData[unitID] then
 			return
 		end
 
 		if cmdID == CMD_STOP then
 			removeStoppableTargets(unitID)
+		elseif cmdID == CMD_DGUN then
+			checkForManualFire[unitID] = true
 		elseif isAttackCommand[cmdID] then
 			pauseTargetting(unitID)
-		end
-
-		-- We do not know if we are coming from ExecuteInsert or FinishCommand.
-		-- So we do not know whether the below command is starting or finished.
-		if cmdID == CMD_DGUN or spGetUnitCurrentCommand(unitID) == CMD_DGUN then
-			checkForManualFire[unitID] = true
 		end
 	end
 
 	function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua, fromInsert)
-		-- Accepts: CMD_UNIT_SET_TARGET_NO_GROUND, CMD_UNIT_SET_TARGET, CMD_UNIT_SET_TARGET_RECTANGLE, CMD_UNIT_CANCEL_TARGET.
-		if isSetTargetCommand[cmdID] then
-			if validUnits[unitDefID] then
-				processCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions)
-			end
-			return false
-		else
-			return true
+		if validUnits[unitDefID] then
+			processCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions)
 		end
+		return false
 	end
 
 	function gadget:UnitAutoTargetRange(unitID, autoTargetRange)
-		local unitData = unitTargets[unitID] or pausedTargets[unitID]
+		local unitData = activeTargets[unitID]
 		return unitData and unitData.inRange and 0 or autoTargetRange -- 0 disables autotargeting
 	end
 
@@ -748,7 +739,7 @@ if gadgetHandler:IsSyncedCode() then
 		-- sim here
 
 		if n % 5 == 4 then
-			for unitID, unitData in pairsNext, unitTargets do
+			for unitID, unitData in pairsNext, setTargetData do
 				local targets = unitData.targets
 				local removed = 0
 
@@ -768,7 +759,7 @@ if gadgetHandler:IsSyncedCode() then
 		end
 
 		if n % USEEN_UPDATE_FREQUENCY == 0 then
-			for unitID, unitData in pairsNext, unitTargets do
+			for unitID, unitData in pairsNext, setTargetData do
 				local targets = unitData.targets
 				-- Iterate backwards to safely handle removals
 				for index = #targets, 1, -1 do
@@ -780,7 +771,7 @@ if gadgetHandler:IsSyncedCode() then
 		end
 
 		for unitID in pairs(checkForManualFire) do
-			if unitTargets[unitID] then
+			if activeTargets[unitID] then
 				if spGetUnitCurrentCommand(unitID) == CMD_DGUN then
 					pauseTargetting(unitID)
 				else
