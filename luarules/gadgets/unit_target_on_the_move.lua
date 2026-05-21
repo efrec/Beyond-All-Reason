@@ -312,7 +312,7 @@ if gadgetHandler:IsSyncedCode() then
 	-- TODO: Split updates between immediate and queued. We don't want to queue in some cases.
 
 	local function sendTargetList(unitID, targets)
-		for index, targetData in ipairs(targets or setTargetData[unitID].targets) do
+		for index, targetData in pairsNext, (targets or setTargetData[unitID].targets) do
 			if not targetData.sent then
 				targetData.sent = true
 				local target = targetData.target
@@ -366,13 +366,13 @@ if gadgetHandler:IsSyncedCode() then
 		local data = setTargetData[unitID]
 		local targetList = append and data and data.targets or {}
 		local inTargetList = {}
-		for targetIndex, targetData in pairs(targetList) do
+		for targetIndex, targetData in pairsNext, targetList do
 			inTargetList[targetData.target] = targetIndex
 		end
 
 		local count = #targetList
 		local unitAllyTeam = spGetUnitAllyTeam(unitID)
-		for _, targetData in ipairs(targets) do
+		for _, targetData in pairsNext, targets do
 			if count == targetLimitMax then
 				break
 			end
@@ -675,7 +675,7 @@ if gadgetHandler:IsSyncedCode() then
 					removeTarget(unitID, cmdParams[1])
 				else
 					local removeID = cmdParams[1]
-					for index, value in ipairs(unitData.targets) do
+					for index, value in pairsNext, unitData.targets do
 						if value == removeID then
 							removeTarget(removeID, index)
 							break -- target lists are deduped
@@ -683,7 +683,7 @@ if gadgetHandler:IsSyncedCode() then
 					end
 				end
 			elseif nParams == 3 then
-				for index, value in ipairs(unitData.targets) do
+				for index, value in pairsNext, unitData.targets do
 					if type(value) == "table" and distance(value, cmdParams) < cancelCommandDistance then
 						removeTarget(unitID, index)
 					end
