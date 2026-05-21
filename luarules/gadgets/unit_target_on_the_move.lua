@@ -431,17 +431,9 @@ if gadgetHandler:IsSyncedCode() then
 	local function refreshSendList(unitID, unitData, minIndex)
 		local targets = unitData.targets
 		local count = #targets
-		if minIndex then
-			-- send as little data as possible to unsynced
-			for i = 1, count do
-				if i >= minIndex then
-					targets[i].sent = false
-				end
-			end
-		else
-			for i = 1, count do
-				targets[i].sent = false
-			end
+		-- send as little data as possible to unsynced
+		for i = (minIndex and minIndex > 0 and minIndex or 1), count do
+			targets[i].sent = false
 		end
 		queuedSendTargetListLength[unitID] = count
 		queuedSendTargetListValues[unitID] = true
