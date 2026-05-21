@@ -88,8 +88,7 @@ if gadgetHandler:IsSyncedCode() then
 	}
 	local function canSetTarget(unitDef)
 		if (unitDef.canAttack or allowNonAttackerUnit[unitDef.name]) and unitDef.maxWeaponRange > 0 then
-			local weapons = unitDef.weapons
-			local weaponCount = #weapons - (unitDef.shieldWeaponDef and 1 or 0)
+			local weaponCount = #unitDef.weapons - (unitDef.shieldWeaponDef and 1 or 0)
 			return weaponCount > 0
 		else
 			return false
