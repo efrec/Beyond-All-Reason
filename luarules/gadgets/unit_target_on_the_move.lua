@@ -12,44 +12,38 @@ function gadget:GetInfo()
 	}
 end
 
+local deleteMaxDistance = 30
+local targetLimitAdd = 40 -- bugged, target lists aren't growing past 40, idk why
+local targetLimitMax = 120
+
+-- Unseen targets will be removed after max UNSEEN_UPDATE_FRAMES frames.
+-- Should be small enough to not be evident and big enough to save perf.
+local UNSEEN_UPDATE_FRAMES = 15
+
 local CMD_UNIT_SET_TARGET_NO_GROUND = GameCMD.UNIT_SET_TARGET_NO_GROUND
 local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
 local CMD_UNIT_CANCEL_TARGET = GameCMD.UNIT_CANCEL_TARGET
 local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
 
-local isSetTargetCommand = {
-	[CMD_UNIT_SET_TARGET_NO_GROUND] = true,
-	[CMD_UNIT_SET_TARGET]           = true,
-	[CMD_UNIT_CANCEL_TARGET]        = true,
-	[CMD_UNIT_SET_TARGET_RECTANGLE] = true,
-}
-
-local deleteMaxDistance = 30
-local targetLimitAdd = 40 -- bugged, target lists aren't growing past 40, idk why
-local targetLimitMax = 120
-
 local spGetUnitRulesParam = Spring.GetUnitRulesParam
 
 function GG.GetUnitTarget(unitID)
 	local targetID = spGetUnitRulesParam(unitID, "targetID")
-	targetID = tonumber(targetID) and targetID >= 0 and targetID or nil
-	if not targetID then
-		targetID = {
-			spGetUnitRulesParam(unitID, "targetCoordX"),
-			spGetUnitRulesParam(unitID, "targetCoordY"),
-			spGetUnitRulesParam(unitID, "targetCoordZ"),
-		}
-		targetID = targetID[1] ~= -1 and targetID[3] ~= -1 and targetID or nil
+	if type(targetID) == "number" then
+		if targetID ~= -1 then
+			return targetID
+		end
+	else
+		local targetCoordX = spGetUnitRulesParam(unitID, "targetCoordX")
+		local targetCoordY = spGetUnitRulesParam(unitID, "targetCoordY")
+		local targetCoordZ = spGetUnitRulesParam(unitID, "targetCoordZ")
+		if targetCoordX ~= -1 and targetCoordZ ~= -1 then
+			return { targetCoordX, targetCoordY, targetCoordZ }
+		end
 	end
-	return targetID
 end
 
-
 if gadgetHandler:IsSyncedCode() then
-
-	-- Unseen targets will be removed after max USEEN_UPDATE_FREQUENCY frames.
-	-- Should be small enough to not be evident, and big enough to save perf.
-	local USEEN_UPDATE_FREQUENCY = 15
 
 	local spInsertUnitCmdDesc = Spring.InsertUnitCmdDesc
 	local spGetUnitAllyTeam = Spring.GetUnitAllyTeam
@@ -157,15 +151,6 @@ if gadgetHandler:IsSyncedCode() then
 	--------------------------------------------------------------------------------
 	-- Target Handling
 
-	local function AreUnitsAllied(unitID, targetID)
-		--if a unit dies the unitID will still be valid for current frame unit UnitDestroyed is called
-		--this means that code can reach here and spGetUnitTeam returns nil, therefore we'll nil check before
-		--executing spAreTeamsAllied, returning true to being allied disables rest of the code without having
-		--to pass weird nil threestate to be further checked
-		local ownTeam, enemyTeam = spGetUnitTeam(unitID), spGetUnitTeam(targetID)
-		return ownTeam and enemyTeam and spAreTeamsAllied(ownTeam, enemyTeam)
-	end
-
 	local function TargetCanBeReachedReal(unitID, weaponList, target)
 		for weaponNum in pairsNext, weaponList do
 			if type(target) == "number" then
@@ -184,9 +169,13 @@ if gadgetHandler:IsSyncedCode() then
 		return CallAsTeam(teamID, TargetCanBeReachedReal, unitID, weaponList, target)
 	end
 
-	local function checkTarget(unitID, target)
-		local isUnitTarget = type(target) == "number"
-		return (isUnitTarget and spValidUnitID(target) and not AreUnitsAllied(unitID, target)) or (not isUnitTarget and target)
+	local function checkTarget(unitID, unitAllyID, target)
+		if spValidUnitID(target) then
+			local targetAllyID = spGetUnitAllyTeam(target)
+			return not spAreTeamsAllied(unitAllyID, targetAllyID)
+		else
+			return false
+		end
 	end
 
 	local function allowTargetSearch(unitID, unitData)
@@ -762,7 +751,7 @@ if gadgetHandler:IsSyncedCode() then
 			end
 		end
 
-		if n % USEEN_UPDATE_FREQUENCY == 0 then
+		if n % UNSEEN_UPDATE_FRAMES == 0 then
 			for unitID, unitData in pairsNext, setTargetData do
 				local targets = unitData.targets
 				-- Iterate backwards to safely handle removals
