@@ -618,6 +618,7 @@ if gadgetHandler:IsSyncedCode() then
 				end
 				local validTarget = false
 				for weaponNum = 1, #weapons do
+					-- TODO: Detect waterWeapons and set elevation before checking (only once).
 					if spGetUnitWeaponTestTarget(unitID, weaponNum, cmdParams[1], cmdParams[2], cmdParams[3]) then
 						validTarget = true
 						break
