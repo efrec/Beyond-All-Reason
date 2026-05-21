@@ -520,7 +520,7 @@ if gadgetHandler:IsSyncedCode() then
 			spInsertUnitCmdDesc(unitID, unitSetTargetCircleCmdDesc)
 			spInsertUnitCmdDesc(unitID, unitCancelTargetCmdDesc)
 			if setTargetData[builderID] then
-				addUnitTargets(unitID, unitDefID, setTargetData[builderID].targets, false, "UnitCreated")
+				addUnitTargets(unitID, unitDefID, setTargetData[builderID].targets, false, false)
 			end
 		end
 	end
