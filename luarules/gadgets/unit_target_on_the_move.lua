@@ -554,7 +554,7 @@ if gadgetHandler:IsSyncedCode() then
 	local searchCaches = {}
 	local subtable = table.ensureTable
 
-	local function processCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions)
+	local function processCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions)
 		local unitData = setTargetData[unitID]
 		local nParams = #cmdParams
 
@@ -566,9 +566,68 @@ if gadgetHandler:IsSyncedCode() then
 			local userTarget = not cmdOptions.internal
 			local ignoreStop = cmdOptions.ctrl
 
-			if nParams > 3 and not (nParams == 4 and cmdParams[4] == 0) then
+			if nParams == 3 or (nParams == 4 and cmdParams[4] == 0) then
+				if cmdID == CMD_UNIT_SET_TARGET_NO_GROUND then
+					SendToUnsynced("failCommand", unitTeam)
+					return
+				end
+				cmdParams[4], nParams = nil, 3
+			end
+
+			if nParams == 3 then
+				-- TODO: targeting a sea floor should be doable under specific conditions
+				local elevation = math.max(spGetGroundHeight(cmdParams[1], cmdParams[3]), 0)
+				if cmdParams[2] > elevation then
+					cmdParams[2] = elevation
+				end
+				local validTarget = false
+				for weaponNum, weaponType in pairs(weapons) do
+					if weaponType ~= 0 or cmdParams[2] <= 0 then
+						if spGetUnitWeaponTestTarget(unitID, weaponNum, cmdParams[1], cmdParams[2], cmdParams[3]) then
+							validTarget = true
+							break
+						end
+					end
+				end
+				if validTarget then
+					addTargetList = {{
+						target     = cmdParams,
+						alwaysSeen = true,
+						ignoreStop = ignoreStop,
+						userTarget = userTarget,
+					}}
+				end
+			elseif nParams == 1 then
+				local target = cmdParams[1]
+				-- NB: Validity is enough. CWeapon::TestTarget tests target alliance (etc).
+				if spValidUnitID(target) then
+					local validTarget = false
+					for weaponNum in pairs(weapons) do
+						if spGetUnitWeaponTestTarget(unitID, weaponNum, target) then
+							validTarget = true
+							break
+						end
+					end
+					if validTarget then
+						addTargetList = {{
+							target     = target,
+							alwaysSeen = unitAlwaysSeen[spGetUnitDefID(target)],
+							ignoreStop = ignoreStop,
+							userTarget = userTarget,
+						}}
+					end
+				end
+			elseif nParams >= 4 then
 				local targets
-				if nParams == 6 then
+				if nParams == 4 then
+					local teamCache = subtable(searchCaches, spGetUnitAllyTeam(unitID))
+					local allyHashe = cmdParams[1] + cmdParams[2] + cmdParams[3] + cmdParams[4]
+					targets = teamCache[allyHashe]
+					if not targets then
+						targets = CallAsTeam(unitTeam, spGetUnitsInCylinder, cmdParams[1], cmdParams[3], cmdParams[4], -4)
+						teamCache[allyHashe] = targets
+					end
+				elseif nParams == 6 then
 					local top, bot, left, right
 					if cmdParams[1] < cmdParams[4] then
 						left = cmdParams[1]
@@ -588,15 +647,7 @@ if gadgetHandler:IsSyncedCode() then
 					local allyHashe = left + top + right + bot
 					targets = teamCache[allyHashe]
 					if not targets then
-						targets = CallAsTeam(teamID, spGetUnitsInRectangle, left, top, right, bot, -4)
-						teamCache[allyHashe] = targets
-					end
-				elseif nParams == 4 then
-					local teamCache = subtable(searchCaches, spGetUnitAllyTeam(unitID))
-					local allyHashe = cmdParams[1] + cmdParams[2] + cmdParams[3] + cmdParams[4]
-					targets = teamCache[allyHashe]
-					if not targets then
-						targets = CallAsTeam(teamID, spGetUnitsInCylinder, cmdParams[1], cmdParams[3], cmdParams[4], -4)
+						targets = CallAsTeam(unitTeam, spGetUnitsInRectangle, left, top, right, bot, -4)
 						teamCache[allyHashe] = targets
 					end
 				end
@@ -610,56 +661,6 @@ if gadgetHandler:IsSyncedCode() then
 							ignoreStop = ignoreStop,
 							userTarget = userTarget,
 						}
-					end
-				end
-			elseif nParams >= 3 then
-				if cmdParams[4] == 0 then
-					if cmdID == CMD_UNIT_SET_TARGET_NO_GROUND then
-						SendToUnsynced("failCommand", teamID)
-						return
-					end
-					cmdParams[4] = nil
-				end
-				-- TODO: targeting a sea floor
-				local elevation = math.max(spGetGroundHeight(cmdParams[1], cmdParams[3]), 0)
-				if cmdParams[2] > elevation then
-					cmdParams[2] = elevation
-				end
-				local validTarget = false
-				for weaponNum, weaponType in pairs(weapons) do
-					-- >0: Not a waterWeapon (or maybe a submissile).
-					if weaponType > 0 or cmdParams[2] <= 0 then
-						if spGetUnitWeaponTestTarget(unitID, weaponNum, cmdParams[1], cmdParams[2], cmdParams[3]) then
-							validTarget = true
-							break
-						end
-					end
-				end
-				if validTarget then
-					addTargetList = {{
-						target     = cmdParams,
-						alwaysSeen = true,
-						ignoreStop = ignoreStop,
-						userTarget = userTarget,
-					}}
-				end
-			elseif nParams == 1 then
-				local target = cmdParams[1]
-				if spValidUnitID(target) and not spAreTeamsAllied(teamID, spGetUnitTeam(target)) then
-					local validTarget = false
-					for weaponID = 1, #weapons do
-						if spGetUnitWeaponTestTarget(unitID, weaponID, target) then
-							validTarget = true
-							break
-						end
-					end
-					if validTarget then
-						addTargetList = {{
-							target     = target,
-							alwaysSeen = unitAlwaysSeen[spGetUnitDefID(target)],
-							ignoreStop = ignoreStop,
-							userTarget = userTarget,
-						}}
 					end
 				end
 			end
