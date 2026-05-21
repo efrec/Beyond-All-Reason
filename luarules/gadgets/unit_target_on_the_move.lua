@@ -16,9 +16,9 @@ local deleteMaxDistance = 30
 local targetLimitAdd = 40 -- bugged, target lists aren't growing past 40, idk why
 local targetLimitMax = 120
 
--- Unseen targets will be removed after max UNSEEN_UPDATE_FRAMES frames.
+-- Unseen targets will be removed after max `unseenUpdateFrames` frames.
 -- Should be small enough to not be evident and big enough to save perf.
-local UNSEEN_UPDATE_FRAMES = 15
+local unseenUpdateFrames = 15
 
 local CMD_UNIT_SET_TARGET_NO_GROUND = GameCMD.UNIT_SET_TARGET_NO_GROUND
 local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
@@ -111,9 +111,14 @@ if gadgetHandler:IsSyncedCode() then
 
 	local checkForManualFire = {} -- Very actively monitors for DGun/Manual Launch.
 
+	-- Send data from synced to unsynced in batches.
+	local queuedSendTargetListLength = {}
+	local queuedSendTargetListValues = {}
+
 	--------------------------------------------------------------------------------
 	-- Commands
 
+	-- TODO: i18n
 	local tooltipText = 'Set a priority attack target,\nto be used when within range\n(not removed by move commands)'
 
 	local unitSetTargetNoGroundCmdDesc = {
@@ -169,7 +174,9 @@ if gadgetHandler:IsSyncedCode() then
 		return CallAsTeam(teamID, TargetCanBeReachedReal, unitID, weaponList, target)
 	end
 
-	local function checkTarget(unitID, unitAllyID, target)
+	-- TODO: Cache unitID on any death, change of LOS, and give/take/capture between updates.
+	-- TODO: Then skip checkTarget on any unit that is not found to be in the changed set.
+	local function checkTarget(unitAllyID, target)
 		if spValidUnitID(target) then
 			local targetAllyID = spGetUnitAllyTeam(target)
 			return not spAreTeamsAllied(unitAllyID, targetAllyID)
@@ -178,7 +185,7 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
-	local function allowTargetSearch(unitID, unitData)
+	local function allowTargetSearch(unitID)
 		local _, isUserTarget = Spring.GetUnitWeaponTarget(unitID, 1) -- Assumes the primary is useful.
 		if not isUserTarget then
 			return true
@@ -193,13 +200,19 @@ if gadgetHandler:IsSyncedCode() then
 		return true
 	end
 
-	local function resetTarget(unitID, unitData)
+	local function removeUnitTarget(unitID, unitData, resetAim)
 		unitData.currentIndex = 0
 		unitData.inRange = false
 		spSetUnitRulesParam(unitID, "targetID",     -1)
 		spSetUnitRulesParam(unitID, "targetCoordX", -1)
 		spSetUnitRulesParam(unitID, "targetCoordY", -1)
 		spSetUnitRulesParam(unitID, "targetCoordZ", -1)
+		if resetAim then
+			for weaponNum in pairs(unitData.weapons) do
+				spSetUnitTarget(unitID, nil, false, false, weaponNum)
+			end
+			spSetUnitTarget(unitID, nil)
+		end
 	end
 
 	local function setTarget(unitID, unitData, targetIndex, targetData)
@@ -241,25 +254,29 @@ if gadgetHandler:IsSyncedCode() then
 	local function setNextTarget(unitID, unitData)
 		for index, targetData in pairs(unitData.targets) do
 			if setTarget(unitID, unitData, index, targetData) then
-				return
+				return index
 			end
 		end
-		resetTarget(unitID, unitData)
+		removeUnitTarget(unitID, unitData, false)
 	end
 
 	local function tryNextTarget(unitID, unitData, allowSearch)
 		if allowSearch == nil then
-			allowSearch = allowTargetSearch(unitID, unitData)
+			allowSearch = allowTargetSearch(unitID)
 		end
 		if allowSearch then
-			setNextTarget(unitID, unitData)
-			SendToUnsynced("targetIndex", unitID, unitData.currentIndex)
+			if unitData.currentIndex ~= setNextTarget(unitID, unitData) then
+				SendToUnsynced("targetIndex", unitID, unitData.currentIndex)
+			end
+		elseif unitData.currentIndex ~= 1 then
+			unitData.currentIndex = 1
+			SendToUnsynced("targetIndex", unitID, 1)
 		end
 	end
 
 	local LOSMASK_PREVLOS = LosMask.PREVLOS
 
-	local function removeUnseenTarget(targetData, attackerAllyTeam)
+	local function isTargetUnseen(targetData, attackerAllyTeam)
 		if not targetData.alwaysSeen then
 			local target = targetData.target
 			if not spValidUnitID(target) then
@@ -280,27 +297,29 @@ if gadgetHandler:IsSyncedCode() then
 	--------------------------------------------------------------------------------
 	-- Unit adding/removal
 
-	local function sendTargetsToUnsynced(unitID, targets)
+	-- TODO: Split updates between immediate and queued. We don't want to queue in some cases.
+
+	local function sendTargetList(unitID, targets)
 		for index, targetData in ipairs(targets or setTargetData[unitID].targets) do
 			if not targetData.sent then
+				targetData.sent = true
 				local target = targetData.target
 				if type(target) == "number" then
 					SendToUnsynced("targetList", unitID, index, targetData.alwaysSeen, targetData.ignoreStop, targetData.userTarget, target)
 				else
 					SendToUnsynced("targetList", unitID, index, targetData.alwaysSeen, targetData.ignoreStop, targetData.userTarget, target[1], target[2], target[3])
 				end
-				targetData.sent = true
 			end
 		end
 	end
 
-	local function sendTargetsToUnsyncedBatched(unitID, unitData)
+	local function sendTargetListBatched(unitID, unitData) -- TODO: minIndex for appending
 		local targets = unitData.targets
 		local targetCount = #targets
 		if targetCount == 0 then
 			return
 		elseif targetCount <= 8 then
-			sendTargetsToUnsynced(unitID, targets)
+			sendTargetList(unitID, targets)
 		end
 
 		local data = {}
@@ -326,7 +345,7 @@ if gadgetHandler:IsSyncedCode() then
 					data[count + 8] = target[3]
 				end
 			end
-			count = count + stride -- Limit this count by setting the max target limit.
+			count = count + stride -- We limit this count by setting the max target limit.
 		end
 		SendToUnsynced("targetListBatched", count, stride, data)
 	end
@@ -340,6 +359,7 @@ if gadgetHandler:IsSyncedCode() then
 		end
 
 		local count = #targetList
+		local unitAllyTeam = spGetUnitAllyTeam(unitID)
 		for _, targetData in ipairs(targets) do
 			if count == targetLimitMax then
 				break
@@ -349,7 +369,7 @@ if gadgetHandler:IsSyncedCode() then
 				target.ignoreStop = target.ignoreStop or targetData.ignoreStop
 				target.userTarget = target.userTarget or targetData.userTarget
 				target.sent = false
-			elseif checkTarget(unitID, targetData.target) then
+			elseif checkTarget(unitAllyTeam, targetData.target) then
 				count = count + 1
 				targetList[count] = targetData
 				targetData.sent = false
@@ -363,7 +383,7 @@ if gadgetHandler:IsSyncedCode() then
 			data = {
 				targets      = targetList,
 				teamID       = spGetUnitTeam(unitID),
-				allyTeam     = spGetUnitAllyTeam(unitID),
+				allyTeam     = unitAllyTeam,
 				weapons      = unitWeapons[unitDefID],
 				currentIndex = 1,
 				inRange      = false,
@@ -378,24 +398,21 @@ if gadgetHandler:IsSyncedCode() then
 		pausedTargets[unitID] = nil
 		checkForManualFire[unitID] = true
 		tryNextTarget(unitID, data, allowSearch)
-		sendTargetsToUnsyncedBatched(unitID, data)
+		sendTargetListBatched(unitID, data)
 	end
 
-	local function removeUnit(unitID, keepTrack)
+	local function removeUnit(unitID, keepTrack, resetAim)
 		if activeTargets[unitID] then
-			spSetUnitTarget(unitID, nil)
-			spSetUnitRulesParam(unitID, "targetID", -1)
-			spSetUnitRulesParam(unitID, "targetCoordX", -1)
-			spSetUnitRulesParam(unitID, "targetCoordY", -1)
-			spSetUnitRulesParam(unitID, "targetCoordZ", -1)
 			activeTargets[unitID] = nil
+			removeUnitTarget(unitID, setTargetData[unitID], resetAim)
 		elseif pausedTargets[unitID] then
 			pausedTargets[unitID] = nil
 		end
 		if not keepTrack then
 			setTargetData[unitID] = nil
 			checkForManualFire[unitID] = nil
-			SendToUnsynced("targetList", unitID, 0)
+			queuedSendTargetListLength[unitID] = 0
+			queuedSendTargetListValues[unitID] = nil
 		end
 	end
 
@@ -414,11 +431,11 @@ if gadgetHandler:IsSyncedCode() then
 				targets[i].sent = false
 			end
 		end
-		sendTargetsToUnsynced(unitID, targets)
-		SendToUnsynced("targetList", unitID, count + 1)
+		queuedSendTargetListLength[unitID] = count
+		queuedSendTargetListValues[unitID] = true
 	end
 
-	local function removeTarget(unitID, index, allowSearch)
+	local function removeTarget(unitID, index, allowSearch, allowSend) -- TODO: allowSend
 		local unitData = setTargetData[unitID]
 		tremove(unitData.targets, index)
 		if #unitData.targets == 0 then
@@ -431,7 +448,6 @@ if gadgetHandler:IsSyncedCode() then
 
 	local function removeInvalidTargets(unitID, unitData, allowSearch)
 		local targetList = unitData.targets
-		local currentIndex = unitData.currentIndex
 		local n = #targetList
 		local m, minIndex = n, n
 		for i = n, 1, -1 do
@@ -445,8 +461,10 @@ if gadgetHandler:IsSyncedCode() then
 		if m == 0 then
 			removeUnit(unitID)
 		elseif m ~= n then
-			if m <= currentIndex then
+			if m <= unitData.currentIndex then
 				tryNextTarget(unitID, unitData, allowSearch)
+			else
+				unitData.currentIndex = 1
 			end
 			refreshSendList(unitID, unitData, minIndex)
 		end
@@ -646,11 +664,11 @@ if gadgetHandler:IsSyncedCode() then
 				end
 			end
 			if addTargetList then
-				addUnitTargets(unitID, unitDefID, addTargetList, append, false)
+				addUnitTargets(unitID, unitDefID, addTargetList, append, not append)
 			end
 		elseif unitData then
 			if nParams == 0 then
-				removeUnit(unitID)
+				removeUnit(unitID, false, true)
 			elseif nParams == 1 then
 				if cmdOptions.alt then
 					removeTarget(unitID, cmdParams[1])
@@ -723,7 +741,7 @@ if gadgetHandler:IsSyncedCode() then
 	--------------------------------------------------------------------------------
 	-- Target update
 
-	function gadget:GameFrame(n)
+	function gadget:GameFrame(frame)
 		-- ideally timing would be synced with slow update to reduce attack jittering
 		-- SlowUpdate+ causes attack command to override target command
 		-- unfortunately since 103 that's not possible, attempt to override every frame
@@ -731,15 +749,16 @@ if gadgetHandler:IsSyncedCode() then
 		-- a set target command, howrever a quick test with 300 fidos only increased by 1%
 		-- sim here
 
-		if n % 5 == 4 then
+		if frame % 5 == 4 then
+			-- This is our largest overall expense in the synced code.
+			-- Making something better would be a hassle but worth it.
 			for unitID, unitData in pairsNext, setTargetData do
 				local targets = unitData.targets
 				local removed = 0
 
 				for index = 1, #targets do
-					local targetData = targets[index]
-					if not checkTarget(unitID, targetData.target) then
-						targetData.invalid = true
+					if not checkTarget(unitID, targets[index].target) then
+						targets[index].invalid = true
 						removed = removed + 1
 					end
 				end
@@ -751,12 +770,12 @@ if gadgetHandler:IsSyncedCode() then
 			end
 		end
 
-		if n % UNSEEN_UPDATE_FRAMES == 0 then
+		if frame % unseenUpdateFrames == 0 then
 			for unitID, unitData in pairsNext, setTargetData do
 				local targets = unitData.targets
 				-- Iterate backwards to safely handle removals
 				for index = #targets, 1, -1 do
-					if removeUnseenTarget(targets[index], unitData.allyTeam) then
+					if isTargetUnseen(targets[index], unitData.allyTeam) then
 						removeTarget(unitID, index)
 					end
 				end
@@ -777,6 +796,15 @@ if gadgetHandler:IsSyncedCode() then
 			else
 				checkForManualFire[unitID] = nil
 			end
+		end
+
+		-- Truncating target lists is not too expensive to repeat.
+		for unitID, count in pairs(queuedSendTargetListLength) do
+			SendToUnsynced("targetList", unitID, count)
+		end
+		-- Especially trye to send target lists only once per frame.
+		for unitID, unitData in pairs(queuedSendTargetListValues) do
+			sendTargetListBatched(unitID, unitData)
 		end
 
 		searchCaches = {}
