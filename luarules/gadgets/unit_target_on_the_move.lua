@@ -456,8 +456,7 @@ if gadgetHandler:IsSyncedCode() then
 		local m, minIndex = n, n
 		for i = n, 1, -1 do
 			if targetList[i].invalid then
-				targetList[i] = targetList[m]
-				targetList[m] = nil
+				tremove(targetList, i) -- Do not reorder the list.
 				m = m - 1
 				minIndex = i
 			end
@@ -465,10 +464,8 @@ if gadgetHandler:IsSyncedCode() then
 		if m == 0 then
 			removeUnit(unitID)
 		elseif m ~= n then
-			if m <= unitData.currentIndex then
+			if minIndex <= unitData.currentIndex then
 				tryNextTarget(unitID, unitData, allowSearch)
-			else
-				unitData.currentIndex = 1
 			end
 			refreshSendList(unitID, unitData, minIndex)
 		end
@@ -481,8 +478,7 @@ if gadgetHandler:IsSyncedCode() then
 		local m, minIndex = n, n
 		for i = n, 1, -1 do
 			if not targetList[i].ignoreStop then
-				targetList[i] = targetList[m]
-				targetList[m] = nil
+				tremove(targetList, i) -- Do not reorder the list.
 				m = m - 1
 				minIndex = i
 			end
@@ -490,7 +486,11 @@ if gadgetHandler:IsSyncedCode() then
 		if m == 0 then
 			removeUnit(unitID)
 		elseif m < n then
-			setNextTarget(unitID, unitData)
+			-- Should we always try setting a new target after Stop?
+			-- Or do we try to account for edge cases with tryNext?
+			if minIndex <= unitData.currentIndex then
+				tryNextTarget(unitID, unitData)
+			end
 			refreshSendList(unitID, unitData, minIndex)
 		end
 	end
