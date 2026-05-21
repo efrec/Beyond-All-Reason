@@ -340,7 +340,7 @@ if gadgetHandler:IsSyncedCode() then
 		end
 
 		local count = #targetList
-		for _, targetData in ipairs(targetList) do
+		for _, targetData in ipairs(targets) do
 			if count == targetLimitMax then
 				break
 			end
