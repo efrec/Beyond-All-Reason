@@ -291,8 +291,8 @@ if gadgetHandler:IsSyncedCode() then
 	--------------------------------------------------------------------------------
 	-- Unit adding/removal
 
-	local function sendTargetsToUnsynced(unitID)
-		for index, targetData in ipairs(setTargetData[unitID].targets) do
+	local function sendTargetsToUnsynced(unitID, targets)
+		for index, targetData in ipairs(targets or setTargetData[unitID].targets) do
 			if not targetData.sent then
 				local target = targetData.target
 				if type(target) == "number" then
@@ -305,38 +305,41 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
-	local function sendTargetsToUnsyncedBatched(unitID)
-		local targetCount = #setTargetData[unitID].targets
-		if targetCount == 1 then
-			sendTargetsToUnsynced(unitID)
-		elseif targetCount > 1 then
-			local data = {}
-			local count = 0
-			local stride = 8
-			for index, targetData in ipairs(setTargetData[unitID].targets) do
-				if not targetData.sent then
-					local target = targetData.target
-					data[count + 1] = unitID
-					data[count + 2] = index
-					data[count + 3] = targetData.alwaysSeen
-					data[count + 4] = targetData.ignoreStop
-					data[count + 5] = targetData.userTarget
-					if type(target) == "number" then
-						data[count + 6] = target
-						data[count + 7] = -1
-						data[count + 8] = -1
-					else
-						data[count + 6] = target[1]
-						data[count + 7] = target[2]
-						data[count + 8] = target[3]
-					end
-					targetData.sent = true
-				end
-				count = count + stride
-				if count > 4000 then break end
-			end
-			SendToUnsynced("targetListBatched", count, stride, data)
+	local function sendTargetsToUnsyncedBatched(unitID, unitData)
+		local targets = unitData.targets
+		local targetCount = #targets
+		if targetCount == 0 then
+			return
+		elseif targetCount <= 8 then
+			sendTargetsToUnsynced(unitID, targets)
 		end
+
+		local data = {}
+		local count = 0
+		local stride = 8
+		for index = 1, targetCount do
+			local targetData = targets[index]
+			if not targetData.sent then
+				targetData.sent = true
+				data[count + 1] = unitID
+				data[count + 2] = index
+				data[count + 3] = targetData.alwaysSeen
+				data[count + 4] = targetData.ignoreStop
+				data[count + 5] = targetData.userTarget
+				local target = targetData.target
+				if type(target) == "number" then
+					data[count + 6] = target
+					data[count + 7] = -1
+					data[count + 8] = -1
+				else
+					data[count + 6] = target[1]
+					data[count + 7] = target[2]
+					data[count + 8] = target[3]
+				end
+			end
+			count = count + stride -- Limit this count by setting the max target limit.
+		end
+		SendToUnsynced("targetListBatched", count, stride, data)
 	end
 
 	local function addUnitTargets(unitID, unitDefID, targets, append, allowSearch)
@@ -386,7 +389,7 @@ if gadgetHandler:IsSyncedCode() then
 		pausedTargets[unitID] = nil
 		checkForManualFire[unitID] = true
 		tryNextTarget(unitID, data, allowSearch)
-		sendTargetsToUnsynced(unitID)
+		sendTargetsToUnsyncedBatched(unitID, data)
 	end
 
 	local function removeUnit(unitID, keepTrack)
@@ -422,8 +425,8 @@ if gadgetHandler:IsSyncedCode() then
 				targets[i].sent = false
 			end
 		end
-		sendTargetsToUnsynced(unitID)
-		SendToUnsynced("targetList", unitID, count + 1) -- ask to clear the last element when the table is smaller
+		sendTargetsToUnsynced(unitID, targets)
+		SendToUnsynced("targetList", unitID, count + 1)
 	end
 
 	local function removeTarget(unitID, index, allowSearch)
@@ -823,6 +826,7 @@ else	-- UNSYNCED
 	local spSetCustomCommandDrawData = Spring.SetCustomCommandDrawData
 	local spAddWorldIcon = Spring.AddWorldIcon
 	local pairsNext = next
+	local ensureTable = table.ensureTable
 
 	local myAllyTeam = spGetMyAllyTeamID()
 	local myTeam = spGetMyTeamID()
@@ -852,46 +856,39 @@ else	-- UNSYNCED
 	end
 
 	local function handleTargetListEvent(_, unitID, index, alwaysSeen, ignoreStop, userTarget, targetA, targetB, targetC)
-		--tracy.ZoneBeginN(string.format("handleTargetListEvent %d %d ", unitID, index))
-		if index == 0 then
+		if index == 0 or (index == 1 and not targetA) then
 			targetList[unitID] = nil
-			--tracy.ZoneEnd()
 			return
 		end
-		targetList[unitID] = targetList[unitID] or {}
+		local unitTargetList = ensureTable(targetList, unitID)
+		local targets
 		if index == 1 then
-			targetList[unitID].targets = {}
+			targets = {}
+			unitTargetList.targets = targets
+		else
+			targets = ensureTable(unitTargetList, "targets")
 		end
+		local count = #targets
 		if targetA == nil then
-			local targets = targetList[unitID].targets
-			if targets then
-				for i = index, #targets do
-					targets[i] = nil
-				end
+			for i = index, count do
+				targets[i] = nil
 			end
 			return
 		end
-		targetList[unitID].targets = targetList[unitID].targets or {}
-		targetList[unitID].targets[index] = {
+		if index > count + 1 then
+			index = count + 1
+		end
+		targets[index] = {
+			target     = (targetB == -1 and targetC == -1 and targetA) or { targetA, targetB, targetC },
 			alwaysSeen = alwaysSeen,
 			ignoreStop = ignoreStop,
 			userTarget = userTarget,
-			target = (not tonumber(targetB) and targetA) or { targetA, targetB, targetC },
 		}
-		--tracy.ZoneEnd()
 	end
 
 	local function handleTargetListBatchedEvent(_, count, stride, data)
-		for i =1, count, stride do
-			local targetB = data[i+6]
-			local targetC = data[i+7]
-			if targetB < 0 then
-				targetB = nil
-			end
-			if targetC < 0 then
-				targetC = nil
-			end
-			handleTargetListEvent(_, data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], targetB, targetC)
+		for i = 1, count, stride do
+			handleTargetListEvent(_, data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], data[i+6], data[i+7])
 		end
 	end
 
@@ -914,16 +911,6 @@ else	-- UNSYNCED
 		return true
 	end
 
-	--function handleTargetChangeEvent(_,unitID,dataA,dataB,dataC)
-	--	if not dataB then
-	--		--single unitID format
-	--		unitTargets[unitID] = dataA
-	--	elseif dataA and dataB and dataC then
-	--		--3d coordinates format
-	--		unitTargets[unitID] = {dataA,dataB,dataC}
-	--	end
-	--    return true
-	--end
 	local unitIconsDrawn = {}
 	local function drawUnitTarget(cacheKey, x, y, z)
 		glVertex(x, y, z)
