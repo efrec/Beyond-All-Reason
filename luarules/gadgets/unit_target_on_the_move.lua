@@ -21,26 +21,6 @@ end
 --     Fire at Will: Uses "targeting priority".
 --     Set Target: Earliest index in list.
 
-local spGetUnitRulesParam = Spring.GetUnitRulesParam
-
-function GG.GetUnitTarget(unitID)
-	local targetID = spGetUnitRulesParam(unitID, "targetID")
-	if not targetID then
-		return
-	end
-
-	if targetID ~= -1 then
-		return targetID
-	end
-
-	local targetCoordX = spGetUnitRulesParam(unitID, "targetCoordX")
-	local targetCoordY = spGetUnitRulesParam(unitID, "targetCoordY")
-	local targetCoordZ = spGetUnitRulesParam(unitID, "targetCoordZ")
-	if targetCoordX ~= -1 and targetCoordZ ~= -1 then
-		return { targetCoordX, targetCoordY, targetCoordZ }
-	end
-end
-
 if gadgetHandler:IsSyncedCode() then    -- SYNCED
 
 	local cancelCommandDistance = 30 -- Unused feature except for user custom widgets.
@@ -174,16 +154,12 @@ if gadgetHandler:IsSyncedCode() then    -- SYNCED
 	--------------------------------------------------------------------------------
 	-- Commands
 
-	-- TODO: i18n
-	local tooltipText = 'Set a priority attack target,\nto be used when within range\n(not removed by move commands)'
-
 	local unitSetTargetNoGroundCmdDesc = {
 		id = CMD_UNIT_SET_TARGET_NO_GROUND,
 		type = CMDTYPE.ICON_UNIT_OR_AREA,
 		name = 'Set Unit Target',
 		action = 'settargetnoground',
 		cursor = 'settarget',
-		tooltip = tooltipText,
 		hidden = true,
 		queueing = false,
 	}
@@ -191,10 +167,9 @@ if gadgetHandler:IsSyncedCode() then    -- SYNCED
 	local unitSetTargetCircleCmdDesc = {
 		id = CMD_UNIT_SET_TARGET,
 		type = CMDTYPE.ICON_UNIT_OR_AREA,
-		name = 'Set Target', --extra spaces center the 'Set' text
+		name = 'Set Target',
 		action = 'settarget',
 		cursor = 'settarget',
-		tooltip = tooltipText,
 		hidden = false,
 		queueing = false,
 	}
@@ -204,7 +179,6 @@ if gadgetHandler:IsSyncedCode() then    -- SYNCED
 		type = CMDTYPE.ICON,
 		name = 'Cancel Target',
 		action = 'canceltarget',
-		tooltip = 'Removes top priority target, if set',
 		hidden = false,
 		queueing = false,
 	}
@@ -237,29 +211,29 @@ if gadgetHandler:IsSyncedCode() then    -- SYNCED
 		end
 
 		local data = table_new(targetCount * 5, 0)
-		local total = 0
-		for count = (minIndex or 1), targetCount do
-			local targetData = targets[count]
+		local count = 0
+		for index = (minIndex or 1), targetCount do
+			local targetData = targets[index]
 			if not targetData.sent then
 				targetData.sent = true
-				data[count + 1] = count
-				data[count + 2] = targetData.userTarget -- Other options are unused.
+				data[index + 1] = index
+				data[index + 2] = targetData.userTarget -- Other options are unused.
 				local target = targetData.target
 				if type(target) == "number" then
-					data[count + 3] = target
-					data[count + 4] = -1
-					data[count + 5] = -1
+					data[index + 3] = target
+					data[index + 4] = -1
+					data[index + 5] = -1
 				else
-					data[count + 3] = target[1]
-					data[count + 4] = target[2]
-					data[count + 5] = target[3]
+					data[index + 3] = target[1]
+					data[index + 4] = target[2]
+					data[index + 5] = target[3]
 				end
 			end
-			total = total + 1 -- Limit this by setting the max target limit.
+			count = count + 1 -- Limit this by setting the max target limit.
 		end
 
 		if data[2] then
-			SendToUnsynced("targetListBatched", unitID, total, data)
+			SendToUnsynced("targetListBatched", unitID, count, data)
 		end
 	end
 
@@ -543,59 +517,6 @@ if gadgetHandler:IsSyncedCode() then    -- SYNCED
 			end
 			readySendList(unitID, targetList, minIndex)
 		end
-	end
-
-	function GG.getUnitTargetList(unitID)
-		return activeTargets[unitID] and activeTargets[unitID].targets
-	end
-
-	function GG.getUnitTargetIndex(unitID)
-		return activeTargets[unitID] and activeTargets[unitID].currentIndex
-	end
-
-	function gadget:Initialize()
-		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET)
-		gadgetHandler:RegisterCMDID(CMD_UNIT_CANCEL_TARGET)
-		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET_RECTANGLE)
-		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET_NO_GROUND)
-
-		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET_NO_GROUND)
-		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET)
-		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET_RECTANGLE)
-		gadgetHandler:RegisterAllowCommand(CMD_UNIT_CANCEL_TARGET)
-
-		for weaponDefID in pairs(WeaponDefs) do
-			Script.SetWatchAllowTarget(weaponDefID, true)
-		end
-
-		local allUnits = spGetAllUnits()
-		for i = 1, #allUnits do
-			local unitID = allUnits[i]
-			gadget:UnitCreated(unitID, spGetUnitDefID(unitID), spGetUnitTeam(unitID))
-		end
-	end
-
-	function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
-		if validUnits[unitDefID] then
-			spInsertUnitCmdDesc(unitID, unitSetTargetNoGroundCmdDesc)
-			spInsertUnitCmdDesc(unitID, unitSetTargetCircleCmdDesc)
-			spInsertUnitCmdDesc(unitID, unitCancelTargetCmdDesc)
-			if setTargetData[builderID] then
-				addUnitTargets(unitID, unitDefID, setTargetData[builderID].targets, false)
-			end
-		end
-	end
-
-	function gadget:UnitGiven(unitID, unitDefID, unitTeam)
-		removeUnit(unitID)
-	end
-
-	function gadget:UnitTaken(unitID, unitDefID, unitTeam)
-		removeUnit(unitID)
-	end
-
-	function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
-		removeUnit(unitID)
 	end
 
 	--------------------------------------------------------------------------------
@@ -945,6 +866,63 @@ if gadgetHandler:IsSyncedCode() then    -- SYNCED
 		return unitData and unitData.inRange and 0 or autoTargetRange -- <= 0 disables autotargeting
 	end
 
+	function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
+		if validUnits[unitDefID] then
+			spInsertUnitCmdDesc(unitID, unitSetTargetNoGroundCmdDesc)
+			spInsertUnitCmdDesc(unitID, unitSetTargetCircleCmdDesc)
+			spInsertUnitCmdDesc(unitID, unitCancelTargetCmdDesc) -- Dynamically hidden via the order menu.
+			if setTargetData[builderID] then
+				addUnitTargets(unitID, unitDefID, setTargetData[builderID].targets, false)
+			end
+		end
+	end
+
+	function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
+		removeUnit(unitID)
+	end
+
+	function gadget:UnitTaken(unitID, unitDefID, unitTeam)
+		removeUnit(unitID)
+	end
+
+	function GG.getUnitTargetList(unitID)
+		return activeTargets[unitID] and activeTargets[unitID].targets
+	end
+
+	function GG.getUnitTargetIndex(unitID)
+		return activeTargets[unitID] and activeTargets[unitID].currentIndex
+	end
+
+	function GG.GetUnitTarget(unitID)
+		local unitData = activeTargets[unitID]
+		if not unitData then
+			return
+		end
+		return unitData.targets[unitData.currentIndex]
+	end
+
+	function gadget:Initialize()
+		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET)
+		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET_NO_GROUND)
+		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET_RECTANGLE)
+		gadgetHandler:RegisterCMDID(CMD_UNIT_CANCEL_TARGET)
+
+		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET)
+		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET_NO_GROUND)
+		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET_RECTANGLE)
+		gadgetHandler:RegisterAllowCommand(CMD_UNIT_CANCEL_TARGET)
+
+		for weaponDefID in pairs(WeaponDefs) do
+			Script.SetWatchAllowTarget(weaponDefID, true)
+		end
+
+		local allUnits = spGetAllUnits()
+		for i = 1, #allUnits do
+			local unitID = allUnits[i]
+			gadget:UnitCreated(unitID, spGetUnitDefID(unitID), spGetUnitTeam(unitID))
+		end
+	end
+
 	function gadget:RecvLuaMsg(msg, playerID)
 		if msg == "settarget_line" then
 			local _, _, _, teamID = spGetPlayerInfo(playerID)
@@ -956,6 +934,7 @@ if gadgetHandler:IsSyncedCode() then    -- SYNCED
 
 
 else	-- UNSYNCED
+
 
 	local initialDrawCount = 50 -- The first chunk size of drawn Set Target commands without skipping any units.
 	local maximumSkipCount = 32 -- The maximum amount of units to skip in one draw chunk, after the first chunk.
@@ -989,9 +968,8 @@ else	-- UNSYNCED
 	local spGetUnitTeam = Spring.GetUnitTeam
 	local spPlaySoundFile = Spring.PlaySoundFile
 	local spSetActiveCommand = Spring.SetActiveCommand
-	local spAssignMouseCursor = Spring.AssignMouseCursor
-	local spSetCustomCommandDrawData = Spring.SetCustomCommandDrawData
 	local spAddWorldIcon = Spring.AddWorldIcon
+	local spGetUnitRulesParam = Spring.GetUnitRulesParam
 
 	local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
 
@@ -1006,14 +984,6 @@ else	-- UNSYNCED
 	local drawAllTargets = {}
 	local drawTarget = {}
 	local targetList = {} ---@type table<integer, UnitSetTargetDrawInfo>
-
-	function GG.getUnitTargetList(unitID)
-		return targetList[unitID] and targetList[unitID].targets
-	end
-
-	function GG.getUnitTargetIndex(unitID)
-		return targetList[unitID] and targetList[unitID].currentIndex
-	end
 
 	local function handleFailCommand(_, teamID)
 		if teamID == myTeam and not mySpec then
@@ -1155,33 +1125,6 @@ else	-- UNSYNCED
 		unitIconsDrawn = {}
 	end
 
-	function gadget:Initialize()
-		gadgetHandler:AddChatAction("targetdrawteam", handleTargetDrawEvent, "toggles drawing targets for units, params: teamID doDraw")
-		gadgetHandler:AddChatAction("targetdrawunit", handleUnitTargetDrawEvent, "toggles drawing targets for units, params: unitID")
-
-		gadgetHandler:AddSyncAction("targetList", handleTargetListEvent)
-		gadgetHandler:AddSyncAction("targetListBatched", handleTargetListBatchedEvent)
-		gadgetHandler:AddSyncAction("targetIndex", handleTargetIndexEvent)
-		gadgetHandler:AddSyncAction("failCommand", handleFailCommand)
-
-		-- register cursor
-		spAssignMouseCursor("settarget", "cursorsettarget", false)
-
-		-- show the command in the queue -- NOTE: Commands were made non-queueing to simplify handling them.
-		-- spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET, "settarget", queueColour, true)
-		-- spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_NO_GROUND, "settargetrectangle", queueColour, true)
-		-- spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_RECTANGLE, "settargetnoground", queueColour, true)
-	end
-
-	function gadget:Shutdown()
-		gadgetHandler:RemoveChatAction("targetdrawteam")
-		gadgetHandler:RemoveChatAction("targetdrawunit")
-		gadgetHandler:RemoveSyncAction("targetList")
-		gadgetHandler:RemoveSyncAction("targetListBatched")
-		gadgetHandler:RemoveSyncAction("targetIndex")
-		gadgetHandler:RemoveSyncAction("failCommand")
-	end
-
 	function gadget:PlayerChanged(playerID)
 		myAllyTeam = spGetMyAllyTeamID()
 		myTeam = spGetMyTeamID()
@@ -1198,6 +1141,59 @@ else	-- UNSYNCED
 		else
 			CallAsTeam(myTeam, drawDecorations)
 		end
+	end
+
+	function GG.getUnitTargetList(unitID)
+		return targetList[unitID] and targetList[unitID].targets
+	end
+
+	function GG.getUnitTargetIndex(unitID)
+		return targetList[unitID] and targetList[unitID].currentIndex
+	end
+
+	function GG.GetUnitTarget(unitID)
+		local targetID = spGetUnitRulesParam(unitID, "targetID")
+		if not targetID then
+			return
+		end
+
+		if targetID ~= -1 then
+			return targetID
+		end
+
+		local targetCoordX = spGetUnitRulesParam(unitID, "targetCoordX")
+		local targetCoordY = spGetUnitRulesParam(unitID, "targetCoordY")
+		local targetCoordZ = spGetUnitRulesParam(unitID, "targetCoordZ")
+		if targetCoordX ~= -1 and targetCoordZ ~= -1 then
+			return { targetCoordX, targetCoordY, targetCoordZ }
+		end
+	end
+
+	function gadget:Initialize()
+		gadgetHandler:AddChatAction("targetdrawteam", handleTargetDrawEvent, "toggles drawing targets for units, params: teamID doDraw")
+		gadgetHandler:AddChatAction("targetdrawunit", handleUnitTargetDrawEvent, "toggles drawing targets for units, params: unitID")
+
+		gadgetHandler:AddSyncAction("targetList", handleTargetListEvent)
+		gadgetHandler:AddSyncAction("targetListBatched", handleTargetListBatchedEvent)
+		gadgetHandler:AddSyncAction("targetIndex", handleTargetIndexEvent)
+		gadgetHandler:AddSyncAction("failCommand", handleFailCommand)
+
+		-- register cursor
+		Spring.AssignMouseCursor("settarget", "cursorsettarget", false)
+
+		-- show the command in the queue -- NOTE: Commands were made non-queueing to simplify handling them.
+		-- Spring.SetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET, "settarget", queueColour, true)
+		-- Spring.SetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_NO_GROUND, "settargetrectangle", queueColour, true)
+		-- Spring.SetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_RECTANGLE, "settargetnoground", queueColour, true)
+	end
+
+	function gadget:Shutdown()
+		gadgetHandler:RemoveChatAction("targetdrawteam")
+		gadgetHandler:RemoveChatAction("targetdrawunit")
+		gadgetHandler:RemoveSyncAction("targetList")
+		gadgetHandler:RemoveSyncAction("targetListBatched")
+		gadgetHandler:RemoveSyncAction("targetIndex")
+		gadgetHandler:RemoveSyncAction("failCommand")
 	end
 
 end
