@@ -41,21 +41,15 @@ function GG.GetUnitTarget(unitID)
 	end
 end
 
-if gadgetHandler:IsSyncedCode() then
+if gadgetHandler:IsSyncedCode() then    -- SYNCED
 
-	-- SYNCED CODE
+	local cancelCommandDistance = 30 -- Unused feature except for user custom widgets.
+	local targetLimitAdd = 60 -- Prevent adding huge chunks at once from the area command.
+	local targetLimitMax = 90 -- How many "priority" targets can you possibly have? 31999?
 
-	local cancelCommandDistance = 30
-	local targetLimitAdd = 60
-	local targetLimitMax = 120
-
-	-- We constantly check for precedence/contention with other targeting.
-	local commandUpdateFrames = 3
-	-- Checks units that are destroyed or captured or alliances that change.
-	local targetUpdateFrames = 10
-	-- Unseen targets will be removed after max `unseenUpdateFrames` frames.
-	-- Should be small enough to not be evident and big enough to save perf.
-	local unseenUpdateFrames = 15
+	local commandUpdateFrames = 3 -- We constantly check for precedence/contention with other targeting.
+	local targetUpdateFrames = 10 -- Checks units that are destroyed or captured or alliances that change.
+	local unseenUpdateFrames = 15 -- Checks units that are destroyed or have left sight and radar range.
 
 	local next = next
 	local type = type
@@ -1164,6 +1158,7 @@ else	-- UNSYNCED
 	function gadget:Initialize()
 		gadgetHandler:AddChatAction("targetdrawteam", handleTargetDrawEvent, "toggles drawing targets for units, params: teamID doDraw")
 		gadgetHandler:AddChatAction("targetdrawunit", handleUnitTargetDrawEvent, "toggles drawing targets for units, params: unitID")
+
 		gadgetHandler:AddSyncAction("targetList", handleTargetListEvent)
 		gadgetHandler:AddSyncAction("targetListBatched", handleTargetListBatchedEvent)
 		gadgetHandler:AddSyncAction("targetIndex", handleTargetIndexEvent)
@@ -1171,10 +1166,11 @@ else	-- UNSYNCED
 
 		-- register cursor
 		spAssignMouseCursor("settarget", "cursorsettarget", false)
-		--show the command in the queue
-		spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET, "settarget", queueColour, true)
-		spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_NO_GROUND, "settargetrectangle", queueColour, true)
-		spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_RECTANGLE, "settargetnoground", queueColour, true)
+
+		-- show the command in the queue -- NOTE: Commands were made non-queueing to simplify handling them.
+		-- spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET, "settarget", queueColour, true)
+		-- spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_NO_GROUND, "settargetrectangle", queueColour, true)
+		-- spSetCustomCommandDrawData(GameCMD.UNIT_SET_TARGET_RECTANGLE, "settargetnoground", queueColour, true)
 	end
 
 	function gadget:Shutdown()
