@@ -26,6 +26,7 @@ local targetEnergy = 0
 local waitedUnits = nil -- nil / waitedUnits[1..n] = uID
 local shouldWait = {}
 local isFactory = {}
+local manualFireECost = {}
 
 local gameStarted
 
@@ -73,7 +74,16 @@ function widget:Initialize()
     end
 
 	for uDefID, uDef in pairs(UnitDefs) do
-		if uDef.buildSpeed > 0 and not uDef.canManualFire and (uDef.canAssist or uDef.buildOptions[1]) then
+		if uDef.canManualFire then
+			for _, weapon in ipairs(uDef.weapons) do
+				local weaponDef = WeaponDefs[weapon.weaponDef]
+				if weaponDef.manualFire and weaponDef.energyCost > 0 then
+					manualFireECost[uDefID] = weaponDef.energyCost * 1.2 -- Add some margin
+					break
+				end
+			end
+		end
+		if not manualFireECost[uDefID] and uDef.buildSpeed > 0 and (uDef.canAssist or uDef.buildOptions[1]) then
 			shouldWait[uDefID] = true
 			if uDef.isFactory then
 				isFactory[uDefID] = true
