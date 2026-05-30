@@ -12,18 +12,16 @@ function widget:GetInfo()
 	}
 end
 
-
--- Localized Spring API for performance
-local spGetGameFrame = Spring.GetGameFrame
-
-local watchForTime = 3 --How long to monitor the energy level after the dgun command is given
+local watchForFrames = 3.0 * Game.gameSpeed -- How long to monitor after releasing the command
+local checkForFrames = 0.1 * Game.gameSpeed -- Time between wait and un-wait update sweeps
 
 ----------------------------------------------------------------
--- Globals
+-- Local state
 ----------------------------------------------------------------
-local watchTime = 0
+local watchFrames = 0
+local checkFrames = 0
 local targetEnergy = 0
-local waitedUnits = nil -- nil / waitedUnits[1..n] = uID
+local waitedUnits = {}
 local shouldWait = {}
 local isFactory = {}
 local manualFireECost = {}
@@ -35,30 +33,124 @@ local gameStarted
 ----------------------------------------------------------------
 local spGetActiveCommand = Spring.GetActiveCommand
 local spGiveOrderToUnitArray = Spring.GiveOrderToUnitArray
+local spGiveOrderToUnitMap = Spring.GiveOrderToUnitMap
 local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
 local spGetFactoryCommands = Spring.GetFactoryCommands
 local spGetMyTeamID = Spring.GetMyTeamID
 local spGetTeamResources = Spring.GetTeamResources
 local spGetTeamUnits = Spring.GetTeamUnits
 local spGetUnitDefID = Spring.GetUnitDefID
-local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
 
 local CMD_DGUN = CMD.DGUN
 local CMD_WAIT = CMD.WAIT
-local CMD_MOVE = CMD.MOVE
-local CMD_REPAIR = CMD.REPAIR
-local CMD_RECLAIM = CMD.RECLAIM
+local CMD_RESURRECT = CMD.RESURRECT
 
 ----------------------------------------------------------------
--- Callins
+-- Local functions
 ----------------------------------------------------------------
-
-function maybeRemoveSelf()
-    if Spring.GetSpectatingState() and (spGetGameFrame() > 0 or gameStarted) then
+local function maybeRemoveSelf()
+    if Spring.GetSpectatingState() and (Spring.GetGameFrame() > 0 or gameStarted) then
         widgetHandler:RemoveWidget()
     end
 end
 
+local function isFactoryInBuildTask(unitID)
+	local commands = spGetFactoryCommands(unitID, 1)
+	return commands and commands[1] and commands[1].id < 0
+end
+
+local function isFactoryInWait(unitID)
+	local commands = spGetFactoryCommands(unitID, 1)
+	return commands and commands[1] and commands[1].id == CMD_WAIT
+end
+
+local function isUnitInBuildTask(unitID)
+	local cmdID = Spring.GetUnitWorkerTask(unitID)
+	return cmdID and (cmdID < 0 or cmdID == CMD_RESURRECT)
+end
+
+local function isUnitInWait(unitID)
+	return spGetUnitCurrentCommand(unitID) == CMD_WAIT
+end
+
+local function startDGunStallAssistWatch()
+	local selection = Spring.GetSelectedUnitsCounts()
+	for unitDefID in next, selection do
+		if manualFireECost[unitDefID] then
+			targetEnergy = manualFireECost[unitDefID]
+			watchFrames = watchForFrames
+			checkFrames = 0
+			return
+		end
+	end
+	targetEnergy = 0
+	watchFrames = 0
+	checkFrames = checkForFrames
+end
+
+local function inEnergyStall(teamID)
+	local currentEnergy, energyStorage = spGetTeamResources(teamID, "energy")
+	return currentEnergy < targetEnergy and energyStorage >= targetEnergy
+end
+
+local function waitUnits()
+	local myTeamID = spGetMyTeamID()
+	if not inEnergyStall(myTeamID) then
+		return
+	end
+	local waitMap = {}
+	local myUnits = spGetTeamUnits(myTeamID)
+	assert(myUnits)
+	for i = 1, #myUnits do
+		local uID = myUnits[i]
+		local uDefID = spGetUnitDefID(uID)
+		if shouldWait[uDefID] and not waitedUnits[uID] then
+			if isFactory[uDefID] then
+				if isFactoryInBuildTask(uID) then -- cannot also be in wait
+					waitMap[uID] = true
+					waitedUnits[uID] = true
+				end
+			else
+				if isUnitInBuildTask(uID) and not isUnitInWait(uID) then
+					waitMap[uID] = true
+					waitedUnits[uID] = true
+				end
+			end
+		end
+	end
+	if next(waitMap) then
+		spGiveOrderToUnitMap(waitMap, CMD_WAIT)
+	end
+end
+
+local function unwaitUnits()
+	local unwaitList, count = {}, 0
+	for uID in next, waitedUnits do
+		local uDefID = spGetUnitDefID(uID)
+		if isFactory[uDefID] then
+			if isFactoryInWait(uID) then
+				count = count + 1
+				unwaitList[count] = uID
+			else
+				waitedUnits[uID] = nil
+			end
+		else
+			if isUnitInWait(uID) then
+				count = count + 1
+				unwaitList[count] = uID
+			else
+				waitedUnits[uID] = nil
+			end
+		end
+	end
+	if count > 0 then
+		spGiveOrderToUnitArray(unwaitList, CMD_WAIT)
+	end
+end
+
+----------------------------------------------------------------
+-- Callins
+----------------------------------------------------------------
 function widget:GameStart()
     gameStarted = true
     maybeRemoveSelf()
@@ -69,7 +161,7 @@ function widget:PlayerChanged(playerID)
 end
 
 function widget:Initialize()
-    if Spring.IsReplay() or spGetGameFrame() > 0 then
+    if Spring.IsReplay() or Spring.GetGameFrame() > 0 then
         maybeRemoveSelf()
     end
 
@@ -92,83 +184,26 @@ function widget:Initialize()
 	end
 end
 
-function widget:Update(dt)
-
+function widget:GameFrame(frame)
+	-- Player has to keep the command active to continue the stall,
+	-- i.e. this does not check whether the DGun ever fires or not.
 	local _, activeCmdID = spGetActiveCommand()
 	if activeCmdID == CMD_DGUN then
-		local selection = Spring.GetSelectedUnitsCounts()
-		local stallUnitSelected = false
-
-		for uDefID, _ in next, selection do
-			local uDef = UnitDefs[uDefID]
-			if uDef and uDef.canManualFire then
-				--Look for the weapondef with manual fire and energy cost
-				for _, wDef in next, uDef.wDefs do
-					if wDef.manualFire and wDef.energyCost and wDef.energyCost > 0 then
-						stallUnitSelected = true
-						targetEnergy = wDef.energyCost * 1.2 --Add some margin above the energy cost
-						break
-					end
-				end
-			end
-		end
-
-		if stallUnitSelected then
-			watchTime = watchForTime
-		end
-	else
-		watchTime = watchTime - dt
-
-		if waitedUnits and watchTime < 0 then
-
-			local toUnwait = {}
-			for i = 1, #waitedUnits do
-				local uID = waitedUnits[i]
-				local uDefID = spGetUnitDefID(uID)
-				if isFactory[uDefID] then
-					local uCmds = spGetFactoryCommands(uID, 1)
-					if uCmds and #uCmds > 0 and uCmds[1].id == CMD_WAIT then
-						toUnwait[#toUnwait + 1] = uID
-					end
-				else
-					local uCmd = spGetUnitCurrentCommand(uID, 1)
-					if uCmd and uCmd == CMD_WAIT then
-						toUnwait[#toUnwait + 1] = uID
-					end
-				end
-			end
-			spGiveOrderToUnitArray(toUnwait, CMD_WAIT, {}, 0)
-
-			waitedUnits = nil
-		end
+		startDGunStallAssistWatch()
 	end
 
-	if watchTime > 0 and not waitedUnits then
+	if watchFrames > 0 then
+		watchFrames = watchFrames - 1
+	end
 
-		local myTeamID = spGetMyTeamID()
-		local currentEnergy, energyStorage = spGetTeamResources(myTeamID, "energy")
-		if currentEnergy < targetEnergy and energyStorage >= targetEnergy then
-
-			waitedUnits = {}
-			local myUnits = spGetTeamUnits(myTeamID)
-			for i = 1, #myUnits do
-				local uID = myUnits[i]
-				local uDefID = spGetUnitDefID(uID)
-				if shouldWait[uDefID] then
-					if isFactory[uDefID] then
-						local uCmds = spGetFactoryCommands(uID, 1)
-						if #uCmds == 0 or uCmds[1].id ~= CMD_WAIT then
-							waitedUnits[#waitedUnits + 1] = uID
-						end
-					else
-						local uCmd, _, _, cmdParams = spGetUnitCurrentCommand(uID, 1)
-						if not uCmd or (uCmd ~= CMD_WAIT and uCmd ~= CMD_RECLAIM and uCmd ~= CMD_MOVE and (uCmd ~= CMD_REPAIR or (cmdParams and spGetUnitIsBeingBuilt(cmdParams)))) then
-							waitedUnits[#waitedUnits + 1] = uID
-						end
-					end
-				end
-			end
-			spGiveOrderToUnitArray(waitedUnits, CMD_WAIT, {}, 0)
+	if checkFrames > 0 then
+		checkFrames = checkFrames - 1
+	else
+		checkFrames = checkForFrames
+		if watchFrames > 0 then
+			waitUnits()
+		elseif next(waitedUnits) then
+			unwaitUnits()
 		end
 	end
 end
