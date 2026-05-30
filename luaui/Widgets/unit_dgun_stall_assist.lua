@@ -179,15 +179,19 @@ function widget:Initialize()
 				end
 			end
 		end
-		if not manualFireECost[uDefID] and uDef.buildSpeed > 0 and (uDef.canAssist or uDef.buildOptions[1]) then
+		if not manualFireECost[uDefID] and uDef.buildSpeed > 0 and (uDef.canAssist or uDef.buildOptions[1] or uDef.canResurrect) then
 			shouldWait[uDefID] = true
 			if uDef.isFactory then
 				isFactory[uDefID] = true
 			end
 		end
-		if uDef.energyCost == 0 then
+		if uDef.energyCost <= 1 then
 			shouldBuild[uDefID] = true
 		end
+	end
+
+	if not next(manualFireECost) then
+        widgetHandler:RemoveWidget()
 	end
 end
 
