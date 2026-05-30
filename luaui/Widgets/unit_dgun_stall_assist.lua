@@ -36,6 +36,7 @@ local spGetActiveCommand = Spring.GetActiveCommand
 local spGiveOrderToUnitArray = Spring.GiveOrderToUnitArray
 local spGiveOrderToUnitMap = Spring.GiveOrderToUnitMap
 local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
+local spGetUnitWorkerTask = Spring.GetUnitWorkerTask
 local spGetFactoryCommands = Spring.GetFactoryCommands
 local spGetMyTeamID = Spring.GetMyTeamID
 local spGetTeamResources = Spring.GetTeamResources
@@ -66,7 +67,7 @@ local function isFactoryInWait(unitID)
 end
 
 local function isUnitInBuildTask(unitID)
-	local cmdID = Spring.GetUnitWorkerTask(unitID)
+	local cmdID = spGetUnitWorkerTask(unitID)
 	return cmdID and ((cmdID < 0 and not shouldBuild[-cmdID]) or cmdID == CMD_RESURRECT)
 end
 
@@ -128,7 +129,9 @@ local function unwaitUnits()
 	local unwaitList, count = {}, 0
 	for uID in next, waitedUnits do
 		local uDefID = spGetUnitDefID(uID)
-		if isFactory[uDefID] then
+		if not uDefID then
+			waitedUnits[uID] = nil
+		elseif isFactory[uDefID] then
 			if isFactoryInWait(uID) then
 				count = count + 1
 				unwaitList[count] = uID
@@ -210,4 +213,8 @@ function widget:GameFrame(frame)
 			unwaitUnits()
 		end
 	end
+end
+
+function widget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam)
+	waitedUnits[unitID] = nil
 end
