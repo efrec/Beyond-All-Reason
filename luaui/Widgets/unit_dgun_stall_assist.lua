@@ -25,6 +25,7 @@ local waitedUnits = {}
 local shouldWait = {}
 local isFactory = {}
 local manualFireECost = {}
+local shouldBuild = {}
 
 local gameStarted
 
@@ -56,7 +57,7 @@ end
 
 local function isFactoryInBuildTask(unitID)
 	local commands = spGetFactoryCommands(unitID, 1)
-	return commands and commands[1] and commands[1].id < 0
+	return commands and commands[1] and commands[1].id < 0 and not shouldBuild[-commands[1].id]
 end
 
 local function isFactoryInWait(unitID)
@@ -66,7 +67,7 @@ end
 
 local function isUnitInBuildTask(unitID)
 	local cmdID = Spring.GetUnitWorkerTask(unitID)
-	return cmdID and (cmdID < 0 or cmdID == CMD_RESURRECT)
+	return cmdID and ((cmdID < 0 and not shouldBuild[-cmdID]) or cmdID == CMD_RESURRECT)
 end
 
 local function isUnitInWait(unitID)
@@ -180,6 +181,9 @@ function widget:Initialize()
 			if uDef.isFactory then
 				isFactory[uDefID] = true
 			end
+		end
+		if uDef.energyCost == 0 then
+			shouldBuild[uDefID] = true
 		end
 	end
 end
