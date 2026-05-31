@@ -13,7 +13,8 @@ function widget:GetInfo()
 end
 
 local watchForFrames = 3.0 * Game.gameSpeed -- How long to monitor after releasing the command
-local checkForFrames = 0.1 * Game.gameSpeed -- Time between wait and un-wait update sweeps
+local checkForFrames = 0.1 * Game.gameSpeed -- Period between updates and sending new commands
+local maxCommandSize = 15 -- Attempt to send ludicrously small commands to avoid netmsg limits
 
 ----------------------------------------------------------------
 -- Local state
@@ -81,7 +82,6 @@ local function startDGunStallAssistWatch()
 		if manualFireECost[unitDefID] then
 			targetEnergy = manualFireECost[unitDefID]
 			watchFrames = watchForFrames
-			checkFrames = 0
 			return
 		end
 	end
@@ -98,11 +98,13 @@ end
 local function waitUnits()
 	local myTeamID = spGetMyTeamID()
 	if not inEnergyStall(myTeamID) then
+		watchFrames = 0
 		return
 	end
 	local waitMap = {}
 	local myUnits = spGetTeamUnits(myTeamID)
 	assert(myUnits)
+	local limit = maxCommandSize
 	for i = 1, #myUnits do
 		local uID = myUnits[i]
 		local uDefID = spGetUnitDefID(uID)
@@ -111,13 +113,18 @@ local function waitUnits()
 				if isFactoryInBuildTask(uID) then -- cannot also be in wait
 					waitMap[uID] = true
 					waitedUnits[uID] = true
+					limit = limit - 1
 				end
 			else
 				if isUnitInBuildTask(uID) and not isUnitInWait(uID) then
 					waitMap[uID] = true
 					waitedUnits[uID] = true
+					limit = limit - 1
 				end
 			end
+		end
+		if limit == 0 then
+			break
 		end
 	end
 	if next(waitMap) then
@@ -127,21 +134,28 @@ end
 
 local function unwaitUnits()
 	local unwaitList, count = {}, 0
+	local limit = maxCommandSize
 	for uID in next, waitedUnits do
 		local uDefID = spGetUnitDefID(uID)
 		if not uDefID then
 			waitedUnits[uID] = nil
 		elseif isFactory[uDefID] then
 			if isFactoryInWait(uID) then
-				count = count + 1
-				unwaitList[count] = uID
+				if limit > 0 then
+					limit = limit - 1
+					count = count + 1
+					unwaitList[count] = uID
+				end
 			else
 				waitedUnits[uID] = nil
 			end
 		else
 			if isUnitInWait(uID) then
-				count = count + 1
-				unwaitList[count] = uID
+				if limit > 0 then
+					limit = limit - 1
+					count = count + 1
+					unwaitList[count] = uID
+				end
 			else
 				waitedUnits[uID] = nil
 			end
