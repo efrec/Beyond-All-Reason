@@ -18,18 +18,6 @@ if gadgetHandler:IsSyncedCode() then
 	local targetListLengthMax = 128
 	local unseenUpdateFrames = math.round(0.5 * Game.gameSpeed)
 
-	local CMD_UNIT_SET_TARGET_NO_GROUND = GameCMD.UNIT_SET_TARGET_NO_GROUND
-	local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
-	local CMD_UNIT_CANCEL_TARGET = GameCMD.UNIT_CANCEL_TARGET
-	local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
-
-	local isSetTargetCommand = {
-		[CMD_UNIT_SET_TARGET_NO_GROUND] = true,
-		[CMD_UNIT_SET_TARGET]           = true,
-		[CMD_UNIT_CANCEL_TARGET]        = true,
-		[CMD_UNIT_SET_TARGET_RECTANGLE] = true,
-	}
-
 	local spInsertUnitCmdDesc = Spring.InsertUnitCmdDesc
 	local spGetUnitAllyTeam = Spring.GetUnitAllyTeam
 	local spSetUnitTarget = Spring.SetUnitTarget
@@ -147,7 +135,17 @@ if gadgetHandler:IsSyncedCode() then
 	--------------------------------------------------------------------------------
 	-- Commands
 
-	local tooltipText = 'Set a priority attack target,\nto be used when within range\n(not removed by move commands)'
+	local CMD_UNIT_SET_TARGET_NO_GROUND = GameCMD.UNIT_SET_TARGET_NO_GROUND
+	local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
+	local CMD_UNIT_CANCEL_TARGET = GameCMD.UNIT_CANCEL_TARGET
+	local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
+
+	local isSetTargetCommand = {
+		[CMD_UNIT_SET_TARGET_NO_GROUND] = true,
+		[CMD_UNIT_SET_TARGET]           = true,
+		[CMD_UNIT_CANCEL_TARGET]        = true,
+		[CMD_UNIT_SET_TARGET_RECTANGLE] = true,
+	}
 
 	local unitSetTargetNoGroundCmdDesc = {
 		id = CMD_UNIT_SET_TARGET_NO_GROUND,
@@ -155,7 +153,6 @@ if gadgetHandler:IsSyncedCode() then
 		name = 'Set Unit Target',
 		action = 'settargetnoground',
 		cursor = 'settarget',
-		tooltip = tooltipText,
 		hidden = true,
 		queueing = false,
 	}
@@ -163,10 +160,9 @@ if gadgetHandler:IsSyncedCode() then
 	local unitSetTargetCircleCmdDesc = {
 		id = CMD_UNIT_SET_TARGET,
 		type = CMDTYPE.ICON_UNIT_OR_AREA,
-		name = 'Set Target', --extra spaces center the 'Set' text
+		name = 'Set Target',
 		action = 'settarget',
 		cursor = 'settarget',
-		tooltip = tooltipText,
 		hidden = false,
 		queueing = false,
 	}
@@ -176,7 +172,6 @@ if gadgetHandler:IsSyncedCode() then
 		type = CMDTYPE.ICON,
 		name = 'Cancel Target',
 		action = 'canceltarget',
-		tooltip = 'Removes top priority target, if set',
 		hidden = false,
 		queueing = false,
 	}
