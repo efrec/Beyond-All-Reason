@@ -12,26 +12,23 @@ function gadget:GetInfo()
 	}
 end
 
-local deleteMaxDistance = 30
-local targetListLengthMax = 128
-
-local CMD_UNIT_SET_TARGET_NO_GROUND = GameCMD.UNIT_SET_TARGET_NO_GROUND
-local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
-local CMD_UNIT_CANCEL_TARGET = GameCMD.UNIT_CANCEL_TARGET
-local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
-
-local isSetTargetCommand = {
-	[CMD_UNIT_SET_TARGET_NO_GROUND] = true,
-	[CMD_UNIT_SET_TARGET]           = true,
-	[CMD_UNIT_CANCEL_TARGET]        = true,
-	[CMD_UNIT_SET_TARGET_RECTANGLE] = true,
-}
 
 if gadgetHandler:IsSyncedCode() then
+	local deleteMaxDistance = 30
+	local targetListLengthMax = 128
+	local unseenUpdateFrames = math.round(0.5 * Game.gameSpeed)
 
-	-- Unseen targets will be removed after max USEEN_UPDATE_FREQUENCY frames.
-	-- Should be small enough to not be evident, and big enough to save perf.
-	local UNSEEN_UPDATE_FREQUENCY = 15
+	local CMD_UNIT_SET_TARGET_NO_GROUND = GameCMD.UNIT_SET_TARGET_NO_GROUND
+	local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
+	local CMD_UNIT_CANCEL_TARGET = GameCMD.UNIT_CANCEL_TARGET
+	local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
+
+	local isSetTargetCommand = {
+		[CMD_UNIT_SET_TARGET_NO_GROUND] = true,
+		[CMD_UNIT_SET_TARGET]           = true,
+		[CMD_UNIT_CANCEL_TARGET]        = true,
+		[CMD_UNIT_SET_TARGET_RECTANGLE] = true,
+	}
 
 	local spInsertUnitCmdDesc = Spring.InsertUnitCmdDesc
 	local spGetUnitAllyTeam = Spring.GetUnitAllyTeam
@@ -878,7 +875,7 @@ if gadgetHandler:IsSyncedCode() then
 			end
 		end
 
-		if n % UNSEEN_UPDATE_FREQUENCY == 0 then
+		if n % unseenUpdateFrames == 0 then
 			for unitID, unitData in pairsNext, activeTargets do
 				local targets, allyTeam, currentIndex = unitData.targets, unitData.allyTeam, unitData.currentIndex
 
