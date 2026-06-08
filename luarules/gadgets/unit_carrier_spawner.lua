@@ -1784,6 +1784,13 @@ end
 
 function gadget:Initialize()
 	gadgetHandler:RegisterAllowCommand(CMD_CARRIER_SPAWN_ONOFF)
+	gadgetHandler:RegisterGlobal("CobUndockSequenceFinished", CobUndockSequenceFinished)
+	gadgetHandler:RegisterGlobal("CobDroneSpawnSequenceFinished", CobDroneSpawnSequenceFinished)
+
+	GG.RegisterUnitActiveTargetCallback(carrierMetaList, function(unitID, isActive)
+		carrierMetaList[unitID].hasTargetList = isActive
+	end)
+
 	local allUnits = Spring.GetAllUnits()
 	local unitCount = #allUnits
 	for i = 1, unitCount do
@@ -1791,9 +1798,6 @@ function gadget:Initialize()
 		gadget:UnitCreated(unitID, spGetUnitDefID(unitID), spGetUnitTeam(unitID))
 	end
 	gaiaTeam = Spring.GetGaiaTeamID()
-	gadgetHandler:RegisterGlobal("CobUndockSequenceFinished", CobUndockSequenceFinished)
-	gadgetHandler:RegisterGlobal("CobDroneSpawnSequenceFinished", CobDroneSpawnSequenceFinished)
-
 end
 
 function gadget:Shutdown()

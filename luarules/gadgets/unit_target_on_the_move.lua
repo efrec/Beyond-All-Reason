@@ -27,23 +27,6 @@ local isSetTargetCommand = {
 	[CMD_UNIT_SET_TARGET_RECTANGLE] = true,
 }
 
-local spGetUnitRulesParam = Spring.GetUnitRulesParam
-
-function GG.GetUnitTarget(unitID)
-	local targetID = spGetUnitRulesParam(unitID, "targetID")
-	targetID = tonumber(targetID) and targetID >= 0 and targetID or nil
-	if not targetID then
-		targetID = {
-			spGetUnitRulesParam(unitID, "targetCoordX"),
-			spGetUnitRulesParam(unitID, "targetCoordY"),
-			spGetUnitRulesParam(unitID, "targetCoordZ"),
-		}
-		targetID = targetID[1] ~= -1 and targetID[3] ~= -1 and targetID or nil
-	end
-	return targetID
-end
-
-
 if gadgetHandler:IsSyncedCode() then
 
 	-- Unseen targets will be removed after max USEEN_UPDATE_FREQUENCY frames.
@@ -178,7 +161,54 @@ if gadgetHandler:IsSyncedCode() then
 		queueing = false,
 	}
 
+	--------------------------------------------------------------------------------
+	-- Gadget interface
 
+	function GG.GetUnitTarget(unitID)
+		local unitData = unitTargets[unitID]
+		if not unitData then
+			return
+		end
+		return unitData.targets[unitData.currentIndex], unitData.activeTarget
+	end
+
+	function GG.GetUnitTargetList(unitID)
+		return unitTargets[unitID] and unitTargets[unitID].targets
+	end
+
+	function GG.GetUnitTargetSet(unitID)
+		return unitTargets[unitID] and unitTargets[unitID].currentTargets
+	end
+
+	function GG.GetUnitTargetIndex(unitID)
+		return unitTargets[unitID] and unitTargets[unitID].currentIndex
+	end
+
+	function GG.GetUnitActiveTarget(unitID)
+		local unitData = unitTargets[unitID]
+		return unitData and unitData.activeTarget and unitData.targets[unitData.currentIndex]
+	end
+
+	local registeredUnitTargetList = {}
+	local function unitActiveTargetCallbacks(unitID, isActive)
+		for lookup, callback in pairs(registeredUnitTargetList) do
+			if lookup[unitID] then
+				callback(unitID, isActive)
+			end
+		end
+	end
+
+	---Pass a lookup table of watched units and a callback to begin/end polling for their target lists.
+	---@param unitTable table<integer, true>
+	---@param callback fun(integer, boolean)
+	function GG.RegisterUnitActiveTargetCallback(unitTable, callback)
+		if type(unitTable) == "table" and type(callback) == "function" then
+			registeredUnitTargetList[unitTable] = callback
+			return true
+		else
+			return false
+		end
+	end
 
 	--------------------------------------------------------------------------------
 	-- Target Handling
@@ -230,6 +260,7 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function setTargetActive(unitID, unitData, targetIndex)
+		local wasActive = unitData.activeTarget
 		unitData.activeTarget = true
 		unitData.currentIndex = targetIndex
 		local targetData = unitData.targets[targetIndex]
@@ -247,6 +278,9 @@ if gadgetHandler:IsSyncedCode() then
 		spSetUnitRulesParam(unitID, "targetCoordY", targetY)
 		spSetUnitRulesParam(unitID, "targetCoordZ", targetZ)
 		SendToUnsynced("targetIndex", unitID, targetIndex, true)
+		if not wasActive then
+			unitActiveTargetCallbacks(unitID, true)
+		end
 	end
 
 	local function setTargetPassive(unitID, unitData, targetIndex)
@@ -260,6 +294,7 @@ if gadgetHandler:IsSyncedCode() then
 		spSetUnitRulesParam(unitID, "targetCoordY", nil)
 		spSetUnitRulesParam(unitID, "targetCoordZ", nil)
 		SendToUnsynced("targetIndex", unitID, targetIndex, false)
+		unitActiveTargetCallbacks(unitID, false)
 	end
 
 	local function isUnseenEnemyUnit(targetData, allyTeam)
@@ -360,6 +395,7 @@ if gadgetHandler:IsSyncedCode() then
 			pausedTargets[unitID] = nil
 		end
 		waitForCommandDone[unitID] = nil
+		unitActiveTargetCallbacks(unitID, false)
 		if not keeptrack then
 			SendToUnsynced("targetList", unitID, 0)
 		end
@@ -433,14 +469,6 @@ if gadgetHandler:IsSyncedCode() then
 			end
 			refreshSendData(unitID, unitData, minIndex)
 		end
-	end
-
-	function GG.getUnitTargetList(unitID)
-		return unitTargets[unitID] and unitTargets[unitID].targets
-	end
-
-	function GG.getUnitTargetIndex(unitID)
-		return unitTargets[unitID] and unitTargets[unitID].currentIndex
 	end
 
 	function gadget:Initialize()
@@ -873,6 +901,7 @@ else	-- UNSYNCED
 	local GL_LINE_STRIP = GL.LINE_STRIP
 	local GL_LINES = GL.LINES
 
+	local spGetUnitRulesParam = Spring.GetUnitRulesParam
 	local spGetUnitPosition = Spring.GetUnitPosition
 	local spValidUnitID = Spring.ValidUnitID
 	local spGetMyAllyTeamID = Spring.GetMyAllyTeamID
@@ -928,6 +957,20 @@ else	-- UNSYNCED
 		gadgetHandler:RemoveSyncAction("targetList")
 		gadgetHandler:RemoveSyncAction("targetIndex")
 		gadgetHandler:RemoveSyncAction("failCommand")
+	end
+
+	function GG.GetUnitTarget(unitID)
+		local targetID = spGetUnitRulesParam(unitID, "targetID")
+		targetID = tonumber(targetID) and targetID >= 0 and targetID or nil
+		if not targetID then
+			targetID = {
+				spGetUnitRulesParam(unitID, "targetCoordX"),
+				spGetUnitRulesParam(unitID, "targetCoordY"),
+				spGetUnitRulesParam(unitID, "targetCoordZ"),
+			}
+			targetID = targetID[1] ~= -1 and targetID[3] ~= -1 and targetID or nil
+		end
+		return targetID
 	end
 
 	function GG.getUnitTargetList(unitID)
