@@ -243,15 +243,17 @@ if gadgetHandler:IsSyncedCode() then
 	local function setTargetActive(unitID, unitData, targetIndex)
 		unitData.activeTarget = true
 		unitData.currentIndex = targetIndex
-		local targetData = unitData.targets[targetIndex]
-		if targetData.position then
-			local pos = targetData.position
-			spSetUnitTarget(unitID, pos[1], pos[2], pos[3], false, true)
-		elseif type(targetData.leaveGhost) == "table" then
-			local pos = targetData.leaveGhost
-			spSetUnitTarget(unitID, pos[1], pos[2], pos[3], false, true)
-		else
-			spSetUnitTarget(unitID, targetData.unitID, false, true)
+		if not inAttackCommand(unitID) then
+			local targetData = unitData.targets[targetIndex]
+			if targetData.position then
+				local pos = targetData.position
+				spSetUnitTarget(unitID, pos[1], pos[2], pos[3], false, true)
+			elseif type(targetData.leaveGhost) == "table" then
+				local pos = targetData.leaveGhost
+				spSetUnitTarget(unitID, pos[1], pos[2], pos[3], false, true)
+			else
+				spSetUnitTarget(unitID, targetData.unitID, false, true)
+			end
 		end
 		SendToUnsynced("targetIndex", unitID, targetIndex, true)
 	end
@@ -307,17 +309,17 @@ if gadgetHandler:IsSyncedCode() then
 		local data = activeTargets[unitID] or pausedTargets[unitID]
 		if not data then
 			data = {
-				targets = {},
+				teamID         = spGetUnitTeam(unitID),
+				allyTeam       = spGetUnitAllyTeam(unitID),
+				weapons        = unitWeapons[unitDefID],
+				targets        = {},
 				currentTargets = {},
-				teamID = spGetUnitTeam(unitID),
-				allyTeam = spGetUnitAllyTeam(unitID),
-				weapons = unitWeapons[unitDefID],
-				currentIndex = 1,
-				activeTarget = false,
+				currentIndex   = 1,
+				activeTarget   = false,
 			}
 		elseif not append then
-			data.targets = {}
-			data.currentTargets = {}
+			data.targets, data.currentTargets = {}, {}
+			data.currentIndex, data.activeTarget = 1, false
 			SendToUnsynced("targetList", unitID, 0)
 		end
 		local teamID = data.teamID
