@@ -27,22 +27,6 @@ local isSetTargetCommand = {
 	[CMD_UNIT_SET_TARGET_RECTANGLE] = true,
 }
 
-local spGetUnitRulesParam = Spring.GetUnitRulesParam
-
-function GG.GetUnitTarget(unitID)
-	local targetID = spGetUnitRulesParam(unitID, "targetID")
-	targetID = tonumber(targetID) and targetID >= 0 and targetID or nil
-	if not targetID then
-		targetID = {
-			spGetUnitRulesParam(unitID, "targetCoordX"),
-			spGetUnitRulesParam(unitID, "targetCoordY"),
-			spGetUnitRulesParam(unitID, "targetCoordZ"),
-		}
-		targetID = targetID[1] ~= -1 and targetID[3] ~= -1 and targetID or nil
-	end
-	return targetID
-end
-
 if gadgetHandler:IsSyncedCode() then
 
 	-- Unseen targets will be removed after max USEEN_UPDATE_FREQUENCY frames.
@@ -59,7 +43,6 @@ if gadgetHandler:IsSyncedCode() then
 	local spAreTeamsAllied = Spring.AreTeamsAllied
 	local spGetUnitsInRectangle = Spring.GetUnitsInRectangle
 	local spGetUnitsInCylinder = Spring.GetUnitsInCylinder
-	local spSetUnitRulesParam = Spring.SetUnitRulesParam
 	local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
 	local spGetUnitWeaponTryTarget = Spring.GetUnitWeaponTryTarget
 	local spGetUnitWeaponTestTarget = Spring.GetUnitWeaponTestTarget
@@ -264,23 +247,15 @@ if gadgetHandler:IsSyncedCode() then
 		unitData.activeTarget = true
 		unitData.currentIndex = targetIndex
 		local targetData = unitData.targets[targetIndex]
-		local targetID, targetX, targetY, targetZ = -1, -1, -1, -1
 		if targetData.position then
 			local pos = targetData.position
-			targetX, targetY, targetZ = pos[1], pos[2], pos[3]
-			spSetUnitTarget(unitID, targetX, targetY, targetZ, false, true)
+			spSetUnitTarget(unitID, pos[1], pos[2], pos[3], false, true)
 		elseif type(targetData.leaveGhost) == "table" then
 			local pos = targetData.leaveGhost
-			targetX, targetY, targetZ = pos[1], pos[2], pos[3]
-			spSetUnitTarget(unitID, targetX, targetY, targetZ, false, true)
+			spSetUnitTarget(unitID, pos[1], pos[2], pos[3], false, true)
 		else
-			targetID = targetData.unitID
-			spSetUnitTarget(unitID, targetID, false, true)
+			spSetUnitTarget(unitID, targetData.unitID, false, true)
 		end
-		spSetUnitRulesParam(unitID, "targetID",     targetID)
-		spSetUnitRulesParam(unitID, "targetCoordX", targetX)
-		spSetUnitRulesParam(unitID, "targetCoordY", targetY)
-		spSetUnitRulesParam(unitID, "targetCoordZ", targetZ)
 		SendToUnsynced("targetIndex", unitID, targetIndex, true)
 	end
 
@@ -290,10 +265,6 @@ if gadgetHandler:IsSyncedCode() then
 		if not inAttackCommand(unitID) then
 			spSetUnitTarget(unitID, nil)
 		end
-		spSetUnitRulesParam(unitID, "targetID",     nil)
-		spSetUnitRulesParam(unitID, "targetCoordX", nil)
-		spSetUnitRulesParam(unitID, "targetCoordY", nil)
-		spSetUnitRulesParam(unitID, "targetCoordZ", nil)
 		SendToUnsynced("targetIndex", unitID, targetIndex, false)
 	end
 
@@ -390,12 +361,10 @@ if gadgetHandler:IsSyncedCode() then
 
 	local function removeUnit(unitID, keeptrack)
 		if activeTargets[unitID] then
-			spSetUnitTarget(unitID, nil)
-			spSetUnitRulesParam(unitID, "targetID", -1)
-			spSetUnitRulesParam(unitID, "targetCoordX", -1)
-			spSetUnitRulesParam(unitID, "targetCoordY", -1)
-			spSetUnitRulesParam(unitID, "targetCoordZ", -1)
 			activeTargets[unitID] = nil
+			if not inAttackCommand(unitID) then
+				spSetUnitTarget(unitID, nil)
+			end
 		elseif pausedTargets[unitID] then
 			SendToUnsynced("targetList", unitID, 0)
 			pausedTargets[unitID] = nil
@@ -917,7 +886,6 @@ if gadgetHandler:IsSyncedCode() then
 					local targetData = targets[index]
 					if targetData.unitID then
 						if not isIdentifiedUnit(allyTeam, unitID) then
-							Spring.MarkerAddPoint(Spring.GetUnitPosition(targetData.unitID))
 							removeTarget(unitID, index)
 						else
 							local currentGhost = targetData.leaveGhost
@@ -1244,14 +1212,11 @@ else	-- UNSYNCED
 		local targetData = unitData.targets[targetIndex]
 
 		if not targetData or not isValidTargetData(targetData) then
-			Spring.Echo("revalidating current target")
 			-- Unit died or cloaked, LOS lost, etc., so find any target in the list.
 			targetIndex, targetData = getFirstValidTarget(unitData.targets)
 			if not targetIndex then
-				Spring.Echo("no good first index")
 				return -- We cannot remove since units can reenter LOS, for example.
 			end
-			Spring.Echo("resetting to new active target")
 			targetActive = isActiveTarget(unitID, targetData)
 		end
 
