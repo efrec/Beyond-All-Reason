@@ -478,7 +478,9 @@ local function unitDef_Post(name, uDef)
 	end
 
 	local category = uDef.category or ""
-	if not string.find(category, "OBJECT", 1, true) then -- objects should not be targetable and therefore are not assigned any other category
+	if string.find(category, "OBJECT", 1, true) then
+		uDef.category = "OBJECT" -- objects should not be targetable and therefore are not assigned any other category
+	else
 		local exemptcategory = uDef.exemptcategory
 		for categoryName, condition in pairs(categories) do
 			if not exemptcategory or not string.find(exemptcategory, categoryName, 1, true) then
@@ -488,6 +490,10 @@ local function unitDef_Post(name, uDef)
 			end
 		end
 		uDef.category = category
+	end
+
+	if not uDef.category:find("NOTMOBILE") then
+		uDef.leavesghost = false
 	end
 
 	if uDef.canfly then
