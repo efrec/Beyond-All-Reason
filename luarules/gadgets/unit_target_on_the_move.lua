@@ -579,7 +579,7 @@ if gadgetHandler:IsSyncedCode() then
 						top = cmdParams[3]
 					end
 					local teamCache = ensureTable(teamQueryCaches, spGetUnitAllyTeam(unitID))
-					local hash = left + top + right + bot + (filterReal and 0 or 1)
+					local hash = left + top + right + bot
 					targets = teamCache[hash]
 					if not targets then
 						targets = CallAsTeam(unitTeam, spGetUnitsInRectangle, left, top, right, bot, ENEMY_UNITS)
@@ -600,14 +600,12 @@ if gadgetHandler:IsSyncedCode() then
 					if not targets then
 						targets = CallAsTeam(unitTeam, spGetUnitsInCylinder, cmdParams[1], cmdParams[3], cmdParams[4], ENEMY_UNITS)
 						teamCache[hash] = targets
-						if not filterReal then
-							local ghosts, count = getGhostsInCylinder(cmdParams[1], cmdParams[3], cmdParams[4], unitTeam)
-							if count > 0 then
-								local length = #targets + 1 -- we use a gap here to stop the iter early, below
-								targets[length] = nil
-								for i = 1, count do
-									targets[length + i] = ghosts[i]
-								end
+						local ghosts, count = getGhostsInCylinder(cmdParams[1], cmdParams[3], cmdParams[4], unitTeam)
+						if count > 0 then
+							local length = #targets + 1 -- we use a gap here to stop the iter early, below
+							targets[length] = nil
+							for i = 1, count do
+								targets[length + i] = ghosts[i]
 							end
 						end
 					end
