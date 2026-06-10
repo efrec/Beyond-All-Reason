@@ -68,8 +68,9 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 		else
 			for i = 1, #weapons do
 				local weaponDef = WeaponDefs[weapons[i].weaponDef]
-				if weaponDef.type == 'AircraftBomb' or weaponDef.type == 'TorpedoLauncher' or stringFind(weaponDef.name, 'arm_pidr', 1, true) then
+				if weaponDef.type == 'AircraftBomb' or weaponDef.type == 'TorpedoLauncher' or weaponDef.name:find('arm_pidr', 1, true) then
 					mult = PRIORITY_BOMBERS
+					break
 				elseif weapons[i].onlyTargets.vtol then
 					mult = PRIORITY_FIGHTERS
 				else
