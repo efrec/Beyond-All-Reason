@@ -17,8 +17,9 @@ if not gadgetHandler:IsSyncedCode() then
 	return
 end
 
-local spGetUnitDefID = Spring.GetUnitDefID
-local stringFind = string.find
+local next = next
+local spGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
+local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
 
 local PRIORITY_BOMBERS = 0.1
 local PRIORITY_VTOLS = 1
@@ -90,12 +91,51 @@ for unitDefID, unitDef in pairs(UnitDefs) do
 	end
 end
 
+local unitAirPriorityMultiplier = {}
+local unitHasHighPriorityTarget = {}
+
 -- AllowWeaponTarget is only called for weapons with SetWatchAllowTarget (vtol-targeting),
 -- so the attacker always has AA priority — no need to check hasPriorityAir or call
 -- spGetUnitDefID on the attacker.
 function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-	local mult = airPriorityMultiplier[spGetUnitDefID(targetID)]
+	local mult = unitAirPriorityMultiplier[targetID]
 	if mult then
+		if mult <= 2 then
+			unitHasHighPriorityTarget[unitID] = true
+		end
 		return defPriority * mult
+	end
+end
+
+local CMD_ATTACK = CMD.ATTACK
+local CMD_INSERT = CMD.INSERT
+local insertParams = { 0, CMD_ATTACK, 0, 0 } -- [4] = targetID
+local spGiveOrderToUnit = Spring.GiveOrderToUnit
+
+function gadget:GameFramePost(frame)
+	for unitID in next, unitHasHighPriorityTarget do
+		if spGetUnitCurrentCommand(unitID) ~= CMD_ATTACK then
+			-- Assuming that the first weapon is the primary useful weapon to check:
+			local targetType, isUserTarget, target = spGetUnitWeaponTarget(unitID, 1)
+			if targetType == 1 and not isUserTarget and (unitAirPriorityMultiplier[target] or 5) < 5 then
+				insertParams[4] = target
+				spGiveOrderToUnit(unitID, CMD_INSERT, insertParams)
+			end
+		end
+		unitHasHighPriorityTarget[unitID] = nil
+	end
+end
+
+function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
+	unitAirPriorityMultiplier[unitID] = airPriorityMultiplier[unitDefID]
+end
+
+function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam)
+	unitAirPriorityMultiplier[unitID] = nil
+end
+
+function gadget:Initialize()
+	for _, unitID in pairs(Spring.GetAllUnits()) do
+		gadget:UnitCreated(unitID, Spring.GetUnitDefID(unitID))
 	end
 end
