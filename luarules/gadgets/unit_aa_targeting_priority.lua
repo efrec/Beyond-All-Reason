@@ -111,15 +111,17 @@ local CMD_ATTACK = CMD.ATTACK
 local CMD_INSERT = CMD.INSERT
 local insertParams = { 0, CMD_ATTACK, 0, 0 } -- [4] = targetID
 local spGiveOrderToUnit = Spring.GiveOrderToUnit
+local attackDuration = 2 * Game.gameSpeed
 
 function gadget:GameFramePost(frame)
+	local timeout = frame + attackDuration
 	for unitID in next, unitHasHighPriorityTarget do
 		if spGetUnitCurrentCommand(unitID) ~= CMD_ATTACK then
 			-- Assuming that the first weapon is the primary useful weapon to check:
 			local targetType, isUserTarget, target = spGetUnitWeaponTarget(unitID, 1)
 			if targetType == 1 and not isUserTarget and (unitAirPriorityMultiplier[target] or 5) < 5 then
 				insertParams[4] = target
-				spGiveOrderToUnit(unitID, CMD_INSERT, insertParams)
+				spGiveOrderToUnit(unitID, CMD_INSERT, insertParams, nil, timeout)
 			end
 		end
 		unitHasHighPriorityTarget[unitID] = nil
