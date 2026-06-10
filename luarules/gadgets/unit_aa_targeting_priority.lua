@@ -13,86 +13,88 @@ function gadget:GetInfo()
 	}
 end
 
-if gadgetHandler:IsSyncedCode() then
-	local spGetUnitDefID = Spring.GetUnitDefID
-	local stringFind = string.find
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
 
-	local PRIORITY_BOMBERS = 0.1
-	local PRIORITY_VTOLS = 1
-	local PRIORITY_FIGHTERS = 2
-	local PRIORITY_SCOUTS = 100
+local spGetUnitDefID = Spring.GetUnitDefID
+local stringFind = string.find
 
-	local isAirCategory = {
-		vtol = true,
-		mobile = true,
-		nothover = true,
-		notship = true,
-		notsub = true,
-	}
+local PRIORITY_BOMBERS = 0.1
+local PRIORITY_VTOLS = 1
+local PRIORITY_FIGHTERS = 2
+local PRIORITY_SCOUTS = 100
 
-	local nonAntiAirTypes = {
-		AircraftBomb    = true,
-		Shield          = true,
-		TorpedoLauncher = true,
-	}
+local isAirCategory = {
+	vtol = true,
+	mobile = true,
+	nothover = true,
+	notship = true,
+	notsub = true,
+}
 
-	local function hasAntiAirPriority(weapon)
-		local weaponDef = WeaponDefs[weapon.weaponDef]
-		if nonAntiAirTypes[weaponDef.type] or weaponDef.manualFire or weaponDef.range < 100 then
-			return false
-		end
-		if not table.any(weapon.onlyTargets, function(v, k) return isAirCategory[k] end) then
-			return false
-		end
-		if table.any(weapon.badTargets, function(v, k) return isAirCategory[k] end) then
-			return false
-		end
-		local damages = weaponDef.damages
-		if damages[Game.armorTypes.vtol] <= damages[Game.armorTypes.default] * 0.5 then
-			return false
-		end
-		return true
+local nonAntiAirTypes = {
+	AircraftBomb    = true,
+	Shield          = true,
+	TorpedoLauncher = true,
+}
+
+local function hasAntiAirPriority(weapon)
+	local weaponDef = WeaponDefs[weapon.weaponDef]
+	if nonAntiAirTypes[weaponDef.type] or weaponDef.manualFire or weaponDef.range < 100 then
+		return false
 	end
+	if not table.any(weapon.onlyTargets, function(v, k) return isAirCategory[k] end) then
+		return false
+	end
+	if table.any(weapon.badTargets, function(v, k) return isAirCategory[k] end) then
+		return false
+	end
+	local damages = weaponDef.damages
+	if damages[Game.armorTypes.vtol] <= damages[Game.armorTypes.default] * 0.5 then
+		return false
+	end
+	return true
+end
 
-	-- Pre-compute direct unitDefID → priority multiplier for all air units
-	local airPriorityMultiplier = {}
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		local weapons = unitDef.weapons
-		if unitDef.isAirUnit then
-			local mult = PRIORITY_SCOUTS
-			if unitDef.isTransport or unitDef.isBuilder then
-				mult = PRIORITY_VTOLS
-			else
-				for i = 1, #weapons do
-					local weaponDef = WeaponDefs[weapons[i].weaponDef]
-					if weaponDef.type == 'AircraftBomb' or weaponDef.type == 'TorpedoLauncher' or stringFind(weaponDef.name, 'arm_pidr', 1, true) then
-						mult = PRIORITY_BOMBERS
-					elseif weapons[i].onlyTargets.vtol then
-						mult = PRIORITY_FIGHTERS
-					else
-						mult = PRIORITY_VTOLS
-					end
+-- Pre-compute direct unitDefID → priority multiplier for all air units
+local airPriorityMultiplier = {}
+for unitDefID, unitDef in pairs(UnitDefs) do
+	local weapons = unitDef.weapons
+	if unitDef.isAirUnit then
+		local mult = PRIORITY_SCOUTS
+		if unitDef.isTransport or unitDef.isBuilder then
+			mult = PRIORITY_VTOLS
+		else
+			for i = 1, #weapons do
+				local weaponDef = WeaponDefs[weapons[i].weaponDef]
+				if weaponDef.type == 'AircraftBomb' or weaponDef.type == 'TorpedoLauncher' or stringFind(weaponDef.name, 'arm_pidr', 1, true) then
+					mult = PRIORITY_BOMBERS
+				elseif weapons[i].onlyTargets.vtol then
+					mult = PRIORITY_FIGHTERS
+				else
+					mult = PRIORITY_VTOLS
 				end
 			end
-			airPriorityMultiplier[unitDefID] = mult
 		end
-
-		-- Set watch on vtol-targeting weapons so AllowWeaponTarget gets called
-		for i = 1, #weapons do
-			local weapon = weapons[i]
-			if weapon.slavedTo == 0 and hasAntiAirPriority(weapon) then
-				Script.SetWatchAllowTarget(weapon.weaponDef, true)
-			end
-		end
+		airPriorityMultiplier[unitDefID] = mult
 	end
 
-	-- AllowWeaponTarget is only called for weapons with SetWatchAllowTarget (vtol-targeting),
-	-- so the attacker always has AA priority — no need to check hasPriorityAir or call
-	-- spGetUnitDefID on the attacker.
-	function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-		local mult = airPriorityMultiplier[spGetUnitDefID(targetID)]
-		if mult then
-			return defPriority * mult
+	-- Set watch on vtol-targeting weapons so AllowWeaponTarget gets called
+	for i = 1, #weapons do
+		local weapon = weapons[i]
+		if weapon.slavedTo == 0 and hasAntiAirPriority(weapon) then
+			Script.SetWatchAllowTarget(weapon.weaponDef, true)
 		end
+	end
+end
+
+-- AllowWeaponTarget is only called for weapons with SetWatchAllowTarget (vtol-targeting),
+-- so the attacker always has AA priority — no need to check hasPriorityAir or call
+-- spGetUnitDefID on the attacker.
+function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
+	local mult = airPriorityMultiplier[spGetUnitDefID(targetID)]
+	if mult then
+		return defPriority * mult
 	end
 end
