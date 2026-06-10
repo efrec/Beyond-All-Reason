@@ -118,6 +118,8 @@ function gadget:GameFramePost(frame)
 			-- Assuming that the first weapon is the primary useful weapon to check:
 			local targetType, isUserTarget, target = spGetUnitWeaponTarget(unitID, 1)
 			if targetType == 1 and not isUserTarget and (unitAirPriorityMultiplier[target] or 5) < 5 then
+				-- ! We cannot send timeouts when inserting commands (flag is sent to INT_MAX)
+				-- ! So this is just completely replacing player commands with 1v1 dogfighting
 				insertParams[4] = target
 				spGiveOrderToUnit(unitID, CMD_INSERT, insertParams, nil)
 			end
