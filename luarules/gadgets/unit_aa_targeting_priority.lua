@@ -15,6 +15,7 @@ end
 
 if gadgetHandler:IsSyncedCode() then
 	local spGetUnitDefID = Spring.GetUnitDefID
+	local spGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
 	local stringFind = string.find
 
 	local PRIORITY_BOMBERS = 0.1
@@ -54,8 +55,9 @@ if gadgetHandler:IsSyncedCode() then
 		return true
 	end
 
-	-- Pre-compute direct unitDefID → priority multiplier for all air units
 	local airPriorityMultiplier = {}
+	local isAntiAirUnit = {}
+
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		local weapons = unitDef.weapons
 		if unitDef.isAirUnit then
@@ -77,22 +79,66 @@ if gadgetHandler:IsSyncedCode() then
 			airPriorityMultiplier[unitDefID] = mult
 		end
 
-		-- Set watch on vtol-targeting weapons so AllowWeaponTarget gets called
 		for i = 1, #weapons do
 			local weapon = weapons[i]
 			if weapon.slavedTo == 0 and hasAntiAirPriority(weapon) then
+				-- Call AllowWeaponTarget on vtol-targeting weapons:
 				Script.SetWatchAllowTarget(weapon.weaponDef, true)
+				isAntiAirUnit[unitDefID] = true
 			end
 		end
 	end
 
-	-- AllowWeaponTarget is only called for weapons with SetWatchAllowTarget (vtol-targeting),
-	-- so the attacker always has AA priority — no need to check hasPriorityAir or call
-	-- spGetUnitDefID on the attacker.
+	-- AllowWeaponTarget can cover a massive search radius per-weapon and -unit. Cache at least some of the result.
+	local lastUnitID = -1
+	local lastUnitIsAA = false
+	local hasHighPriorityTarget = {}
+	local unitPriorityMultiplier = {}
+	local unitHasAntiAirPriority = {}
+
+	function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
+		unitPriorityMultiplier[unitID] = airPriorityMultiplier[unitDefID]
+		unitHasAntiAirPriority[unitID] = isAntiAirUnit[unitDefID]
+	end
+
+	function gadget:UnitDestroyed(unitID, unitDefID, unitTeam)
+		unitPriorityMultiplier[unitID] = nil
+		unitHasAntiAirPriority[unitID] = nil
+	end
+
 	function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-		local mult = airPriorityMultiplier[spGetUnitDefID(targetID)]
-		if mult then
-			return defPriority * mult
+		if lastUnitID ~= unitID then
+			lastUnitID, lastUnitIsAA = unitID, unitHasAntiAirPriority[unitID]
+		end
+
+		if not lastUnitIsAA then
+			return
+		end
+
+		local multiplier = unitPriorityMultiplier[targetID]
+		if multiplier then
+			if multiplier <= 2 and not hasHighPriorityTarget[unitID] then
+				hasHighPriorityTarget[unitID] = attackerWeaponNum
+			end
+			return defPriority * multiplier
+		end
+	end
+
+	local drawTargets = false -- should be false unless testing
+
+	function gadget:GameFramePost(frame)
+		for unitID, weaponNum in pairs(hasHighPriorityTarget) do
+			hasHighPriorityTarget[unitID] = nil
+			local targetType, isUserTarget, target = spGetUnitWeaponTarget(unitID, weaponNum)
+			if target and not isUserTarget and type(target) == "number" then
+				GG.AddUnitTarget(unitID, spGetUnitDefID(unitID), {
+					target     = target,
+					alwaysSeen = false,
+					ignoreStop = false,
+					userTarget = drawTargets,
+					sent       = false,
+				}, true)
+			end
 		end
 	end
 end

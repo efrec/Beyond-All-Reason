@@ -1695,48 +1695,36 @@ function gadgetHandler:TerraformComplete(unitID, unitDefID, unitTeam,
 end
 
 function gadgetHandler:AllowWeaponTargetCheck(attackerID, attackerWeaponNum, attackerWeaponDefID)
-local ignore = true
-for _, g in ipairs(self.AllowWeaponTargetCheckList) do
-	local allowCheck, ignoreCheck = g:AllowWeaponTargetCheck(attackerID, attackerWeaponNum, attackerWeaponDefID)
-	if not ignoreCheck then
-		ignore = false
-		if not allowCheck then
+	local ignore = true
+	for _, g in ipairs(self.AllowWeaponTargetCheckList) do
+		local allowCheck, ignoreCheck = g:AllowWeaponTargetCheck(attackerID, attackerWeaponNum, attackerWeaponDefID)
+		if not ignoreCheck and not allowCheck then
 			return 0
 		end
 	end
-end
-
-return ((ignore and -1) or 1)
+	return ((ignore and -1) or 1)
 end
 
 function gadgetHandler:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-	-- Calls with no input priority are pure pass/fail tests.
-	-- These are common, and BAR never disallows any of them.
 	if not defPriority then
-		return true -- The second return value is never used.
-	end
-
-	local allowed = true
-	local result = 1.0
-
-	if targetID == -1 and attackerWeaponNum == -1 then
+		-- These calls are very common and we never disallow any of them.
+		return true
+	elseif targetID == -1 then
 		-- The `targetPriority` return value is actually the autotarget search radius,
 		-- and applies to the unit's targeting search for its command AI, not weapons.
+		local searchRadius = defPriority
 		for _, g in ipairs(self.UnitAutoTargetRangeList) do
-			defPriority = g:UnitAutoTargetRange(attackerID, defPriority)
+			searchRadius = g:UnitAutoTargetRange(attackerID, searchRadius)
 		end
-		allowed, result = defPriority > 0, defPriority
+		return searchRadius > 0, searchRadius
 	else
-		-- The actual callin. BAR only uses AllowWeaponTarget for the target priority.
+		-- We use AllowWeaponTarget to get priority and not to allow/disallow targets.
+		local newPriority = defPriority
 		for _, g in ipairs(self.AllowWeaponTargetList) do
-			local targetPriority = g:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
-			if targetPriority then
-				result = targetPriority
-			end
+			newPriority = g:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum, attackerWeaponDefID, newPriority) or newPriority
 		end
+		return true, newPriority
 	end
-
-	return allowed, result
 end
 
 function gadgetHandler:UnitAutoTargetRange(attackerID, autoTargetRange)

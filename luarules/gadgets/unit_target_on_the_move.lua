@@ -127,9 +127,11 @@ if gadgetHandler:IsSyncedCode() then
 			local unitDef = UnitDefs[unitDefID]
 			if canSetTarget(unitDef) then
 				validUnits[unitDefID] = true
-				unitWeapons[unitDefID] = table.map(unitDef.weapons, function(weapon, index)
-					return getWeaponType(weapon), index
-				end)
+				local weaponInfo = table.map(unitDef.weapons, function(weapon, index) return getWeaponType(weapon), index end)
+				for index in pairs(weaponInfo) do
+					Script.SetWatchAllowTarget(WeaponDefs[unitDef.weapons[index].weaponDef].id, true)
+				end
+				unitWeapons[unitDefID] = weaponInfo
 			end
 			unitAlwaysSeen[unitDefID] = unitDef.isBuilding or unitDef.speed == 0
 		end
@@ -489,6 +491,10 @@ if gadgetHandler:IsSyncedCode() then
 		return activeTargets[unitID] and activeTargets[unitID].currentIndex
 	end
 
+	function GG.AddUnitTarget(unitID, unitDefID, targetData, append)
+		addUnitTargets(unitID, unitDefID, { targetData }, append)
+	end
+
 	function gadget:Initialize()
 		gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET)
 		gadgetHandler:RegisterCMDID(CMD_UNIT_CANCEL_TARGET)
@@ -744,6 +750,18 @@ if gadgetHandler:IsSyncedCode() then
 		end
 		--tracy.ZoneEnd()
 		return false -- consume command
+	end
+
+	-- Prevent target generation via AutoTarget.
+	function gadget:AllowWeaponTargetCheck(attackerID, attackerWeaponNum, attackerWeaponDefID)
+		return not (setTargetData[attackerID] and setTargetData[attackerID].activeTarget), false
+	end
+
+	-- Prevent target generation via GenerateAttackCmd and AirAutoGenerateTarget.
+	function gadget:UnitAutoTargetRange(attackerID, autoTargetRange)
+		return setTargetData[attackerID] and setTargetData[attackerID].activeTarget
+			and 0 -- <= 0 disables autotargeting.
+			or autoTargetRange -- Air units in MOVESTATE_HOLDPOS will return 0.
 	end
 
 	function gadget:RecvLuaMsg(msg, playerID)
