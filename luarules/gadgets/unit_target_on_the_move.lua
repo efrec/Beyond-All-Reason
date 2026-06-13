@@ -782,43 +782,39 @@ if gadgetHandler:IsSyncedCode() then
 
 			for unitID, unitData in pairsNext, activeTargets do
 				local targets, teamID, weapons = unitData.targets, unitData.teamID, unitData.weapons
-				local length, targetIndex, countRemoved = #targets, 0, 0
-
-				-- Target priority is in list-order on the target list.
-				for index = 1, length do
+				local targetCount = #targets
+				local targetIndex = 0
+				local moveToIndex = 0
+				local hasPriority = false
+				for index = 1, targetCount do
 					local targetData = targets[index]
-					if not checkTarget(teamID, targetData.target) then
-						targetData.invalid = true
-						countRemoved = countRemoved + 1
-					elseif testTarget(unitID, teamID, weapons, targetData.target) then
-						targetIndex = index - countRemoved
-						break
-					end
-				end
-
-				-- But we remove in reverse to minimize shifted entries.
-				local isEmptyList = false
-				if countRemoved > 0 then
-					local maxIndex = targetIndex == 0 and length or targetIndex + countRemoved
-					for index = maxIndex, 1, -1 do
-						if targets[index].invalid then
-							-- TODO: Some duplicated effort. This updates the activeTarget/currentIndex.
-							-- TODO: We need that in the unseen loop, below, but this is redundant here.
-							removeTarget(unitID, index)
+					if checkTarget(teamID, targetData.target) then
+						moveToIndex = moveToIndex + 1
+						if not hasPriority and testTarget(unitID, teamID, weapons, targetData.target) then
+							hasPriority = true
+							targetIndex = moveToIndex
+							if moveToIndex == index then
+								break
+							end
 						end
-					end
-					isEmptyList = not targets[1]
-					if not isEmptyList then
-						sendTargetsToUnsynced(unitID)
+						if moveToIndex ~= index then
+							targets[moveToIndex] = targetData
+						end
+					else
+						SendToUnsynced("targetDrop", unitID, index)
 					end
 				end
-
-				if isEmptyList then
-					--
-				elseif targetIndex ~= 0 then
-					setTargetActive(unitID, unitData, targetIndex)
-				elseif unitData.activeTarget then
-					setTargetPassive(unitID, unitData, 1)
+				if moveToIndex == 0 then
+					removeUnit(unitID)
+				else
+					for index = moveToIndex + 1, targetCount do
+						targets[index] = nil
+					end
+					if hasPriority then
+						setTargetActive(unitID, unitData, targetIndex)
+					elseif unitData.activeTarget then
+						setTargetPassive(unitID, unitData)
+					end
 				end
 			end
 		end
