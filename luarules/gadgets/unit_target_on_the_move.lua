@@ -230,19 +230,16 @@ if gadgetHandler:IsSyncedCode() then
 	-- Target precedence goes before target priority and ideally after target visibility, in range, unblocked, etc.
 	-- Autotargeting "target priority" is then a weighted value, and Set Target priority uses the order of the list.
 	local function hasTargetPrecedence(unitID, unitData)
-		local index = 1
-		local inCommand, _, _, param1, param2 = spGetUnitCurrentCommand(unitID, index)
+		local inCommand, _, _, param1, param2 = spGetUnitCurrentCommand(unitID)
 		if inCommand == CMD_WAIT then
-			index = index + 1
-			inCommand, _, _, param1, param2 = spGetUnitCurrentCommand(unitID, index)
-		end
-		if not inCommand or not isAttackCommand[inCommand] then
+			return false
+		elseif not inCommand or not isAttackCommand[inCommand] then
 			return true
 		elseif param2 or inCommand ~= CMD_ATTACK then
 			return false
 		end
 
-		local nextCommand, _, _, nextParam1 = spGetUnitCurrentCommand(unitID, index + 1)
+		local nextCommand, _, _, nextParam1 = spGetUnitCurrentCommand(unitID, 2)
 		if not nextCommand then
 			-- Check for generated (non-user) attack commands.
 			for weaponNum, check in pairs(unitData.weapons) do
