@@ -400,8 +400,7 @@ if gadgetHandler:IsSyncedCode() then
 		unitData.activeTarget = active
 	end
 
-	local function removeTarget(unitID, index)
-		local unitData = setTargetData[unitID]
+	local function removeTarget(unitID, unitData, index)
 		local removed = tremove(unitData.targets, index)
 		if removed then
 			if not unitData.targets[1] then
@@ -409,10 +408,13 @@ if gadgetHandler:IsSyncedCode() then
 				return
 			end
 			unitData.currentTargets[removed.target] = nil
+			SendToUnsynced("targetDrop", unitID, index)
 			if index == unitData.currentIndex then
-				updateTarget(unitID, unitData, 1)
+				unitData.currentIndex = 1
+				unitData.activeTarget = false
+			elseif index < unitData.currentIndex then
+				unitData.currentIndex = unitData.currentIndex - 1
 			end
-			refreshSendData(unitID, unitData, index)
 		end
 	end
 
@@ -668,12 +670,12 @@ if gadgetHandler:IsSyncedCode() then
 				elseif nParams == 1 then
 					if cmdOptions.alt then
 						local targetIndex = cmdParams[1]
-						removeTarget(unitID, targetIndex)
+						removeTarget(unitID, unitData, targetIndex)
 					else
 						local targetID = cmdParams[1]
 						for index, targetData in ipairs(unitData.targets) do
 							if targetData.target == targetID then
-								removeTarget(unitID, index)
+								removeTarget(unitID, unitData, index)
 								break
 							end
 						end
@@ -681,7 +683,7 @@ if gadgetHandler:IsSyncedCode() then
 				elseif nParams == 3 then
 					for index, targetData in ipairs(unitData.targets) do
 						if type(targetData.target) == "table" and inCancelDistance(targetData.target, cmdParams) then
-							removeTarget(unitID, index)
+							removeTarget(unitID, unitData, index)
 						end
 					end
 				end
@@ -864,6 +866,7 @@ else	-- UNSYNCED
 	local spSetCustomCommandDrawData = Spring.SetCustomCommandDrawData
 	local spAddWorldIcon = Spring.AddWorldIcon
 	local pairsNext = next
+	local tremove = table.remove
 
 	local myAllyTeam = spGetMyAllyTeamID()
 	local myTeam = spGetMyTeamID()
@@ -881,6 +884,7 @@ else	-- UNSYNCED
 		gadgetHandler:AddChatAction("targetdrawteam", handleTargetDrawEvent, "toggles drawing targets for units, params: teamID doDraw")
 		gadgetHandler:AddChatAction("targetdrawunit", handleUnitTargetDrawEvent, "toggles drawing targets for units, params: unitID")
 		gadgetHandler:AddSyncAction("targetList", handleTargetListEvent)
+		gadgetHandler:AddSyncAction("targetDrop", handleTargetDropEvent)
 		gadgetHandler:AddSyncAction("targetIndex", handleTargetIndexEvent)
 		gadgetHandler:AddSyncAction("failCommand", handleFailCommand)
 
@@ -902,6 +906,7 @@ else	-- UNSYNCED
 		gadgetHandler:RemoveChatAction("targetdrawteam")
 		gadgetHandler:RemoveChatAction("targetdrawunit")
 		gadgetHandler:RemoveSyncAction("targetList")
+		gadgetHandler:RemoveSyncAction("targetDrop")
 		gadgetHandler:RemoveSyncAction("targetIndex")
 		gadgetHandler:RemoveSyncAction("failCommand")
 	end
@@ -961,6 +966,13 @@ else	-- UNSYNCED
 			end
 		end
 		--tracy.ZoneEnd()
+	end
+
+	function handleTargetDropEvent(_, unitID, index)
+		local unitData = getUnitTargetList(unitID, false)
+		if unitData then
+			tremove(unitData.targets, index)
+		end
 	end
 
 	function handleTargetIndexEvent(_, unitID, index, active)
