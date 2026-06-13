@@ -63,7 +63,7 @@ aaMuzzleFlare;
 
 ///
 
-static-var 	torsoaim, movespeed, wpn1_lasthead, wpn2_lasthead, wpn3_lasthead, wpn4_lasthead, wpn5_lasthead, InMotion, 
+static-var 	torso_relative_cau, torso_dir_cau, hips_dir_cau, dir_check_frame, movespeed, wpn1_lasthead, wpn2_lasthead, wpn3_lasthead, wpn4_lasthead, InMotion, 
 			missile_count, shottieArm, Delay, deployed, animSpeed, maxSpeed, animFramesPerKeyframe, isMoving, aimingPose;
 ///
 
@@ -73,12 +73,13 @@ static-var 	torsoaim, movespeed, wpn1_lasthead, wpn2_lasthead, wpn3_lasthead, wp
 #define SIG_AIM_2 	4
 #define SIG_AIM_3 	8
 #define SIG_AIM_4 	16
-#define SIG_RESTORE 32
-#define SIG_AIM_5 	64
-#define SIG_WALK	128
-#define SIG_FIRE2 	256
-#define SIG_FIRE3 	512
-#define SIG_TRANS 	1024
+#define SIG_AIM_2_0 32
+#define SIG_AIM_2_1 64
+#define SIG_RESTORE 128
+#define SIG_WALK	256
+#define SIG_FIRE2 	512
+#define SIG_FIRE3 	1024
+#define SIG_TRANS 	2048
 
 Walk() {// For C:\Users\Siam\Desktop\BAR Development\Unit Modelling\Models\Bots\Tier 3\legpraet8.blend Created by https://github.com/Beherith/Skeletor_S3O V((0, 4, 2)) 
 	set-signal-mask SIGNAL_MOVE;
@@ -522,7 +523,6 @@ Open()
 		wait-for-move lmissileBattery2 along y-axis;
 		
 		deployed = 1;
-        
 	}
 }
 
@@ -545,7 +545,8 @@ Close()
 
 Create()
 {
-	torsoaim = 0;
+	torso_relative_cau = 0;
+	dir_check_frame = 0;
     aimingPose = 1;
 	deployed = 1;
     InMotion = 0;
@@ -554,10 +555,10 @@ Create()
 	moveSpeed = get MAX_SPEED;
 	animSpeed = 4;
 	wpn1_lasthead = 1000000;
-    wpn2_lasthead = 0;
-    wpn3_lasthead = 0;
-    wpn4_lasthead = 0;
-    wpn5_lasthead = 0;
+    wpn2_lasthead = 1000000;
+    wpn3_lasthead = 1000000;
+    wpn3_lasthead = 1000000;
+    wpn4_lasthead = 1000000;
 	Delay = 0;
 
 	// move aaMinigunFlare to z-axis [-60] now;
@@ -592,46 +593,109 @@ Create()
     move aaMinigunBase to y-axis [4] speed [10];
     turn aaMinigunTurret to x-axis <-45> speed <10>;
     spin aaMinigunBase around y-axis speed <20> accelerate <0.5>;
+}
 
+RestoreShotgunArm(armToRestore, relative_angle)
+{
+	// Try to defeat the spin machine. With spin
+	if (armToRestore == 0)
+	{
+		set-signal-mask SIG_AIM_2_0;
+		turn rArmGun to y-axis relative_angle speed <50>;
+		turn rArmGun to x-axis <0> speed <186.817262> / animSpeed;
+		turn rArmUpper to y-axis relative_angle speed <97.478461> / animSpeed;
+		turn rArmUpper to x-axis <0> speed <20>;
+		turn rArmGun to z-axis <15> speed <50>;
+	}
+	else
+	{
+		set-signal-mask SIG_AIM_2_1;
+		turn lArmGun to y-axis relative_angle speed <50>;
+		turn lArmGun to x-axis <0> speed <186.817262> / animSpeed;
+		turn lArmUpper to y-axis relative_angle speed <97.478461> / animSpeed;
+		turn lArmUpper to x-axis <0> speed <20>;
+		turn lArmGun to z-axis <-15> speed <50>;
+	}
 }
 
 RestoreAfterDelay(){
 	set-signal-mask SIG_RESTORE;
-	sleep 3000;
-    start-script Close();
+	sleep 2000;
 	turn torso to y-axis <0> speed <50>;
-	turn rArmGun to y-axis <0> speed <50>;
-	turn lArmGun to y-axis <0> speed <50>;
-	
-	turn lArmGun to x-axis <0> speed <186.817262> / animSpeed;
-	turn lArmUpper to y-axis <0> speed <97.478461> / animSpeed;
-	
-    turn rArmGun to x-axis <0> speed <186.817262> / animSpeed;
-    turn rArmUpper to y-axis <0> speed <97.478461> / animSpeed;
-    
-
-    turn rArmUpper to x-axis <0> speed <20>;
-    turn lArmUpper to x-axis <0> speed <20>;
-
-    turn rArmGun to z-axis <15> speed <50>;
-    turn lArmGun to z-axis <-15> speed <50>;
-
+	RestoreShotgunArm(0, 0)
+	RestoreShotgunArm(1, 0)
     move aaMinigunBase to y-axis [4] speed [10];
     turn aaMinigunTurret to x-axis <-45> speed <10>;
     spin aaMinigunBase around y-axis speed <20> accelerate <0.5>;
-	torsoaim = 0;
 	wpn1_lasthead = 1000000;
-    wpn2_lasthead = 0;
-    wpn3_lasthead = 0;
-    wpn4_lasthead = 0;
-    wpn5_lasthead = 0;
+    wpn2_lasthead = 1000000;
+    wpn3_lasthead = 1000000;
+    wpn3_lasthead = 1000000;
+    wpn4_lasthead = 1000000;
 	Delay = 0;
 	wait-for-turn rArmGun around x-axis;
     wait-for-turn rArmUpper around y-axis;
 	wait-for-turn lArmGun around x-axis;
     wait-for-turn lArmUpper around y-axis;
+	torso_relative_cau = 0;
+	dir_check_frame = 0;
 	InMotion = 0;
-    // start-script Close();
+}
+
+TurnTorso(relative_angle)
+{
+	if (dir_check_frame < get(GAME_FRAME))
+	{
+		turn torso to y-axis relative_angle speed <100.0000>;
+	}
+}
+
+#ifndef WRAPDELTA
+	#define WRAPDELTA(ang) (((ang + 98280) % 65520) - 32760)
+#endif
+
+// Fetches the headings of the torso and hips.
+// The results are in cau, which is the unit this code format uses for angles.
+// The relative angle then is up to 32768 (180 degrees), positive or negative.
+GetAimhullAngles()
+{
+	if (dir_check_frame == get(GAME_FRAME))
+	{
+		return (0);
+	}
+
+	var torso_xz, torso_x, torso_z;
+	torso_xz = get PIECE_XZ(torso);
+	torso_x = (torso_xz & 0xffff0000) / 0x00010000;
+	torso_z = (torso_xz & 0x0000ffff);
+
+	var torso_flare_xz, torso_flare_x, torso_flare_z;
+	torso_flare_xz = get PIECE_XZ(fronttorsoFlare);
+	torso_flare_x = (torso_flare_xz & 0xffff0000) / 0x00010000;
+	torso_flare_z = (torso_flare_xz & 0x0000ffff);
+
+	var torso_dir_x, torso_dir_z;
+	torso_dir_x = torso_x - torso_flare_x;
+	torso_dir_z = torso_z - torso_flare_z;
+
+	var hips_xz, hips_x, hips_z;
+	hips_xz = get PIECE_XZ(hip);
+	hips_x = (hips_xz & 0xffff0000) / 0x00010000;
+	hips_z = (hips_xz & 0x0000ffff);
+
+	var hips_flare_xz, hips_flare_x, hips_flare_z;
+	hips_flare_xz = get PIECE_XZ(fronthipFlare);
+	hips_flare_x = (hips_flare_xz & 0xffff0000) / 0x00010000;
+	hips_flare_z = (hips_flare_xz & 0x0000ffff);
+
+	var hips_dir_x, hips_dir_z;
+	hips_dir_x = hips_x - hips_flare_x;
+	hips_dir_z = hips_z - hips_flare_z;
+
+	torso_dir_cau = get ATAN(torso_dir_z, torso_dir_x);
+	hips_dir_cau = get ATAN(hips_dir_z, hips_dir_x);
+	torso_relative_cau = WRAPDELTA(hips_dir_cau - torso_dir_cau); // hips use the unit's actual heading
+	dir_check_frame = get(GAME_FRAME);
 }
 
 SweetSpot(piecenum)
@@ -640,32 +704,14 @@ SweetSpot(piecenum)
 	return (0);
 }
 
-QueryWeapon1(piecenum) //Hull Rotation
+QueryWeapon1(piecenum)
 {
-
     piecenum = torso;
-	// if(missile_count==0)
-	// {
-	// 	piecenum=mis1;	
-	// }
-	// if(missile_count==1)
-	// {
-	// 	piecenum=mis2;
-	// }
-	// if(missile_count==2)
-	// {
-	// 	piecenum=mis3;
-	// }
-	// if(missile_count==3)
-	// {
-	// 	piecenum=mis4;
-	// }
 }
 
 AimFromWeapon1(piecenum)
 {
 	piecenum = torso;
-	return (0);
 }
 
 AimWeapon1(heading, pitch)
@@ -677,58 +723,13 @@ AimWeapon1(heading, pitch)
 	signal SIG_AIM_1;
 	signal SIG_RESTORE;
 	set-signal-mask SIG_AIM_1;
-	turn torso to y-axis heading speed <100.0000> ; //-- Turn(torso, y-axis, heading, math.rad(300))
-	var gun_xz;
-    gun_xz = get PIECE_XZ(torso);                                //get packed gun coordinates
-    var gun_x;
-    gun_x = (gun_xz & 0xffff0000) / 0x00010000;                //unpack x coordinates of gun (credit for unpack code goes to Beherith)
-    var gun_z;
-    gun_z = (gun_xz & 0x0000ffff);                            //unpack z coordinates of gun
-    
-    var turret_xz;
-    turret_xz = get PIECE_XZ(fronttorsoFlare);                        //get packed turret coordinates
-    var turret_x;
-    turret_x = (turret_xz & 0xffff0000) / 0x00010000;        //unpack x coordinates of turret
-    var turret_z;
-    turret_z = (turret_xz & 0x0000ffff);                    //unpack z coordinates of turret
-    
-    var aim_x;
-    var aim_z;
-    aim_x = gun_x - turret_x;                                //calculate relative coordinates of the gun to the turret (how far away it is in each direction)
-    aim_z = gun_z - turret_z;
-    
-    
-    var hull_xz;
-    hull_xz = get PIECE_XZ(hip);                            //get packed hull coordinates
-    var hull_x;
-    hull_x = (hull_xz & 0xffff0000) / 0x00010000;            //unpack x coordinates of hull
-    var hull_z;
-    hull_z = (hull_xz & 0x0000ffff);                        //unpack z coordinates of hull
-    
-    var smoke_xz;
-    smoke_xz = get PIECE_XZ(fronthipFlare);                            //get packed smoke coordinates
-    var smoke_x;
-    smoke_x = (smoke_xz & 0xffff0000) / 0x00010000;            //unpack x coordinates of smoke
-    var smoke_z;
-    smoke_z = (smoke_xz & 0x0000ffff);                        //unpack z coordinates of smoke
-    
-    var face_x;
-    var face_z;
-    face_x = hull_x - smoke_x;                                //calculate relative coordinates of the hull to the smoke (how far away it is in each direction)
-    face_z = hull_z - smoke_z;
-	
-	var cauaim;
-    var cauface;
-    cauaim = get ATAN(aim_z, aim_x);                        //use arctan (ATAN) to calculate the angle of the turret. The result is in cau, which is the unit this code format uses for angles. Its up to 32768 (180 degrees), positive or negative depending on direction
-    cauface = get ATAN(face_z, face_x);                        //use arctan (ATAN) to calculate the angle of the hull. The result is in cau, which is the unit this code format uses for angles. Its up to 32768 (180 degrees), positive or negative depending on direction
-    
-    //var torsoaim;
-    torsoaim = cauface - cauaim;                                //calculate angle of turret relative to the hull
-	//torsoaim = heading;
-	if (((get ABS(wpn1_lasthead - heading)) > 65536) OR(((get ABS(wpn1_lasthead - heading)) > <5>) AND ((get ABS(wpn1_lasthead - heading)) < 65536-<5>)))
+	call-script TurnTorso(heading);
+    call-script GetAimhullAngles();
+	if ((wpn1_lasthead == 100000) OR (((get ABS(wpn1_lasthead - heading)) > <5>) AND ((get ABS(wpn1_lasthead - heading)) < 65536-<5>)))
 	{
-		wpn1_lasthead = 1000000;
+		wpn1_lasthead = heading;
 		wait-for-turn torso around y-axis;
+		return (0);
 	}
 	wpn1_lasthead = heading;
 	start-script RestoreAfterDelay();
@@ -740,17 +741,15 @@ FireWeapon1()
 	return (1);
 }
 
-QueryWeapon2(piecenum) //R Shotgun
+QueryWeapon2(piecenum)
 {
-	if(shottieArm==1)
-	{
-		piecenum=rArmFlare;	
-		return(0);	
-	}
 	if(shottieArm==0)
 	{
+		piecenum=rArmFlare;	
+	}
+	else
+	{
 		piecenum=lArmFlare;
-		return(0);	
 	}
 }
 
@@ -759,47 +758,50 @@ AimFromWeapon2(piecenum)
 	if(shottieArm==0)
 	{
 		piecenum=rArmFlare;
-        return(0);	
 	}
-	if(shottieArm==1)
+	else
 	{
 		piecenum=lArmFlare;
-        return(0);	
 	}
-
-    //piecenum = torso;
-    // return(0);
-
-
 }
 
-AimWeapon2(heading, pitch) //pew pew
+AimWeapon2(heading, pitch)
 {
 	signal SIG_AIM_2;
 	signal SIG_RESTORE;
-	set-signal-mask SIG_AIM_2;
 	InMotion = 1;
-    if (Delay==1)
+    if (Delay==1) return (0);
+
+	call-script TurnTorso(heading);
+	call-script GetAimhullAngles();
+	heading = heading - torso_relative_cau;
+
+	if (shottieArm == 0)
 	{
-		return (0);
-	}
-	if(shottieArm==0)
-	{
-		turn rArmGun to y-axis heading - torsoaim speed <200.0000>;
+		turn rArmGun to y-axis heading speed <200.0000>;
 		turn rArmUpper to x-axis -1*pitch speed <100.0000>;
+		start-script RestoreShotgunArm(0, torso_relative_cau);
 	}
-	if(shottieArm==1)
+	else
 	{
-		turn lArmGun to y-axis heading - torsoaim speed <200.0000>;
+		turn lArmGun to y-axis heading speed <200.0000>;
 		turn lArmUpper to x-axis -1*pitch speed <100.0000>;
+		start-script RestoreShotgunArm(1, torso_relative_cau);
 	}
-	if (((get ABS(wpn2_lasthead - heading)) > 65536) OR(((get ABS(wpn2_lasthead - heading)) > <30>) AND ((get ABS(wpn2_lasthead - heading)) < 65536 - <30>)))
+
+	set-signal-mask SIG_AIM_2;
+
+	if ((wpn2_lasthead == 1000000) OR (((get ABS(wpn2_lasthead - heading)) > <30>) AND ((get ABS(wpn2_lasthead - heading)) < 65536 - <30>)))
 	{
-		wpn2_lasthead = wpn2_lasthead - (wpn2_lasthead - heading)*2/5;		//Adds a small firing delay
+		wpn2_lasthead = heading;
+		wait-for-turn lArmGun around y-axis; // TODO: there was code here to add a firing delay that I did not understand
 		return (0);
 	}
-	wpn2_lasthead = heading;
-	return (1);
+	else
+	{
+		wpn2_lasthead = heading;
+		return (1);
+	}
 }
 
 FireWeapon2()
@@ -848,7 +850,6 @@ FireWeapon2()
 	}
 }
 
-
 Shot2(zero)
 {
 
@@ -861,76 +862,82 @@ QueryWeapon3(piecenum)
 	{
 		piecenum = lmissileFlare1;
 	}
-	if(missile_count == 1)
+	else if(missile_count == 1)
 	{
 		piecenum = rmissileFlare1;
 	}
-	if(missile_count == 2)
+	else if(missile_count == 2)
 	{
 		piecenum = lmissileFlare2;
 	}
-	if(missile_count == 3)
+	else if(missile_count == 3)
 	{
 		piecenum = rmissileFlare2;
 	}
-	if(missile_count == 4)
+	else if(missile_count == 4)
 	{
 		piecenum = lmissileFlare3;
 	}
-	if(missile_count == 5)
+	else if(missile_count == 5)
 	{
 		piecenum = rmissileFlare3;
 	}
-	if(missile_count == 6)
+	else if(missile_count == 6)
 	{
 		piecenum = lmissileFlare4;
 	}
-	if(missile_count == 7)
+	else if(missile_count == 7)
 	{
 		piecenum = rmissileFlare4;
 	}
-	if(missile_count == 8)
+	else if(missile_count == 8)
 	{
 		piecenum = lmissileFlare5;
 	}
-	if(missile_count == 9)
+	else if(missile_count == 9)
 	{
 		piecenum = rmissileFlare5;
 	}
-	if(missile_count == 10)
+	else if(missile_count == 10)
 	{
 		piecenum = lmissileFlare6;
 	}
-	if(missile_count == 11)
+	else if(missile_count == 11)
 	{
 		piecenum = rmissileFlare6;
 	}
-	// return (0);
 }
 
 AimFromWeapon3(piecenum)
 {
 	piecenum = rmissileBattery1;
-	// return (0);
 }
 
 AimWeapon3(heading, pitch)
 {
-	if( !deployed )
+	if (!deployed)
 	{
+		start-script Open();
 		return (0);
 	}
-	signal SIG_AIM_4;
+	signal SIG_AIM_3;
 	signal SIG_RESTORE;
-	set-signal-mask SIG_AIM_4;
-	if (((get ABS(wpn4_lasthead - heading)) > 65536) OR(((get ABS(wpn4_lasthead - heading)) > 1300) AND ((get ABS(wpn4_lasthead - heading)) < 64236)))
+	set-signal-mask SIG_AIM_3;
+	call-script TurnTorso(heading);
+    call-script GetAimhullAngles();
+	heading = heading - torso_relative_cau;
+	if (wpn3_lasthead == 1000000 OR (((get ABS(wpn3_lasthead - heading)) > 1300) AND ((get ABS(wpn3_lasthead - heading)) < 64236)))
 	{
+		wpn3_lasthead = heading;
 		wait-for-turn torso around y-axis;
-		wpn4_lasthead = 1000000;
+		return (0);
 	}
-	wpn4_lasthead = heading;
-	start-script RestoreAfterDelay();
-	return (1);
+	else
+	{
+		start-script RestoreAfterDelay();
+		wpn3_lasthead = heading;
+		return (1);
+	}
 }
 
 FireWeapon3()
@@ -947,47 +954,47 @@ Shot3(zero)
 	{
 		emit-sfx 1024 + 3 from lmissileFlare1;
 	}
-	if(missile_count == 1)
+	else if(missile_count == 1)
 	{
 		emit-sfx 1024 + 3 from rmissileFlare1;
 	}
-	if(missile_count == 2)
+	else if(missile_count == 2)
 	{
 		emit-sfx 1024 + 3 from lmissileFlare2;
 	}
-	if(missile_count == 3)
+	else if(missile_count == 3)
 	{
 		emit-sfx 1024 + 3 from rmissileFlare2;
 	}
-	if(missile_count == 4)
+	else if(missile_count == 4)
 	{
 		emit-sfx 1024 + 3 from lmissileFlare3;
 	}
-	if(missile_count == 5)
+	else if(missile_count == 5)
 	{
 		emit-sfx 1024 + 3 from rmissileFlare3;
 	}
-	if(missile_count == 6)
+	else if(missile_count == 6)
 	{
 		emit-sfx 1024 + 3 from lmissileFlare4;
 	}
-	if(missile_count == 7)
+	else if(missile_count == 7)
 	{
 		emit-sfx 1024 + 3 from rmissileFlare4;
 	}
-	if(missile_count == 8)
+	else if(missile_count == 8)
 	{
 		emit-sfx 1024 + 3 from lmissileFlare5;
 	}
-	if(missile_count == 9)
+	else if(missile_count == 9)
 	{
 		emit-sfx 1024 + 3 from rmissileFlare5;
 	}
-	if(missile_count == 10)
+	else if(missile_count == 10)
 	{
 		emit-sfx 1024 + 3 from lmissileFlare6;
 	}
-	if(missile_count == 11)
+	else if(missile_count == 11)
 	{
 		emit-sfx 1024 + 3 from rmissileFlare6;
 	}
@@ -1004,45 +1011,45 @@ Shot3(zero)
 QueryWeapon4(piecenum) 
 {
 	piecenum = aaMinigunFlare;
-	// return (0);
 }
 
 AimFromWeapon4(piecenum)
 {
 	piecenum = aaMinigunBase;
-	// return (0);
 }
 
-AimWeapon4(heading, pitch) //pew pew
+AimWeapon4(heading, pitch)
 {
-	signal SIG_AIM_5;
+	// Weapon targets air so does not "Open" any surface-targeting weapon systems.
+	signal SIG_AIM_4;
 	signal SIG_RESTORE;
-	set-signal-mask SIG_AIM_5;
+	set-signal-mask SIG_AIM_4;
     stop-spin aaMinigunBase around y-axis;
-	turn aaMinigunBase to y-axis heading - torsoaim speed <300.0000>; //-- Turn(torso, y-axis, heading, math.rad(300))
+	turn aaMinigunBase to y-axis heading - torso_relative_cau speed <300.0000>; //-- Turn(torso, y-axis, heading, math.rad(300))
 	turn aaMinigunTurret to x-axis -1*pitch speed <300.0000>;
-	if (((get ABS(wpn5_lasthead - heading)) > 65536) OR(((get ABS(wpn5_lasthead - heading)) > 2500) AND ((get ABS(wpn5_lasthead - heading)) < 64236)))
+	if ((wpn4_lasthead == 1000000) OR (((get ABS(wpn4_lasthead - heading)) > 2500) AND ((get ABS(wpn4_lasthead - heading)) < 64236)))
 	{
-		wpn5_lasthead = 1000000;
-		//wait-for-turn aaMinigunBase around y-axis;
-		//wait-for-turn aaMinigunTurret around x-axis;
+		wpn4_lasthead = heading;
+		wait-for-turn aaMinigunTurret around x-axis; // Keep at least one wft.
+		return (0);
 	}
-	wpn5_lasthead = heading;
-	start-script RestoreAfterDelay();
-	return (1);
+	else
+	{
+		start-script RestoreAfterDelay();
+		wpn4_lasthead = heading;
+		return (1);
+	}
 }
 
 FireWeapon4()
 {
 	spin aaMinigunBarrel around z-axis speed <-2000.0>;
-
 	stop-spin aaMinigunBarrel around z-axis decelerate <12>;
 }
 
 Shot4(zero){
 	emit-sfx 1024+2 from aaMuzzleFlare;
 }
-
 
 
 //-----------------------------------------------------------------------

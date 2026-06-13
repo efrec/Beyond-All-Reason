@@ -114,7 +114,8 @@ return {
 				impulsefactor = 0.123,
 				name = "Targeting System",
 				noselfdamage = true,
-				range = 420,
+				proximitypriority = 2,
+				range = 700,
 				reloadtime = 2.5,
 				size = 0,
 				soundhit = "",
@@ -125,7 +126,7 @@ return {
 				weaponvelocity = 360,
 				customparams = {
 					bogus = 1,
-					preaim_range = 650,
+					preaim_range = 750,
 				},
 				damage = {
 					default = 0,
@@ -150,7 +151,6 @@ return {
 				name = "Dual Heavy Assault Kinetic Shotgun",
 				noselfdamage = true,
 				ownerExpAccWeight = 4.0,
-				proximitypriority = 10,
 				range = 420,
 				reloadtime = 0.9,
 				rgbcolor = "1 0.95 0.4",
@@ -173,7 +173,6 @@ return {
 			adv_rocket = {
 				areaofeffect = 96,
 				avoidfeature = false,
-				--burnblow = true,
 				burst = 12,
 				burstrate = 0.1,
 				castshadow = true,
@@ -190,7 +189,6 @@ return {
 				model = "legsmallrocket.s3o",
 				name = "Parabolic Trajectory Multi-Rocket Launcher",
 				noselfdamage = true,
-                proximitypriority = -1,
 				range = 700,
 				reloadtime = 6,
 				smokecolor = 0.5,
@@ -207,6 +205,7 @@ return {
 				targetmoveerror = 0.2,
 				texture1 = "null",
 				texture2 = "smoketrailbar",
+				tolerance = 100,
 				trajectoryheight = 0.5,
 				turnrate = 0,
 				turret = true,
@@ -276,21 +275,19 @@ return {
 		},
 		weapons = {
 			[1] = {
-				badtargetcategory = "VTOL",
 				def = "AIMHULL",
 				onlytargetcategory = "SURFACE",
+				weaponaimadjustpriority = 20,
 			},
 			[2] = {
-				badtargetcategory = "VTOL",
 				def = "SHOTGUN",
 				onlytargetcategory = "SURFACE",
-				slaveto = 1;
+				slaveto = 1,
 			},
 			[3] = {
-				badtargetcategory = "VTOL",
 				def = "adv_rocket",
 				onlytargetcategory = "SURFACE",
-                slaveto = 1;
+				slaveto = 1,
 			},
 			[4] = {
 				badtargetcategory = "LIGHTAIRSCOUT",
