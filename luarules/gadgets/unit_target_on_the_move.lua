@@ -332,6 +332,22 @@ if gadgetHandler:IsSyncedCode() then
 		--tracy.ZoneEnd()
 	end
 
+	local function refreshSendData(unitID, unitData, minIndex)
+		local targetList = unitData.targets
+		local n = #targetList
+		for index = (minIndex or 1), n do
+			local targetData = targetList[index]
+			local target = targetData.target
+			if type(target) == "number" then
+				SendToUnsynced("targetList", unitID, index, targetData.userTarget, target)
+			else
+				SendToUnsynced("targetList", unitID, index, targetData.userTarget, target[1], target[2], target[3])
+			end
+		end
+		SendToUnsynced("targetList", unitID, n + 1) -- clear the last element in case the list shrank
+		SendToUnsynced("targetIndex", unitID, unitData.currentIndex, unitData.activeTarget)
+	end
+
 	local function addUnitTargets(unitID, unitDefID, targetList, append)
 		--tracy.ZoneBeginN(string.format("addUnitTargets:%s %d %d", unitID, unitDefID))
 		if not spValidUnitID(unitID) then
@@ -406,17 +422,6 @@ if gadgetHandler:IsSyncedCode() then
 			setTargetData[unitID] = nil
 			SendToUnsynced("targetList", unitID, 0)
 		end
-	end
-
-	local function refreshSendData(unitID, unitData, minIndex)
-		local targetList = unitData.targets
-		local n = #targetList
-		for i = (minIndex or 1), n do
-			targetList[i].sent = false -- TODO: There are no other unsent values; we could be sending these directly.
-		end
-		sendTargetsToUnsynced(unitID)
-		SendToUnsynced("targetList", unitID, n + 1) -- clear the last element in case the list shrank
-		SendToUnsynced("targetIndex", unitID, unitData.currentIndex, unitData.activeTarget)
 	end
 
 	local function updateTarget(unitID, unitData, index, active)
