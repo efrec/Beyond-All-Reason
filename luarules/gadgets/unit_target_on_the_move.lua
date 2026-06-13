@@ -772,18 +772,6 @@ if gadgetHandler:IsSyncedCode() then
 
 		teamQueryCaches = {}
 
-		for unitID, unitData in pairs(setTargetData) do
-			if activeTargets[unitID] then
-				if not hasTargetPrecedence(unitID, unitData) then
-					pauseTargetting(unitID)
-				end
-			else
-				if hasTargetPrecedence(unitID, unitData) then
-					unpauseTargetting(unitID)
-				end
-			end
-		end
-
 		local offset = frame % 5
 
 		if offset == 0 then
@@ -795,11 +783,22 @@ if gadgetHandler:IsSyncedCode() then
 
 			updateUnseenUnits = unseenUpdatePasses
 
-			for unitID, unitData in pairsNext, activeTargets do
+			for unitID, unitData in pairsNext, setTargetData do
 				local targets = unitData.targets
 				for index = #targets, 1, -1 do
 					if isUnseenEnemyUnit(targets[index], unitData.allyTeam) then
-						removeTarget(unitID, index)
+						removeTarget(unitID, unitData, index)
+					end
+				end
+				if not targets[1] then
+					removeUnit(unitID)
+				elseif activeTargets[unitID] then
+					if not hasTargetPrecedence(unitID, unitData) then
+						pauseTargetting(unitID)
+					end
+				else
+					if hasTargetPrecedence(unitID, unitData) then
+						unpauseTargetting(unitID)
 					end
 				end
 			end
