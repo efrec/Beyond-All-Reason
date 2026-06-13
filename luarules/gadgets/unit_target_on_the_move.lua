@@ -229,27 +229,31 @@ if gadgetHandler:IsSyncedCode() then
 
 	-- Target precedence goes before target priority and ideally after target visibility, in range, unblocked, etc.
 	-- Autotargeting "target priority" is then a weighted value, and Set Target priority uses the order of the list.
-	local function hasTargetPrecedence(unitID)
+	local function hasTargetPrecedence(unitID, unitData)
 		local index = 1
 		local inCommand, _, _, param1, param2 = spGetUnitCurrentCommand(unitID, index)
 		if inCommand == CMD_WAIT then
 			index = index + 1
 			inCommand, _, _, param1, param2 = spGetUnitCurrentCommand(unitID, index)
 		end
-
 		if not inCommand or not isAttackCommand[inCommand] then
 			return true
-		end
-
-		-- Only Attack commands against units are emplaced/internal.
-		if param2 or inCommand ~= CMD_ATTACK then
+		elseif param2 or inCommand ~= CMD_ATTACK then
 			return false
 		end
 
 		local nextCommand, _, _, nextParam1 = spGetUnitCurrentCommand(unitID, index + 1)
-
 		if not nextCommand then
-			return false
+			-- Check for generated (non-user) attack commands.
+			for weaponNum, check in pairs(unitData.weapons) do
+				if check then
+					local _, isUserTarget = spGetUnitWeaponTarget(unitID, weaponNum)
+					if isUserTarget then
+						return false
+					end
+				end
+			end
+			return true
 		elseif nextCommand == CMD_FIGHT then
 			-- Set Target does not violate an active Fight command by prioritizing the user's target.
 			-- ! FIXME: We assume the Attack command originated from within Fight but cannot be sure.
@@ -264,6 +268,7 @@ if gadgetHandler:IsSyncedCode() then
 				end
 			end
 		end
+
 		return false
 	end
 
@@ -762,13 +767,13 @@ if gadgetHandler:IsSyncedCode() then
 
 		teamQueryCaches = {}
 
-		for unitID in pairs(setTargetData) do
+		for unitID, unitData in pairs(setTargetData) do
 			if activeTargets[unitID] then
-				if not hasTargetPrecedence(unitID) then
+				if not hasTargetPrecedence(unitID, unitData) then
 					pauseTargetting(unitID)
 				end
 			else
-				if hasTargetPrecedence(unitID) then
+				if hasTargetPrecedence(unitID, unitData) then
 					unpauseTargetting(unitID)
 				end
 			end
