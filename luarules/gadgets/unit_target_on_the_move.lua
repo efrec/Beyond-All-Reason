@@ -783,37 +783,52 @@ if gadgetHandler:IsSyncedCode() then
 			for unitID, unitData in pairsNext, activeTargets do
 				local targets, teamID, weapons = unitData.targets, unitData.teamID, unitData.weapons
 				local targetCount = #targets
-				local targetIndex = 0
-				local moveToIndex = 0
+				local activeIndex = 0
+				local updateIndex = 0 -- table.remove is slow, as is iterating forward then backward, so we do an erase-remove
 				local hasPriority = false
 				for index = 1, targetCount do
 					local targetData = targets[index]
 					if checkTarget(teamID, targetData.target) then
-						moveToIndex = moveToIndex + 1
+						updateIndex = updateIndex + 1
 						if not hasPriority and testTarget(unitID, teamID, weapons, targetData.target) then
-							hasPriority = true
-							targetIndex = moveToIndex
-							if moveToIndex == index then
-								break
+							if updateIndex ~= index then
+								targets[updateIndex] = targetData
 							end
+							hasPriority = true
+							activeIndex = updateIndex
+							updateIndex = index
+							-- if moveToIndex == index then
+							break -- Avoid continuing tests for better performance.
+							-- end
 						end
-						if moveToIndex ~= index then
-							targets[moveToIndex] = targetData
+						if updateIndex ~= index then
+							targets[updateIndex] = targetData
 						end
 					else
 						SendToUnsynced("targetDrop", unitID, index)
 					end
 				end
-				if moveToIndex == 0 then
+				if updateIndex == 0 then
 					removeUnit(unitID)
 				else
-					for index = moveToIndex + 1, targetCount do
-						targets[index] = nil
-					end
 					if hasPriority then
-						setTargetActive(unitID, unitData, targetIndex)
+						setTargetActive(unitID, unitData, activeIndex)
+						if updateIndex < targetCount then
+							-- We broke iter early so have to finish shifting indices.
+							local removedCount = updateIndex - activeIndex
+							for index = activeIndex + 1, targetCount - removedCount do
+								updateIndex = updateIndex + 1
+								targets[index] = targets[updateIndex]
+							end
+							for index = targetCount - removedCount + 1, targetCount do
+								targets[index] = nil
+							end
+						end
 					elseif unitData.activeTarget then
 						setTargetPassive(unitID, unitData)
+						for index = updateIndex + 1, targetCount do
+							targets[index] = nil
+						end
 					end
 				end
 			end
