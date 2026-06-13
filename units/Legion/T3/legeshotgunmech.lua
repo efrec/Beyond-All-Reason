@@ -114,7 +114,7 @@ return {
 				impulsefactor = 0.123,
 				name = "Targeting System",
 				noselfdamage = true,
-				proximitypriority = 2,
+				proximitypriority = 12,
 				range = 700,
 				reloadtime = 2.5,
 				size = 0,
