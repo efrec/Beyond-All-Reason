@@ -227,6 +227,18 @@ if gadgetHandler:IsSyncedCode() then
 		return inCommand and isAttackCommand[inCommand]
 	end
 
+	local function inAutoAttack(unitID, unitData)
+		for weaponNum, check in pairs(unitData.weapons) do
+			if check then
+				local _, isUserTarget = spGetUnitWeaponTarget(unitID, weaponNum)
+				if isUserTarget then
+					return false
+				end
+			end
+		end
+		return true
+	end
+
 	-- Target precedence goes before target priority and ideally after target visibility, in range, unblocked, etc.
 	-- Autotargeting "target priority" is then a weighted value, and Set Target priority uses the order of the list.
 	local function hasTargetPrecedence(unitID, unitData)
@@ -241,16 +253,7 @@ if gadgetHandler:IsSyncedCode() then
 
 		local nextCommand, _, _, nextParam1 = spGetUnitCurrentCommand(unitID, 2)
 		if not nextCommand then
-			-- Check for generated (non-user) attack commands.
-			for weaponNum, check in pairs(unitData.weapons) do
-				if check then
-					local _, isUserTarget = spGetUnitWeaponTarget(unitID, weaponNum)
-					if isUserTarget then
-						return false
-					end
-				end
-			end
-			return true
+			return inAutoAttack(unitID, unitData)
 		elseif nextCommand == CMD_FIGHT then
 			-- Set Target does not violate an active Fight command by prioritizing the user's target.
 			-- ! FIXME: We assume the Attack command originated from within Fight but cannot be sure.
