@@ -20,23 +20,6 @@ local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
 local CMD_UNIT_CANCEL_TARGET = GameCMD.UNIT_CANCEL_TARGET
 local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
 
-local spGetUnitRulesParam = Spring.GetUnitRulesParam
-
-function GG.GetUnitTarget(unitID)
-	local targetID = spGetUnitRulesParam(unitID, "targetID")
-	targetID = tonumber(targetID) and targetID >= 0 and targetID or nil
-	if not targetID then
-		targetID = {
-			spGetUnitRulesParam(unitID, "targetCoordX"),
-			spGetUnitRulesParam(unitID, "targetCoordY"),
-			spGetUnitRulesParam(unitID, "targetCoordZ"),
-		}
-		targetID = targetID[1] ~= -1 and targetID[3] ~= -1 and targetID or nil
-	end
-	return targetID
-end
-
-
 if gadgetHandler:IsSyncedCode() then
 
 	-- The rate of removing unseen/untracked units from the unit target lists.
@@ -53,7 +36,6 @@ if gadgetHandler:IsSyncedCode() then
 	local spAreTeamsAllied = Spring.AreTeamsAllied
 	local spGetUnitsInRectangle = Spring.GetUnitsInRectangle
 	local spGetUnitsInCylinder = Spring.GetUnitsInCylinder
-	local spSetUnitRulesParam = Spring.SetUnitRulesParam
 	local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
 	local spGetUnitWeaponTarget = Spring.GetUnitWeaponTarget
 	local spGetUnitWeaponTryTarget = Spring.GetUnitWeaponTryTarget
@@ -221,9 +203,6 @@ if gadgetHandler:IsSyncedCode() then
 
 	local function inAttackCommand(unitID)
 		local inCommand = spGetUnitCurrentCommand(unitID)
-		if inCommand == CMD_WAIT then
-			inCommand = spGetUnitCurrentCommand(unitID, 2)
-		end
 		return inCommand and isAttackCommand[inCommand]
 	end
 
@@ -273,36 +252,27 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	local function setTargetActive(unitID, unitData, targetIndex)
-		unitData.activeTarget = true
-		unitData.currentIndex = targetIndex
 		local targetData = unitData.targets[targetIndex]
 		local target = targetData.target
-		local targetID, targetX, targetY, targetZ = -1, -1, -1, -1
 		if type(target) == "number" then
-			targetID = target
-			spSetUnitTarget(unitID, targetID, false, targetData.userTarget)
+			spSetUnitTarget(unitID, target, false, targetData.userTarget)
 		else
-			targetX, targetY, targetZ = target[1], target[2], target[3]
-			spSetUnitTarget(unitID, targetX, targetY, targetZ, false, targetData.userTarget)
+			spSetUnitTarget(unitID, target[1], target[2], target[3], false, targetData.userTarget)
 		end
-		spSetUnitRulesParam(unitID, "targetID",     targetID)
-		spSetUnitRulesParam(unitID, "targetCoordX", targetX)
-		spSetUnitRulesParam(unitID, "targetCoordY", targetY)
-		spSetUnitRulesParam(unitID, "targetCoordZ", targetZ)
-		SendToUnsynced("targetIndex", unitID, targetIndex, true)
+		if unitData.currentIndex ~= targetIndex or not unitData.activeTarget then
+			unitData.currentIndex = targetIndex
+			unitData.activeTarget = true
+			SendToUnsynced("targetIndex", unitID, targetIndex, true)
+		end
 	end
 
-	local function setTargetPassive(unitID, unitData, targetIndex)
-		unitData.activeTarget = false
-		unitData.currentIndex = targetIndex
+	local function setTargetPassive(unitID, unitData)
 		if not inAttackCommand(unitID) then
 			spSetUnitTarget(unitID, nil)
 		end
-		spSetUnitRulesParam(unitID, "targetID",     nil)
-		spSetUnitRulesParam(unitID, "targetCoordX", nil)
-		spSetUnitRulesParam(unitID, "targetCoordY", nil)
-		spSetUnitRulesParam(unitID, "targetCoordZ", nil)
-		SendToUnsynced("targetIndex", unitID, targetIndex, false)
+		unitData.activeTarget = false
+		unitData.currentIndex = 1
+		SendToUnsynced("targetIndex", unitID, 1, false)
 	end
 
 	local function isUnseenEnemyUnit(targetData, allyTeam)
@@ -407,16 +377,11 @@ if gadgetHandler:IsSyncedCode() then
 	local function removeUnit(unitID, keeptrack)
 		if activeTargets[unitID] then
 			activeTargets[unitID] = nil
-			spSetUnitRulesParam(unitID, "targetID", nil)
-			spSetUnitRulesParam(unitID, "targetCoordX", nil)
-			spSetUnitRulesParam(unitID, "targetCoordY", nil)
-			spSetUnitRulesParam(unitID, "targetCoordZ", nil)
 			if not inAttackCommand(unitID) then
 				spSetUnitTarget(unitID, nil)
 			end
 		elseif pausedTargets[unitID] then
 			pausedTargets[unitID] = nil
-			SendToUnsynced("targetList", unitID, 0)
 		end
 		if not keeptrack then
 			setTargetData[unitID] = nil
@@ -480,6 +445,14 @@ if gadgetHandler:IsSyncedCode() then
 				updateTarget(unitID, unitData, 1)
 			end
 			refreshSendData(unitID, unitData, minIndex)
+		end
+	end
+
+	function GG.GetUnitTarget(unitID)
+		local unitData = activeTargets[unitID]
+		if unitData then
+			local targetData = unitData.targets[unitData.currentIndex]
+			return targetData and targetData.target
 		end
 	end
 
