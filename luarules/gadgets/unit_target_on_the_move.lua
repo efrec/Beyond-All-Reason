@@ -417,10 +417,10 @@ if gadgetHandler:IsSyncedCode() then
 
 	local function removeUnit(unitID, keeptrack)
 		if activeTargets[unitID] then
-			activeTargets[unitID] = nil
-			if not inAttackCommand(unitID) then
+			if activeTargets[unitID].activeTarget and not inAttackCommand(unitID) then
 				spSetUnitTarget(unitID, nil)
 			end
+			activeTargets[unitID] = nil
 		elseif pausedTargets[unitID] then
 			pausedTargets[unitID] = nil
 		end
