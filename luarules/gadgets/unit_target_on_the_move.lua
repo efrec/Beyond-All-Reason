@@ -866,7 +866,6 @@ if gadgetHandler:IsSyncedCode() then
 		teamQueryCaches = {}
 		if frame % 16 == 0 then
 			processSlowListUpdates()
-			return
 		else
 			processTargetListChunk()
 		end
