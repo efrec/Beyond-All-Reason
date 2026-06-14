@@ -122,7 +122,7 @@ if gadgetHandler:IsSyncedCode() then
 	-- Unlike the physical sim, unit, command, and "AI" AI respond to performance bottlenecks.
 	-- Use a work queue with a sliding index to process target lists in chunks on every frame.
 	local updateWorkQueue = {} -- unitID[] for target updates
-	local workQueueLookup = {} -- unitID => queue index lookup -- TODO: can combine into activeTargets
+	local workQueueLookup = {} -- unitID => queue index lookup -- TODO: shadows activeTargets?
 	local workQueueLength = 0
 	local workQueueIndex = 1
 	-- At most chunkSizeMin units will be processed on every frame except slow update frames.
