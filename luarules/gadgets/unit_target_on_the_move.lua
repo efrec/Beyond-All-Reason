@@ -850,12 +850,11 @@ if gadgetHandler:IsSyncedCode() then
 			return
 		end
 		local processCount = clamp(workQueueLength / updateFrames, min(workQueueLength, chunkSizeMin), chunkSizeMax)
-		local unitID
 		for _ = 1, processCount do
 			if workQueueIndex > workQueueLength then
 				workQueueIndex = 1
 			end
-			unitID = updateWorkQueue[workQueueIndex]
+			local unitID = updateWorkQueue[workQueueIndex]
 			workQueueIndex = workQueueIndex + 1
 			updateTargetList(unitID)
 		end
