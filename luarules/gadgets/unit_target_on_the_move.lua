@@ -867,10 +867,8 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
-	-- ideally timing would be synced with slow update to reduce attack jittering
-	-- SlowUpdate+ causes attack command to override target command
-	-- unfortunately since 103 that's not possible, attempt to override every frame
-
+	-- Since v103 Attack commands override the unit target on any frame, not just slow updates.
+	-- So we try to override the target again, every single frame, to prevent target jittering.
 	function gadget:GameFrame(frame)
 		teamQueryCaches = {}
 		if frame % 16 == 0 then
