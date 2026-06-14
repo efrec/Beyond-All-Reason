@@ -306,9 +306,11 @@ if gadgetHandler:IsSyncedCode() then
 		if not inAttackCommand(unitID) then
 			spSetUnitTarget(unitID, nil)
 		end
-		unitData.activeTarget = false
-		unitData.currentIndex = 1
-		SendToUnsynced("targetIndex", unitID, 1, false)
+		if unitData.currentIndex ~= 1 or unitData.activeTarget then
+			unitData.currentIndex = 1
+			unitData.activeTarget = false
+			SendToUnsynced("targetIndex", unitID, 1, false)
+		end
 	end
 
 	local function isUnseenEnemyUnit(targetData, allyTeam)
