@@ -826,25 +826,21 @@ if gadgetHandler:IsSyncedCode() then
 		end
 		if updateIndex == 0 then
 			removeUnit(unitID)
-		else
-			if hasPriority then
-				setTargetActive(unitID, unitData, activeIndex)
-				if updateIndex < targetCount then
-					-- We broke iter early so have to finish shifting indices.
-					local removedCount = updateIndex - activeIndex
-					for index = activeIndex + 1, targetCount - removedCount do
-						updateIndex = updateIndex + 1
-						targets[index] = targets[updateIndex]
-					end
-					for index = targetCount - removedCount + 1, targetCount do
-						targets[index] = nil
-					end
-				end
-			elseif unitData.activeTarget then
-				setTargetPassive(unitID, unitData)
-				for index = updateIndex + 1, targetCount do
-					targets[index] = nil
-				end
+		elseif hasPriority then
+			setTargetActive(unitID, unitData, activeIndex)
+			-- We broke iter early so have to finish shifting indices.
+			local removedCount = updateIndex - activeIndex
+			for index = activeIndex + 1, targetCount - removedCount do
+				updateIndex = updateIndex + 1
+				targets[index] = targets[updateIndex]
+			end
+			for index = targetCount - removedCount + 1, targetCount do
+				targets[index] = nil
+			end
+		elseif unitData.activeTarget then
+			setTargetPassive(unitID, unitData)
+			for index = updateIndex + 1, targetCount do
+				targets[index] = nil
 			end
 		end
 	end
