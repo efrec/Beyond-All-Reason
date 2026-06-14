@@ -22,10 +22,6 @@ local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
 
 if gadgetHandler:IsSyncedCode() then
 
-	-- The rate of removing unseen/untracked units from the unit target lists.
-	-- Done once per N target list update passes to reduce the overhead costs.
-	local unseenUpdatePasses = 3
-
 	local spInsertUnitCmdDesc = Spring.InsertUnitCmdDesc
 	local spGetUnitAllyTeam = Spring.GetUnitAllyTeam
 	local spSetUnitTarget = Spring.SetUnitTarget
