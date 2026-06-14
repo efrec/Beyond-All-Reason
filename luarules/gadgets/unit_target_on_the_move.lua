@@ -50,6 +50,8 @@ if gadgetHandler:IsSyncedCode() then
 	local ensureTable = table.ensureTable
 
 	local max = math.max
+	local min = math.min
+	local clamp = math.clamp
 	local diag = math.diag
 	local pairsNext = next
 	local type = type
@@ -120,6 +122,41 @@ if gadgetHandler:IsSyncedCode() then
 	local setTargetData = {} -- holds all unit data
 	local activeTargets = {}
 	local pausedTargets = {}
+
+	-- Use a work queue with a sliding index to process target lists in chunks on every frame.
+	local updateWorkQueue = {} -- unitID[] for target updates
+	local workQueueLookup = {} -- unitID => queue index lookup -- TODO: can combine into activeTargets
+	local workQueueLength = 0
+	local workQueueIndex = 1
+	-- Up to (updateFrames x chunkSizeMax) units can process fully over each update interval.
+	local updateFrames = 8
+	local chunkSizeMin = 32
+	local chunkSizeMax = 1024
+
+	local function addToQueue(unitID)
+		if not workQueueLookup[unitID] then
+			workQueueLength = workQueueLength + 1
+			updateWorkQueue[workQueueLength] = unitID
+			workQueueLookup[unitID] = workQueueLength
+		end
+	end
+
+	local function removeFromQueue(unitID)
+		local index = workQueueLookup[unitID]
+		if index then
+			if index ~= workQueueLength then
+				local moveID = updateWorkQueue[workQueueLength]
+				updateWorkQueue[index] = moveID
+				workQueueLookup[moveID] = index
+			end
+			updateWorkQueue[workQueueLength] = nil
+			workQueueLength = workQueueLength - 1
+			workQueueLookup[unitID] = nil
+			if workQueueIndex > index then
+				workQueueIndex = workQueueIndex - 1
+			end
+		end
+	end
 
 	--------------------------------------------------------------------------------
 	-- Commands
@@ -367,6 +404,7 @@ if gadgetHandler:IsSyncedCode() then
 		setTargetData[unitID] = data
 		activeTargets[unitID] = data
 		pausedTargets[unitID] = nil
+		addToQueue(unitID)
 		sendTargetsToUnsynced(unitID)
 		if not data.activeTarget and testTarget(unitID, data.teamID, data.weapons, targets[1].target) then
 			setTargetActive(unitID, data, 1)
@@ -383,6 +421,7 @@ if gadgetHandler:IsSyncedCode() then
 		elseif pausedTargets[unitID] then
 			pausedTargets[unitID] = nil
 		end
+		removeFromQueue(unitID)
 		if not keeptrack then
 			setTargetData[unitID] = nil
 			SendToUnsynced("targetList", unitID, 0)
@@ -733,103 +772,109 @@ if gadgetHandler:IsSyncedCode() then
 	--------------------------------------------------------------------------------
 	-- Target update
 
-	local updateUnseenUnits = unseenUpdatePasses
+	local function processSlowListUpdates()
+		for unitID, unitData in pairsNext, setTargetData do
+			local targets = unitData.targets
+			for index = #targets, 1, -1 do
+				if isUnseenEnemyUnit(targets[index], unitData.allyTeam) then
+					removeTarget(unitID, unitData, index)
+				end
+			end
+			if not targets[1] then
+				removeUnit(unitID)
+			elseif activeTargets[unitID] then
+				if not hasTargetPrecedence(unitID, unitData) then
+					pauseTargetting(unitID)
+				end
+			else
+				if hasTargetPrecedence(unitID, unitData) then
+					unpauseTargetting(unitID)
+				end
+			end
+		end
+	end
+
+	local function updateTargetList(unitID)
+		local unitData = activeTargets[unitID]
+		local targets, teamID, weapons = unitData.targets, unitData.teamID, unitData.weapons
+		local targetCount = #targets
+		local activeIndex = 0
+		local updateIndex = 0 -- table.remove is slow, as is iterating forward then backward, so we do an erase-remove
+		local hasPriority = false
+		for index = 1, targetCount do
+			local targetData = targets[index]
+			if checkTarget(teamID, targetData.target) then
+				updateIndex = updateIndex + 1
+				if not hasPriority and testTarget(unitID, teamID, weapons, targetData.target) then
+					if updateIndex ~= index then
+						targets[updateIndex] = targetData
+					end
+					hasPriority = true
+					activeIndex = updateIndex
+					updateIndex = index
+					-- if moveToIndex == index then
+					break -- Avoid continuing tests for better performance.
+					-- end
+				end
+				if updateIndex ~= index then
+					targets[updateIndex] = targetData
+				end
+			else
+				SendToUnsynced("targetDrop", unitID, index)
+			end
+		end
+		if updateIndex == 0 then
+			removeUnit(unitID)
+		else
+			if hasPriority then
+				setTargetActive(unitID, unitData, activeIndex)
+				if updateIndex < targetCount then
+					-- We broke iter early so have to finish shifting indices.
+					local removedCount = updateIndex - activeIndex
+					for index = activeIndex + 1, targetCount - removedCount do
+						updateIndex = updateIndex + 1
+						targets[index] = targets[updateIndex]
+					end
+					for index = targetCount - removedCount + 1, targetCount do
+						targets[index] = nil
+					end
+				end
+			elseif unitData.activeTarget then
+				setTargetPassive(unitID, unitData)
+				for index = updateIndex + 1, targetCount do
+					targets[index] = nil
+				end
+			end
+		end
+	end
+
+	local function processTargetListChunk()
+		if workQueueLength == 0 then
+			return
+		end
+		local processCount = clamp(workQueueLength / updateFrames, min(workQueueLength, chunkSizeMin), chunkSizeMax)
+		local unitID
+		for _ = 1, processCount do
+			if workQueueIndex > workQueueLength then
+				workQueueIndex = 1
+			end
+			unitID = updateWorkQueue[workQueueIndex]
+			workQueueIndex = workQueueIndex + 1
+			updateTargetList(unitID)
+		end
+	end
+
+	-- ideally timing would be synced with slow update to reduce attack jittering
+	-- SlowUpdate+ causes attack command to override target command
+	-- unfortunately since 103 that's not possible, attempt to override every frame
 
 	function gadget:GameFrame(frame)
-		-- ideally timing would be synced with slow update to reduce attack jittering
-		-- SlowUpdate+ causes attack command to override target command
-		-- unfortunately since 103 that's not possible, attempt to override every frame
-		-- it might create a slight increase of cpu usage when hundreds of units gets
-		-- a set target command, howrever a quick test with 300 fidos only increased by 1%
-		-- sim here
-
 		teamQueryCaches = {}
-
-		local offset = frame % 5
-
-		if offset == 0 then
-
-			if updateUnseenUnits ~= 1 then
-				updateUnseenUnits = updateUnseenUnits - 1
-				return
-			end
-
-			updateUnseenUnits = unseenUpdatePasses
-
-			for unitID, unitData in pairsNext, setTargetData do
-				local targets = unitData.targets
-				for index = #targets, 1, -1 do
-					if isUnseenEnemyUnit(targets[index], unitData.allyTeam) then
-						removeTarget(unitID, unitData, index)
-					end
-				end
-				if not targets[1] then
-					removeUnit(unitID)
-				elseif activeTargets[unitID] then
-					if not hasTargetPrecedence(unitID, unitData) then
-						pauseTargetting(unitID)
-					end
-				else
-					if hasTargetPrecedence(unitID, unitData) then
-						unpauseTargetting(unitID)
-					end
-				end
-			end
-
-		elseif offset == 1 then
-
-			for unitID, unitData in pairsNext, activeTargets do
-				local targets, teamID, weapons = unitData.targets, unitData.teamID, unitData.weapons
-				local targetCount = #targets
-				local activeIndex = 0
-				local updateIndex = 0 -- table.remove is slow, as is iterating forward then backward, so we do an erase-remove
-				local hasPriority = false
-				for index = 1, targetCount do
-					local targetData = targets[index]
-					if checkTarget(teamID, targetData.target) then
-						updateIndex = updateIndex + 1
-						if not hasPriority and testTarget(unitID, teamID, weapons, targetData.target) then
-							if updateIndex ~= index then
-								targets[updateIndex] = targetData
-							end
-							hasPriority = true
-							activeIndex = updateIndex
-							updateIndex = index
-							-- if moveToIndex == index then
-							break -- Avoid continuing tests for better performance.
-							-- end
-						end
-						if updateIndex ~= index then
-							targets[updateIndex] = targetData
-						end
-					else
-						SendToUnsynced("targetDrop", unitID, index)
-					end
-				end
-				if updateIndex == 0 then
-					removeUnit(unitID)
-				else
-					if hasPriority then
-						setTargetActive(unitID, unitData, activeIndex)
-						if updateIndex < targetCount then
-							-- We broke iter early so have to finish shifting indices.
-							local removedCount = updateIndex - activeIndex
-							for index = activeIndex + 1, targetCount - removedCount do
-								updateIndex = updateIndex + 1
-								targets[index] = targets[updateIndex]
-							end
-							for index = targetCount - removedCount + 1, targetCount do
-								targets[index] = nil
-							end
-						end
-					elseif unitData.activeTarget then
-						setTargetPassive(unitID, unitData)
-						for index = updateIndex + 1, targetCount do
-							targets[index] = nil
-						end
-					end
-				end
-			end
+		if frame % 16 == 0 then
+			processSlowListUpdates()
+			return
+		else
+			processTargetListChunk()
 		end
 	end
 
