@@ -252,7 +252,7 @@ local function toplasma(name, wname)
 	damages(1 + math.sqrt(count * damage / weaponDef.damage.default))
 	cparams.cluster_def, cparams.cluster_number = nil, nil
 end
-for name, wname in pairs { legcluster = "plasma", legacluster = "plasma", leglrpc = "lrpc", legeallterrainmech = "plasma_low" } do
+for name, wname in pairs { legamcluster = "cluster_artillery", legcluster = "plasma", legacluster = "plasma", leglrpc = "lrpc", legeallterrainmech = "plasma_low" } do
 	toplasma(name, wname)
 end
 for name, wname in pairs { legcluster = "plasma_high", legacluster = "plasma_high", legeallterrainmech = "plasma_high" } do
@@ -263,21 +263,24 @@ end
 unit("legbar").weapondefs.clusternapalm = table.copy(UD.legehovertank.weapondefs.parabolic_rockets)
 weapon("clusternapalm")
 weaponDef.areaofeffect = 48
+weaponDef.explosiongenerator = "custom:genericshellexplosion-small-bomb"
 weaponDef.burst = 3
-weaponDef.burstrate = 0.25
+weaponDef.burstrate = 0.4
 weaponDef.range = 535
-weaponDef.weaponvelocity = 300
+weaponDef.weaponvelocity = 240
 damages(0.4)
 
-UD.legbart.weapondefs.clusternapalm = table.copy(UD.armfido.weapondefs.bfido)
+unit("legbart").weapondefs.clusternapalm = table.copy(UD.armfido.weapondefs.bfido)
+costs(0.85)
 
 unit("leginf").weapondefs.rapidnapalm = table.copy(UD.cortrem.weapondefs.tremor_spread_fire)
 weapon("rapidnapalm")
 weaponDef.burst = 3
 weaponDef.burstrate = 0.3333
 weaponDef.reloadtime = 2
-weaponDef.mygravity = 0.3
+weaponDef.mygravity = 0.2
 weaponDef.range = 1200
+weaponDef.weaponvelocity = 460
 
 UD.legperdition.weapondefs.napalmmissile = table.copy(UD.cortron.weapondefs.cortron_weapon)
 
@@ -288,7 +291,7 @@ for _, name in ipairs { "legkark", "legamph", "legshot" } do
 	unit(name) custom(unitDef)
 	local armoredMult = 1 / unitDef.damagemodifier
 	local armorHealth = cparams.reactive_armor_health
-	local healthBonus = armorHealth * math.sqrt(armorHealth * armoredMult / unitDef.health) * (armoredMult - 1)
+	local healthBonus = armorHealth * (0.5 + math.sqrt(armorHealth * armoredMult / unitDef.health) * (armoredMult - 1))
 	unitDef.health = unitDef.health + healthBonus
 end
 
