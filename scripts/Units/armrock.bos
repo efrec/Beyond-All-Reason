@@ -329,6 +329,7 @@ AimWeapon1(heading, pitch)
 {
 	signal SIGNAL_AIM1;
 	isAiming = TRUE;
+	start-script RestoreAfterDelay();
 
 	turn aimy1 to y-axis heading speed <130.027473>;
 	turn aimx1 to x-axis <-90> - pitch speed <180.021978>;
@@ -338,10 +339,14 @@ AimWeapon1(heading, pitch)
 		wpn1_lasthead = 0xbadface;
 		wait-for-turn aimy1 around y-axis;
 		wait-for-turn aimx1 around x-axis;
+		wpn1_lasthead = heading;
+		return (0);
 	}
-	start-script RestoreAfterDelay();
-	wpn1_lasthead = heading;
-	return (1);
+	else
+	{
+		wpn1_lasthead = heading;
+		return (1);
+	}
 }
 
 FireWeapon1()

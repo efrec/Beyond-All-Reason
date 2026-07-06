@@ -420,6 +420,7 @@ RestoreAfterDelay()
 AimWeapon1(heading, pitch)
 {
 	signal SIGNAL_AIM1;
+	start-script RestoreAfterDelay();
 	turn aimy1 to y-axis heading speed <90.021978>;
 	turn aimx1 to x-axis <0.0> - pitch speed <45.010989>;
 	if ((wpn1_lasthead == 0xbadface) OR ABSOLUTE_GREATER_THAN(WRAPDELTA(heading - wpn1_lasthead), <7>))
@@ -427,10 +428,14 @@ AimWeapon1(heading, pitch)
 		wpn1_lasthead = 0xbadface;
 		wait-for-turn aimy1 around y-axis;
 		wait-for-turn aimx1 around x-axis;
+		wpn1_lasthead = heading;
+		return (0);
 	}
-	wpn1_lasthead = heading;
-	start-script RestoreAfterDelay();
-	return (1);
+	else
+	{
+		wpn1_lasthead = heading;
+		return (1);
+	}
 }
 
 FireWeapon1()
