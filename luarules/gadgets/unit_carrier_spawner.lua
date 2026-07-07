@@ -91,8 +91,8 @@ local wantedList = {}
 
 local spawnCmd = {
 	id = CMD_CARRIER_SPAWN_ONOFF,
-	name = "csSpawning",
-	action = "csSpawning",
+	name = "csspawning",
+	action = "csspawning",
 	type = CMDTYPE.ICON_MODE,
 	tooltip = "Enable/Disable drone spawning",
 	params = { '1', 'Spawning Disabled', 'Spawning Enabled' }
@@ -1722,7 +1722,7 @@ function gadget:GameFrame(f)
 		lastSpawnCheck = f
 		for unitID, _ in pairs(carrierMetaList) do
 			local isDoneBuilding = not spGetUnitIsBeingBuilt(unitID)
-			if not isDoneBuilding then
+			if isDoneBuilding then
 				carrierMetaList[unitID].wasBuilt = true
 			end
 			if carrierMetaList[unitID].startingWithDrones and carrierMetaList[unitID].wasBuilt and isDoneBuilding then
