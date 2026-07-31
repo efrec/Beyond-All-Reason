@@ -30,7 +30,7 @@ local dwellingUnitsInAreas      = {}
 local teamReclaimIncome         = {}
 local teamReclaimIncomeSnapshot = {}
 local reclaimedFeatures         = {}
-local detectedUnits             = {}
+local discoveredUnits           = {}
 
 
 ----------------------------------------------------------------
@@ -163,7 +163,7 @@ function gadget:Initialize()
 		IsFeatureInArea          = isFeatureInArea,
 		PreviousUnitsInAreas     = previousUnitsInAreas,
 		DwellingUnitsInAreas     = dwellingUnitsInAreas,
-		DetectedUnits            = detectedUnits,
+		DiscoveredUnits          = discoveredUnits,
 		GetReclaimIncomeSnapshot = function(teamID) return teamReclaimIncomeSnapshot[teamID] end,
 	}
 
@@ -203,9 +203,9 @@ function gadget:Initialize()
 		gadgetHandler:RemoveCallIn('AllowFeatureBuildStep')
 	end
 
-	-- UnitDetected is the only trigger watching the radar and seismic sensors.
+	-- UnitDiscovered is the only trigger watching the radar and seismic sensors.
 	local watchOtherSensors = table.any(triggers, function(trigger)
-		return trigger.type == triggerTypes.UnitDetected
+		return trigger.type == triggerTypes.UnitDiscovered
 	end)
 
 	if not watchOtherSensors then

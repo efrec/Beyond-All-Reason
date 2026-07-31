@@ -1,21 +1,21 @@
 local ParameterTypes = GG["MissionAPI"].Modules.ParameterTypes.Types
 
--- For simple line-of-sight detection of units, prefer the `UnitSpotted` trigger.
+-- For simple line-of-sight spotting of units, prefer the `UnitSpotted` trigger.
 -- It has no options and fires every time it receives the appropriate LOS events.
 
 -- This tries to eat as much complexity from the event system as possible to give
--- multi-sensor detection events that follow some sensible single-counting rules.
+-- multi-sensor discovery events that follow some sensible single-counting rules.
 
--- A unit is detected once per allyTeam that spots it by whichever sensor is first.
--- Repeating triggers correctly fire once per each distinct matching unit detected.
+-- A unit is discovered once per allyTeam that spots it by whichever sensor is first.
+-- Repeating triggers correctly fire once per each distinct matching unit discovered.
 
--- Detected units can be forgotten and redetected only when the unit has died or when
+-- Discovered units can be forgotten and rediscovered only when the unit has died or when
 -- it changes to a different allyTeam (even if ceasefired to the previous allyTeam).
 
 -- `sensorTypes` optionally restricts which sensors to count, or all are included.
 
 -- Synced gadgets receive the seismic pings for all units, even when fully visible.
--- In unsynced, seismic detection would imply not-INLOS (though, not not-INRADAR).
+-- In unsynced, seismic discovery would imply not-INLOS (though, not not-INRADAR).
 
 local function matchesUnit(trigger, context, unitID, unitTeam, unitDefID, spottingAllyTeamID)
 	local parameters = trigger.parameters
@@ -24,7 +24,7 @@ local function matchesUnit(trigger, context, unitID, unitTeam, unitDefID, spotti
 	if Spring.GetUnitIsDead(unitID) then
 		return false
 	end
-	-- Never detect units on the same allyTeam. This can happen after team transfer.
+	-- Never discover units on the same allyTeam. This can happen after team transfer.
 	if Spring.GetUnitAllyTeam(unitID) == spottingAllyTeamID then
 		return false
 	end
@@ -48,41 +48,41 @@ local function sensorEnabled(trigger, sensorType)
 	return not trigger.parameters.sensorTypes or trigger.parameters.sensorTypes[sensorType]
 end
 
--- Record the unit as detected by the allyTeam and return whether it is a new contact.
-local function detectUnit(context, triggerID, spottingAllyTeamID, unitID)
-	local detectedByAllyTeam = context.DetectedUnits[triggerID]
-	if not detectedByAllyTeam then
-		detectedByAllyTeam = {}
-		context.DetectedUnits[triggerID] = detectedByAllyTeam
+-- Record the unit as discovered by the allyTeam and return whether it is a new contact.
+local function discoverUnit(context, triggerID, spottingAllyTeamID, unitID)
+	local discoveredByAllyTeam = context.DiscoveredUnits[triggerID]
+	if not discoveredByAllyTeam then
+		discoveredByAllyTeam = {}
+		context.DiscoveredUnits[triggerID] = discoveredByAllyTeam
 	end
 
-	local detectedUnits = detectedByAllyTeam[spottingAllyTeamID]
-	if not detectedUnits then
-		detectedUnits = {}
-		detectedByAllyTeam[spottingAllyTeamID] = detectedUnits
+	local discoveredUnits = discoveredByAllyTeam[spottingAllyTeamID]
+	if not discoveredUnits then
+		discoveredUnits = {}
+		discoveredByAllyTeam[spottingAllyTeamID] = discoveredUnits
 	end
 
-	if detectedUnits[unitID] then
+	if discoveredUnits[unitID] then
 		return false
 	end
 
-	detectedUnits[unitID] = true
+	discoveredUnits[unitID] = true
 	return true
 end
 
--- Forget the unitID so it can be detected again by all allyTeams.
+-- Forget the unitID so it can be discovered again by all allyTeams.
 local function forgetUnit(context, triggerID, unitID)
-	local detectedByAllyTeam = context.DetectedUnits[triggerID]
-	if not detectedByAllyTeam then
+	local discoveredByAllyTeam = context.DiscoveredUnits[triggerID]
+	if not discoveredByAllyTeam then
 		return
 	end
-	for _, detectedUnits in pairs(detectedByAllyTeam) do
-		detectedUnits[unitID] = nil
+	for _, discoveredUnits in pairs(discoveredByAllyTeam) do
+		discoveredUnits[unitID] = nil
 	end
 end
 
 return {
-	type = "UnitDetected",
+	type = "UnitDiscovered",
 	parameters = {
 		{ name = "unitName",           required = false, type = ParameterTypes.UnitName },
 		{ name = "unitDefName",        required = false, type = ParameterTypes.UnitDefName },
@@ -99,7 +99,7 @@ return {
 			if not matchesUnit(trigger, context, unitID, unitTeam, unitDefID, spottingAllyTeamID) then
 				return
 			end
-			if detectUnit(context, triggerID, spottingAllyTeamID, unitID) then
+			if discoverUnit(context, triggerID, spottingAllyTeamID, unitID) then
 				context.ActivateTrigger(trigger)
 			end
 		end,
@@ -111,7 +111,7 @@ return {
 			if not matchesUnit(trigger, context, unitID, unitTeam, unitDefID, spottingAllyTeamID) then
 				return
 			end
-			if detectUnit(context, triggerID, spottingAllyTeamID, unitID) then
+			if discoverUnit(context, triggerID, spottingAllyTeamID, unitID) then
 				context.ActivateTrigger(trigger)
 			end
 		end,
@@ -123,7 +123,7 @@ return {
 			if not matchesUnit(trigger, context, unitID, Spring.GetUnitTeam(unitID), unitDefID, spottingAllyTeamID) then
 				return
 			end
-			if detectUnit(context, triggerID, spottingAllyTeamID, unitID) then
+			if discoverUnit(context, triggerID, spottingAllyTeamID, unitID) then
 				context.ActivateTrigger(trigger)
 			end
 		end,

@@ -11,15 +11,15 @@ _G.UnitDefs = { [1] = { name = 'armpw' }, [2] = { name = 'corfast' } }
 _G.Game = _G.Game or {}
 _G.Game.gameSpeed = 30
 
-local unitDetected = VFS.Include('luarules/mission_api/triggers/unit_detected.lua')
-local onEnteredLos = unitDetected.callins.UnitEnteredLos
-local onEnteredRadar = unitDetected.callins.UnitEnteredRadar
-local onSeismicPing = unitDetected.callins.UnitSeismicPing
-local onDestroyed = unitDetected.callins.UnitDestroyed
-local onTaken = unitDetected.callins.UnitTaken
+local unitDiscovered = VFS.Include('luarules/mission_api/triggers/unit_discovered.lua')
+local onEnteredLos = unitDiscovered.callins.UnitEnteredLos
+local onEnteredRadar = unitDiscovered.callins.UnitEnteredRadar
+local onSeismicPing = unitDiscovered.callins.UnitSeismicPing
+local onDestroyed = unitDiscovered.callins.UnitDestroyed
+local onTaken = unitDiscovered.callins.UnitTaken
 
-describe('mission_api.triggers.unit_detected', function()
-	-- Unit 100 is on team 3, allyteam 1. It is detected by an enemy on allyteam 0.
+describe('mission_api.triggers.unit_discovered', function()
+	-- Unit 100 is on team 3, allyteam 1. It is discovered by an enemy on allyteam 0.
 	-- Teams 0 and 1 are on allyteam 0; teams 2 and 3 are on allyteam 1.
 	local teamAllyTeams = { [0] = 0, [1] = 0, [2] = 1, [3] = 1 }
 
@@ -33,7 +33,7 @@ describe('mission_api.triggers.unit_detected', function()
 	local function newContext()
 		local fired = 0
 		local context = {
-			DetectedUnits = {},
+			DiscoveredUnits = {},
 			DoesUnitHaveName = function() return true end,
 			ActivateTrigger = function() fired = fired + 1 end,
 		}
@@ -47,9 +47,9 @@ describe('mission_api.triggers.unit_detected', function()
 	local triggerID = 't'
 
 	it('declares its type and parameters', function()
-		assert.are.equal('UnitDetected', unitDetected.type)
+		assert.are.equal('UnitDiscovered', unitDiscovered.type)
 		local names = {}
-		for _, parameter in ipairs(unitDetected.parameters) do
+		for _, parameter in ipairs(unitDiscovered.parameters) do
 			names[parameter.name] = true
 		end
 		assert.is_true(names.unitName)
@@ -57,7 +57,7 @@ describe('mission_api.triggers.unit_detected', function()
 		assert.is_true(names.owningTeamID)
 		assert.is_true(names.spottingAllyTeamID)
 		assert.is_true(names.sensorTypes)
-		assert.are.same({ 'unitName', 'unitDefName' }, unitDetected.parameters.requiresOneOf)
+		assert.are.same({ 'unitName', 'unitDefName' }, unitDiscovered.parameters.requiresOneOf)
 	end)
 
 	it('filters by unitDefName, owningTeamID, and spottingAllyTeamID', function()
@@ -69,7 +69,7 @@ describe('mission_api.triggers.unit_detected', function()
 	end)
 
 	it('skips firing on allied units', function()
-		Spring.GetUnitAllyTeam = function(_unitID) return 0 end -- 0 is the spec's detecting allyTeam
+		Spring.GetUnitAllyTeam = function(_unitID) return 0 end -- 0 is the spec's discovering allyTeam
 		local context, fired = newContext()
 		local t = trigger({ unitDefName = 'armpw' })
 		onEnteredLos(t, triggerID, context, 100, 3, 0, 1)
@@ -156,7 +156,7 @@ describe('mission_api.triggers.unit_detected', function()
 		local t = trigger({ unitDefName = 'armpw' })
 		onEnteredLos(t, triggerID, context, 100, 3, 0, 1) -- spotted by allyteam 0
 		onEnteredLos(t, triggerID, context, 100, 3, 2, 1) -- and by allyteam 2
-		onEnteredLos(t, triggerID, context, 100, 3, 0, 1) -- allyteam 0 again: already detected
+		onEnteredLos(t, triggerID, context, 100, 3, 0, 1) -- allyteam 0 again: already discovered
 		assert.are.equal(2, fired())
 	end)
 
@@ -168,7 +168,7 @@ describe('mission_api.triggers.unit_detected', function()
 		assert.are.equal(2, fired())
 	end)
 
-	-- Forgetting detected units:
+	-- Forgetting discovered units:
 
 	-- Units remain simulated while dying. They move, change LOS state, etc. until rendered destroyed.
 	-- Unsynced does receive the final RenderDestroyed event but we do not in our synced gadget space.
@@ -176,7 +176,7 @@ describe('mission_api.triggers.unit_detected', function()
 		Spring.GetUnitIsDead = function(deadUnitID) return deadUnitID == unitID end -- keeps one dead ID
 	end
 
-	it('does not detect a dying unit that it had never detected', function()
+	it('does not discover a dying unit that it had never discovered', function()
 		local context, fired = newContext()
 		local t = trigger({ unitDefName = 'armpw' })
 		renderDestroyed(100)
@@ -185,7 +185,7 @@ describe('mission_api.triggers.unit_detected', function()
 		assert.are.equal(0, fired())
 	end)
 
-	it('does not detect a dying unit that it had already detected', function()
+	it('does not discover a dying unit that it had already discovered', function()
 		local context, fired = newContext()
 		local t = trigger({ unitDefName = 'armpw' })
 		onEnteredLos(t, triggerID, context, 100, 3, 0, 1)
@@ -200,7 +200,7 @@ describe('mission_api.triggers.unit_detected', function()
 		assert.are.equal(1, fired())
 	end)
 
-	it('detects a once-detected unitID that has been recycled', function()
+	it('discovers a once-discovered unitID that has been recycled', function()
 		local context, fired = newContext()
 		local t = trigger({ unitDefName = 'armpw' })
 		onEnteredLos(t, triggerID, context, 100, 3, 0, 1)
@@ -217,7 +217,7 @@ describe('mission_api.triggers.unit_detected', function()
 		assert.are.equal(2, fired())
 	end)
 
-	it('detects a once-detected unitID that has changed allyteam', function()
+	it('discovers a once-discovered unitID that has changed allyteam', function()
 		local context, fired = newContext()
 		local t = trigger({ unitDefName = 'armpw' })
 		onEnteredLos(t, triggerID, context, 100, 3, 0, 1)
@@ -228,7 +228,7 @@ describe('mission_api.triggers.unit_detected', function()
 		assert.are.equal(2, fired())
 	end)
 
-	it('does not re-detect a unit that changed team within its allyteam', function()
+	it('does not re-discover a unit that changed team within its allyteam', function()
 		local context, fired = newContext()
 		local t = trigger({ unitDefName = 'armpw' })
 		onEnteredLos(t, triggerID, context, 100, 3, 0, 1)
@@ -252,7 +252,7 @@ describe('mission_api.triggers.unit_detected', function()
 		assert.are.equal(4, fired())
 	end)
 
-	it('tolerates forgetting a unit the trigger never detected', function()
+	it('tolerates forgetting a unit the trigger never discovered', function()
 		local context, fired = newContext()
 		local t = trigger({ unitDefName = 'armpw' })
 		onDestroyed(t, triggerID, context, 100)

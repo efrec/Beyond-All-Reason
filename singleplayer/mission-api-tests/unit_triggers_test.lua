@@ -147,18 +147,18 @@ local triggers = {
 		actions = { 'messageEngineerUnspotted' },
 	},
 
-	engineerDetected = {
-		type = triggerTypes.UnitDetected,
+	engineerDiscovered = {
+		type = triggerTypes.UnitDiscovered,
 		parameters = {
 			unitName = 'engineers',
 			unitDefName = 'corfast',
 			owningTeamID = 1,
 		},
-		actions = { 'messageEngineerDetected' },
+		actions = { 'messageEngineerDiscovered' },
 	},
 
-	engineerDetectedByRadarOrSeismic = {
-		type = triggerTypes.UnitDetected,
+	engineerDiscoveredByRadarOrSeismic = {
+		type = triggerTypes.UnitDiscovered,
 		settings = {
 			repeating = true,
 		},
@@ -167,7 +167,7 @@ local triggers = {
 			spottingAllyTeamID = 0,
 			sensorTypes = { 'radar', 'seismic' },
 		},
-		actions = { 'messageEngineerDetectedByRadarOrSeismic' },
+		actions = { 'messageEngineerDiscoveredByRadarOrSeismic' },
 	},
 }
 
@@ -362,17 +362,17 @@ local actions = {
 		},
 	},
 
-	messageEngineerDetected = {
+	messageEngineerDiscovered = {
 		type = actionTypes.SendMessage,
 		parameters = {
-			message = "Engineer detected!",
+			message = "Engineer discovered!",
 		},
 	},
 
-	messageEngineerDetectedByRadarOrSeismic = {
+	messageEngineerDiscoveredByRadarOrSeismic = {
 		type = actionTypes.SendMessage,
 		parameters = {
-			message = "Engineer detected by radar or seismic!",
+			message = "Engineer discovered by radar or seismic!",
 		},
 	},
 }
