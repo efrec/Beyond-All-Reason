@@ -30,6 +30,7 @@ local dwellingUnitsInAreas      = {}
 local teamReclaimIncome         = {}
 local teamReclaimIncomeSnapshot = {}
 local reclaimedFeatures         = {}
+local detectedUnits             = {}
 
 
 ----------------------------------------------------------------
@@ -162,6 +163,7 @@ function gadget:Initialize()
 		IsFeatureInArea          = isFeatureInArea,
 		PreviousUnitsInAreas     = previousUnitsInAreas,
 		DwellingUnitsInAreas     = dwellingUnitsInAreas,
+		DetectedUnits            = detectedUnits,
 		GetReclaimIncomeSnapshot = function(teamID) return teamReclaimIncomeSnapshot[teamID] end,
 	}
 
@@ -176,17 +178,39 @@ function gadget:Initialize()
 		return trigger.type == triggerTypes.ResourceIncome
 	end)
 
+<<<<<<< HEAD
 	if not needsReclaimIncome then
 		gadgetHandler:RemoveCallIn('AllowUnitBuildStep')
 	end
 
 	local needsFeatureReclaimTracking = table.any(triggers, function(trigger)
+=======
+	local needsReclaimTracking = table.any(triggers, function(trigger)
+>>>>>>> 9c58620f03 (add UnitDetected trigger and single-detection behaviors)
 		return trigger.type == triggerTypes.FeatureReclaimed
 			or trigger.type == triggerTypes.FeatureDestroyed
 	end)
 
+<<<<<<< HEAD
 	if not needsReclaimIncome and not needsFeatureReclaimTracking then
+=======
+	if not needsReclaimIncome then
+		gadgetHandler:RemoveCallIn('AllowUnitBuildStep')
+	end
+
+	if not needsReclaimIncome and not needsReclaimTracking then
+>>>>>>> 9c58620f03 (add UnitDetected trigger and single-detection behaviors)
 		gadgetHandler:RemoveCallIn('AllowFeatureBuildStep')
+	end
+
+	-- UnitDetected is the only trigger watching the radar and seismic sensors.
+	local watchOtherSensors = table.any(triggers, function(trigger)
+		return trigger.type == triggerTypes.UnitDetected
+	end)
+
+	if not watchOtherSensors then
+		gadgetHandler:RemoveCallIn('UnitEnteredRadar')
+		gadgetHandler:RemoveCallIn('UnitSeismicPing')
 	end
 end
 
@@ -259,6 +283,14 @@ end
 
 function gadget:UnitLeftLos(unitID, unitTeam, losAllyTeamID, unitDefID)
 	dispatchTriggerCallin('UnitLeftLos', unitID, unitTeam, losAllyTeamID, unitDefID)
+end
+
+function gadget:UnitEnteredRadar(unitID, unitTeam, radarAllyTeamID, unitDefID)
+	dispatchTriggerCallin('UnitEnteredRadar', unitID, unitTeam, radarAllyTeamID, unitDefID)
+end
+
+function gadget:UnitSeismicPing(x, y, z, strength, seismicAllyTeamID, unitID, unitDefID)
+	dispatchTriggerCallin('UnitSeismicPing', x, y, z, strength, seismicAllyTeamID, unitID, unitDefID)
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)

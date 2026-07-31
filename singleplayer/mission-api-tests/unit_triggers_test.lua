@@ -146,6 +146,29 @@ local triggers = {
 		},
 		actions = { 'messageEngineerUnspotted' },
 	},
+
+	engineerDetected = {
+		type = triggerTypes.UnitDetected,
+		parameters = {
+			unitName = 'engineers',
+			unitDefName = 'corfast',
+			owningTeamID = 1,
+		},
+		actions = { 'messageEngineerDetected' },
+	},
+
+	engineerDetectedByRadarOrSeismic = {
+		type = triggerTypes.UnitDetected,
+		settings = {
+			repeating = true,
+		},
+		parameters = {
+			unitDefName = 'corfast',
+			spottingAllyTeamID = 0,
+			sensorTypes = { 'radar', 'seismic' },
+		},
+		actions = { 'messageEngineerDetectedByRadarOrSeismic' },
+	},
 }
 
 local actions = {
@@ -336,6 +359,20 @@ local actions = {
 		type = actionTypes.SendMessage,
 		parameters = {
 			message = "Engineer unspotted!",
+		},
+	},
+
+	messageEngineerDetected = {
+		type = actionTypes.SendMessage,
+		parameters = {
+			message = "Engineer detected!",
+		},
+	},
+
+	messageEngineerDetectedByRadarOrSeismic = {
+		type = actionTypes.SendMessage,
+		parameters = {
+			message = "Engineer detected by radar or seismic!",
 		},
 	},
 }
