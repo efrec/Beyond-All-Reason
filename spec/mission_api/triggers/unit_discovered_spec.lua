@@ -8,9 +8,6 @@ GG['MissionAPI'].Modules.ParameterTypes = VFS.Include('luarules/mission_api/para
 
 _G.UnitDefs = { [1] = { name = 'armpw' }, [2] = { name = 'corfast' } }
 
-_G.Game = _G.Game or {}
-_G.Game.gameSpeed = 30
-
 local unitDiscovered = VFS.Include('luarules/mission_api/triggers/unit_discovered.lua')
 local onEnteredLos = unitDiscovered.callins.UnitEnteredLos
 local onEnteredRadar = unitDiscovered.callins.UnitEnteredRadar
