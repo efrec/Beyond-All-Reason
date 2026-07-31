@@ -202,16 +202,6 @@ function gadget:Initialize()
 >>>>>>> 9c58620f03 (add UnitDetected trigger and single-detection behaviors)
 		gadgetHandler:RemoveCallIn('AllowFeatureBuildStep')
 	end
-
-	-- UnitDiscovered is the only trigger watching the radar and seismic sensors.
-	local watchOtherSensors = table.any(triggers, function(trigger)
-		return trigger.type == triggerTypes.UnitDiscovered
-	end)
-
-	if not watchOtherSensors then
-		gadgetHandler:RemoveCallIn('UnitEnteredRadar')
-		gadgetHandler:RemoveCallIn('UnitSeismicPing')
-	end
 end
 
 function gadget:GameFrame(frameNumber)
