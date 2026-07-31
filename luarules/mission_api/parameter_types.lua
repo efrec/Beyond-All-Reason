@@ -44,11 +44,29 @@ local types = {
 
 local enums = {
 	[types.Facing] = { [0] = true, [1] = true, [2] = true, [3] = true, n = true, s = true, e = true, w = true, north = true, south = true, east = true, west = true },
-	[types.ResourceIncomeSources] = { extractor = true, production = true, reclaim = true, transfer = true },
-	[types.SensorTypes] = { sight = true, radar = true, seismic = true },
 }
+
+local enumSets = {
+	[types.ResourceIncomeSources] = {
+		noun = 'resource income source',
+		values = { 'extractor', 'production', 'reclaim', 'transfer' },
+	},
+	[types.SensorTypes] = {
+		noun = 'sensor type',
+		values = { 'sight', 'radar', 'seismic' },
+	},
+}
+
+for enumType, enumSpec in pairs(enumSets) do
+	local memberSet = {}
+	for _, value in ipairs(enumSpec.values) do
+		memberSet[value] = true
+	end
+	enums[enumType] = memberSet
+end
 
 return {
 	Types = types,
 	Enums = enums,
+	EnumSets = enumSets,
 }
