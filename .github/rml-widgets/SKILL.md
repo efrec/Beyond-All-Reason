@@ -7,7 +7,7 @@ description: Build and test widgets using RmlUi for Beyond All Reason. Use when 
 
 RMLUI is a web-like UI framework for C++. It provides HTML1 and CSS2 with some conveniences of HTML5 and CSS3 and some custom extensions. Though experience from web frameworks is transferable to RML documents, users are expected to author documents specifically for RMLUI.
 
-This file holds the rules. The reference files hold the templates, tables, and worked examples. Together they are the complete guidance; no fuller version exists elsewhere. Checked against RmlUi 6.2, engine submodule `2230d1a6e8`. RmlUi behaviour is verified against RmlUi 6.2, the engine's pinned `rts/lib/RmlUi` at `2230d1a6e8`.
+This file holds the rules. The reference files hold the templates, tables, and worked examples. Together they are the complete guidance; no fuller version exists elsewhere. RmlUi behaviour is verified against RmlUi 6.2, the engine's pinned `rts/lib/RmlUi` at `2230d1a6e8`.
 
 ## Scope
 
@@ -45,6 +45,19 @@ Base:
 IMPORTANT: Change the view through the data model, never through the DOM.
 
 Data binding (`{{}}`, `data-if`, `data-visible`, `data-for`, `data-attr-*`, `data-event-*`) is the only sanctioned way the UI updates. You mutate `dm_handle` fields, and RmlUi updates the elements.
+
+A field, a binding that reads it, and a handler that mutates it:
+
+```lua
+-- in the table returned by initModel():
+status = "waiting",
+confirm = function() dm_handle.status = "ok" end,
+```
+
+```rml
+<span>{{status}}</span>
+<button data-event-click="confirm()">OK</button>
+```
 
 ### DOM manipulation
 
@@ -145,6 +158,8 @@ Use `@keyframes` when motion must fire on element creation; a fresh element has 
 Read ./animation.md for timing functions, the animation shorthand, and the keyframe rules proven in this repo.
 
 ## Performance
+
+RmlUi layout runs on the engine's render thread: every element costs layout time each frame, and every show or hide triggers relayout.
 
 IMPORTANT: Use `display: block` by default. Flex layout is multi-pass and nested flex-column compounds; it is justified only for a child filling remaining space (`flex: 1`) and for horizontal column splits.
 
