@@ -6,7 +6,7 @@
 #          means the base landed and the claims attached to it are due
 #          for re-verification.
 #
-# Usage: .github/rmlui/verify.sh [-v]
+# Usage: .github/rml-widgets/scripts/verify.sh [-v]
 
 set -uo pipefail
 
@@ -14,7 +14,7 @@ verbose=0
 [ "${1:-}" = "-v" ] && verbose=1
 
 root=$(git rev-parse --show-toplevel) || exit 2
-dir=$(cd "$(dirname "$0")" && pwd)
+dir=$(cd "$(dirname "$0")/.." && pwd)   # the skill root, not scripts/
 cd "$root" || exit 2
 
 # Recursive brace expansion: a{b,c}d -> abd acd

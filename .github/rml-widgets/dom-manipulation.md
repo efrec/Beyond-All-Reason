@@ -16,4 +16,4 @@ Before writing any of it, ask whether a model field plus data binding can expres
 
 ## Validation
 
-Reaching for the DOM to drive ordinary UI state is the most common way RML widgets in this codebase go wrong. `lint-widgets.sh` flags an unmarked DOM call on changed lines, and `--all` sizes the existing baseline. That baseline is a known quantity, not a migration target: the marker is what separates a sanctioned escape from a defect. New and changed code follows the rules.
+Reaching for the DOM to drive ordinary UI state is the most common way RML widgets in this codebase go wrong. `scripts/lint-widgets.sh` flags an unmarked DOM call on changed lines, and `--all` sizes the existing baseline. That baseline is a known quantity, not a migration target: the marker is what separates a sanctioned escape from a defect. New and changed code follows the rules.

@@ -37,7 +37,7 @@
 # There is no suppression comment. For R2 the marker is the mechanism; if any
 # other rule needs an escape, the rule is wrong and belongs in this header.
 #
-# Usage: .github/rmlui/lint-widgets.sh [--all] [-h] [path ...]
+# Usage: .github/rml-widgets/scripts/lint-widgets.sh [--all] [-h] [path ...]
 
 set -uo pipefail
 

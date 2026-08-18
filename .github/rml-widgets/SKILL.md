@@ -13,7 +13,7 @@ This file holds the rules. The reference files hold the templates, tables, and w
 
 The rules are the designer base's. `Repo:` marks what this repo has, `Base:` marks paths that resolve only in the base.
 
-Run `bash .github/rmlui/verify.sh` after editing this skill. It exits nonzero on a `Repo:` path that does not exist, and prints any `Base:` path that now resolves here.
+Run `bash .github/rml-widgets/scripts/verify.sh` after editing this skill. It exits nonzero on a `Repo:` path that does not exist, and prints any `Base:` path that now resolves here.
 
 Repo:
 
@@ -98,7 +98,7 @@ luaui/RmlWidgets/widget_name/
     widget_name.rcss    # Widget-specific styles (CSS-like)
 ```
 
-Run `bash .github/rmlui/lint-widgets.sh` before handing back changed widget files. It checks changed lines and prints warnings without failing; fix the errors it reports and run it again until it exits clean.
+Run `bash .github/rml-widgets/scripts/lint-widgets.sh` before handing back changed widget files. It checks changed lines and prints warnings without failing; fix the errors it reports and run it again until it exits clean.
 
 Read ./file-structure.md for the contents of each file: the Lua initialization pattern, the RML document template and its mandatory stylesheet order, the RCSS positioning block, and the reload and debug rules.
 

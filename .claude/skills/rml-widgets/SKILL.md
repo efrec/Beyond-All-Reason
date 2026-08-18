@@ -5,5 +5,5 @@ description: Build and test widgets using RmlUi for Beyond All Reason. Use when 
 
 # RML widgets
 
-The skill lives in the repository, at `.github/rmlui/`. Read `.github/rmlui/SKILL.md` first: it holds
+The skill lives in the repository, at `.github/rml-widgets/`. Read `.github/rml-widgets/SKILL.md` first: it holds
 the rules and links every reference file. Keep the description above identical to the one there.
