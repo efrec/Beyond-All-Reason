@@ -1,6 +1,6 @@
 ---
-name: rmlui
-description: Guidance for building and testing RML widgets in Beyond All Reason.
+name: rml-widgets
+description: Build and test widgets using RmlUi for Beyond All Reason. Use when instructed to do so.
 ---
 
 # RMLUI widgets

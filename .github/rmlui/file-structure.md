@@ -4,6 +4,13 @@ IMPORTANT: Generate the three files, never hand-copy another widget. Read the se
 
 A widget is three files in `luaui/RmlWidgets/widget_name/`, scaffolded by `rml_starter/generate-widget.sh --name widget_name`.
 
+## Contents
+
+- widget_name.lua — initialization pattern, model rules
+- widget_name.rml — document template, stylesheet order, conventions
+- widget_name.rcss — the widget box and its container
+- Reload and debug — why widgets ship no debug buttons, and what to use instead
+
 ## widget_name.lua
 
 Logic, data model, event handlers. Base: `luaui/Include/rml_utilities/utils.lua`.
