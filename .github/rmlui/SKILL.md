@@ -98,7 +98,7 @@ luaui/RmlWidgets/widget_name/
     widget_name.rcss    # Widget-specific styles (CSS-like)
 ```
 
-Run `bash .github/rmlui/lint-widgets.sh` before handing back changed widget files. It checks changed lines, exits nonzero on an error, and prints warnings without failing.
+Run `bash .github/rmlui/lint-widgets.sh` before handing back changed widget files. It checks changed lines and prints warnings without failing; fix the errors it reports and run it again until it exits clean.
 
 Read ./file-structure.md for the contents of each file: the Lua initialization pattern, the RML document template and its mandatory stylesheet order, the RCSS positioning block, and the reload and debug rules.
 
