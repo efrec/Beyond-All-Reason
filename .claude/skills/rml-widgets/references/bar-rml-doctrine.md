@@ -284,51 +284,19 @@ Conventions (apply regardless of which sheet set is linked):
 
 ## Data binding
 
-| Syntax | Purpose | Example |
-|--------|---------|---------|
-| `{{var}}` | Text interpolation | `<span>{{playerName}}</span>` |
-| `data-if="expr"` | Conditional display (removes from layout) | `<div data-if="expanded">...</div>` |
-| `data-visible="expr"` | Conditional visibility (keeps layout space) | `<div data-visible="showStar">...</div>` |
-| `data-for="item : array"` | Array iteration | `<div data-for="tab : tabs">{{tab.label}}</div>` |
-| `data-attr-class="expr"` | Dynamic class binding | `data-attr-class="'btn w-full ' + (active ? 'bg-primary' : 'bg-darker')"` |
-| `data-attrif-name="bool"` | Set attribute when true, remove when false | `<button data-attrif-disabled="!canSubmit">` |
-| `data-class-name="bool"` | Toggle a single CSS class | `data-class-loading="isLoading"` |
-| `data-style-prop="expr"` | Dynamic CSS property | `data-style-width="progress + '%'"` |
-| `data-rml="expr"` | Set inner RML (can inject markup) | `<div data-rml="statusHtml"></div>` |
-| `data-value="var"` | Two-way input binding (no expressions) | `<input data-value="playerName" />` |
-| `data-checked="var"` | Two-way checkbox/radio binding | `<input type="checkbox" data-checked="enabled" />` |
-| `data-event-click="fn()"` | Call model function on event | `data-event-click="handleAction(item.id)"` |
-| `data-event-mousedown="fn()"` | Any DOM event | `data-event-mousedown="setTab(tab.id)"` |
-| ~~`onclick="widget:Method()"`~~ | Anti-pattern. Legacy widgets only. | — |
+Full attribute table, expression syntax, transform functions, and the
+generic engine gotchas (post-init attributes, top-level-only dirtying,
+`{{`/`}}` always reserved, etc.) are upstream RmlUi mechanics — see
+**[rmlui-data-bindings.md](rmlui-data-bindings.md)**, not restated here.
 
-### Expression syntax
+The one gotcha specific to this codebase, not the engine: **don't shadow
+globals with iterator names.** `data-for="tab : tabs"` is fine;
+`data-for="widget : widgets"` shadows the BAR widget-handler global
+`widget` inside that scope.
 
-Not Lua — a small expression language:
-- String literals use single quotes: `'hello'`.
-- Concatenation is `+`: `'Player ' + name`.
-- Transform pipes: `radius | round`, `name | to_upper`, `value | format(2)`.
-  Chainable: `i * 3.14 | round | format(2)`.
-- Operators (precedence order): `!`, `* /`, `+ -`, `== != < <= > >=`,
-  `&& ||`, `|`, `? :`.
-- Built-in transforms: `to_upper`, `to_lower`, `round`,
-  `format(precision, removeTrailingZeros?)`.
-
-### Data binding gotchas
-
-- `data-if` needs `display` defined in the stylesheet, or the element
-  stays hidden regardless of the expression.
-- `data-value`/`data-checked` don't support expressions — for complex
-  logic use `data-attr-value` + `data-event-change`.
-- Only top-level vars can be dirtied: mutating `items[3].name` dirties
-  `"items"`, not `"items[3].name"`.
-- Mutate the driving array, never the DOM inside a `data-for` — manually
-  calling `AppendChild`/`RemoveChild`/`inner_rml` on elements inside a
-  data-binding region is undefined behavior and can crash.
-- No post-init `data-*` attributes — adding bindings after document load
-  has no effect.
-- Don't shadow globals with iterator names (`data-for="widget : widgets"`
-  shadows the global `widget`).
-- `{{`/`}}` are reserved everywhere in RML, even inside comments.
+The legacy anti-pattern `onclick="widget:Method()"` (found only in
+pre-doctrine widgets here) is covered under "No `widget:` methods for UI
+behaviour" above, not the engine's binding syntax.
 
 ### Gotchas specific to `data-for`-driven settings/config UI
 
@@ -415,13 +383,9 @@ my = {
 
 ## Styling conventions
 
-### Units
-
-- **`dp`** — density-independent pixels, scales with DPI. Use for all
-  sizing/spacing.
-- **`vh`/`vw`** — viewport-relative. Sparingly, for screen-aware
-  positioning.
-- **`rem`** — relative to base font size (`text-sm-rem`).
+Unit reference: **[rmlui-rcss-reference.md](rmlui-rcss-reference.md) →
+Units**. Convention here: `dp` for all sizing/spacing, `rem` for text
+sizing, `vh`/`vw` sparingly for screen-aware positioning.
 
 ### Widget positioning (RCSS)
 
@@ -486,32 +450,17 @@ etc.
 
 ### Transitions & timing functions
 
-`transition: <property> <duration> [<timing-function>]`. Each timing
-function has `-in`/`-out`/`-in-out` variants: `back`, `bounce`,
-`circular`, `cubic`, `elastic`, `exponential`, `linear`, `quadratic`,
-`quartic`, `quintic`, `sine`. Use `linear-in-out` for constant speed.
-
-```rcss
-.element {
-    transition: transform 0.15s quadratic-out;
-    transition: opacity 0.2s linear-in-out;
-    transition: all 0.3s cubic-in-out;
-}
-```
-
-> Gotcha: transitions fire only on class/pseudo-class changes, not on
-> arbitrary property changes — `data-style-*` or direct style mutation
-> will NOT trigger one. Animate by toggling a class.
-
-Aggressive easing (`exponential-out`, `elastic-*`, `bounce-*`) can cause
-visible sub-pixel jitter on small transforms. Prefer `quadratic-out`/
-`cubic-out` for subtle UI shifts.
+Syntax and timing-function names: **[rmlui-rcss-reference.md](rmlui-rcss-reference.md)
+→ Animations and Transitions**. One BAR-measured addition not in that
+generic reference: aggressive easing (`exponential-out`, `elastic-*`,
+`bounce-*`) causes visible sub-pixel jitter on small transforms — prefer
+`quadratic-out`/`cubic-out` for subtle UI shifts.
 
 ### Keyframe animations — entrance/looping motion
 
-Use `@keyframes` + `animation` (not `transition`) when motion must fire on
-element creation — a freshly-created element has no "before" state to
-transition from.
+Base `@keyframes`/`animation` syntax: same reference, same section. Use
+them (not `transition`) when motion must fire on element creation — a
+freshly-created element has no "before" state to transition from, e.g.:
 
 ```rcss
 .row { animation: 0.45s quadratic-out 1 slide-in; }
@@ -521,7 +470,8 @@ transition from.
 }
 ```
 
-Hard-won BAR specifics — engine-level, apply regardless of Repo/Base:
+None of what follows is in the generic reference — these are hard-won
+BAR specifics, engine-level, apply regardless of Repo/Base:
 
 - **Animate `translateX` as a length (`dp`), never a percentage.**
   Upstream RmlUi docs list `translate` as taking `<length-percentage>`,
@@ -563,28 +513,11 @@ repo.
 
 ### RCSS differs from CSS
 
-- `rgba()` alpha is 0–255, not 0–1.
-- Borders are always solid — no `border-style`; `border: 1dp <color>` is
-  the only form.
-- No `background-image` — use decorators (`decorator: image(...)`).
-- `background` only sets `background-color`.
-- `:hover`/`:active`/`:focus` propagate through parents (unlike CSS).
-- `opacity` is inherited (unlike CSS).
-- **No pseudo-elements at all** — not `::before`, `::after`,
-  `::first-letter`, nor `::placeholder`. Source-verified against the
-  pinned RmlUi build (`rts/lib/RmlUi` @ `2230d1a6e8` in the engine repo):
-  zero occurrences of `placeholder` anywhere in the codebase. `CLAUDE.md`
-  on `bar-ui-2.0` claims `::placeholder` is supported — it isn't, at
-  least not at this pinned version; don't trust that line without
-  re-checking the source. Form control internals are real generated
-  child elements instead — style them with child selectors: `input #text`
-  (text content), `input #selection` (selection highlight). Source:
-  `Source/Core/Elements/WidgetTextInput.cpp`.
-- No `order` property for flex items; no `flex-basis: content`.
-- `inline-flex` needs a definite width, or it collapses.
-- No nested `@media`, no CSS Level 4 media query syntax (`<=`, `>=`).
-- Transitions only fire on class/pseudo-class changes.
-- `@keyframes translate` must use a length, not `%`.
+Full list: **[rmlui-rcss-reference.md](rmlui-rcss-reference.md) → Key
+Differences from CSS**, including the pseudo-elements correction
+(`::placeholder` is *not* supported, contrary to what `CLAUDE.md` on
+`bar-ui-2.0` claims — source-verified against the pinned RmlUi build,
+see that file for the citation).
 
 ## Theme system
 
