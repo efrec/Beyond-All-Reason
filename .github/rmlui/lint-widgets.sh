@@ -106,11 +106,15 @@ changed_lines() {
 errors=0
 warnings=0
 declare -A keep
+declare -A tally
 
 report() { # file line id level message doc
 	local f=$1 l=$2 id=$3 lvl=$4 msg=$5 doc=$6
 	[ ${#keep[@]} -eq 0 ] || [ -n "${keep[$l]:-}" ] || return 0
 	printf '%s:%s: %s %s: %s — %s\n' "$f" "$l" "$id" "$lvl" "$msg" "$doc"
+	# Keyed by the words the finding itself uses, so the two read against each other.
+	local key="$lvl: $msg"
+	tally[$key]=$(( ${tally[$key]:-0} + 1 ))
 	[ "$lvl" = error ] && errors=$((errors + 1)) || warnings=$((warnings + 1))
 	return 0
 }
@@ -183,10 +187,24 @@ done
 
 # --- summary -----------------------------------------------------------------
 
+plural() { [ "$1" = 1 ] && printf '%d %s' "$1" "$2" || printf '%d %ss' "$1" "$2"; }
+
 scope="changed lines"
 [ "$all" = 1 ] && scope="all lines, ${#files[@]} files"
 [ ${#paths[@]} -gt 0 ] && scope="${#files[@]} file(s), all lines"
 
-printf '\n%d error(s), %d warning(s) — %s\n' "$errors" "$warnings" "$scope"
+printf '\n%s, %s — %s\n' "$(plural "$errors" error)" "$(plural "$warnings" warning)" "$scope"
+for key in "${!tally[@]}"; do
+	case $key in
+		error:*) sev=0 ;;
+		*) sev=1 ;;
+	esac
+	printf '%d	%d	%s
+' "$sev" "${tally[$key]}" "$key"
+done | sort -k1,1n -k2,2nr | while IFS=$'	' read -r _ n key; do
+	printf '%6d  %s
+' "$n" "$key"
+done
+
 [ "$errors" -gt 0 ] && exit 1
 exit 0

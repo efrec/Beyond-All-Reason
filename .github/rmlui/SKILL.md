@@ -48,7 +48,7 @@ Data binding (`{{}}`, `data-if`, `data-visible`, `data-for`, `data-attr-*`, `dat
 
 ### DOM manipulation
 
-IMPORTANT: Do not write JS/jQuery-style DOM code (`GetElementById`, `QuerySelector(All)`, `:SetClass`, `:SetAttribute`, `:SetProperty`, `.inner_rml`, `AppendChild`/`RemoveChild`/`InsertBefore`) to drive UI state. A widget that reaches for these to show, hide, or update must be rebuilt around the data model.
+IMPORTANT: Do not write JS/jQuery-style DOM code (`GetElementById`, `QuerySelector`, `QuerySelectorAll`, `:SetClass`, `:SetAttribute`, `:SetProperty`, `.inner_rml`, `AppendChild`/`RemoveChild`/`InsertBefore`) to drive UI state. A widget that reaches for these to show, hide, or update must be rebuilt around the data model.
 
 Three cases, and no others, are unavoidable:
 
