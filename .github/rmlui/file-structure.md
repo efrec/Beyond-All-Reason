@@ -119,7 +119,7 @@ Markup, and the document's stylesheets.
 </rml>
 ```
 
-- **Stylesheet order** — shared sheets in the order above, all four themes among them, the widget's own sheet last. In situ: `../terraform_shared/{styles,rml-utility-classes,palette-standard-global}.rcss`, no components or themes.
+- **Stylesheet order** — shared sheets in the order above, all four themes among them, the widget's own sheet last. Repo: `../terraform_shared/{styles,rml-utility-classes,palette-standard-global}.rcss`, no components or themes.
 - **Body id** — `widget_name-widget`, matching the RCSS selector.
 - **Body classes** — `widget-shadow rounded-lg`, for the consistent drop shadow and rounding.
 - **Wrapper** — one `div` carrying `data-model="model_name"`, with all content inside it.

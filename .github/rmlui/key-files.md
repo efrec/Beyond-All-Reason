@@ -1,6 +1,6 @@
 # Key files
 
-## In situ
+## Repo
 
 | Path | Purpose |
 |------|---------|
@@ -11,7 +11,7 @@
 | `luaui/RmlWidgets/terraform_shared/palette-standard-global.rcss` | Fixed palette, shadows, gradients, textures |
 | `luaui/RmlWidgets/gui_*/` | `ceg_browser`, `decal_placer`, `diffuse_library`, `feature_placer`, `map_labels`, `quick_start`, `terraform_brush`, `territorial_domination`, `weather_brush` |
 
-In-situ widgets predate this doctrine: inline `on*="widget:"` handlers, `data-model` on `<body>`, unmarked DOM calls. Read them for engine behaviour, not for convention.
+These widgets predate this doctrine: inline `on*="widget:"` handlers, `data-model` on `<body>`, unmarked DOM calls. Read them for engine behaviour, not for convention.
 
 ## Base
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Checks every repo path named in the rmlui skill.
 #
-#   In situ  — must exist here; a miss is an error.
-#   Base     — lives in the designer base; absent here is expected, present
-#              means the base landed and the claims attached to it are due
-#              for re-verification.
+#   Repo — must exist here; a miss is an error.
+#   Base — lives in the designer base; absent here is expected, present
+#          means the base landed and the claims attached to it are due
+#          for re-verification.
 #
 # Usage: .github/rmlui/verify.sh [-v]
 
@@ -41,7 +41,7 @@ exists() {
 	return 1
 }
 
-missing_insitu=()
+missing_repo=()
 present_base=()
 absent_base=()
 
@@ -53,11 +53,11 @@ for md in "$dir"/*.md; do
 			'## Base'*) base_region=1 ;;
 			'Base:') base_region=1 ;;
 			'## '*) base_region=0 ;;
-			'In situ:') base_region=0 ;;
+			'Repo:') base_region=0 ;;
 		esac
 
 		[[ $line == *'Base:'* ]] && base_region=1
-		[[ $line == *'In situ:'* ]] && base_region=0
+		[[ $line == *'Repo:'* ]] && base_region=0
 		line_base=$base_region
 
 		# Path tokens, minus trailing punctuation and :line-range suffixes
@@ -74,7 +74,7 @@ for md in "$dir"/*.md; do
 					if [ "$line_base" = 1 ]; then
 						absent_base+=("$p")
 					else
-						missing_insitu+=("$p  ($(basename "$md"))")
+						missing_repo+=("$p  ($(basename "$md"))")
 					fi
 				fi
 			done
@@ -94,10 +94,10 @@ if [ ${#present_base[@]} -gt 0 ]; then
 	uniq_sorted "${present_base[@]}" | sed 's/^/  /'
 fi
 
-if [ ${#missing_insitu[@]} -gt 0 ]; then
-	echo "in-situ paths missing:"
-	uniq_sorted "${missing_insitu[@]}" | sed 's/^/  /'
+if [ ${#missing_repo[@]} -gt 0 ]; then
+	echo "repo paths missing:"
+	uniq_sorted "${missing_repo[@]}" | sed 's/^/  /'
 	exit 1
 fi
 
-echo "in-situ paths ok"
+echo "repo paths ok"

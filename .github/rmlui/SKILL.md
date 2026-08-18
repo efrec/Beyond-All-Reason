@@ -11,11 +11,11 @@ This file holds the rules. The reference files hold the templates, tables, and w
 
 ## Scope
 
-The rules are the designer base's. `In situ:` marks what this repo has, `Base:` marks paths that resolve only in the base.
+The rules are the designer base's. `Repo:` marks what this repo has, `Base:` marks paths that resolve only in the base.
 
 Path check: `.github/rmlui/verify.sh`.
 
-In situ:
+Repo:
 
 - `luaui/RmlWidgets/*/` — widgets predating this doctrine
 - `luaui/RmlWidgets/terraform_shared/{styles,rml-utility-classes,palette-standard-global}.rcss`
