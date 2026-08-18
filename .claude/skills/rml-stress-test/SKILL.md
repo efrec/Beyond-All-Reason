@@ -11,7 +11,7 @@ user-invocable: true
 - `rml_stress_test.rml` — sidebar with button sections + stage
 - `rml_stress_test.rcss` — minimal styling; stage content is left to whatever class the scenario applies
 **Companion resources:**
-- ``.claude/skills/rml-widgets/SKILL.md`` (Performance section) — the canonical RML layout/perf rules these tests validate and feed back into
+- ``.claude/skills/rml-widgets/references/bar-rml-doctrine.md`` (Performance in a Game Context section) — the canonical RML layout/perf rules these tests validate and feed back into
 - `.claude/skills/bar-tracy-profiling/SKILL.md` — Tracy workflow for zone-level cost
 ## Architecture essentials
 ### Scenario dispatch
@@ -68,7 +68,7 @@ Say we want to add a `shadow-md` flat test at 500 count.
 ### Recipe: widen CCG variant coverage
 `ccg.getForModel()` returns a table with `card`, `panel`, `button`, `themeButton`, `badge`, `pill`, `circle` sub-tables keyed by variant name. Iterate in `refreshCCGClasses` and register each as `<family>_<variant>` in `CCG_CLASSES`. Generate corresponding keys in `ALL_RESULT_KEYS`. Use `data-for` in RML if the button count gets unwieldy — but prefer hardcoded buttons while the count is manageable (inline result spans require static IDs).
 ## Current findings snapshot (as of 2026-04-19)
-Headline empirical results so far. The durable *rules* derived from these are codified in ``.claude/skills/rml-widgets/SKILL.md`` → Performance section (the canonical home); this snapshot is the at-a-glance summary:
+Headline empirical results so far. The durable *rules* derived from these are codified in ``.claude/skills/rml-widgets/references/bar-rml-doctrine.md`` → Performance in a Game Context section (the canonical home); this snapshot is the at-a-glance summary:
 - **Most expensive single utility class:** `box-shadow-sm` (-30% FPS on 500 elements vs plain).
 - **Padding paradox:** removing `p-2` from a shadowed card *hurts* perf. Shadow cost correlates with element box size — tall elements render shadow cheaper than short ones.
 - **Deep block-layout nesting is free:** depth 100 plain ≈ baseline.
@@ -133,7 +133,7 @@ WG.rml_testContextOverride = nil        -- critical: clear immediately
 - **Never reintroduce direct DOM writes for button results** — use the `dm_handle.results` data binding path. Direct DOM writes inside `<button>` children don't persist through layout invalidation.
 - **Keep the widget's own sidebar cheap.** It's block layout, small flex rows, low element count. If the widget itself is expensive we're measuring noise.
 - **When adding variants, mirror the Tracy zone naming:** `StressTest.<Kind>.<variant>.<param>`. Consistent names make the Tracy flame chart searchable.
-- **When a finding becomes a durable rule, codify it in ``.claude/skills/rml-widgets/SKILL.md``** (Performance section) — the canonical home — and keep the snapshot above current. Raw exploratory measurements are personal research, deliberately not tracked in the repo, so the skill stays self-contained.
+- **When a finding becomes a durable rule, codify it in ``.claude/skills/rml-widgets/references/bar-rml-doctrine.md``** (Performance in a Game Context section) — the canonical home — and keep the snapshot above current. Raw exploratory measurements are personal research, deliberately not tracked in the repo, so the skill stays self-contained.
 ## Stop signs
 - **Don't add scenarios that crash BAR to the auto suite.** Manual buttons with danger styling + `(crash)` label are fine; the suite must only queue tests that complete.
 - **Don't mutate DOM inside a `data-for` region.** RmlUi data binding owns those elements. The stress test's stage is NOT inside data-for, so direct DOM there is fine.

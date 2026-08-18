@@ -7,8 +7,22 @@ description: Build and test widgets using RmlUi for Beyond All Reason. Use when 
 
 RmlUi is a web-like UI framework for C++. This skill holds the BAR widget doctrine and upstream API reference.
 
+## Scope
+
+`Repo:` and `Base:` mark path claims through this skill: `Repo:` exists in
+this checkout now, `Base:` only exists on the `bar-ui-2.0` UI-overhaul
+branch (generator, style guide, shared tooltip, themes, CCG library — none
+landed here yet). Full detail and the tag on every path:
+**[bar-rml-doctrine.md](references/bar-rml-doctrine.md)**.
+
+Run `bash .claude/skills/rml-widgets/scripts/verify.sh` after editing
+doctrine. It exits nonzero on a `Repo:` path that doesn't exist, and
+prints any `Base:` path that now resolves here (the infra landed — go
+re-verify the claims attached to it).
+
 ## Reference
 
+- **[bar-rml-doctrine.md](references/bar-rml-doctrine.md)** — full BAR doctrine: widget templates, CCG inventory, theme API, key files, performance case studies, all tagged `Repo:`/`Base:`
 - **[rmlui-lua-api.md](references/rmlui-lua-api.md)** — Element / Document / Context / Event APIs
 - **[rmlui-data-bindings.md](references/rmlui-data-bindings.md)** — Data binding attributes and expression language
 - **[rmlui-rcss-reference.md](references/rmlui-rcss-reference.md)** — RCSS selectors, flexbox, decorators, animations
@@ -17,13 +31,14 @@ RmlUi is a web-like UI framework for C++. This skill holds the BAR widget doctri
 
 - **The model is king.** Change the view by mutating the data model; data binding updates the DOM.
 - **No `widget:` methods for UI behaviour.** Define handlers in `initModel()` and bind with `data-event-*`.
-- **Utility classes by default.** CCG only for frequent, heavy bundles.
+- **Utility classes by default.** Repo: this is the only option today — Base: CCG (`ccg.*`) exists on `bar-ui-2.0` for frequent, heavy bundles, not usable here yet.
 - **Block layout by default.** Flex justified only for children filling remaining space or horizontal splits.
 - **Mark DOM escapes.** Inline `-- rml-dom-escape: <reason>` for the three unavoidable cases (data-binding bugs, SVG injection, hot paths).
+- **No reload/debug buttons on widgets.** `/luaui reload` and Options > Dev > Debug > "RmlUi Debugger" cover development; don't build widget-local controls for either.
 
 ## Widget dev workflow
 
-**Start:** Run `luaui/RmlWidgets/rml_starter/generate-widget.sh --name widget_name`.
+**Start:** Base: `luaui/RmlWidgets/rml_starter/generate-widget.sh --name widget_name` scaffolds the three files — doesn't exist in this repo yet. Until it lands, hand-build the three files following the Lua Initialization Pattern and RML Document Template in [bar-rml-doctrine.md](references/bar-rml-doctrine.md), using the `terraform_shared` stylesheets (not the Base ones the template lists).
 
 **Checklist** (copy and track):
 - [ ] Model: fields and handlers (initModel())
@@ -50,6 +65,8 @@ Run these before committing or passing to someone else:
 3. **No inline handlers:** No `onclick=`, `onkeyup=` in markup
 4. **Colors from utilities:** No `rgba()` or hex in RCSS
 5. **Layout efficient:** No nested flex-column, explicit heights on repeats
+
+If you edited doctrine rather than a widget, run `bash .claude/skills/rml-widgets/scripts/verify.sh` instead of the widget checklist above.
 
 ## Common patterns
 

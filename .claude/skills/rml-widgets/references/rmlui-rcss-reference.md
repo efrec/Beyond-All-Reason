@@ -23,7 +23,7 @@ Condensed from the [official RmlUi RCSS docs](https://mikke89.github.io/RmlUiDoc
 - `font-style: oblique`, relative `font-weight` (`bolder`/`lighter`)
 - `border-radius` percentages or elliptic corners
 - `visibility: collapse`
-- Pseudo-elements `::before`, `::after`, `::first-letter`
+- Pseudo-elements `::before`, `::after`, `::first-letter`, `::placeholder` (none exist; form control internals are real child elements, see Pseudo-elements below)
 - CSS `order` property for flexbox
 - `flex-basis: content`
 - Nested `@media` rules
@@ -225,7 +225,13 @@ Operators: `and`, `not`. No `or`, no nesting, no CSS Level 4 syntax.
 ### Structural
 `:first-child`, `:last-child`, `:nth-child(an+b)`, `:nth-last-child(an+b)`, `:first-of-type`, `:last-of-type`, `:nth-of-type(an+b)`, `:only-child`, `:only-of-type`, `:scope`
 ### Pseudo-elements
-`::placeholder` only. **No** `::before`, `::after`, `::first-letter`.
+**None.** No `::before`, `::after`, `::first-letter`, `::placeholder`.
+Verified against the pinned RmlUi source (`rts/lib/RmlUi` @ `2230d1a6e8`):
+`grep -rn placeholder` returns zero hits anywhere in the codebase. Form
+control internals are real generated child elements, not pseudo-elements
+— style them with child selectors: `input #text` (text content),
+`input #selection` (selection highlight), source:
+`Source/Core/Elements/WidgetTextInput.cpp`.
 ## Sprite Sheets
 ```rcss
 @spritesheet icons {

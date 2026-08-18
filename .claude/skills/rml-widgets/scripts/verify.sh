@@ -6,7 +6,7 @@
 #          means the base landed and the claims attached to it are due
 #          for re-verification.
 #
-# Usage: .github/rml-widgets/scripts/verify.sh [-v]
+# Usage: .claude/skills/rml-widgets/scripts/verify.sh [-v]
 
 set -uo pipefail
 
