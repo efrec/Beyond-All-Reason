@@ -63,7 +63,7 @@ In the rare RCSS that does write `rgba()`, alpha is 0–255, not 0–1 as in CSS
 
 ## Themes
 
-Base: `luaui/RmlWidgets/themes/theme-{base,armada,cortex,legion}.rcss` — base (yellow), armada (cyan), cortex (red), legion (green). Theme-specific rules go in `@media (theme: name)` blocks, and every RML document links all four theme stylesheets (see ./file-structure.md).
+Base: `luaui/RmlWidgets/themes/theme-{base,armada,cortex,legion}.rcss`. The theme names are `base` (yellow), `armada` (cyan), `cortex` (red), `legion` (green). Theme-specific rules go in `@media (theme: <name>)` blocks, and every RML document links all four theme stylesheets (see ./file-structure.md).
 
 The current theme is Spring config `Spring.GetConfigString("rml_theme", "base")`. To switch it:
 

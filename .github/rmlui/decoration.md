@@ -6,6 +6,6 @@ Angled and structural decoration — tapers, chamfers, diagonal edges, notches �
 2. **Rotated `div` plus parent `clip: always`** — a pure RCSS pattern. Base: `luaui/RmlWidgets/rml_style_guide/rml_style_guide.rcss:49-105`. An oversized rotated child sits mostly outside the parent, and the parent's `clip: always` cuts the visible portion to a straight diagonal at exactly the rotation angle. The angle stays stable at any container size, and it supports theme-color fill through utility classes and `@keyframes` animation.
 3. **Hybrid SVG plus overhang clip** — an SVG shape sized to its intended visible dimensions and positioned with small negative offsets, so the parent clips the viewBox boundary cleanly. A sub-pixel edge cleanup trick, and niche. Base: `luaui/RmlWidgets/svg_test/svg_test.lua`, `buildAngleDecoratorSVG`.
 
-The trade-off in one line: take 2 when the angle must stay stable across variable container sizes, take 1 when you need runtime parameterization, and take 3 only when you are already on 1 and hitting sub-pixel edge artifacts.
+The trade-off in one line: take the rotated div when the angle must stay stable across variable container sizes, the container-scaled SVG when you need runtime parameterization, and the hybrid only when you are already on the container-scaled SVG and hitting sub-pixel edge artifacts.
 
-Approaches 1 and 3 build markup through the DOM, which is the sanctioned SVG injection case; carry the `rml-dom-escape` marker (see ./dom-manipulation.md).
+Both SVG approaches build markup through the DOM, which is the sanctioned SVG injection case; carry the `rml-dom-escape` marker (see ./dom-manipulation.md).

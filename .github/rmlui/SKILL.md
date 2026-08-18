@@ -52,14 +52,14 @@ IMPORTANT: Do not write JS/jQuery-style DOM code (`GetElementById`, `QuerySelect
 
 Three cases, and no others, are unavoidable:
 
-- **Data-binding bugs** — Measured: `data-checked` is broken inside `data-for`, so the toggle pattern swaps a class directly. Drop the escape once the bug is fixed upstream.
+- **Data-binding bugs** — Measured: `data-checked` does not work inside `data-for`, so a checkbox row in the loop sets its own class instead. Drop the escape once the bug is fixed upstream.
 - **SVG injection** — RmlUi cannot bind SVG attributes, so SVG-driven widgets construct and patch that markup through the DOM. This is expected and correct.
 - **Hot paths** — data binding proven slow by measurement.
 
 Mark every such call site with a one-line technical reason.
 
 ```lua
--- rml-dom-escape: data-checked broken inside data-for (toggle pattern)
+-- rml-dom-escape: data-checked broken inside data-for
 row:SetClass("enabled", state.enabled)
 ```
 
@@ -130,7 +130,7 @@ Units:
 - **`vh`, `vw`** — viewport-relative. Use sparingly, for screen-aware positioning.
 - **`rem`** — relative to base font size, available for text sizing (`text-sm-rem`).
 
-Four themes ship: base (yellow), armada (cyan), cortex (red), and legion (green). Theme-specific rules live in `@media (theme: name)` blocks.
+Four themes ship, named `base` (yellow), `armada` (cyan), `cortex` (red), `legion` (green). Theme-specific rules live in `@media (theme: <name>)` blocks.
 
 Read ./styling.md for the class group inventory, the color and utility class families, and the theme API. Read ./rcss-differences.md for where RCSS differs from CSS. Read ./decoration.md for angled decoration: tapers, chamfers, and notches.
 
