@@ -7,7 +7,26 @@ description: Guidance for building and testing RML widgets in Beyond All Reason.
 
 RMLUI is a web-like UI framework for C++. It provides HTML1 and CSS2 with some conveniences of HTML5 and CSS3 and some custom extensions. Though experience from web frameworks is transferable to RML documents, users are expected to author documents specifically for RMLUI.
 
-This file holds the rules. The reference files hold the templates, tables, and worked examples. Together they are the complete guidance; no fuller version exists elsewhere.
+This file holds the rules. The reference files hold the templates, tables, and worked examples. Together they are the complete guidance; no fuller version exists elsewhere. RmlUi behaviour is verified against RmlUi 6.2, the engine's pinned `rts/lib/RmlUi` at `2230d1a6e8`.
+
+## Scope
+
+The rules are the designer base's. `In situ:` marks what this repo has, `Base:` marks paths that resolve only in the base.
+
+Path check: `.github/rmlui/verify.sh`.
+
+In situ:
+
+- `luaui/RmlWidgets/*/` — widgets predating this doctrine
+- `luaui/RmlWidgets/terraform_shared/{styles,rml-utility-classes,palette-standard-global}.rcss`
+- `luaui/rml_setup.lua`, `luaui/RmlWidgets/rml_context_manager.lua`
+
+Base:
+
+- `luaui/Include/rml_utilities/{utils,common_class_groups,theme_utils,EzSVG,svg_shapes,svg_decorators}.lua`
+- `luaui/RmlWidgets/{styles,rml-utility-classes,palette-standard-global,components}.rcss`
+- `luaui/RmlWidgets/themes/theme-{base,armada,cortex,legion}.rcss`
+- `luaui/RmlWidgets/{rml_starter,rml_style_guide,rml_tooltip_layer,gui_options_rml,svg_test}/`
 
 ## Reference files
 

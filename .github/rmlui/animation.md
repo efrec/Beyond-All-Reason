@@ -44,4 +44,4 @@ These cost a long debugging session each. Trust them.
   ```
 - **`animation` is a shorthand only.** RmlUi parses `animation: <duration> <delay>? <tween>? [<iterations>|infinite]? alternate? paused? <name>`; there is no `animation-delay` or `animation-name` longhand. Keyframe percentages are duration-relative, so changing the duration rescales holds and slide together.
 
-Worked example in-repo: the staggered, flash-free slide-in on `gui_options_rml`'s `.panel-with-abs-heading`, the option-group entrance.
+Worked example — Base: `luaui/RmlWidgets/gui_options_rml/`, the staggered slide-in on `.panel-with-abs-heading`.

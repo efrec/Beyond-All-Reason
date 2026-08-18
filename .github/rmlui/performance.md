@@ -28,7 +28,7 @@ RmlUi layout runs on the engine's render thread. Every element added to the DOM 
 
 This applies wherever information varies per item but only one is visible at a time: tooltips, detail panels, previews. Updating a model string is far cheaper than maintaining N hidden elements with CSS hover rules.
 
-For tooltips the shared element already exists, so do not even build one. The always-enabled `rml_tooltip_layer` widget provides a single global overlay: on hover call `WG['rml_tooltip'].Show(text, springX, springY)`, on mouse-out call `WG['rml_tooltip'].Hide()`, and pass an optional 4th `title` argument for a titled tooltip. `rml_style_guide` shows the hover-to-`Show`, mouseout-to-`Hide` pattern.
+For tooltips the shared element already exists, so do not even build one. Base: `luaui/RmlWidgets/rml_tooltip_layer/`, always enabled. It provides a single global overlay: on hover call `WG['rml_tooltip'].Show(text, springX, springY)`, on mouse-out call `WG['rml_tooltip'].Hide()`, and pass an optional 4th `title` argument for a titled tooltip. `rml_style_guide` shows the hover-to-`Show`, mouseout-to-`Hide` pattern.
 
 ## Block layout, not flex
 
