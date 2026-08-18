@@ -1,6 +1,12 @@
-# Lua initialization pattern
+# File structure
 
-Every RML widget follows this file structure:
+IMPORTANT: Generate the three files, never hand-copy another widget. Read the section `File structure` in SKILL.md before this.
+
+A widget is three files in `luaui/RmlWidgets/widget_name/`, scaffolded by `rml_starter/generate-widget.sh --name widget_name`.
+
+## widget_name.lua
+
+Logic, data model, event handlers.
 
 ```lua
 if not RmlUi then
@@ -76,18 +82,77 @@ function widget:Update()
 end
 ```
 
-## Reload/debug buttons
+Model rules, all of them consequences of reload creating a fresh model:
 
-IMPORTANT: Do not add reload/debug buttons, `rmlDebugControls`, or `isRmlDebugEnabled` gating to a new widget. New and generated widgets have no reload/debug buttons (but one). **`rml_starter` is the sole widget with always-visible `reload` / `debug` buttons** (ungated), as a dev convenience.
+- **Factory** — `initModel()` returns a new table each init, so no state survives a reload as a stale reference.
+- **Access** — model functions read and write properties through `dm_handle` directly.
+- **Keys** — every property exists at init time; keys added later are not bound.
+- **Upvalues** — `document` and `dm_handle` are file-local.
 
-Instead, to reload or debug during development:
-- Use `/luaui reload` (reloads all widgets) or the `reload` button on **rml_starter**.
-- Use the debugger overlay: **Options > Dev > Debug > "RmlUi Debugger"** (or rml_starter's `debug` button). This calls `RmlUi.SetDebugContext`.
+## widget_name.rml
 
-The safe pattern to trigger a manual reload from a model function is a `reloadRequested` flag the model function sets, acted upon in `widget:Update`. Defer this response so the model is not torn down inside its own data-event dispatch (use-after-free). Avoid needing to do this.
+Markup, and the document's stylesheets.
 
-Reload rules:
-- Always use `initModel()` as a factory (fresh table each init) to avoid stale references
-- Model functions reference `dm_handle` directly to read/write properties
-- All model properties must be defined at init time — you cannot add new keys later
-- Store `document` and `dm_handle` as file-local upvalues
+```rml
+<rml>
+<head>
+    <title>Widget Name</title>
+
+    <!-- Mandatory stylesheet order -->
+    <link rel="stylesheet" href="../styles.rcss" type="text/rcss" />
+    <link rel="stylesheet" href="../rml-utility-classes.rcss" type="text/rcss" />
+    <link rel="stylesheet" href="../palette-standard-global.rcss" type="text/rcss" />
+    <link rel="stylesheet" href="../components.rcss" type="text/rcss" />
+    <link rel="stylesheet" href="../themes/theme-base.rcss" type="text/rcss" />
+    <link rel="stylesheet" href="../themes/theme-armada.rcss" type="text/rcss" />
+    <link rel="stylesheet" href="../themes/theme-cortex.rcss" type="text/rcss" />
+    <link rel="stylesheet" href="../themes/theme-legion.rcss" type="text/rcss" />
+
+    <!-- Widget-specific styles last -->
+    <link rel="stylesheet" href="widget_name.rcss" type="text/rcss" />
+</head>
+<body id="widget_name-widget" class="widget-shadow rounded-lg">
+    <div id="widget-container" data-model="widget_name_model">
+        <!-- All content inside the data-model wrapper -->
+    </div>
+</body>
+</rml>
+```
+
+- **Stylesheet order** — shared sheets in the order above, all four themes among them, the widget's own sheet last.
+- **Body id** — `widget_name-widget`, matching the RCSS selector.
+- **Body classes** — `widget-shadow rounded-lg`, for the consistent drop shadow and rounding.
+- **Wrapper** — one `div` carrying `data-model="model_name"`, with all content inside it.
+
+## widget_name.rcss
+
+The widget box and its container. Both are block layout: the widget box has a definite size, so the container needs no flex to fill it (see ./performance.md).
+
+```rcss
+#widget_name-widget {
+    position: absolute;
+    top: 100dp;
+    left: 50dp;
+    width: 300dp;
+    height: 400dp;
+    display: block;
+}
+
+#widget-container {
+    display: block;
+    position: relative;   /* anchor for absolutely-positioned children */
+    height: 100%;
+    padding: 12dp;
+}
+```
+
+## Reload and debug
+
+IMPORTANT: Do not add reload or debug buttons, `rmlDebugControls`, or `isRmlDebugEnabled` gating to a widget. `rml_starter` is the sole widget with always-visible, ungated `reload` and `debug` buttons, as a dev convenience.
+
+Reload and debug during development instead:
+
+- **Reload** — `/luaui reload` reloads all widgets, as does `rml_starter`'s `reload` button.
+- **Debug** — the debugger overlay lives at Options > Dev > Debug > "RmlUi Debugger", and behind `rml_starter`'s `debug` button. Both call `RmlUi.SetDebugContext`.
+
+A model function that must trigger a reload sets a `reloadRequested` flag which `widget:Update` acts on, so the model is not torn down inside its own data-event dispatch (use-after-free). Avoid needing this.
