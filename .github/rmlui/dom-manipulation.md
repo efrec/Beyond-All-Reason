@@ -12,7 +12,7 @@ local element = document:GetElementById("my-element")
 element:SetClass("active", true)
 ```
 
-Before writing any of it, ask: *can a model field plus data binding express this?* Almost always they can, so they must. Ask the same question again when copying from an existing widget.
+Before writing any of it, ask whether a model field plus data binding can express this. Almost always they can, so they must. Ask again when copying from an existing widget.
 
 ## Validation
 
