@@ -148,7 +148,7 @@ The widget box and its container. Both are block layout: the widget box has a de
 
 ## Reload and debug
 
-IMPORTANT: Do not add reload or debug buttons, `rmlDebugControls`, or `isRmlDebugEnabled` gating to a widget. `rml_starter` is the sole widget with always-visible, ungated `reload` and `debug` buttons, as a dev convenience.
+IMPORTANT: Do not add reload or debug buttons or debug-gating flags to a widget. `rml_starter` is the sole widget shipping `reload` and `debug` controls, as a dev convenience.
 
 Reload and debug during development instead:
 

@@ -8,9 +8,9 @@ RCSS is based on CSS2 with selected CSS3 features, not full CSS. When a CSS feat
 - **`background` only sets `background-color`.** It is not a shorthand for background-image and the rest.
 - **`:hover`, `:active`, and `:focus` propagate through parents**, unlike CSS. Hovering a child puts the parent into `:hover` too.
 - **`opacity` is inherited**, unlike CSS.
-- **`::placeholder` is the only pseudo-element.** No `::before`, `::after`, `::first-letter`.
+- **There are no pseudo-elements.** No `::before`, `::after`, `::first-letter`, `::placeholder`. Form internals are styled through child selectors instead: `input #text`, `input #selection`.
 - **No `order` property for flex items**, and no `flex-basis: content`.
 - **`inline-flex` needs a definite width**, or it collapses.
 - **No nested `@media`**, and no CSS Level 4 media query syntax (`<=`, `>=`).
 - **Transitions fire only on class and pseudo-class changes** (see ./animation.md).
-- **`@keyframes` transforms translate by length, not `%`.** `translateX(%)` does not interpolate, and transformed elements need `clip: always` on an ancestor to respect `overflow: hidden` (see ./animation.md).
+- **`@keyframes` transforms translate by length, not `%`.** Measured: `translateX(%)` does not interpolate. Transformed elements also need `clip: always` on an ancestor to respect `overflow: hidden` (see ./animation.md).

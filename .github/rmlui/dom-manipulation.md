@@ -18,4 +18,8 @@ Before writing any of it, ask: *can a model field plus data binding express this
 
 Reaching for the DOM to drive ordinary UI state is the most common way RML widgets in this codebase go wrong. When validating a widget, detect or dismiss such cases early.
 
-Around 250 call sites exist today which are not to be migrated. The bulk is SVG code carrying a `-- rml-dom-escape: SVG injection` marker, and the remainder is a known baseline of acceptable defects. New and changed code follows the rules.
+Existing call sites are a known baseline and are not to be migrated wholesale; the marker is what separates a sanctioned escape from a defect. New and changed code follows the rules. To size the baseline in the tree you are working in:
+
+```bash
+grep -roIE "GetElementById|QuerySelectorAll|QuerySelector|:SetClass|:SetAttribute|:SetProperty|inner_rml|AppendChild|RemoveChild|InsertBefore" --include=*.lua luaui/RmlWidgets/ | wc -l
+```
