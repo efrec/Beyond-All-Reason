@@ -30,15 +30,15 @@ Base:
 
 ## Reference files
 
-- ./file-structure.md — the Lua, RML, and RCSS contents of a widget
-- ./data-binding.md — binding attributes, event handlers, expressions, gotchas
-- ./dom-manipulation.md — the escape hatch API, and validating existing widgets
+- ./file-structure.md — the three widget files, reload and debug
+- ./data-binding.md — binding attributes, `ev`, expressions, gotchas
+- ./dom-manipulation.md — the escape hatch API, validating widgets
 - ./styling.md — utility classes, class groups, colors, themes
 - ./rcss-differences.md — where RCSS diverges from CSS
-- ./animation.md — transitions and keyframes
-- ./performance.md — layout cost and the rules that follow from it
-- ./decoration.md — angled decoration techniques
-- ./key-files.md — includes, stylesheets, shared widgets, reference widgets
+- ./animation.md — transitions, keyframes
+- ./performance.md — layout cost, block vs flex
+- ./decoration.md — angled decoration
+- ./key-files.md — Repo and Base paths
 
 ## The model is king
 
@@ -98,15 +98,17 @@ luaui/RmlWidgets/widget_name/
     widget_name.rcss    # Widget-specific styles (CSS-like)
 ```
 
+Run `bash .github/rmlui/lint-widgets.sh` before handing back changed widget files. It checks changed lines, exits nonzero on an error, and prints warnings without failing.
+
 Read ./file-structure.md for the contents of each file: the Lua initialization pattern, the RML document template and its mandatory stylesheet order, the RCSS positioning block, and the reload and debug rules.
 
 ## Data binding
 
 Bindings are attributes on RML elements. `{{var}}` interpolates text; `data-if` and `data-visible` show and hide; `data-for` iterates; `data-attr-*`, `data-class-*`, and `data-style-*` write attributes, classes, and properties; `data-value` and `data-checked` bind inputs both ways; `data-event-*` calls model functions. Attribute values are a small expression language, not Lua: single-quoted strings, `+` for concatenation, ternaries, and transform pipes such as `radius | round`.
 
-Only top-level model variables can be dirtied. After mutating `items[3].name` you dirty `"items"`.
+Only top-level model variables can be dirtied.
 
-IMPORTANT: Mutate the array driving a `data-for`, never the elements it produced. Calling `AppendChild`, `RemoveChild`, or `inner_rml` inside a data-binding region is undefined behaviour and can crash.
+IMPORTANT: Mutate the array driving a `data-for`, never the elements it produced.
 
 Read ./data-binding.md for the attribute table, the expression operators and transforms, and the gotchas.
 
@@ -122,7 +124,7 @@ Common class groups (CCG) are a curated shorthand for the few utility bundles th
 
 Every class group is flat, one semantic name to one class string. CCG is a DRY shorthand, not a parallel component system; a group with hidden multi-part structure forces a layout contract on the user.
 
-For combinations repeated within one widget, extend the model's `my` bundle with plain utility classes instead of adding a group.
+Repeats within one widget go in the model's `my` bundle, as plain utility classes.
 
 Units:
 
@@ -138,13 +140,11 @@ Read ./styling.md for the class group inventory, the color and utility class fam
 
 IMPORTANT: A transition fires only on a class or pseudo-class change. A property changed through `data-style-*` or through element style mutation does not transition; animate by toggling a class.
 
-Use `@keyframes` and the `animation` property when motion must fire on element creation — rows appearing in a `data-for`, a tab repopulating, search results rendering — because a fresh element has no prior state to transition from.
+Use `@keyframes` when motion must fire on element creation; a fresh element has no prior state to transition from.
 
 Read ./animation.md for timing functions, the animation shorthand, and the keyframe rules proven in this repo.
 
 ## Performance
-
-RmlUi layout runs on the engine's render thread. Every element costs layout time per frame, and hover, show, and hide interactions trigger relayout. At 60+ FPS that cost is felt as input lag, so web-dev layout habits are too expensive here.
 
 IMPORTANT: Use `display: block` by default. Flex layout is multi-pass and nested flex-column compounds; it is justified only for a child filling remaining space (`flex: 1`) and for horizontal column splits.
 

@@ -2,7 +2,7 @@
 
 IMPORTANT: Block layout by default, shared elements over per-item elements, fixed heights on repeats. Read the section `Performance` in SKILL.md before this.
 
-RmlUi layout runs on the engine's render thread. Every element added to the DOM costs layout time per frame, and hover, show, and hide interactions trigger relayout. In a game at 60+ FPS that is felt as input lag and frame drops, so patterns that are fine in a browser are expensive here.
+RmlUi layout runs on the engine's render thread. Every element added to the DOM costs layout time per frame, and hover, show, and hide interactions trigger relayout. In a game at 60+ FPS that is felt as input lag and frame drops, so web-dev patterns that are fine in a browser are expensive here.
 
 ## Shared elements over per-item elements
 
