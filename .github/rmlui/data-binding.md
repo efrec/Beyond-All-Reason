@@ -67,7 +67,7 @@ Expressions (in `data-if`, `data-for`, `data-attr-*`, `data-event-*`, and the re
 
 - **`data-if` needs `display` defined.** The element's stylesheet must set `display` to something other than `none`, or the element stays hidden regardless of the expression.
 - **`data-value` and `data-checked` take no expressions.** For anything more complex, use `data-attr-value` with `data-event-change`.
-- **`data-value` commits after the event fires.** A handler reading the bound model variable sees the previous value, so read the attribute off `ev.current_element` instead.
+- **`data-value` commits after the event fires.** A handler reading the bound model variable sees the previous value, so read the attribute off `ev.current_element` instead (RmlUi #668).
 - **Only top-level vars can be dirtied.** After mutating `items[3].name` you dirty `"items"`, not `"items[3].name"`.
 - **Mutate the driving array, never the DOM inside a `data-for`.** Updating the underlying Lua table and dirtying the top-level variable is the supported workflow: the engine keeps the elements at indices still in range, instantiates elements for new indices, and destroys the surplus. Calling `AppendChild`, `RemoveChild`, or `inner_rml` on elements inside a data-binding region is undefined behaviour and can crash.
 - **No post-init `data-*` attributes.** Data bindings added to an element after the document loads have no effect.
