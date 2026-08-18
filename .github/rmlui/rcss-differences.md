@@ -1,6 +1,6 @@
 # RCSS differs from CSS
 
-RCSS is based on CSS2 with selected CSS3 features, not full CSS. When a CSS feature silently does nothing, check here:
+RCSS is based on CSS2 with selected CSS3 features, not full CSS. When a CSS feature silently does nothing, check here. Upstream RmlUi behaviour unless a line says Measured.
 
 - **`rgba()` alpha is 0–255**, not 0–1 (see ./styling.md).
 - **Borders are always solid.** There is no `border-style` property; `border: 1dp <color>` is the only form.

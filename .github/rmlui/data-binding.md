@@ -1,6 +1,6 @@
 # Data binding
 
-IMPORTANT: Data binding is the only sanctioned way the UI updates. Read the section `The model is king` in SKILL.md before this.
+IMPORTANT: Data binding is the only sanctioned way the UI updates. Read the section `The model is king` in SKILL.md before this. Upstream RmlUi behaviour unless a line says Measured.
 
 ## Binding attributes
 

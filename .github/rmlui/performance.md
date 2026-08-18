@@ -32,9 +32,9 @@ For tooltips the shared element already exists, so do not even build one. Base: 
 
 ## Block layout, not flex
 
-Block layout is single-pass: children flow top to bottom, each sized independently, and the parent never measures children to know their positions. Flex layout, especially `flex-direction: column` with content-sized children, is multi-pass, and nested flex-column compounds exponentially — a four-level deep content-sized flex hierarchy can trigger 16+ layout passes per frame.
+Block layout is single-pass: children flow top to bottom, each sized independently, and the parent never measures children to know their positions. Flex layout, especially `flex-direction: column` with content-sized children, is multi-pass, and nested flex-column compounds. Measured: a four-level deep content-sized flex hierarchy triggers 16+ layout passes per frame.
 
-Default to `display: block` for everything and reach for flex only when it is load-bearing. This is the single biggest layout-perf lever in the RML widgets: the options widget went from ~300ms layout time to near-instant by swapping nested flex-column for block with `margin-bottom` and fixed row heights.
+Default to `display: block` for everything and reach for flex only when it is load-bearing. This is the single biggest layout-perf lever in the RML widgets. Measured on `gui_options_rml`: ~300ms layout time to near-instant, by swapping nested flex-column for block with `margin-bottom` and fixed row heights.
 
 ```rcss
 /* BAD — flex column, multi-pass layout */

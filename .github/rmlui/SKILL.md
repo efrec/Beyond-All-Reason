@@ -7,7 +7,7 @@ description: Guidance for building and testing RML widgets in Beyond All Reason.
 
 RMLUI is a web-like UI framework for C++. It provides HTML1 and CSS2 with some conveniences of HTML5 and CSS3 and some custom extensions. Though experience from web frameworks is transferable to RML documents, users are expected to author documents specifically for RMLUI.
 
-This file holds the rules. The reference files hold the templates, tables, and worked examples. Together they are the complete guidance; no fuller version exists elsewhere. RmlUi behaviour is verified against RmlUi 6.2, the engine's pinned `rts/lib/RmlUi` at `2230d1a6e8`.
+This file holds the rules. The reference files hold the templates, tables, and worked examples. Together they are the complete guidance; no fuller version exists elsewhere. Checked against RmlUi 6.2, engine submodule `2230d1a6e8`. RmlUi behaviour is verified against RmlUi 6.2, the engine's pinned `rts/lib/RmlUi` at `2230d1a6e8`.
 
 ## Scope
 
@@ -52,9 +52,9 @@ IMPORTANT: Do not write JS/jQuery-style DOM code (`GetElementById`, `QuerySelect
 
 Three cases, and no others, are unavoidable:
 
-- **Data-binding bugs** — the toggle pattern swaps a class directly because `data-checked` is broken inside `data-for`. Drop the escape once the bug is fixed upstream.
+- **Data-binding bugs** — Measured: `data-checked` is broken inside `data-for`, so the toggle pattern swaps a class directly. Drop the escape once the bug is fixed upstream.
 - **SVG injection** — RmlUi cannot bind SVG attributes, so SVG-driven widgets construct and patch that markup through the DOM. This is expected and correct.
-- **Measured hot paths** — data binding proven slow by measurement.
+- **Hot paths** — data binding proven slow by measurement.
 
 Mark every such call site with a one-line technical reason.
 
