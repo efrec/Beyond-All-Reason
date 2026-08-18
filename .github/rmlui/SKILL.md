@@ -1,6 +1,6 @@
 ---
 name: rml-widgets
-description: Build and test widgets using RmlUi for Beyond All Reason. Use when instructed to do so.
+description: Build and test widgets using RmlUi for Beyond All Reason. Use when instructed to do so. Covers RCSS, data binding, and the widget files under luaui/RmlWidgets.
 ---
 
 # RMLUI widgets
