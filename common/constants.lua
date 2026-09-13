@@ -49,4 +49,8 @@ if Game then
 	---Non-scenario starting units spend a number of frames warping/teleporting in.
 	---@type integer
 	Game.spawnWarpInFrame = 3 * Game.gameSpeed
+
+	---The amount of time a command targeting an enemy unit lasts after its target is lost.
+	---@type number
+	Game.targetIsLostTime = 2.0
 end

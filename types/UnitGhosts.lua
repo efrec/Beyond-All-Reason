@@ -1,0 +1,13 @@
+---@meta
+
+---@class UnitGhostPosition
+---@field [1] number base x
+---@field [2] number base y
+---@field [3] number base z
+---@field [4] number mid x
+---@field [5] number mid y
+---@field [6] number mid z
+---@field [7] number aim x
+---@field [8] number aim y
+---@field [9] number aim z
+---@field gameFrame integer
