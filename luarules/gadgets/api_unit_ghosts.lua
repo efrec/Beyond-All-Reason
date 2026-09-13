@@ -12,9 +12,11 @@ function gadget:GetInfo()
 	}
 end
 
-local graceFrames = math.round(Game.targetIsLostTime * Game.gameSpeed, 0)
 local updateFrames = math.round(Game.gameSpeed * 0.5, 0)
 local updateOffset = math.round(updateFrames * 0.5, 0)
+
+local graceFrames = math.round(Game.targetIsLostTime * Game.gameSpeed, 0) -- how long orders continue on ghosts
+local orderFrames = math.round(Game.gameSpeed * 60, 0) -- how long fresh orders continue on ghosts
 
 local bit_and = math.bit_and
 local spGetPositionLosState = Spring.GetPositionLosState
@@ -149,9 +151,9 @@ local function getUnitGhostsInSphere(x, y, z, radius, teamID)
 	return units, count
 end
 
-local function collectGhostsInRectangle(positions, top, bot, left, right, units, count)
+local function collectGhostsInRectangle(positions, xMin, zMin, xMax, zMax, units, count)
 	for unitID, position in pairs(positions) do
-		if top <= position[4] and bot >= position[4] and left <= position[6] and right >= position[6] then
+		if xMin <= position[4] and xMax >= position[4] and zMin <= position[6] and zMax >= position[6] then
 			count = count + 1
 			units[count] = unitID
 		end
@@ -159,10 +161,10 @@ local function collectGhostsInRectangle(positions, top, bot, left, right, units,
 	return count
 end
 
-local function getUnitGhostsInRectangle(top, bot, left, right, teamID)
+local function getUnitGhostsInRectangle(xMin, zMin, xMax, zMax, teamID)
 	local units = {}
-	local count = collectGhostsInRectangle(teamGhostPosition[teamID], top, bot, left, right, units, 0)
-	count = collectGhostsInRectangle(teamStalePosition[teamID], top, bot, left, right, units, count)
+	local count = collectGhostsInRectangle(teamGhostPosition[teamID], xMin, zMin, xMax, zMax, units, 0)
+	count = collectGhostsInRectangle(teamStalePosition[teamID], xMin, zMin, xMax, zMax, units, count)
 	return units, count
 end
 
@@ -358,6 +360,7 @@ if gadgetHandler:IsSyncedCode() then
 
 	function gadget:Initialize()
 		GG.UnitGhosts = {
+			OrderFrames = orderFrames,
 			GetAllyGhostPosition = getGhostPositionByAllyTeam,
 			GetTeamGhostPosition = getGhostPositionByTeam,
 			SetAllyGhostPosition = setGhostPosition,
@@ -540,6 +543,7 @@ else
 		gadgetHandler:AddSyncAction("UnitGhostsReplay", onGhostsReloaded)
 
 		GG.UnitGhosts = {
+			OrderFrames = orderFrames,
 			GetAllyGhostPosition = getGhostPositionByAllyTeam,
 			GetTeamGhostPosition = getGhostPositionByTeam,
 			GetGhostsInRectangle = getUnitGhostsInRectangle,

@@ -176,7 +176,14 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
-	local unseenGracePasses = math.floor(unseenGraceTime / 0.5)
+	local slowUpdateFrames = 15
+	local unseenGracePasses = math.floor(unseenGraceTime * Game.gameSpeed / slowUpdateFrames)
+	local ghostCommandPasses = 0
+
+	local getTeamGhostPosition ---@type fun(unitID: UnitID, teamID: TeamID): UnitGhostPosition?
+	local getGhostsInRectangle ---@type fun(xMin: number, zMin: number, xMax: number, zMax: number, teamID: TeamID): UnitID[], integer
+	local getGhostsInCylinder ---@type fun(x: number, z: number, radius: number, teamID: TeamID): UnitID[], integer
+	local teamGhostQueryCaches = {}
 
 	--------------------------------------------------------------------------------
 	-- Commands
@@ -611,7 +618,11 @@ if gadgetHandler:IsSyncedCode() then
 		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET_RECTANGLE)
 		gadgetHandler:RegisterAllowCommand(CMD_UNIT_CANCEL_TARGET)
 
+		ghostCommandPasses = math.floor(GG.UnitGhosts.OrderFrames / slowUpdateFrames)
 		getAllyGhostPosition = GG.UnitGhosts.GetAllyGhostPosition
+		getTeamGhostPosition = GG.UnitGhosts.GetTeamGhostPosition
+		getGhostsInRectangle = GG.UnitGhosts.GetGhostsInRectangle
+		getGhostsInCylinder = GG.UnitGhosts.GetGhostsInCylinder
 
 		local allUnits = spGetAllUnits()
 		for i = 1, #allUnits do
@@ -678,6 +689,21 @@ if gadgetHandler:IsSyncedCode() then
 		return false
 	end
 
+	---@param ghost UnitGhostPosition
+	local function allowTargetGhost(unitID, weaponList, ghost)
+		local x, y, z = ghost[7], ghost[8], ghost[9]
+		for weaponNum = 1, #weaponList do
+			local weaponType = weaponList[weaponNum]
+			if
+				weaponType
+				and spGetUnitWeaponTestTarget(unitID, weaponNum, x, weaponType == WATERWEAPON and y or max(y, 1), z)
+			then
+				return true
+			end
+		end
+		return false
+	end
+
 	local function inCancelDistance(posA, posB)
 		return diag(posA[1] - posB[1], posA[2] - posB[2], posA[3] - posB[3]) < deleteMaxDistance
 	end
@@ -710,7 +736,10 @@ if gadgetHandler:IsSyncedCode() then
 					SendToUnsynced("settarget_line_sound", unitTeam, -1, unitID, cmdID)
 				end
 
-				local targets
+				local targets, ghosts ---@type UnitID[]?, UnitID[]?
+				local allyTeam = spGetUnitAllyTeam(unitID)
+				local teamCache = ensureTable(teamQueryCaches, allyTeam)
+				local ghostCache = ensureTable(teamGhostQueryCaches, allyTeam)
 				if nParams == 6 then
 					local top, bot, left, right
 					if cmdParams[1] < cmdParams[4] then
@@ -727,17 +756,19 @@ if gadgetHandler:IsSyncedCode() then
 						bot = cmdParams[6]
 						top = cmdParams[3]
 					end
-					local teamCache = ensureTable(teamQueryCaches, spGetUnitAllyTeam(unitID))
 					local hash = left + top + right + bot
 					targets = teamCache[hash]
+					ghosts = ghostCache[hash]
 					if not targets then
 						targets = CallAsTeam(unitTeam, spGetUnitsInRectangle, left, top, right, bot, ENEMY_UNITS)
 						teamCache[hash] = targets
+						ghosts = getGhostsInRectangle(left, top, right, bot, unitTeam)
+						ghostCache[hash] = ghosts
 					end
 				elseif nParams == 4 then
-					local teamCache = ensureTable(teamQueryCaches, spGetUnitAllyTeam(unitID))
 					local hash = -(cmdParams[1] + cmdParams[2] + cmdParams[3] + cmdParams[4])
 					targets = teamCache[hash]
+					ghosts = ghostCache[hash]
 					if not targets then
 						targets = CallAsTeam(
 							unitTeam,
@@ -748,10 +779,12 @@ if gadgetHandler:IsSyncedCode() then
 							ENEMY_UNITS
 						)
 						teamCache[hash] = targets
+						ghosts = getGhostsInCylinder(cmdParams[1], cmdParams[3], cmdParams[4], unitTeam)
+						ghostCache[hash] = ghosts
 					end
 				end
-				if targets and targets[1] then
-					local targetList, count = {}, 0
+				local targetList, count = {}, 0
+				if targets then
 					for i = 1, #targets do
 						local target = targets[i]
 						if allowTargetUnit(unitID, weaponList, target) then
@@ -766,9 +799,26 @@ if gadgetHandler:IsSyncedCode() then
 							}
 						end
 					end
-					if count > 0 then
-						addTargetList = targetList
+				end
+				if ghosts then
+					for i = 1, #ghosts do
+						local target = ghosts[i]
+						local ghost = getTeamGhostPosition(target, unitTeam)
+						if ghost and allowTargetGhost(unitID, weaponList, ghost) then
+							count = count + 1
+							targetList[count] = {
+								leavesGhost = true,
+								ignoreStop = ignoreStop,
+								userTarget = userTarget,
+								target = target,
+								unseen = ghostCommandPasses,
+								sent = false,
+							}
+						end
 					end
+				end
+				if count > 0 then
+					addTargetList = targetList
 				end
 			elseif nParams == 3 then
 				if cmdID == CMD_UNIT_SET_TARGET_NO_GROUND then
@@ -794,7 +844,21 @@ if gadgetHandler:IsSyncedCode() then
 				end
 			elseif nParams == 1 then
 				local target = cmdParams[1]
-				if spValidUnitID(target) and not spAreTeamsAllied(unitTeam, spGetUnitTeam(target)) then
+				local ghost = getTeamGhostPosition(target, unitTeam)
+				if ghost then
+					if allowTargetGhost(unitID, weaponList, ghost) then
+						addTargetList = {
+							{
+								leavesGhost = true,
+								ignoreStop = ignoreStop,
+								userTarget = userTarget,
+								target = target,
+								unseen = ghostCommandPasses,
+								sent = false,
+							},
+						}
+					end
+				elseif spValidUnitID(target) and not spAreTeamsAllied(unitTeam, spGetUnitTeam(target)) then
 					if allowTargetUnit(unitID, weaponList, target) then
 						addTargetList = {
 							{
@@ -900,21 +964,20 @@ if gadgetHandler:IsSyncedCode() then
 				if not isTargetLost(target, allyTeam) then
 					targetData.unseen = unseenGracePasses
 					targetData.hadGhost = nil
-				elseif targetData.leavesGhost then
-					if getAllyGhostPosition(target, allyTeam) then
-						targetData.hadGhost = true
-						targetData.unseen = unseenGracePasses
-					elseif targetData.hadGhost then
-						removeTarget(unitID, unitData, index)
-					elseif targetData.unseen > 0 then
-						targetData.unseen = targetData.unseen - 1
-					else
-						removeTarget(unitID, unitData, index)
-					end
-				elseif targetData.unseen > 0 then
-					targetData.unseen = targetData.unseen - 1
 				else
-					removeTarget(unitID, unitData, index)
+					local ghostGone = false
+					if targetData.leavesGhost then
+						if getAllyGhostPosition(target, allyTeam) then
+							targetData.hadGhost = true
+						elseif targetData.hadGhost then
+							ghostGone = true
+						end
+					end
+					if ghostGone or targetData.unseen <= 0 then
+						removeTarget(unitID, unitData, index)
+					else
+						targetData.unseen = targetData.unseen - 1
+					end
 				end
 			end
 			if not targets[1] then
@@ -1022,7 +1085,8 @@ if gadgetHandler:IsSyncedCode() then
 	-- the unit is able to fire. So we re-apply the target every frame to prevent target jittering.
 	function gadget:GameFrame(frame)
 		teamQueryCaches = {}
-		if frame % 15 == 0 then
+		teamGhostQueryCaches = {}
+		if frame % slowUpdateFrames == 0 then
 			processSlowListUpdates()
 		else
 			processTargetListChunk()

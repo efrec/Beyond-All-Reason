@@ -47,10 +47,10 @@ local function getUnitGhostsInSphere(x, y, z, radius)
 	return units, count
 end
 
-local function getUnitGhostsInRectangle(top, bot, left, right)
+local function getUnitGhostsInRectangle(xMin, zMin, xMax, zMax)
 	local units, count = {}, 0
 	for unitID, position in pairs(ghostPosition) do
-		if top <= position[4] and bot >= position[4] and left <= position[6] and right >= position[6] then
+		if xMin <= position[4] and xMax >= position[4] and zMin <= position[6] and zMax >= position[6] then
 			count = count + 1
 			units[count] = unitID
 		end
