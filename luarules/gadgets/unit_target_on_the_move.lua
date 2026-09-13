@@ -17,17 +17,31 @@ local CMD_UNIT_SET_TARGET = GameCMD.UNIT_SET_TARGET
 local CMD_UNIT_CANCEL_TARGET = GameCMD.UNIT_CANCEL_TARGET
 local CMD_UNIT_SET_TARGET_RECTANGLE = GameCMD.UNIT_SET_TARGET_RECTANGLE
 
+local getAllyGhostPosition ---@type fun(unitID: UnitID, allyTeam: AllyTeamID): UnitGhostPosition?
+
+---@param target UnitOrPosition
+---@param leavesGhost boolean?
+---@param allyTeam AllyTeamID
+---@return number? x, number? y, number? z
+local function getGhostAim(target, leavesGhost, allyTeam)
+	if leavesGhost then
+		local ghost = getAllyGhostPosition(target, allyTeam)
+		if ghost then
+			return ghost[7], ghost[8], ghost[9] -- aimpos xyz
+		end
+	end
+end
+
 if gadgetHandler:IsSyncedCode() then
 	local deleteMaxDistance = 30
 	local targetListLengthMax = 128
-	local unseenGraceTime = 1.5
+	local unseenGraceTime = Game.targetIsLostTime
 
 	local spInsertUnitCmdDesc = Spring.InsertUnitCmdDesc
 	local spGetUnitAllyTeam = Spring.GetUnitAllyTeam
 	local spSetUnitTarget = Spring.SetUnitTarget
 	local spValidUnitID = Spring.ValidUnitID
 	local spGetUnitDefID = Spring.GetUnitDefID
-	local spGetUnitIsDead = Spring.GetUnitIsDead
 	local spGetUnitLosState = Spring.GetUnitLosState
 	local spGetUnitTeam = Spring.GetUnitTeam
 	local spAreTeamsAllied = Spring.AreTeamsAllied
@@ -73,7 +87,7 @@ if gadgetHandler:IsSyncedCode() then
 
 	local validUnits = {}
 	local unitWeapons = {}
-	local unitAlwaysSeen = {}
+	local unitLeavesGhost = {}
 
 	local WATERWEAPON = 0
 	do
@@ -116,7 +130,7 @@ if gadgetHandler:IsSyncedCode() then
 					return getWeaponType(weapon, unitDef.canManualFire), index
 				end)
 			end
-			unitAlwaysSeen[unitDefID] = unitDef.isBuilding or unitDef.speed == 0
+			unitLeavesGhost[unitDefID] = unitDef.leavesGhost
 		end
 	end
 
@@ -230,8 +244,10 @@ if gadgetHandler:IsSyncedCode() then
 		end
 	end
 
-	local function testTarget(unitID, teamID, weaponList, target)
-		if type(target) == "number" then
+	local function testTarget(unitID, teamID, weaponList, target, ghostX, ghostY, ghostZ)
+		if ghostX then
+			return CallAsTeam(teamID, testTargetPos, unitID, weaponList, ghostX, ghostY, ghostZ)
+		elseif type(target) == "number" then
 			return CallAsTeam(teamID, testTargetUnit, unitID, weaponList, target)
 		else
 			return CallAsTeam(teamID, testTargetPos, unitID, weaponList, target[1], target[2], target[3])
@@ -306,8 +322,14 @@ if gadgetHandler:IsSyncedCode() then
 		local targetData = unitData.targets[targetIndex]
 		local target = targetData.target
 		if type(target) == "number" then
-			spSetUnitTarget(unitID, target, false, targetData.userTarget)
-			spSetUnitRulesParam(unitID, "unitTargetID", target)
+			local ghostX, ghostY, ghostZ = getGhostAim(target, targetData.leavesGhost, unitData.allyTeam)
+			if ghostX then
+				spSetUnitTarget(unitID, ghostX, ghostY, ghostZ, false, targetData.userTarget)
+				spSetUnitRulesParam(unitID, "unitTargetID", target)
+			else
+				spSetUnitTarget(unitID, target, false, targetData.userTarget)
+				spSetUnitRulesParam(unitID, "unitTargetID", target)
+			end
 		else
 			spSetUnitTarget(unitID, target[1], target[2], target[3], false, targetData.userTarget)
 			spSetUnitRulesParam(unitID, "unitTargetID", nil)
@@ -328,22 +350,26 @@ if gadgetHandler:IsSyncedCode() then
 		SendToUnsynced("targetIndex", unitID, 1, false)
 	end
 
-	local function wasTargetLost(target, alwaysSeen, allyTeam)
+	local function isTargetLost(target, allyTeam)
 		if type(target) ~= "number" then
-			return false, false
-		elseif alwaysSeen then
-			local isDead = spGetUnitIsDead(target) ~= false
-			return isDead, isDead
+			return false
 		end
 		local los = spGetUnitLosState(target, allyTeam, true)
-		if not los then
-			return true, true
-		end
-		return los % 4 == 0, false
+		return not los or los % 4 == 0
 	end
 
 	--------------------------------------------------------------------------------
 	-- Unit adding/removal
+
+	local function sendTargetEntry(unitID, index, targetData)
+		targetData.sent = true
+		local target = targetData.target
+		if type(target) == "number" then
+			SendToUnsynced("targetList", unitID, index, targetData.userTarget, target)
+		else
+			SendToUnsynced("targetList", unitID, index, targetData.userTarget, target[1], target[2], target[3])
+		end
+	end
 
 	local function sendTargetsToUnsynced(unitID)
 		local targetList = setTargetData[unitID].targets
@@ -351,13 +377,7 @@ if gadgetHandler:IsSyncedCode() then
 		for index = 1, targetCount do
 			local targetData = targetList[index]
 			if not targetData.sent then
-				targetData.sent = true
-				local target = targetData.target
-				if type(target) == "number" then
-					SendToUnsynced("targetList", unitID, index, targetData.userTarget, target)
-				else
-					SendToUnsynced("targetList", unitID, index, targetData.userTarget, target[1], target[2], target[3])
-				end
+				sendTargetEntry(unitID, index, targetData)
 			end
 		end
 		SendToUnsynced("targetList", unitID, targetCount + 1)
@@ -449,7 +469,16 @@ if gadgetHandler:IsSyncedCode() then
 
 		if not hasTargetPrecedence(unitID, data) then
 			pauseTargetting(unitID)
-		elseif not data.activeTarget and testTarget(unitID, data.teamID, data.weapons, targets[1].target) then
+		elseif
+			not data.activeTarget
+			and testTarget(
+				unitID,
+				data.teamID,
+				data.weapons,
+				targets[1].target,
+				getGhostAim(targets[1].target, targets[1].leavesGhost, data.allyTeam)
+			)
+		then
 			setTargetActive(unitID, data, 1)
 		end
 	end
@@ -458,14 +487,7 @@ if gadgetHandler:IsSyncedCode() then
 		local targetList = unitData.targets
 		local n = #targetList
 		for index = (minIndex or 1), n do
-			local targetData = targetList[index]
-			targetData.sent = true
-			local target = targetData.target
-			if type(target) == "number" then
-				SendToUnsynced("targetList", unitID, index, targetData.userTarget, target)
-			else
-				SendToUnsynced("targetList", unitID, index, targetData.userTarget, target[1], target[2], target[3])
-			end
+			sendTargetEntry(unitID, index, targetList[index])
 		end
 		SendToUnsynced("targetList", unitID, n + 1) -- truncate the list
 		SendToUnsynced("targetIndex", unitID, unitData.currentIndex, unitData.activeTarget)
@@ -549,10 +571,12 @@ if gadgetHandler:IsSyncedCode() then
 	---A single entry in a unit's target queue, as tracked on the synced side.
 	---@class UnitTargetEntry
 	---@field target UnitOrPosition
-	---@field alwaysSeen boolean? Target does not need to stay in sensor range to be kept.
-	---@field ignoreStop boolean? Target survives a Stop command.
-	---@field userTarget boolean? Target was set by the player rather than by Lua.
-	---@field sent boolean? Target has already been pushed to the unit's weapons.
+	---@field leavesGhost boolean?
+	---@field hadGhost boolean?
+	---@field unseen integer
+	---@field ignoreStop boolean?
+	---@field userTarget boolean?
+	---@field sent boolean?
 
 	---Returns the unit's currently active target.
 	---@param unitID UnitID
@@ -586,6 +610,8 @@ if gadgetHandler:IsSyncedCode() then
 		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET)
 		gadgetHandler:RegisterAllowCommand(CMD_UNIT_SET_TARGET_RECTANGLE)
 		gadgetHandler:RegisterAllowCommand(CMD_UNIT_CANCEL_TARGET)
+
+		getAllyGhostPosition = GG.UnitGhosts.GetAllyGhostPosition
 
 		local allUnits = spGetAllUnits()
 		for i = 1, #allUnits do
@@ -731,7 +757,7 @@ if gadgetHandler:IsSyncedCode() then
 						if allowTargetUnit(unitID, weaponList, target) then
 							count = count + 1
 							targetList[count] = {
-								alwaysSeen = unitAlwaysSeen[spGetUnitDefID(target)],
+								leavesGhost = unitLeavesGhost[spGetUnitDefID(target)],
 								ignoreStop = ignoreStop,
 								userTarget = userTarget,
 								target = target,
@@ -758,7 +784,6 @@ if gadgetHandler:IsSyncedCode() then
 				if allowTargetPos(unitID, weaponList, target) then
 					addTargetList = {
 						{
-							alwaysSeen = true,
 							ignoreStop = ignoreStop,
 							userTarget = userTarget,
 							target = target,
@@ -773,7 +798,7 @@ if gadgetHandler:IsSyncedCode() then
 					if allowTargetUnit(unitID, weaponList, target) then
 						addTargetList = {
 							{
-								alwaysSeen = unitAlwaysSeen[spGetUnitDefID(target)],
+								leavesGhost = unitLeavesGhost[spGetUnitDefID(target)],
 								ignoreStop = ignoreStop,
 								userTarget = userTarget,
 								target = target,
@@ -868,13 +893,25 @@ if gadgetHandler:IsSyncedCode() then
 
 	local function processSlowListUpdates()
 		for unitID, unitData in pairsNext, setTargetData do
-			local targets = unitData.targets
+			local targets, allyTeam = unitData.targets, unitData.allyTeam
 			for index = #targets, 1, -1 do
 				local targetData = targets[index]
-				local isLost, isDead = wasTargetLost(targetData.target, targetData.alwaysSeen, unitData.allyTeam)
-				if not isLost then
+				local target = targetData.target
+				if not isTargetLost(target, allyTeam) then
 					targetData.unseen = unseenGracePasses
-				elseif not isDead and targetData.unseen > 0 then
+					targetData.hadGhost = nil
+				elseif targetData.leavesGhost then
+					if getAllyGhostPosition(target, allyTeam) then
+						targetData.hadGhost = true
+						targetData.unseen = unseenGracePasses
+					elseif targetData.hadGhost then
+						removeTarget(unitID, unitData, index)
+					elseif targetData.unseen > 0 then
+						targetData.unseen = targetData.unseen - 1
+					else
+						removeTarget(unitID, unitData, index)
+					end
+				elseif targetData.unseen > 0 then
 					targetData.unseen = targetData.unseen - 1
 				else
 					removeTarget(unitID, unitData, index)
@@ -909,7 +946,15 @@ if gadgetHandler:IsSyncedCode() then
 			local targetData = targets[index]
 			if checkTarget(teamID, targetData.target) then
 				updateIndex = updateIndex + 1
-				if testTarget(unitID, teamID, weapons, targetData.target) then
+				if
+					testTarget(
+						unitID,
+						teamID,
+						weapons,
+						targetData.target,
+						getGhostAim(targetData.target, targetData.leavesGhost, unitData.allyTeam)
+					)
+				then
 					if updateIndex ~= index then
 						targets[updateIndex] = targetData
 					end
@@ -1051,6 +1096,8 @@ else -- UNSYNCED
 		gadgetHandler:AddSyncAction("targetIndex", handleTargetIndexEvent)
 		gadgetHandler:AddSyncAction("failCommand", handleFailCommand)
 
+		getAllyGhostPosition = GG.UnitGhosts.GetAllyGhostPosition
+
 		-- register cursor
 		spAssignMouseCursor("settarget", "cursorsettarget", false)
 		--show the command in the queue
@@ -1187,7 +1234,12 @@ else -- UNSYNCED
 			if isUnitTarget and spValidUnitID(target) then
 				local _, _, _, x2, y2, z2 = spGetUnitPosition(target, false, true)
 				drawUnitTarget(target, x2, y2, z2)
-			elseif not isUnitTarget and target then
+			elseif isUnitTarget then
+				local x2, y2, z2 = getGhostAim(target, true, myAllyTeam)
+				if x2 then
+					drawUnitTarget(target, x2, y2, z2)
+				end
+			elseif target then
 				-- 3d coordinate target
 				local x2, y2, z2 = target[1], target[2], target[3]
 				drawUnitTarget(x2 + y2 + z2, x2, y2, z2)
@@ -1197,7 +1249,8 @@ else -- UNSYNCED
 
 	-- TODO: Need to handle unit ghosts. None of it works well currently.
 	local function isValidTargetData(targetData)
-		return type(targetData.target) == "table" or spValidUnitID(targetData.target)
+		local target = targetData.target
+		return type(target) == "table" or spValidUnitID(target) or getGhostAim(target, true, myAllyTeam) ~= nil
 	end
 
 	local function getFirstValidTarget(targets)
@@ -1238,8 +1291,13 @@ else -- UNSYNCED
 		return result == true
 	end
 
-	local function isActiveTarget(unitID, target)
+	local function isActiveTarget(unitID, targetData)
+		local target = targetData.target
 		if type(target) == "number" then
+			local x, y, z = getGhostAim(target, true, myAllyTeam)
+			if x then
+				return isActiveTargetPos(unitID, x, y, z)
+			end
 			return isActiveTargetUnit(unitID, target)
 		else
 			return isActiveTargetPos(unitID, target[1], target[2], target[3])
@@ -1256,7 +1314,7 @@ else -- UNSYNCED
 			if not targetIndex then
 				return -- We cannot remove since units can reenter LOS, for example.
 			end
-			targetActive = isActiveTarget(unitID, targetData.target)
+			targetActive = isActiveTarget(unitID, targetData)
 		end
 
 		local _, _, _, x1, y1, z1 = spGetUnitPosition(unitID, true)
