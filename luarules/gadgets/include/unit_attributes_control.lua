@@ -111,6 +111,28 @@ local isBuilder = table.map(UnitDefs, function(unitDef, unitDefID)
 	return unitDef.isBuilder == true, unitDefID
 end) ---@as { UnitDefID : boolean? }
 
+---@class BuilderSpeeds The other five speeds SetUnitBuildSpeed takes, which scale with buildSpeed.
+---@field repair number
+---@field reclaim number
+---@field resurrect number
+---@field capture number
+---@field terraform number
+
+local builderSpeedsByDef = table.map(UnitDefs, function(unitDef, unitDefID)
+	---@cast unitDef table
+	if not unitDef.isBuilder then
+		return false, unitDefID
+	end
+	return {
+		repair = unitDef.repairSpeed,
+		reclaim = unitDef.reclaimSpeed,
+		resurrect = unitDef.resurrectSpeed,
+		capture = unitDef.captureSpeed,
+		terraform = unitDef.terraformSpeed,
+	},
+		unitDefID
+end) ---@as { UnitDefID : (false|BuilderSpeeds)? }
+
 local moveTypeSetterByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 	local setter = false ---@as false|fun(unitID:UnitID, key:any, value:any):integer
 	---@cast unitDef table what in the hell is wrong with emmylua. why, how, what?
@@ -315,6 +337,27 @@ local function setReloadTime(unitID, value)
 	callUnitScript(unitID, luaEnv, "SetMaxReloadTime", reloadMax * 1000)
 end
 
+local function setBuildSpeed(unitID, value)
+	local unitDefID = spGetUnitDefID(unitID)
+	local speeds = builderSpeedsByDef[unitDefID]
+	local baseline = speeds and getBaseline(unitDefID, "buildSpeed")
+	if not baseline or baseline <= 0 then
+		spSetUnitBuildSpeed(unitID, value)
+		return
+	end
+
+	local factor = value / baseline
+	spSetUnitBuildSpeed(
+		unitID,
+		value,
+		speeds.repair * factor,
+		speeds.reclaim * factor,
+		speeds.resurrect * factor,
+		speeds.capture * factor,
+		speeds.terraform * factor
+	)
+end
+
 local speedData = { maxSpeed = 0, maxWantedSpeed = 0 }
 
 -- See MobileCAI. The maxWantedSpeed is set per-order and changing it will break formation movement.
@@ -360,7 +403,7 @@ local applyUnitAttribute = {
 	turnRate = getMoveTypeValueSetter("turnRate"),
 	maxAcc = getMoveTypeValueSetter("accRate"),
 	maxDec = getMoveTypeValueSetter("decRate"),
-	buildSpeed = spSetUnitBuildSpeed,
+	buildSpeed = setBuildSpeed,
 	metalCost = getUnitCostSetter("metalCost"),
 	energyCost = getUnitCostSetter("energyCost"),
 	buildTime = getUnitCostSetter("buildTime"),
