@@ -111,7 +111,7 @@ local function callUnitScript(unitID, luaEnv, methodName, ...)
 	end
 end
 
-local applyOnExperience
+local applyOnExperience ---@type fun(unitID: UnitID)
 
 local reloadMethodByWeapon = setmetatable({}, {
 	__index = function(self, weaponNum)
@@ -124,7 +124,7 @@ local reloadMethodByWeapon = setmetatable({}, {
 local isBuilder = table.map(UnitDefs, function(unitDef, unitDefID)
 	---@cast unitDef table
 	return unitDef.isBuilder == true, unitDefID
-end) ---@as { UnitDefID : boolean? }
+end) ---@as table<UnitDefID, boolean?>
 
 ---@class BuilderSpeeds The other five speeds SetUnitBuildSpeed takes, which scale with buildSpeed.
 ---@field repair number
@@ -146,7 +146,7 @@ local builderSpeedsByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 		terraform = unitDef.terraformSpeed,
 	},
 		unitDefID
-end) ---@as { UnitDefID : (false|BuilderSpeeds)? }
+end) ---@as table<UnitDefID, false|BuilderSpeeds>
 
 local moveTypeSetterByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 	local setter = false ---@as false|fun(unitID:UnitID, key:any, value:any):integer
@@ -159,7 +159,7 @@ local moveTypeSetterByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 		setter = spSetGroundMoveTypeData
 	end
 	return setter, unitDefID
-end) ---@as { UnitDefID : (false|fun(unitID:UnitID, key:any, value:any):integer)? }
+end) ---@as table<UnitDefID, false|fun(unitID: UnitID, key: any, value: any): integer>
 
 local isEngageRangeConstant = table.map(UnitDefs, function(unitDef, unitDefID)
 	---@cast unitDef table
@@ -167,7 +167,7 @@ local isEngageRangeConstant = table.map(UnitDefs, function(unitDef, unitDefID)
 	return (engageRange ~= 0 and engageRange < (unitDef.maxWeaponRange or 0))
 		or unitDef.customParams.rangexpscale ~= nil,
 		unitDefID
-end) ---@as { UnitDefID : boolean? }
+end) ---@as table<UnitDefID, boolean?>
 
 local function setMoveTypeValue(unitID, key, value)
 	local setter = moveTypeSetterByDef[spGetUnitDefID(unitID)]
@@ -243,7 +243,7 @@ local nominalReloadByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 	local weapon = (unitDef.weapons or {})[1]
 	local weaponDef = weapon and WeaponDefs[weapon.weaponDef]
 	return weaponDef and weaponDef.reload or false, unitDefID
-end) ---@as { UnitDefID : number|false }
+end) ---@as table<UnitDefID, number|false>
 
 local shieldPowerByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 	---@cast unitDef table
@@ -254,7 +254,7 @@ local shieldPowerByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 		end
 	end
 	return false, unitDefID
-end) ---@as { UnitDefID : (number|false)? }
+end) ---@as table<UnitDefID, number|false>
 
 ---@type table<string, table<UnitDefID, (number|false)?>>
 local baseTableByAttribute = {
@@ -398,8 +398,8 @@ end
 local function setBuildSpeed(unitID, value)
 	local unitDefID = spGetUnitDefID(unitID)
 	local speeds = builderSpeedsByDef[unitDefID]
-	local baseline = speeds and getBaseline(unitDefID, "buildSpeed")
-	if not baseline or baseline <= 0 then
+	local baseline = getBaseline(unitDefID, "buildSpeed")
+	if not speeds or not baseline or baseline <= 0 then
 		spSetUnitBuildSpeed(unitID, value)
 		return
 	end
@@ -634,7 +634,7 @@ local function composeValue(unitID, unitDefID, teamID, attribute, baseline)
 	return value
 end
 
-local attributeSetPool = {}
+local attributeSetPool = {} ---@type table<string, true>[]
 local attributeSetCount = 0
 
 local function addToPool(attributes)
