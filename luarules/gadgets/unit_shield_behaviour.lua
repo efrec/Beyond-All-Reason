@@ -46,6 +46,47 @@ local function registerScriptedShieldEntry(projectileTbl, callback)
 	end
 end
 
+-- Shield power cap ------------------------------------------------------------
+--
+-- PlasmaRepulser::Update regenerates only while curPower is under the weapondef's shieldPower, so
+-- a cap below that has to be reapplied and a cap above it would never refill. Both shield modes
+-- run this, because neither the engine nor the custom implementation can express it alone.
+
+local SHIELD_CAP_PERIOD = 15
+
+local shieldWeaponByDef = {}
+for unitDefID, unitDef in pairs(UnitDefs) do
+	for index, weapon in ipairs(unitDef.weapons) do
+		local weaponDef = WeaponDefs[weapon.weaponDef]
+		if weaponDef and (weaponDef.shieldPower or 0) > 0 then
+			shieldWeaponByDef[unitDefID] = { number = index, power = weaponDef.shieldPower }
+			break
+		end
+	end
+end
+
+local cappedShields = {} ---@type table<UnitID, { number: integer, cap: number }?>
+
+---@param unitID UnitID
+---@param maxPower number? A nil restores the weapondef's own shield power.
+local function setShieldMaxPower(unitID, maxPower)
+	local shield = shieldWeaponByDef[Spring.GetUnitDefID(unitID)]
+	if not shield or not maxPower or maxPower >= shield.power then
+		cappedShields[unitID] = nil
+		return
+	end
+	cappedShields[unitID] = { number = shield.number, cap = maxPower }
+end
+
+local function clampCappedShields()
+	for unitID, capped in pairs(cappedShields) do
+		local enabled, power = Spring.GetUnitShieldState(unitID, capped.number)
+		if power and power > capped.cap then
+			Spring.SetUnitShieldState(unitID, capped.number, capped.cap)
+		end
+	end
+end
+
 -- Some modoptions require engine shield behaviors (namely their bounce/repulsion effects):
 
 if Spring.GetModOptions().experimentalshields:find("bounce") then
@@ -143,8 +184,19 @@ if Spring.GetModOptions().experimentalshields:find("bounce") then
 		return {}, 0
 	end
 
+	function gadget:GameFrame(frame)
+		if frame % SHIELD_CAP_PERIOD == 0 then
+			clampCappedShields()
+		end
+	end
+
+	function gadget:UnitDestroyed(unitID)
+		cappedShields[unitID] = nil
+	end
+
 	function gadget:Initialize()
 		GG.Shields = {}
+		GG.Shields.SetUnitShieldMaxPower = setShieldMaxPower
 		GG.Shields.AddShieldDamage = addEngineShieldDamage
 		GG.Shields.DamageToShields = originalShieldDamages
 		GG.Shields.RegisterShieldPreDamaged = registerShieldPreDamaged
@@ -415,6 +467,8 @@ function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
+	cappedShields[unitID] = nil
+
 	local unitData = shieldUnitsData[unitID]
 	if unitData then
 		shieldUnitsData[unitID] = nil
@@ -514,6 +568,10 @@ local shieldCheckEndIndex = 1
 
 function gadget:GameFrame(frame)
 	gameFrame = frame
+
+	if frame % SHIELD_CAP_PERIOD == 0 then
+		clampCappedShields()
+	end
 
 	for shieldUnitID, _ in pairs(shieldCheckFlags) do
 		local shieldData = shieldUnitsData[shieldUnitID] --zzz for some reason the shield orb isn't disappearing sometimes when big damage
@@ -1008,6 +1066,7 @@ end
 
 function gadget:Initialize()
 	GG.Shields = {}
+	GG.Shields.SetUnitShieldMaxPower = setShieldMaxPower
 	GG.Shields.AddShieldDamage = addCustomShieldDamage
 	GG.Shields.DamageToShields = originalShieldDamages
 	GG.Shields.GetUnitShieldPosition = getUnitShieldPosition

@@ -230,9 +230,21 @@ local nominalReloadByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 	return weaponDef and weaponDef.reload or false, unitDefID
 end) ---@as { UnitDefID : number|false }
 
+local shieldPowerByDef = table.map(UnitDefs, function(unitDef, unitDefID)
+	---@cast unitDef table
+	for _, weapon in ipairs(unitDef.weapons) do
+		local weaponDef = WeaponDefs[weapon.weaponDef]
+		if weaponDef and (weaponDef.shieldPower or 0) > 0 then
+			return weaponDef.shieldPower, unitDefID
+		end
+	end
+	return false, unitDefID
+end) ---@as { UnitDefID : (number|false)? }
+
 ---@type table<string, table<UnitDefID, (number|false)?>>
 local baseTableByAttribute = {
 	reloadTime = nominalReloadByDef,
+	shieldMaxPower = shieldPowerByDef,
 }
 
 local function getBaseline(unitDefID, attribute)
@@ -418,6 +430,14 @@ local applyUnitAttribute = {
 
 	experience = spSetUnitExperience,
 	cloaked = spSetUnitCloak,
+
+	-- Only the shields gadget can hold a shield under its weapondef power, so it owns the write.
+	shieldMaxPower = function(unitID, value)
+		local shields = GG.Shields
+		if shields and shields.SetUnitShieldMaxPower then
+			shields.SetUnitShieldMaxPower(unitID, value)
+		end
+	end,
 }
 
 local function step(root, key, create)
