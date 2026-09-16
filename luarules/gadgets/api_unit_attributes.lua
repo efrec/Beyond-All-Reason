@@ -3,7 +3,7 @@ local gadget = gadget ---@type Gadget
 function gadget:GetInfo()
 	return {
 		name = "Unit Attributes API",
-		desc = "Unitdef and unit attribute overrides via GG.UnitAttributes",
+		desc = "Unitdef and unit attribute overrides and modifiers via GG.UnitAttributes",
 		author = "efrec",
 		date = "September 2026",
 		license = "GNU GPL, v2 or later",
@@ -39,9 +39,9 @@ function gadget:UnitCreated(unitID, unitDefID)
 	onCreated(unitID, unitDefID)
 end
 
--- The attacker earns its experience immediately after this fires, and that rewrites its health.
+-- The attacker earns its experience immediately after this fires, and that rewrites its maxHealth.
 local onExperience = attributes.ApplyOnExperience
-function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projectileID, attackerID)
+function gadget:UnitDamaged(unitID, unitDefID, teamID, damage, paralyzer, weaponDefID, projectileID, attackerID)
 	if attackerID then
 		onExperience(attackerID)
 	end
@@ -59,6 +59,6 @@ end
 
 function gadget:Shutdown()
 	GG.UnitAttributes = nil
-	-- TODO: full save/load/reload
+	-- A reload starts the module empty, so consumers re-assert their own factors in Initialize.
 	attributes.ClearAll()
 end

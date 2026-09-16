@@ -8,7 +8,7 @@
 ---@field mobileOnly? boolean
 ---@field builderOnly? boolean
 ---@field unitOnly? boolean
----@field state? boolean Will drop any `multiply` operations.
+---@field state? boolean Written straight through to the unit. Drops any `multiply`, implies `unitOnly`.
 ---@field multiplyOnly? boolean Will drop any `set` operations. Its baseline is one.
 
 ---@type table<string, UnitAttributeDefinition>

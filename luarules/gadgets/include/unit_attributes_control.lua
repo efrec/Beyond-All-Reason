@@ -1,6 +1,5 @@
 -- unit_attributes_control.lua -------------------------------------------------
--- A small effects system for applying unitdef and unit properties and states.
--- Effects can override a value (set) or scale it (multiply) and can be stacked.
+-- Applies unitdef and unit attributes written by named sources, which stack.
 --------------------------------------------------------------------------------
 
 -- Attribute factors come in two types which are handled differently per-scope:
@@ -8,8 +7,8 @@
 -- 2. `multiply`s are unordered so each apply: unit x unitdef-and-team x unitdef
 -- The full result, for a numeric type, is `(override or base) x (multipliers)`.
 --
--- Attributes themselves are typed, also, so a boolean state has no multipliers.
--- It is up to attribute consumers to check the definitions for correct typing.
+-- A `state` attribute is not composed at all. It writes straight through to the unit, keeps no
+-- factor, cannot be cleared, and takes no unitdef scope.
 --
 -- Most attributes override a unitdef property, so their baseline is that property and a `set` is
 -- a value in the unit's own terms. A `multiplyOnly` attribute has no such property behind it: its
@@ -81,13 +80,9 @@ local sequence = 0
 
 -- Module internals ------------------------------------------------------------
 
-local function nonexistent(attribute)
-	Spring.Log("UnitAttributes", LOG.WARNING, "Attribute not found: " .. tostring(attribute))
-end
-
 -- Unlike a scope refusal, which is ordinary when a caller sweeps a mixed list of defs, breaking a
 -- vocabulary rule is never right, so it is worth saying so every time.
-local function refused(attribute, reason)
+local function refuse(attribute, reason)
 	Spring.Log("UnitAttributes", LOG.WARNING, "Attribute " .. reason .. ": " .. tostring(attribute))
 end
 
@@ -120,11 +115,6 @@ local reloadMethodByWeapon = setmetatable({}, {
 		return methodName
 	end,
 })
-
-local isBuilder = table.map(UnitDefs, function(unitDef, unitDefID)
-	---@cast unitDef table
-	return unitDef.isBuilder == true, unitDefID
-end) ---@as table<UnitDefID, boolean?>
 
 ---@class BuilderSpeeds The other five speeds SetUnitBuildSpeed takes, which scale with buildSpeed.
 ---@field repair number
@@ -161,9 +151,9 @@ local moveTypeSetterByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 	return setter, unitDefID
 end) ---@as table<UnitDefID, false|fun(unitID: UnitID, key: any, value: any): integer>
 
-local isEngageRangeConstant = table.map(UnitDefs, function(unitDef, unitDefID)
+local hasCustomEngageRange = table.map(UnitDefs, function(unitDef, unitDefID)
 	---@cast unitDef table
-	local engageRange = tonumber(unitDef.customParams.maxrange or 0) or 0
+	local engageRange = tonumber(unitDef.customParams.maxrange) or 0
 	return (engageRange ~= 0 and engageRange < (unitDef.maxWeaponRange or 0))
 		or unitDef.customParams.rangexpscale ~= nil,
 		unitDefID
@@ -174,7 +164,8 @@ local function setMoveTypeValue(unitID, key, value)
 	if not setter or spMoveCtrlIsEnabled(unitID) then
 		return false
 	end
-	-- StrafeAirMoveType has no turnRate and overwrites its wanted speed on every frame.
+	-- StrafeAirMoveType has no turnRate and overwrites its wanted speed every frame, and a skipped
+	-- write still counts, or the flush retries one this move type is never going to take.
 	if setter == spSetAirMoveTypeData and (key == "turnRate" or key == "maxWantedSpeed") then
 		return true
 	end
@@ -204,7 +195,7 @@ local function getSensorRadiusSetter(sensorType)
 end
 
 local function getUnitCostSetter(costKey)
-	local costs = {} -- only ever contains one key-value pair
+	local costs = {}
 	return function(unitID, value)
 		costs[costKey] = value
 		spSetUnitCosts(unitID, costs)
@@ -240,7 +231,7 @@ local baseFieldByAttribute = {
 
 local nominalReloadByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 	---@cast unitDef table
-	local weapon = (unitDef.weapons or {})[1]
+	local weapon = unitDef.weapons[1]
 	local weaponDef = weapon and WeaponDefs[weapon.weaponDef]
 	return weaponDef and weaponDef.reload or false, unitDefID
 end) ---@as table<UnitDefID, number|false>
@@ -257,7 +248,7 @@ local shieldPowerByDef = table.map(UnitDefs, function(unitDef, unitDefID)
 end) ---@as table<UnitDefID, number|false>
 
 ---@type table<string, table<UnitDefID, (number|false)?>>
-local baseTableByAttribute = {
+local prebuiltBaseByAttribute = {
 	reloadTime = nominalReloadByDef,
 	shieldMaxPower = shieldPowerByDef,
 }
@@ -271,7 +262,7 @@ local function getBaseline(unitDefID, attribute)
 	local value = values[attribute]
 	if value == nil then
 		local field = baseFieldByAttribute[attribute]
-		local prebuilt = baseTableByAttribute[attribute]
+		local prebuilt = prebuiltBaseByAttribute[attribute]
 		if field then
 			value = UnitDefs[unitDefID][field]
 			values[attribute] = value
@@ -295,7 +286,7 @@ local function getWeaponBaselines(unitDefID)
 	local weapons = baseWeapons[unitDefID]
 	if not weapons then
 		weapons = {}
-		for index, weapon in ipairs(UnitDefs[unitDefID].weapons or {}) do
+		for index, weapon in ipairs(UnitDefs[unitDefID].weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
 			weapons[index] = {
 				range = weaponDef and weaponDef.range or 0,
@@ -309,7 +300,7 @@ end
 
 local function setMaxWeaponRange(unitID, value)
 	local unitDefID = spGetUnitDefID(unitID)
-	if not isEngageRangeConstant[unitDefID] then
+	if not hasCustomEngageRange[unitDefID] then
 		spSetUnitMaxRange(unitID, value)
 	end
 
@@ -318,9 +309,9 @@ local function setMaxWeaponRange(unitID, value)
 		return
 	end
 
-	local factor = value / baseline
+	local scale = value / baseline
 	for index, weapon in ipairs(getWeaponBaselines(unitDefID)) do
-		spSetUnitWeaponState(unitID, index, "range", weapon.range * factor)
+		spSetUnitWeaponState(unitID, index, "range", weapon.range * scale)
 	end
 end
 
@@ -331,7 +322,7 @@ local function getWeaponDamages(unitDefID)
 	local weapons = baseDamages[unitDefID]
 	if not weapons then
 		weapons = {}
-		for index, weapon in ipairs(UnitDefs[unitDefID].weapons or {}) do
+		for index, weapon in ipairs(UnitDefs[unitDefID].weapons) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
 			local damages = weaponDef and weaponDef.damages
 			if damages then
@@ -356,10 +347,10 @@ end
 -- Every weapon in the game carries the same armour classes, so one table refills for all of them.
 local damageScratch = {}
 
-local function setDamage(unitID, factor)
+local function setDamage(unitID, scale)
 	for weaponNum, damages in pairs(getWeaponDamages(spGetUnitDefID(unitID))) do
 		for armorClass, damage in pairs(damages) do
-			damageScratch[armorClass] = damage * factor
+			damageScratch[armorClass] = damage * scale
 		end
 		spSetUnitWeaponDamages(unitID, weaponNum, damageScratch)
 	end
@@ -372,20 +363,20 @@ local function setReloadTime(unitID, value)
 		return
 	end
 
-	local factor = value / baseline
+	local scale = value / baseline
 	local gameFrame = spGetGameFrame()
 	local luaEnv = getUnitScriptEnv(unitID)
 	local reloadMax = 0.0
 
 	for weaponNum, weapon in ipairs(getWeaponBaselines(unitDefID)) do
 		local previous = spGetUnitWeaponState(unitID, weaponNum, "reloadTime")
-		local reloadTime = toFrameTime(weapon.reload * factor)
+		local reloadTime = toFrameTime(weapon.reload * scale)
 		spSetUnitWeaponState(unitID, weaponNum, "reloadTime", reloadTime)
 
 		local reloadState = spGetUnitWeaponState(unitID, weaponNum, "reloadState")
 		if previous and previous > 0 and reloadState and reloadState > gameFrame then
-			local remaining = (reloadState - gameFrame) * reloadTime / previous
-			spSetUnitWeaponState(unitID, weaponNum, "reloadState", gameFrame + remaining)
+			local framesLeft = (reloadState - gameFrame) * reloadTime / previous
+			spSetUnitWeaponState(unitID, weaponNum, "reloadState", gameFrame + framesLeft)
 		end
 
 		callUnitScript(unitID, luaEnv, reloadMethodByWeapon[weaponNum], reloadTime * 1000)
@@ -404,20 +395,20 @@ local function setBuildSpeed(unitID, value)
 		return
 	end
 
-	local factor = value / baseline
+	local scale = value / baseline
 	spSetUnitBuildSpeed(
 		unitID,
 		value,
-		speeds.repair * factor,
-		speeds.reclaim * factor,
-		speeds.resurrect * factor,
-		speeds.capture * factor,
-		speeds.terraform * factor
+		speeds.repair * scale,
+		speeds.reclaim * scale,
+		speeds.resurrect * scale,
+		speeds.capture * scale,
+		speeds.terraform * scale
 	)
 end
 
--- The engine keeps a unit's damage fraction when it moves the cap, so a boost cannot heal and a
--- reduction cannot wound. Without this a reduction and its release together cost the difference.
+-- The engine keeps absolute health when it moves the cap, so a reduction and its release together
+-- cost a unit the difference. Keeping the fraction instead means a boost cannot heal, nor a cut wound.
 local function setMaxHealth(unitID, value)
 	local health, maxHealth = spGetUnitHealth(unitID)
 	spSetUnitMaxHealth(unitID, value)
@@ -426,7 +417,7 @@ local function setMaxHealth(unitID, value)
 	end
 end
 
-local speedData = { maxSpeed = 0, maxWantedSpeed = 0 }
+local speedData = {}
 
 -- See MobileCAI. The maxWantedSpeed is set per-order and changing it will break formation movement.
 local function setMaxSpeed(unitID, value)
@@ -440,11 +431,12 @@ local function setMaxSpeed(unitID, value)
 	local baseline = getBaseline(spGetUnitDefID(unitID), "speed")
 	local moveTypeData = spGetUnitMoveTypeData(unitID)
 	local wanted = moveTypeData and moveTypeData.maxWantedSpeed
+	local isOrderLimited = wanted ~= nil and baseline ~= nil and wanted < baseline
 	speedData.maxSpeed = value
-	if wanted == nil or baseline == nil or wanted >= baseline then
-		speedData.maxWantedSpeed = value
-	else
+	if isOrderLimited then
 		speedData.maxWantedSpeed = nil
+	else
+		speedData.maxWantedSpeed = value
 	end
 	return setMoveTypeData(unitID, speedData)
 end
@@ -525,40 +517,39 @@ local function getUnitDefBucket(unitDefID, teamID, attribute, create)
 	return attributes and step(attributes, attribute, create)
 end
 
-local function pruneChain(...)
-	local chain = { ... }
-	for index = #chain, 2, -2 do
-		local parent, key = chain[index - 1], chain[index]
-		local child = parent[key]
-		if child == nil or next(child) ~= nil then
-			return
-		end
-		parent[key] = nil
+---@return boolean emptied Whether the child was dropped, so its own parent can be tried next.
+local function prune(parent, key)
+	local child = parent[key]
+	if child == nil or next(child) ~= nil then
+		return false
 	end
+	parent[key] = nil
+	return true
 end
 
 local function pruneUnit(unitID, attribute)
 	local attributes = unitFactors[unitID]
-	if attributes then
-		pruneChain(unitFactors, unitID, attributes, attribute)
+	if attributes and prune(attributes, attribute) then
+		prune(unitFactors, unitID)
 	end
 end
 
 local function pruneUnitDef(unitDefID, teamID, attribute)
 	if teamID == nil then
 		local attributes = unitdefFactors[unitDefID]
-		if attributes then
-			pruneChain(unitdefFactors, unitDefID, attributes, attribute)
+		if attributes and prune(attributes, attribute) then
+			prune(unitdefFactors, unitDefID)
 		end
 		return
 	end
 	local teams = unitdefTeamFactors[unitDefID]
 	local attributes = teams and teams[teamID]
-	if attributes then
-		pruneChain(unitdefTeamFactors, unitDefID, teams, teamID, attributes, attribute)
+	if attributes and prune(attributes, attribute) and prune(teams, teamID) then
+		prune(unitdefTeamFactors, unitDefID)
 	end
 end
 
+---@return boolean changed Whether the composed value may have moved.
 local function record(bucket, source, kind, value)
 	local factor = bucket[source]
 	if value == nil then
@@ -604,15 +595,15 @@ local function applyMults(value, bucket)
 end
 
 local function composeValue(unitID, unitDefID, teamID, attribute, baseline)
-	local attributes = unitdefFactors[unitDefID]
-	local unitdefBucket = attributes and attributes[attribute]
+	local unitdefAttributes = unitdefFactors[unitDefID]
+	local unitdefBucket = unitdefAttributes and unitdefAttributes[attribute]
 
 	local teams = unitdefTeamFactors[unitDefID]
-	attributes = teams and teams[teamID]
-	local teamdefBucket = attributes and attributes[attribute]
+	local teamdefAttributes = teams and teams[teamID]
+	local teamdefBucket = teamdefAttributes and teamdefAttributes[attribute]
 
-	attributes = unitFactors[unitID]
-	local unitBucket = attributes and attributes[attribute]
+	local unitAttributes = unitFactors[unitID]
+	local unitBucket = unitAttributes and unitAttributes[attribute]
 
 	local value, seqnum = resolveSet(unitBucket)
 	if seqnum == nil then
@@ -634,6 +625,8 @@ local function composeValue(unitID, unitDefID, teamID, attribute, baseline)
 	return value
 end
 
+-- Measured: without this, a periodic gadget marking hundreds of units allocates a table per unit
+-- per mark-and-clean cycle, and the flush stops being allocation-free.
 local attributeSetPool = {} ---@type table<string, true>[]
 local attributeSetCount = 0
 
@@ -671,6 +664,7 @@ local function markUnitDefDirty(unitDefID, teamID, attribute)
 	end
 end
 
+---@return table<string, any>? applied The unit's table as it stands, which a write can drop.
 local function setApplied(unitID, attribute, value)
 	local applied = appliedValues[unitID]
 	if value == nil then
@@ -678,29 +672,33 @@ local function setApplied(unitID, attribute, value)
 			applied[attribute] = nil
 			if next(applied) == nil then
 				appliedValues[unitID] = nil
+				return nil
 			end
 		end
-		return
+		return applied
 	end
 	if not applied then
 		applied = {}
 		appliedValues[unitID] = applied
 	end
 	applied[attribute] = value
+	return applied
 end
 
 local function recordUnitDefAttribute(unitDefID, attribute, value, source, kind, teamID)
 	local entry = definitions[attribute]
 	if not entry then
-		nonexistent(attribute)
+		refuse(attribute, "not found")
 		return
 	elseif entry.multiplyOnly and kind == "set" and value ~= nil then
-		refused(attribute, "takes no set value")
+		refuse(attribute, "takes no set value")
+		return
+	elseif entry.unitOnly then
+		refuse(attribute, "takes no unitdef scope")
 		return
 	elseif
-		entry.unitOnly
-		or (entry.mobileOnly and not moveTypeSetterByDef[unitDefID])
-		or (entry.builderOnly and not isBuilder[unitDefID])
+		(entry.mobileOnly and not moveTypeSetterByDef[unitDefID])
+		or (entry.builderOnly and not builderSpeedsByDef[unitDefID])
 	then
 		return
 	end
@@ -721,7 +719,7 @@ end
 local function recordUnitAttribute(unitID, attribute, value, source, kind)
 	local entry = definitions[attribute]
 	if not entry then
-		nonexistent(attribute)
+		refuse(attribute, "not found")
 		return
 	end
 
@@ -729,11 +727,11 @@ local function recordUnitAttribute(unitID, attribute, value, source, kind)
 		if kind == "set" and value ~= nil then
 			applyUnitAttribute[attribute](unitID, value)
 		else
-			refused(attribute, "keeps no factors")
+			refuse(attribute, "keeps no factors")
 		end
 		return
 	elseif entry.multiplyOnly and kind == "set" and value ~= nil then
-		refused(attribute, "takes no set value")
+		refuse(attribute, "takes no set value")
 		return
 	end
 
@@ -748,7 +746,7 @@ local function recordUnitAttribute(unitID, attribute, value, source, kind)
 			if entry.mobileOnly and not moveTypeSetterByDef[unitDefID] then
 				return
 			end
-			if entry.builderOnly and not isBuilder[unitDefID] then
+			if entry.builderOnly and not builderSpeedsByDef[unitDefID] then
 				return
 			end
 		end
@@ -807,10 +805,11 @@ local function setUnitModifier(unitID, attribute, multiplier, source)
 end
 
 ---Reads what a unit's attribute composes to now, or its unitdef value when no source is on it.
+---A `state` attribute answers nil, since the module writes state but does not track it.
 ---@param unitID UnitID
 ---@param attribute string
----@return number|boolean|string|nil value The resulting value. Often redundant to a more simple callout/getter.
----A `multiplyOnly` attribute answers with its composed factor, which is not a quantity.
+---@return number|boolean|string|nil value A `multiplyOnly` attribute answers with its composed
+---factor, which is not a quantity. Otherwise a plainer callout usually answers the same question.
 local function getUnitAttributeValue(unitID, attribute)
 	local applied = appliedValues[unitID]
 	local value = applied and applied[attribute]
@@ -818,10 +817,9 @@ local function getUnitAttributeValue(unitID, attribute)
 		return value
 	end
 
-	-- We have generalized setters but not getters. So we do a lot of work here:
 	local entry = definitions[attribute]
 	if not entry then
-		nonexistent(attribute)
+		refuse(attribute, "not found")
 		return
 	elseif entry.state then
 		return -- Ask the engine. The module writes state but cannot track it.
@@ -854,11 +852,10 @@ local function applyOnCreated(unitID, unitDefID)
 	end
 end
 
----Forgets what was applied to a unit so the next flush writes it again instead of trusting it.
+---Forgets a unit's applied `maxHealth` so the next flush writes it again.
 ---
----`CUnit::AddExperience` recomputes `maxHealth` from the unitdef on every gain, so an override is
----gone from the unit while the module still believes it is there, and the belief is what stops the
----flush from writing it back.
+---`CUnit::AddExperience` recomputes `maxHealth` from the unitdef on every gain, so the override is
+---already gone from the unit while the module still believes it is there.
 ---@param unitID UnitID
 function applyOnExperience(unitID)
 	local applied = appliedValues[unitID]
@@ -884,11 +881,18 @@ local function applyOnGiven(unitID, unitDefID, newTeamID, oldTeamID)
 	if not teams then
 		return
 	end
-	for attribute in pairs(teams[newTeamID] or {}) do
-		markUnitDirty(unitID, attribute)
+	local newAttributes = teams[newTeamID]
+	if newAttributes then
+		for attribute in pairs(newAttributes) do
+			markUnitDirty(unitID, attribute)
+		end
 	end
-	for attribute in pairs(oldTeamID and teams[oldTeamID] or {}) do
-		markUnitDirty(unitID, attribute)
+
+	local oldAttributes = teams[oldTeamID]
+	if oldAttributes then
+		for attribute in pairs(oldAttributes) do
+			markUnitDirty(unitID, attribute)
+		end
 	end
 end
 
@@ -913,11 +917,10 @@ local function updateAll(frame)
 				-- MoveCtrl prevents updating the unit's moveTypeData so keep the attribute dirty.
 				if value == previous or applyUnitAttribute[attribute](unitID, value) ~= false then
 					if value == baseline then
-						setApplied(unitID, attribute, nil)
+						applied = setApplied(unitID, attribute, nil)
 					else
-						setApplied(unitID, attribute, value)
+						applied = setApplied(unitID, attribute, value)
 					end
-					applied = appliedValues[unitID]
 					attributes[attribute] = nil
 				end
 			end
@@ -939,8 +942,7 @@ local function clearAll()
 		local unitDefID = spGetUnitDefID(unitID)
 		if unitDefID then
 			for attribute in pairs(attributes) do
-				-- State attributes never become applied values because they have no baseline.
-				-- They are not recorded, not returned in any module getter, and ignored here.
+				-- A unit with no shield or no weapons has no baseline to put back.
 				local baseline = getBaseline(unitDefID, attribute)
 				if baseline ~= nil then
 					applyUnitAttribute[attribute](unitID, baseline)
@@ -955,8 +957,6 @@ local function clearAll()
 	appliedValues = {}
 	dirty = {}
 end
-
--- Module export ---------------------------------------------------------------
 
 return {
 	Definitions = definitions,
