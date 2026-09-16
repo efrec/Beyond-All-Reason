@@ -56,7 +56,7 @@ local ATTRIBUTE_SOURCE = "cheat_no_waste"
 local spGetTeamResources = Spring.GetTeamResources
 
 for id, def in pairs(UnitDefs) do
-	if def.buildSpeed and def.buildSpeed > 0 and def.speed and def.speed == 0 then --we only want base factories and construction turrets to get boosted
+	if def.isBuilder and def.speed == 0 then --we only want base factories and construction turrets to get boosted
 		builderWatchDefs[id] = def.buildSpeed
 	end
 end

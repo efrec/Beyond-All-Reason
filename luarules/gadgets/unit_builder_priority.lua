@@ -115,7 +115,7 @@ end
 
 for unitDefID, unitDef in pairs(UnitDefs) do
 	-- All builders can have their build speeds changed via lua
-	if unitDef.buildSpeed > 0 then
+	if unitDef.isBuilder then
 		unitBuildSpeed[unitDefID] = unitDef.buildSpeed
 	end
 	-- Units that can only repair, resurrect, or capture don't have a passive mode (in this gadget)
@@ -276,6 +276,13 @@ local function UpdatePassiveBuilders(
 	suspendBuilderPriority = spGetTeamRulesParam(teamID, "suspendbuilderpriority")
 
 	if suspendBuilderPriority ~= 0 then
+		-- Only this source can release its own factor, and a boost cannot multiply a zero away.
+		for builderID in pairs(passiveTeamCons) do
+			if isBuildRestricted[builderID] then
+				restrictBuildSpeed(builderID, false)
+				isBuildRestricted[builderID] = false
+			end
+		end
 		return
 	end
 
@@ -331,6 +338,7 @@ local function UpdatePassiveBuilders(
 				if builtUnit then
 					local targetCosts = costID[builtUnit]
 					local buildSpeed = realBuildSpeed[builderID]
+						and GG.UnitAttributes.GetUnitAttributeValue(builderID, "buildSpeed")
 					if targetCosts and buildSpeed then
 						local rate = buildSpeed / targetCosts[3]
 						local mcost = targetCosts[1]
@@ -382,10 +390,8 @@ local function UpdatePassiveBuilders(
 
 		-- turn this passive builder on/off as appropriate
 		local wasGated = isBuildRestricted[builderID]
-		if wasGated ~= wouldStall then
-			restrictBuildSpeed(builderID, wouldStall)
-			isBuildRestricted[builderID] = wouldStall
-		end
+		restrictBuildSpeed(builderID, wouldStall)
+		isBuildRestricted[builderID] = wouldStall
 
 		-- override buildTargetOwners build speeds for a single frame;
 		-- let them build at a tiny rate to prevent nanoframes from possibly decaying
