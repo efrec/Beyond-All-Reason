@@ -68,10 +68,10 @@ local spGetFeatureDefID = Spring.GetFeatureDefID
 local spGetFeaturePosition = Spring.GetFeaturePosition
 local spGetUnitBasePosition = Spring.GetUnitBasePosition
 local spGetUnitDefID = Spring.GetUnitDefID
-local spGetMoveData = Spring.GetUnitMoveTypeData
 local spGetGroundExtremes = Spring.GetGroundExtremes
 local spSpawnCEG = Spring.SpawnCEG
 local clamp = math.clamp
+local floor = math.floor
 
 ------------------------------------------------------------------------
 -- Unit/feature def caches (built lazily on first activation)
@@ -96,7 +96,7 @@ local function buildDefCaches()
 		if unitDef.canFly then
 			canFly[unitDefID] = true
 		else
-			canBeSlowed[unitDefID] = (unitDef.speed or 0) ~= 0
+			canBeSlowed[unitDefID] = not unitDef.isImmobile
 				and (unitDef.turnRate or 0) ~= 0
 				and (unitDef.maxAcc or 0) ~= 0
 		end
@@ -115,8 +115,21 @@ end
 ------------------------------------------------------------------------
 local affectedUnits = {} -- unitID → { currentSlow, slowed }
 
+local SLOW_STEP = 0.05 -- quantize slow so wading units don't rewrite move data every damage tick
+local SLOW_STEP_INV = 1 / SLOW_STEP
+
+---@return number factor Quantized, so an unmoved unit rewrites an identical factor.
+local function getWaterSlow(unitDefID, y, waterLevel, slowFrac)
+	local height = unitHeight[unitDefID]
+	if not height or height <= 0 then
+		return 1
+	end
+	local unitSlow = clamp(1 - (((waterLevel - y) / height) * slowFrac), 1 - slowFrac, 0.9)
+	return floor(unitSlow * SLOW_STEP_INV + 0.5) * SLOW_STEP
+end
+
 ---@param unitID UnitID
----@param unitSlow number? A nil releases this gadget's claim on the unit.
+---@param unitSlow number? A nil clears this source's factor.
 local function updateSlow(unitID, unitSlow)
 	local setUnitModifier = GG.UnitAttributes.SetUnitModifier
 	setUnitModifier(unitID, "speed", unitSlow, ATTRIBUTE_SOURCE)
@@ -152,14 +165,10 @@ local function damageCheck(cfg, waterLevel)
 			local x, y, z = spGetUnitBasePosition(unitID)
 			if y and y < waterLevel then
 				-- Compute slow factor based on submersion depth
-				local unitSlow = clamp(1 - (((waterLevel - y) / unitHeight[unitDefID]) * slowFrac), 1 - slowFrac, 0.9)
+				local unitSlow = getWaterSlow(unitDefID, y, waterLevel, slowFrac)
 
 				if not affectedUnits[unitID] then
-					if spGetMoveData(unitID).name == "ground" and canBeSlowed[unitDefID] then
-						affectedUnits[unitID] = { currentSlow = 1, slowed = true }
-					else
-						affectedUnits[unitID] = { slowed = false }
-					end
+					affectedUnits[unitID] = { currentSlow = 1, slowed = canBeSlowed[unitDefID] == true }
 				end
 
 				local data = affectedUnits[unitID]
@@ -343,6 +352,10 @@ end
 ------------------------------------------------------------------------
 -- Cleanup
 ------------------------------------------------------------------------
+function gadget:UnitDestroyed(unitID)
+	affectedUnits[unitID] = nil
+end
+
 function gadget:Shutdown()
 	restoreAllUnits()
 	GG.WaterTypeOverlay = nil
