@@ -69,8 +69,7 @@ local unitFactors = {} ---@type table<UnitID, table<string, table<string, Attrib
 local appliedValues = {} ---@type table<UnitID, table<string, any>?>
 local dirty = {} ---@type table<UnitID, table<string, true>?>
 local baseValues = {} ---@type table<UnitDefID, table<string, any>?>
-local baseWeaponValues = {} ---@type table<UnitDefID, number[]?>
-local baseWeaponReloads = {} ---@type table<UnitDefID, number[]?>
+local baseWeapons = {} ---@type table<UnitDefID, WeaponBaseline[]?>
 local sequence = 0
 
 -- Module internals ------------------------------------------------------------
@@ -235,32 +234,38 @@ local function getBaseline(unitDefID, attribute)
 	return value
 end
 
----@return number[]
-local function getWeaponBaseRanges(unitDefID)
-	local ranges = baseWeaponValues[unitDefID]
-	if not ranges then
-		ranges = {}
-		for index, weapon in ipairs(UnitDefs[unitDefID].weapons or {}) do
-			local weaponDef = WeaponDefs[weapon.weaponDef]
-			ranges[index] = weaponDef and weaponDef.range or 0
-		end
-		baseWeaponValues[unitDefID] = ranges -- TODO: contains only ranges, so far
-	end
-	return ranges
-end
+---@class WeaponBaseline The weapondef values an apply scales against, in seconds and elmos.
+---@field range number
+---@field reload number
+---@field salvoSize integer Shots per burst. A beam without `beamburst` fires one.
+---@field salvoTime number Duration of the burst, below which a shorter reload does nothing.
 
----@return number[]
-local function getWeaponBaseReloads(unitDefID)
-	local reloads = baseWeaponReloads[unitDefID]
-	if not reloads then
-		reloads = {}
+---@return WeaponBaseline[]
+local function getWeaponBaselines(unitDefID)
+	local weapons = baseWeapons[unitDefID]
+	if not weapons then
+		weapons = {}
 		for index, weapon in ipairs(UnitDefs[unitDefID].weapons or {}) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
-			reloads[index] = weaponDef and weaponDef.reload or 0
+			local salvoSize, salvoTime
+			if not weaponDef then
+				salvoSize, salvoTime = 1, 0
+			elseif weaponDef.type == "BeamLaser" and not weaponDef.beamburst then
+				-- The beam is continuous so its duration is the burst, however many shots it is.
+				salvoSize, salvoTime = 1, weaponDef.beamtime
+			else
+				salvoSize, salvoTime = weaponDef.salvoSize, weaponDef.salvoSize * weaponDef.salvoDelay
+			end
+			weapons[index] = {
+				range = weaponDef and weaponDef.range or 0,
+				reload = weaponDef and weaponDef.reload or 0,
+				salvoSize = salvoSize,
+				salvoTime = salvoTime,
+			}
 		end
-		baseWeaponReloads[unitDefID] = reloads
+		baseWeapons[unitDefID] = weapons
 	end
-	return reloads
+	return weapons
 end
 
 local function setMaxWeaponRange(unitID, value)
@@ -275,8 +280,8 @@ local function setMaxWeaponRange(unitID, value)
 	end
 
 	local factor = value / baseline
-	for index, range in ipairs(getWeaponBaseRanges(unitDefID)) do
-		spSetUnitWeaponState(unitID, index, "range", range * factor)
+	for index, weapon in ipairs(getWeaponBaselines(unitDefID)) do
+		spSetUnitWeaponState(unitID, index, "range", weapon.range * factor)
 	end
 end
 
@@ -292,9 +297,9 @@ local function setReloadTime(unitID, value)
 	local luaEnv = getUnitScriptEnv(unitID)
 	local reloadMax = 0.0
 
-	for weaponNum, reload in ipairs(getWeaponBaseReloads(unitDefID)) do
+	for weaponNum, weapon in ipairs(getWeaponBaselines(unitDefID)) do
 		local previous = spGetUnitWeaponState(unitID, weaponNum, "reloadTime")
-		local reloadTime = toFrameTime(reload * factor)
+		local reloadTime = toFrameTime(weapon.reload * factor)
 		spSetUnitWeaponState(unitID, weaponNum, "reloadTime", reloadTime)
 
 		local reloadState = spGetUnitWeaponState(unitID, weaponNum, "reloadState")
