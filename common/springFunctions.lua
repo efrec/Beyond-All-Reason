@@ -7,6 +7,8 @@ local tableFunctions = VFS.Include(utilitiesDirectory .. "tableFunctions.lua")
 local colorFunctions = VFS.Include(utilitiesDirectory .. "color.lua")
 local safeLuaTableParser = VFS.Include(utilitiesDirectory .. "safeluaparser.lua")
 local facingFunctions = VFS.Include(utilitiesDirectory .. "facingFunctions.lua")
+local sharedTeam = VFS.Include(utilitiesDirectory .. "sharedTeam.lua")
+local unitTaskClaims = VFS.Include(utilitiesDirectory .. "unitTaskClaims.lua")
 
 local accountIDCache = {}
 
@@ -20,6 +22,9 @@ utilities = {
 	NewTGA = tga.NewTGA,
 
 	MakeRealTable = syncFunctions.MakeRealTable,
+
+	SharedTeam = sharedTeam,
+	UnitTaskClaims = unitTaskClaims,
 
 	GetAllyTeamCount = team.GetAllyTeamCount,
 	GetAllyTeamList = team.GetAllyTeamList,
