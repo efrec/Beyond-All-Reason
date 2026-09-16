@@ -158,6 +158,7 @@ local spGetUnitTeam = Spring.GetUnitTeam
 local spGetUnitExperience = Spring.GetUnitExperience
 local spGetUnitSensorRadius = Spring.GetUnitSensorRadius
 local spGetUnitWeaponState = Spring.GetUnitWeaponState
+local spGetUnitWeaponDamages = Spring.GetUnitWeaponDamages
 
 local uDefs = UnitDefs
 local wDefs = WeaponDefs
@@ -843,9 +844,19 @@ local function computeContent(uDefID, uID, shiftBool)
 
 		local damages = uWep.damages
 		local defaultArmorIndex = armorTypes.default
-		local defaultArmorDamage = damages[defaultArmorIndex]
-		local baseArmorIndex = defaultArmorDamage >= damages[armorTypes.vtol] and defaultArmorIndex or armorTypes.vtol
-		local baseArmorDamage = damages[baseArmorIndex]
+		local baseArmorIndex = damages[defaultArmorIndex] >= damages[armorTypes.vtol] and defaultArmorIndex
+			or armorTypes.vtol
+
+		-- A unit's weapon damages are scaled by one factor over every armour class, so a single
+		-- read recovers it and the def table still carries the shape of the weapon.
+		local damageFactor = 1
+		if uID and weaponNumber > 0 and damages[defaultArmorIndex] > 0 then
+			local live = spGetUnitWeaponDamages(uID, weaponNumber, defaultArmorIndex)
+			damageFactor = live and live / damages[defaultArmorIndex] or 1
+		end
+
+		local defaultArmorDamage = damages[defaultArmorIndex] * damageFactor
+		local baseArmorDamage = damages[baseArmorIndex] * damageFactor
 
 		local custom = uWep.customParams
 
@@ -862,7 +873,7 @@ local function computeContent(uDefID, uID, shiftBool)
 		elseif custom.speceffect == "split" then
 			burst = burst * (custom.number or 1)
 			uWep = WeaponDefNames[custom.speceffect_def] or uWep
-			baseArmorDamage = damages[defaultArmorIndex]
+			baseArmorDamage = defaultArmorDamage
 		elseif custom.cluster then
 			local munition = uDef.name .. "_" .. custom.cluster_def
 			local cmNumber = custom.cluster_number
@@ -1010,7 +1021,7 @@ local function computeContent(uDefID, uID, shiftBool)
 				for index = 0, #armorTypes do
 					if index ~= indestructibleArmorIndex and index ~= shieldsArmorIndex then
 						local armorName = armorTypes[index]
-						local armorDamage = damages[index]
+						local armorDamage = damages[index] * damageFactor
 						if not modifiers[armorDamage] then
 							modifiers[armorDamage] = { armorName }
 						elseif armorDamage ~= defaultArmorDamage then
@@ -1028,7 +1039,7 @@ local function computeContent(uDefID, uID, shiftBool)
 				tableSort(sorted, descending)
 
 				local modifierText =
-					{ ("default = %s%d%%"):format(yellow, floor(100 * damages[defaultArmorIndex] / baseArmorDamage)) }
+					{ ("default = %s%d%%"):format(yellow, floor(100 * defaultArmorDamage / baseArmorDamage)) }
 				for _, armorDamage in ipairs(sorted) do
 					tableInsert(
 						modifierText,
