@@ -72,6 +72,8 @@ local CMD_PATROL = CMD.PATROL
 local CMD_FIRE_STATE = CMD.FIRE_STATE
 local CMD_ATTACK = CMD.ATTACK
 
+-- Shared with unit_objectify and unit_attached_con_turret_mex, on disjoint defs. Holders of this
+-- name only ever write it, never clear it, because one clear would drop it for all of them.
 local ATTRIBUTE_SOURCE = "invariant" -- critters are not interactive
 local SENSOR_ATTRIBUTES = { "losRadius", "airLosRadius", "radarRadius", "sonarRadius" }
 
@@ -217,7 +219,7 @@ local function setGaiaUnitSpecifics(unitID)
 	Spring.SetUnitNoSelect(unitID, true)
 	GG.UnitAttributes.SetUnitAttribute(unitID, "stealth", true, ATTRIBUTE_SOURCE)
 	Spring.SetUnitNoMinimap(unitID, true)
-	Spring.SetUnitMaxHealth(unitID, 2)
+	GG.UnitAttributes.SetUnitAttribute(unitID, "maxHealth", 2, ATTRIBUTE_SOURCE)
 	Spring.SetUnitBlocking(unitID, false)
 	local setUnitModifier = GG.UnitAttributes.SetUnitModifier
 	for _, attribute in ipairs(SENSOR_ATTRIBUTES) do
@@ -246,6 +248,13 @@ function gadget:Initialize()
 		if unitDefID and isCommander[unitDefID] then
 			local x, _, z = GetUnitPosition(unitID)
 			commanders[unitID] = { x, z }
+		end
+	end
+
+	-- ClearAll restores every applied value, so critters that predate a reload need reapplying.
+	for _, unitID in ipairs(Spring.GetAllUnits()) do
+		if isCritter[GetUnitDefID(unitID)] then
+			setGaiaUnitSpecifics(unitID)
 		end
 	end
 
