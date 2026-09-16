@@ -84,10 +84,10 @@ local function nonexistent(attribute)
 	Spring.Log("UnitAttributes", LOG.WARNING, "Attribute not found: " .. tostring(attribute))
 end
 
--- Unlike a scope refusal, which is ordinary when a caller sweeps a mixed list of defs, a `set` on
--- a multiply-only attribute is never right, so it is worth saying so every time.
-local function unsettable(attribute)
-	Spring.Log("UnitAttributes", LOG.WARNING, "Attribute takes no set value: " .. tostring(attribute))
+-- Unlike a scope refusal, which is ordinary when a caller sweeps a mixed list of defs, breaking a
+-- vocabulary rule is never right, so it is worth saying so every time.
+local function refused(attribute, reason)
+	Spring.Log("UnitAttributes", LOG.WARNING, "Attribute " .. reason .. ": " .. tostring(attribute))
 end
 
 -- The engine truncates to whole frames so the values we pass may be inexact.
@@ -678,7 +678,7 @@ local function recordUnitDefAttribute(unitDefID, attribute, value, source, kind,
 		nonexistent(attribute)
 		return
 	elseif entry.multiplyOnly and kind == "set" and value ~= nil then
-		unsettable(attribute)
+		refused(attribute, "takes no set value")
 		return
 	elseif
 		entry.unitOnly
@@ -711,10 +711,12 @@ local function recordUnitAttribute(unitID, attribute, value, source, kind)
 	if entry.state then
 		if kind == "set" and value ~= nil then
 			applyUnitAttribute[attribute](unitID, value)
+		else
+			refused(attribute, "keeps no factors")
 		end
 		return
 	elseif entry.multiplyOnly and kind == "set" and value ~= nil then
-		unsettable(attribute)
+		refused(attribute, "takes no set value")
 		return
 	end
 
@@ -757,6 +759,9 @@ local function setUnitDefAttribute(unitDefID, attribute, value, source, teamID)
 end
 
 ---Overrides an attribute on one unit until the same source clears it.
+---
+---A `state` attribute is written straight through instead. It keeps no factor, ignores the source
+---and cannot be cleared, so a `nil` on one is refused rather than honoured.
 ---@param unitID UnitID
 ---@param attribute string
 ---@param value number|boolean|string|nil `nil` clears this source's factor.
@@ -788,6 +793,7 @@ end
 ---@param unitID UnitID
 ---@param attribute string
 ---@return number|boolean|string|nil value The resulting value. Often redundant to a more simple callout/getter.
+---A `multiplyOnly` attribute answers with its composed factor, which is not a quantity.
 local function getUnitAttributeValue(unitID, attribute)
 	local applied = appliedValues[unitID]
 	local value = applied and applied[attribute]

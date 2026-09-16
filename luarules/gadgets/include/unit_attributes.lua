@@ -40,6 +40,10 @@ local definitions = {
 	reloadTime = { type = "number", nonNegative = true },
 	experience = { type = "number", nonNegative = true, unitOnly = true, state = true },
 	cloaked = { type = "boolean", unitOnly = true, state = true },
+	-- A cap. PlasmaRepulser regenerates only below the weapondef's own power, so a value
+	-- at or above that is simply not binding.
+	-- A cap. PlasmaRepulser regenerates only below the weapondef's own power, so a value at or
+	-- above that is simply not binding.
 	shieldMaxPower = { type = "number", nonNegative = true },
 	damage = { type = "number", nonNegative = true, multiplyOnly = true },
 }
