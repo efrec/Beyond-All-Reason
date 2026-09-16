@@ -22,6 +22,10 @@ local spGiveOrderToUnit = Spring.GiveOrderToUnit
 local SendToUnsynced = SendToUnsynced
 local resolveAttachPiece = VFS.Include("luarules/gadgets/include/unit_attachments.lua").ResolveAttachPiece
 
+-- Shared with game_critters and unit_objectify, on disjoint defs. Holders of this name only ever
+-- write it, never clear it, because one clear would drop it for all of them.
+local ATTRIBUTE_SOURCE = "invariant"
+
 -- customparams.attached_con_turret_mex (the extractor def) + attached_con_turret (the con def)
 -- mark builds that split into a mex plus an attached con turret; scav copies inherit the
 -- params and get the _scav variants of both spawned defs
@@ -93,7 +97,7 @@ local function doSwapMex(unitID, unitTeam, unitData)
 	Spring.SetUnitBlocking(mexID, true, true, false)
 	Spring.SetUnitNoSelect(mexID, true)
 	SendToUnsynced("setUnitNoGroup", mexID, true)
-	GG.UnitAttributes.SetUnitAttribute(mexID, "stealth", true, "invariant")
+	GG.UnitAttributes.SetUnitAttribute(mexID, "stealth", true, ATTRIBUTE_SOURCE)
 
 	local piece = resolveAttachPiece(mexID)
 	if not piece then
