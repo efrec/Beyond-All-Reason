@@ -84,3 +84,9 @@ function gadget:GameFrame(frame)
 		end
 	end
 end
+
+function gadget:Initialize()
+	for _, unitID in ipairs(Spring.GetAllUnits()) do
+		gadget:UnitCreated(unitID, spGetUnitDefID(unitID))
+	end
+end

@@ -140,3 +140,17 @@ end
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
 	removeUnit(unitID)
 end
+
+function gadget:Initialize()
+	-- Paralyze damage outlives a reload, so the slow rebuilds from it.
+	for _, unitID in ipairs(Spring.GetAllUnits()) do
+		local _, _, paralyzeDamage = spGetUnitHealth(unitID)
+		if paralyzeDamage >= 5 then
+			slowedUnits[unitID] = {
+				slowDamage = paralyzeDamage,
+				degradeTimer = DEGRADE_TIMER,
+			}
+			updateSlow(unitID, slowedUnits[unitID])
+		end
+	end
+end
