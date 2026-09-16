@@ -40,6 +40,8 @@ function gadget:UnitCreated(unitID, unitDefID)
 end
 
 -- The attacker earns its experience immediately after this fires, and that rewrites its maxHealth.
+-- This is the common path and not the only one: a gadget calling Spring.SetUnitExperience itself
+-- takes the same rewrite with nothing to notice it.
 local onExperience = attributes.ApplyOnExperience
 function gadget:UnitDamaged(unitID, unitDefID, teamID, damage, paralyzer, weaponDefID, projectileID, attackerID)
 	if attackerID then

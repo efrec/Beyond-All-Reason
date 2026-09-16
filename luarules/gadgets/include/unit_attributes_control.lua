@@ -315,8 +315,8 @@ local function setMaxWeaponRange(unitID, value)
 	end
 end
 
----Damage by armour class, per weapon, in the weapondef's own terms. A weapon that deals no
----damage to anything is left out, which is how a `bogus` weapon excludes itself.
+---Damage by armour class, per weapon, in the weapondef's own terms. A weapon that deals no damage
+---to anything is left out.
 ---@return table<integer, table<integer, number>>
 local function getWeaponDamages(unitDefID)
 	local weapons = baseDamages[unitDefID]
@@ -419,7 +419,9 @@ end
 
 local speedData = {}
 
--- See MobileCAI. The maxWantedSpeed is set per-order and changing it will break formation movement.
+-- See MobileCAI. StartSlowGuard sets the wanted speed once on entering guarding range and holds it
+-- until the guard ends, and SelectedUnitsAI sets it per order, so neither takes ours back. We always
+-- write it equal to the max speed beside it, which is what tells our value from theirs.
 local function setMaxSpeed(unitID, value)
 	local applied = appliedValues[unitID]
 	if applied and applied.maxWantedSpeed ~= nil then
@@ -428,12 +430,12 @@ local function setMaxSpeed(unitID, value)
 		return setMoveTypeData(unitID, speedData)
 	end
 
-	local baseline = getBaseline(spGetUnitDefID(unitID), "speed")
 	local moveTypeData = spGetUnitMoveTypeData(unitID)
 	local wanted = moveTypeData and moveTypeData.maxWantedSpeed
-	local isOrderLimited = wanted ~= nil and baseline ~= nil and wanted < baseline
+	local current = moveTypeData and moveTypeData.maxSpeed
+
 	speedData.maxSpeed = value
-	if isOrderLimited then
+	if wanted ~= current then
 		speedData.maxWantedSpeed = nil
 	else
 		speedData.maxWantedSpeed = value
@@ -693,7 +695,7 @@ local function recordUnitDefAttribute(unitDefID, attribute, value, source, kind,
 	elseif entry.multiplyOnly and kind == "set" and value ~= nil then
 		refuse(attribute, "takes no set value")
 		return
-	elseif entry.unitOnly then
+	elseif entry.unitOnly or entry.state then
 		refuse(attribute, "takes no unitdef scope")
 		return
 	elseif

@@ -857,6 +857,7 @@ local function computeContent(uDefID, uID, shiftBool)
 
 		local defaultArmorDamage = damages[defaultArmorIndex] * damageFactor
 		local baseArmorDamage = damages[baseArmorIndex] * damageFactor
+		local modifierBase = damages[baseArmorIndex]
 
 		local custom = uWep.customParams
 
@@ -865,20 +866,24 @@ local function computeContent(uDefID, uID, shiftBool)
 		end
 
 		if custom.spark_forkdamage then
-			-- Sparks are hardcoded to target the default armor type:
-			local spDamage = defaultArmorDamage
+			-- Sparks are hardcoded to target the default armor type, and the gadget that fires them
+			-- reads its damage from the weapondef, so a unit's own factor never reaches them.
+			local spDamage = damages[defaultArmorIndex]
 			local spForkDamage = tonumber(custom.spark_forkdamage) or 0
 			local spCount = tonumber(custom.spark_maxunits) or 0
 			baseArmorDamage = baseArmorDamage + spDamage * spForkDamage * spCount
+			modifierBase = modifierBase + spDamage * spForkDamage * spCount
 		elseif custom.speceffect == "split" then
 			burst = burst * (custom.number or 1)
 			uWep = WeaponDefNames[custom.speceffect_def] or uWep
 			baseArmorDamage = defaultArmorDamage
+			modifierBase = damages[defaultArmorIndex]
 		elseif custom.cluster then
 			local munition = uDef.name .. "_" .. custom.cluster_def
 			local cmNumber = custom.cluster_number
 			local cmDamage = WeaponDefNames[munition].damages[defaultArmorIndex]
 			baseArmorDamage = baseArmorDamage + cmDamage * cmNumber
+			modifierBase = modifierBase + cmDamage * cmNumber
 		end
 
 		if range > 0 then
@@ -1013,7 +1018,8 @@ local function computeContent(uDefID, uID, shiftBool)
 				end
 				DrawText(texts.dmg .. ":", damageString)
 
-				local modifiers = { [defaultArmorDamage] = { armorTypes[defaultArmorIndex] } } -- [damage] = { armorClass1, armorClass2, ... }
+				local defaultArmorDef = damages[defaultArmorIndex]
+				local modifiers = { [defaultArmorDef] = { armorTypes[defaultArmorIndex] } } -- [damage] = { armorClass1, armorClass2, ... }
 
 				local indestructibleArmorIndex = armorTypes.indestructable
 				local shieldsArmorIndex = shieldsRework and armorTypes.shields -- TODO: shield damage display is bugged since incorporating the shieldsrework
@@ -1021,10 +1027,10 @@ local function computeContent(uDefID, uID, shiftBool)
 				for index = 0, #armorTypes do
 					if index ~= indestructibleArmorIndex and index ~= shieldsArmorIndex then
 						local armorName = armorTypes[index]
-						local armorDamage = damages[index] * damageFactor
+						local armorDamage = damages[index]
 						if not modifiers[armorDamage] then
 							modifiers[armorDamage] = { armorName }
-						elseif armorDamage ~= defaultArmorDamage then
+						elseif armorDamage ~= defaultArmorDef then
 							tableInsert(modifiers[armorDamage], armorName)
 						end
 					end
@@ -1032,21 +1038,21 @@ local function computeContent(uDefID, uID, shiftBool)
 
 				local sorted = {}
 				for k in pairs(modifiers) do
-					if k ~= defaultArmorDamage then
+					if k ~= defaultArmorDef then
 						tableInsert(sorted, k)
 					end
 				end
 				tableSort(sorted, descending)
 
 				local modifierText =
-					{ ("default = %s%d%%"):format(yellow, floor(100 * defaultArmorDamage / baseArmorDamage)) }
+					{ ("default = %s%d%%"):format(yellow, floor(100 * defaultArmorDef / modifierBase)) }
 				for _, armorDamage in ipairs(sorted) do
 					tableInsert(
 						modifierText,
 						("%s = %s%d%%"):format(
 							table.concat(modifiers[armorDamage], ", "),
 							yellow,
-							floor(100 * armorDamage / baseArmorDamage)
+							floor(100 * armorDamage / modifierBase)
 						)
 					)
 				end
