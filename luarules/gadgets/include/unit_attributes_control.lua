@@ -11,6 +11,10 @@
 -- Attributes themselves are typed, also, so a boolean state has no multipliers.
 -- It is up to attribute consumers to check the definitions for correct typing.
 --
+-- Most attributes override a unitdef property, so their baseline is that property and a `set` is
+-- a value in the unit's own terms. A `multiplyOnly` attribute has no such property behind it: its
+-- baseline is one, it composes as a plain product, and it takes no `set` at all.
+--
 -- Each named "source" keeps only one factor per-scope per-entry in that scope.
 -- A new value written to the same source and scope overrides any predecessors,
 -- regardless of type, so e.g. a source may replace a `multiply` with a `set`.
@@ -34,6 +38,7 @@ local spSetUnitMaxHealth = Spring.SetUnitMaxHealth
 local spSetUnitSensorRadius = Spring.SetUnitSensorRadius
 local spSetUnitMaxRange = Spring.SetUnitMaxRange
 local spSetUnitWeaponState = Spring.SetUnitWeaponState
+local spSetUnitWeaponDamages = Spring.SetUnitWeaponDamages
 local spSetUnitBuildSpeed = Spring.SetUnitBuildSpeed
 local spSetUnitCosts = Spring.SetUnitCosts
 local spSetUnitMass = Spring.SetUnitMass
@@ -70,12 +75,19 @@ local appliedValues = {} ---@type table<UnitID, table<string, any>?>
 local dirty = {} ---@type table<UnitID, table<string, true>?>
 local baseValues = {} ---@type table<UnitDefID, table<string, any>?>
 local baseWeapons = {} ---@type table<UnitDefID, WeaponBaseline[]?>
+local baseDamages = {} ---@type table<UnitDefID, table<integer, table<integer, number>>?>
 local sequence = 0
 
 -- Module internals ------------------------------------------------------------
 
 local function nonexistent(attribute)
 	Spring.Log("UnitAttributes", LOG.WARNING, "Attribute not found: " .. tostring(attribute))
+end
+
+-- Unlike a scope refusal, which is ordinary when a caller sweeps a mixed list of defs, a `set` on
+-- a multiply-only attribute is never right, so it is worth saying so every time.
+local function unsettable(attribute)
+	Spring.Log("UnitAttributes", LOG.WARNING, "Attribute takes no set value: " .. tostring(attribute))
 end
 
 -- The engine truncates to whole frames so the values we pass may be inexact.
@@ -263,6 +275,9 @@ local function getBaseline(unitDefID, attribute)
 		elseif prebuilt then
 			value = prebuilt[unitDefID] or nil
 			values[attribute] = value
+		elseif definitions[attribute].multiplyOnly then
+			value = 1
+			values[attribute] = value
 		end
 	end
 	return value
@@ -316,6 +331,47 @@ local function setMaxWeaponRange(unitID, value)
 	local factor = value / baseline
 	for index, weapon in ipairs(getWeaponBaselines(unitDefID)) do
 		spSetUnitWeaponState(unitID, index, "range", weapon.range * factor)
+	end
+end
+
+---Damage by armour class, per weapon, in the weapondef's own terms. A weapon that deals no
+---damage to anything is left out, which is how a `bogus` weapon excludes itself.
+---@return table<integer, table<integer, number>>
+local function getWeaponDamages(unitDefID)
+	local weapons = baseDamages[unitDefID]
+	if not weapons then
+		weapons = {}
+		for index, weapon in ipairs(UnitDefs[unitDefID].weapons or {}) do
+			local weaponDef = WeaponDefs[weapon.weaponDef]
+			local damages = weaponDef and weaponDef.damages
+			if damages then
+				local armorClasses, isArmed = {}, false
+				for armorClass, damage in pairs(damages) do
+					-- The same table carries impulse and crater keys, which are not ours to scale.
+					if type(armorClass) == "number" then
+						armorClasses[armorClass] = damage
+						isArmed = isArmed or damage ~= 0
+					end
+				end
+				if isArmed then
+					weapons[index] = armorClasses
+				end
+			end
+		end
+		baseDamages[unitDefID] = weapons
+	end
+	return weapons
+end
+
+-- Every weapon in the game carries the same armour classes, so one table refills for all of them.
+local damageScratch = {}
+
+local function setDamage(unitID, factor)
+	for weaponNum, damages in pairs(getWeaponDamages(spGetUnitDefID(unitID))) do
+		for armorClass, damage in pairs(damages) do
+			damageScratch[armorClass] = damage * factor
+		end
+		spSetUnitWeaponDamages(unitID, weaponNum, damageScratch)
 	end
 end
 
@@ -427,6 +483,7 @@ local applyUnitAttribute = {
 
 	maxWeaponRange = setMaxWeaponRange,
 	reloadTime = setReloadTime,
+	damage = setDamage,
 
 	experience = spSetUnitExperience,
 	cloaked = spSetUnitCloak,
@@ -633,6 +690,9 @@ local function recordUnitDefAttribute(unitDefID, attribute, value, source, kind,
 	if not entry then
 		nonexistent(attribute)
 		return
+	elseif entry.multiplyOnly and kind == "set" and value ~= nil then
+		unsettable(attribute)
+		return
 	elseif
 		entry.unitOnly
 		or (entry.mobileOnly and not moveTypeSetterByDef[unitDefID])
@@ -665,6 +725,9 @@ local function recordUnitAttribute(unitID, attribute, value, source, kind)
 		if kind == "set" and value ~= nil then
 			applyUnitAttribute[attribute](unitID, value)
 		end
+		return
+	elseif entry.multiplyOnly and kind == "set" and value ~= nil then
+		unsettable(attribute)
 		return
 	end
 

@@ -9,6 +9,7 @@
 ---@field builderOnly? boolean
 ---@field unitOnly? boolean
 ---@field state? boolean Will drop any `multiply` operations.
+---@field multiplyOnly? boolean Will drop any `set` operations. Its baseline is one.
 
 ---@type table<string, UnitAttributeDefinition>
 local definitions = {
@@ -40,6 +41,7 @@ local definitions = {
 	experience = { type = "number", nonNegative = true, unitOnly = true, state = true },
 	cloaked = { type = "boolean", unitOnly = true, state = true },
 	shieldMaxPower = { type = "number", nonNegative = true },
+	damage = { type = "number", nonNegative = true, multiplyOnly = true },
 }
 
 return {
