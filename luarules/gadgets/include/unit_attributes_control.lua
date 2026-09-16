@@ -162,7 +162,7 @@ local isEngageRangeConstant = table.map(UnitDefs, function(unitDef, unitDefID)
 	---@cast unitDef table
 	local engageRange = tonumber(unitDef.customParams.maxrange or 0) or 0
 	return (engageRange ~= 0 and engageRange < (unitDef.maxWeaponRange or 0))
-		or unitDef.customParams.nomaxrangexpscale ~= nil,
+		or unitDef.customParams.rangexpscale ~= nil,
 		unitDefID
 end) ---@as { UnitDefID : boolean? }
 
@@ -286,8 +286,6 @@ end
 ---@class WeaponBaseline The weapondef values an apply scales against, in seconds and elmos.
 ---@field range number
 ---@field reload number
----@field salvoSize integer Shots per burst. A beam without `beamburst` fires one.
----@field salvoTime number Duration of the burst, below which a shorter reload does nothing.
 
 ---@return WeaponBaseline[]
 local function getWeaponBaselines(unitDefID)
@@ -296,20 +294,9 @@ local function getWeaponBaselines(unitDefID)
 		weapons = {}
 		for index, weapon in ipairs(UnitDefs[unitDefID].weapons or {}) do
 			local weaponDef = WeaponDefs[weapon.weaponDef]
-			local salvoSize, salvoTime
-			if not weaponDef then
-				salvoSize, salvoTime = 1, 0
-			elseif weaponDef.type == "BeamLaser" and not weaponDef.beamburst then
-				-- The beam is continuous so its duration is the burst, however many shots it is.
-				salvoSize, salvoTime = 1, weaponDef.beamtime
-			else
-				salvoSize, salvoTime = weaponDef.salvoSize, weaponDef.salvoSize * weaponDef.salvoDelay
-			end
 			weapons[index] = {
 				range = weaponDef and weaponDef.range or 0,
 				reload = weaponDef and weaponDef.reload or 0,
-				salvoSize = salvoSize,
-				salvoTime = salvoTime,
 			}
 		end
 		baseWeapons[unitDefID] = weapons
@@ -437,11 +424,11 @@ local function setMaxSpeed(unitID, value)
 		return setMoveTypeData(unitID, speedData)
 	end
 
+	local baseline = getBaseline(spGetUnitDefID(unitID), "speed")
 	local moveTypeData = spGetUnitMoveTypeData(unitID)
 	local wanted = moveTypeData and moveTypeData.maxWantedSpeed
-	local current = moveTypeData and moveTypeData.maxSpeed
 	speedData.maxSpeed = value
-	if wanted == nil or current == nil or wanted >= current then
+	if wanted == nil or baseline == nil or wanted >= baseline then
 		speedData.maxWantedSpeed = value
 	else
 		speedData.maxWantedSpeed = nil
@@ -844,6 +831,20 @@ local function applyOnCreated(unitID, unitDefID)
 	end
 end
 
+---Forgets what was applied to a unit so the next flush writes it again instead of trusting it.
+---
+---`CUnit::AddExperience` recomputes `maxHealth` from the unitdef on every gain, so an override is
+---gone from the unit while the module still believes it is there, and the belief is what stops the
+---flush from writing it back.
+---@param unitID UnitID
+local function applyOnExperience(unitID)
+	local applied = appliedValues[unitID]
+	if applied and applied.maxHealth ~= nil then
+		setApplied(unitID, "maxHealth", nil)
+		markUnitDirty(unitID, "maxHealth")
+	end
+end
+
 ---@param unitID UnitID
 local function applyOnDestroyed(unitID)
 	unitFactors[unitID] = nil
@@ -944,6 +945,7 @@ return {
 	GetUnitAttributeValue = getUnitAttributeValue,
 
 	ApplyOnCreated = applyOnCreated,
+	ApplyOnExperience = applyOnExperience,
 	ApplyOnDestroyed = applyOnDestroyed,
 	ApplyOnGiven = applyOnGiven,
 	UpdateAll = updateAll,

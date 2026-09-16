@@ -39,6 +39,14 @@ function gadget:UnitCreated(unitID, unitDefID)
 	onCreated(unitID, unitDefID)
 end
 
+-- The attacker earns its experience immediately after this fires, and that rewrites its health.
+local onExperience = attributes.ApplyOnExperience
+function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weaponDefID, projectileID, attackerID)
+	if attackerID then
+		onExperience(attackerID)
+	end
+end
+
 local onDestroyed = attributes.ApplyOnDestroyed
 function gadget:UnitDestroyed(unitID)
 	onDestroyed(unitID)
