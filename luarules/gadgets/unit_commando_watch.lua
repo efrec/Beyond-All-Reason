@@ -82,17 +82,24 @@ function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
 	end
 end
 
+-- Keyed per passenger, so unloading one does not drop another passenger's factor.
+local function stealthSource(unitID)
+	return "from_transportee_:" .. unitID
+end
+
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
 	mines[unitID] = nil
+	if isStealthsTransport[unitDefID] then
+		-- A transportee killed in place is dropped without a UnitUnloaded, so nothing else clears this.
+		local transportID = Spring.GetUnitTransporter(unitID)
+		if transportID then
+			GG.UnitAttributes.SetUnitAttribute(transportID, "stealth", nil, stealthSource(unitID))
+		end
+	end
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 	mines[unitID] = nil
-end
-
--- So unloading the passenger releases the claim on the transport but does not remove the transport's stealth:
-local function stealthSource(unitID)
-	return "from_transportee_:" .. unitID
 end
 
 function gadget:UnitLoaded(unitID, unitDefID, unitTeam, transportID, transportTeam)
