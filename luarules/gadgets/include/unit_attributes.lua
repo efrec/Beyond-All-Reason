@@ -37,11 +37,11 @@ local definitions = {
 	seismicSignature = { type = "number", nonNegative = true },
 	tooltip = { type = "string" },
 	maxWeaponRange = { type = "number", nonNegative = true },
+	-- A time, so a multiply below one is a faster weapon and a multiply of zero is the fastest
+	-- one the engine allows rather than a disarm.
 	reloadTime = { type = "number", nonNegative = true },
 	experience = { type = "number", nonNegative = true, unitOnly = true, state = true },
 	cloaked = { type = "boolean", unitOnly = true, state = true },
-	-- A cap. PlasmaRepulser regenerates only below the weapondef's own power, so a value
-	-- at or above that is simply not binding.
 	-- A cap. PlasmaRepulser regenerates only below the weapondef's own power, so a value at or
 	-- above that is simply not binding.
 	shieldMaxPower = { type = "number", nonNegative = true },

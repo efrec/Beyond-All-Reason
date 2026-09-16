@@ -28,6 +28,7 @@ local math_round = math.round
 
 local spGetGameFrame = Spring.GetGameFrame
 local spGetUnitDefID = Spring.GetUnitDefID
+local spGetUnitHealth = Spring.GetUnitHealth
 local spGetUnitMoveTypeData = Spring.GetUnitMoveTypeData
 local spGetUnitTeam = Spring.GetUnitTeam
 local spGetUnitWeaponState = Spring.GetUnitWeaponState
@@ -109,6 +110,8 @@ local function callUnitScript(unitID, luaEnv, methodName, ...)
 		spCallCOBScript(unitID, methodName, 0, ...)
 	end
 end
+
+local applyOnExperience
 
 local reloadMethodByWeapon = setmetatable({}, {
 	__index = function(self, weaponNum)
@@ -413,6 +416,16 @@ local function setBuildSpeed(unitID, value)
 	)
 end
 
+-- The engine keeps a unit's damage fraction when it moves the cap, so a boost cannot heal and a
+-- reduction cannot wound. Without this a reduction and its release together cost the difference.
+local function setMaxHealth(unitID, value)
+	local health, maxHealth = spGetUnitHealth(unitID)
+	spSetUnitMaxHealth(unitID, value)
+	if health and maxHealth and maxHealth > 0 then
+		spSetUnitHealth(unitID, health * value / maxHealth)
+	end
+end
+
 local speedData = { maxSpeed = 0, maxWantedSpeed = 0 }
 
 -- See MobileCAI. The maxWantedSpeed is set per-order and changing it will break formation movement.
@@ -452,7 +465,7 @@ local applyUnitAttribute = {
 	jammerRadius = getSensorRadiusSetter("radarJammer"),
 	sonarJamRadius = getSensorRadiusSetter("sonarJammer"),
 	health = spSetUnitHealth,
-	maxHealth = spSetUnitMaxHealth,
+	maxHealth = setMaxHealth,
 	speed = setMaxSpeed,
 	maxWantedSpeed = getMoveTypeValueSetter("maxWantedSpeed"),
 	turnRate = getMoveTypeValueSetter("turnRate"),
@@ -472,7 +485,11 @@ local applyUnitAttribute = {
 	reloadTime = setReloadTime,
 	damage = setDamage,
 
-	experience = spSetUnitExperience,
+	-- Setting experience runs CUnit::AddExperience, which rewrites maxHealth from the unitdef.
+	experience = function(unitID, value)
+		spSetUnitExperience(unitID, value)
+		applyOnExperience(unitID)
+	end,
 	cloaked = spSetUnitCloak,
 
 	-- Only the shields gadget can hold a shield under its weapondef power, so it owns the write.
@@ -843,7 +860,7 @@ end
 ---gone from the unit while the module still believes it is there, and the belief is what stops the
 ---flush from writing it back.
 ---@param unitID UnitID
-local function applyOnExperience(unitID)
+function applyOnExperience(unitID)
 	local applied = appliedValues[unitID]
 	if applied and applied.maxHealth ~= nil then
 		setApplied(unitID, "maxHealth", nil)
