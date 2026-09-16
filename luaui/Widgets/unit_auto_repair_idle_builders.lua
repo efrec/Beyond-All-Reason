@@ -16,7 +16,6 @@ end
 -- Speedups
 ----------------------------------------------------------------
 local spGetMyTeamID = Spring.GetLocalTeamID
-local spGetTeamUnits = Spring.GetTeamUnits
 local spGetUnitTeam = Spring.GetUnitTeam
 local spGetUnitDefID = Spring.GetUnitDefID
 local spGetUnitPosition = Spring.GetUnitPosition
@@ -42,6 +41,10 @@ local CMD_WANT_CLOAK = GameCMD.WANT_CLOAK
 local ALLY_UNITS = Spring.ALLY_UNITS
 
 local CMD_OPT_INTERNAL = CMD.OPT_INTERNAL
+
+local SharedTeam = assert(BAR.Utilities.SharedTeam)
+local getUnitsToAutomate = SharedTeam.GetUnitsToAutomate
+local mayAutomate = SharedTeam.MayAutomate
 
 ----------------------------------------------------------------
 -- Constants
@@ -192,6 +195,28 @@ local function findAllyReclaimerOf(targetID)
 	end
 end
 
+local function clearActiveRepairs()
+	for builderID in pairs(activeRepairs) do
+		activeRepairs[builderID] = nil
+	end
+end
+
+local function trackIdleBuilders()
+	local units = getUnitsToAutomate()
+	for i = 1, #units do
+		local unitID = units[i]
+		if
+			isMobileBuilder[spGetUnitDefID(unitID)]
+			and not idleBuilders[unitID]
+			and not activeRepairs[unitID]
+			and spGetUnitCommandCount(unitID) == 0
+		then
+			local x, y, z = spGetUnitPosition(unitID)
+			idleBuilders[unitID] = { homeX = x, homeY = y, homeZ = z }
+		end
+	end
+end
+
 ----------------------------------------------------------------
 -- Setup / teardown
 ----------------------------------------------------------------
@@ -209,22 +234,12 @@ function widget:Initialize()
 	end
 
 	activeRepairs = table.ensureTable(WG, "InIdleWorkerTask")
-
-	for _, unitID in ipairs(spGetTeamUnits(myTeam)) do
-		local unitDefID = spGetUnitDefID(unitID)
-		if isMobileBuilder[unitDefID] and spGetUnitCommandCount(unitID) == 0 then
-			local x, y, z = spGetUnitPosition(unitID)
-			idleBuilders[unitID] = { homeX = x, homeY = y, homeZ = z }
-		end
-	end
+	trackIdleBuilders()
 end
 
 function widget:Shutdown()
-	for unitID in pairs(WG.InIdleWorkerTask) do
-		WG.InIdleWorkerTask[unitID] = nil
-	end
+	clearActiveRepairs()
 	idleBuilders = {}
-	activeRepairs = {}
 	reclaimBlacklist = {}
 	activeReclaimers = {}
 end
@@ -235,16 +250,10 @@ function widget:PlayerChanged()
 		return
 	end
 
+	clearActiveRepairs()
 	idleBuilders = {}
-	activeRepairs = {}
 	activeReclaimers = {}
-	for _, unitID in ipairs(spGetTeamUnits(myTeam)) do
-		local unitDefID = spGetUnitDefID(unitID)
-		if isMobileBuilder[unitDefID] and spGetUnitCommandCount(unitID) == 0 then
-			local x, y, z = spGetUnitPosition(unitID)
-			idleBuilders[unitID] = { homeX = x, homeY = y, homeZ = z }
-		end
-	end
+	trackIdleBuilders()
 end
 
 ----------------------------------------------------------------
@@ -256,7 +265,7 @@ function widget:UnitIdle(unitID, unitDefID, unitTeam)
 	end
 
 	onReclaimerStopped(unitID)
-	if not isMobileBuilder[unitDefID] then
+	if not isMobileBuilder[unitDefID] or not mayAutomate(unitID) then
 		return
 	end
 
@@ -266,7 +275,7 @@ function widget:UnitIdle(unitID, unitDefID, unitTeam)
 end
 
 function widget:MetaUnitAdded(unitID, unitDefID, unitTeam)
-	if spGetUnitIsDead(unitID) or unitTeam ~= myTeam or not isMobileBuilder[unitDefID] then
+	if spGetUnitIsDead(unitID) or unitTeam ~= myTeam or not isMobileBuilder[unitDefID] or not mayAutomate(unitID) then
 		return
 	end
 
@@ -354,7 +363,7 @@ function widget:GameFrame(frame)
 	for builderID, info in pairs(activeRepairs) do
 		local cloakState = spGetUnitRulesParam(builderID, "wantcloak")
 		local wantsCloak = (cloakState and cloakState == 1)
-		if not isUnitAlive(builderID) then
+		if not isUnitAlive(builderID) or not mayAutomate(builderID) then
 			activeRepairs[builderID] = nil
 		elseif not isUnitAlive(info.targetID) or reclaimBlacklist[info.targetID] or wantsCloak then
 			sendHome(builderID, info)
@@ -384,13 +393,15 @@ function widget:GameFrame(frame)
 		end
 	end
 
+	trackIdleBuilders()
+
 	-- Assign idle builders to repair targets
 	for builderID, homePos in pairs(idleBuilders) do
 		local cloakState = spGetUnitRulesParam(builderID, "wantcloak")
 		local wantsCloak = (cloakState and cloakState == 1)
 		if activeRepairs[builderID] then
 			-- Already assigned (shouldn't happen but guard against it)
-		elseif not isUnitAlive(builderID) then
+		elseif not isUnitAlive(builderID) or not mayAutomate(builderID) then
 			idleBuilders[builderID] = nil
 		elseif wantsCloak then
 			-- It's still idle but wantscloak, so don't assign a target
