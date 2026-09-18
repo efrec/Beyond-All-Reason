@@ -39,15 +39,32 @@ local math_min = math.min
 
 local spGetUnitIsDead = Spring.GetUnitIsDead
 local spGetUnitPosition = Spring.GetUnitPosition
-local spGetUnitCommands = Spring.GetUnitCommands
 local spGetGroundHeight = Spring.GetGroundHeight
 local spGetGroundNormal = Spring.GetGroundNormal
 local spGetMoveTypeData = Spring.GetUnitMoveTypeData
 local spSetGroundMoveTypeData = Spring.MoveCtrl.SetGroundMoveTypeData
 local spGiveOrderArrayToUnit = Spring.GiveOrderArrayToUnit
+local giveInsertOrderToUnit = Game.Commands.GiveInsertOrderToUnit
+local spValidUnitID = Spring.ValidUnitID
+local spGetUnitCommandCount = Spring.GetUnitCommandCount
+local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
+local CallAsTeam = CallAsTeam
 
 local CMD_MOVE = CMD.MOVE
+local CMD_FIGHT = CMD.FIGHT
+local CMD_PATROL = CMD.PATROL
+local CMD_ATTACK = CMD.ATTACK
+local CMD_GUARD = CMD.GUARD
 local CMD_OPT_SHIFT = CMD.OPT_SHIFT
+local CMD_OPT_ALT = CMD.OPT_ALT
+
+local routedOrders = {
+	[CMD_MOVE] = CMD_MOVE,
+	[CMD_FIGHT] = CMD_FIGHT,
+	[CMD_PATROL] = CMD_PATROL,
+	[CMD_ATTACK] = CMD_MOVE,
+	[CMD_GUARD] = CMD_MOVE,
+}
 
 local SM_CLASS_HOVER = 2
 local SM_CLASS_SHIP = 3
@@ -89,6 +106,7 @@ for defID, ud in pairs(UnitDefs) do
 			maxSlope = moveDef and moveDef.maxSlope or 0,
 			slopeMod = moveDef and moveDef.slopeMod or 0,
 			width = moveDef and moveDef.xsize * 8 or 0,
+			range = ud.maxWeaponRange or 0,
 			routeCosts = {},
 		}
 	end
@@ -480,19 +498,56 @@ local function routeWaypoints(unitData, sx, sz, gx, gz)
 	return waypoints
 end
 
----A queued order starts where the order before it ends, if that one has a position.
-local function positionAfterLastCommand(unitID, queued)
-	if queued then
-		local commands = spGetUnitCommands(unitID, -1)
-		for i = #commands, 1, -1 do
-			local params = commands[i].params
-			if #params >= 3 then
-				return params[1], params[3]
-			end
+local readAs = { read = -1 }
+
+local function readAsTeam(teamID, ...)
+	readAs.read = teamID or -1
+	return CallAsTeam(readAs, ...)
+end
+
+---@return number? x
+---@return number? z
+local function orderTarget(cmdID, teamID, p1, p2, p3)
+	if not routedOrders[cmdID] then
+		return
+	end
+	if p3 then
+		return p1, p3
+	end
+	if p1 and not p2 and spValidUnitID(p1) then
+		local x, _, z = readAsTeam(teamID, spGetUnitPosition, p1)
+		return x, z
+	end
+end
+
+---An order starts where the queued order before it ends (approximately).
+local function positionAfterCommand(unitID, teamID, index)
+	for i = index, 1, -1 do
+		local cmdID, _, _, p1, p2, p3 = spGetUnitCurrentCommand(unitID, i)
+		local x, z = orderTarget(cmdID, teamID, p1, p2, p3)
+		if x then
+			return x, z
 		end
 	end
 	local x, _, z = spGetUnitPosition(unitID)
 	return x, z
+end
+
+local function insertIndex(unitID, count, cmdTag, fromInsert)
+	if fromInsert.alt then
+		local index = cmdTag
+		if index < 0 then
+			index = index + count + 1
+		end
+		return math_clamp(index, 0, count)
+	end
+	-- Why did you do this to me:
+	for i = 1, math_min(count, 4) do
+		local _, _, tag = spGetUnitCurrentCommand(unitID, i)
+		if tag == cmdTag then
+			return i - 1 + (fromInsert.right and 1 or 0)
+		end
+	end
 end
 
 -- Engine callins
@@ -519,38 +574,72 @@ function gadget:AllowCommand(
 	cmdTag,
 	playerID,
 	fromSynced,
-	fromLua
+	fromLua,
+	fromInsert
 )
-	-- Accepts only CMD.MOVE.
-	if rerouting or #cmdParams < 3 or cmdOpts.meta then
+	if rerouting then
 		return true
 	end
 	local unitData = unitDefData[unitDefID]
 	if not unitData or not unitData.moveClass then
 		return true
 	end
+	local gx, gz = orderTarget(cmdID, unitTeam, cmdParams[1], cmdParams[2], cmdParams[3])
+	if not gx then
+		return true
+	end
 
-	-- Not handling any fancy inserts yet:
-	local sx, sz = positionAfterLastCommand(unitID, cmdOpts.shift)
+	local count = spGetUnitCommandCount(unitID)
+	local insertAt
+	if fromInsert then
+		insertAt = insertIndex(unitID, count, cmdTag, fromInsert)
+		if not insertAt then
+			return true
+		end
+	end
+	local sx, sz = positionAfterCommand(unitID, unitTeam, insertAt or (cmdOpts.shift and count or 0))
 	if not sx then
 		return true
 	end
-	local waypoints = routeWaypoints(unitData, sx, sz, cmdParams[1], cmdParams[3])
+	local waypoints = routeWaypoints(unitData, sx, sz, gx, gz)
 	if not waypoints then
 		return true
 	end
 
-	local firstOptions = cmdOpts.coded
-	local laterOptions = firstOptions + (cmdOpts.shift and 0 or CMD_OPT_SHIFT)
+	if cmdID == CMD_ATTACK then
+		local reach = unitData.range
+		while #waypoints > 0 do
+			local last = waypoints[#waypoints]
+			if math_sqrt((last[1] - gx) ^ 2 + (last[2] - gz) ^ 2) > reach then
+				break
+			end
+			waypoints[#waypoints] = nil
+		end
+		if #waypoints == 0 then
+			return true
+		end
+	end
+
+	local waypointOrder = routedOrders[cmdID]
 	local orders = {}
 	for i = 1, #waypoints do
 		local x, z = waypoints[i][1], waypoints[i][2]
-		orders[i] = { CMD_MOVE, { x, spGetGroundHeight(x, z), z }, i == 1 and firstOptions or laterOptions }
+		orders[i] = { waypointOrder, { x, spGetGroundHeight(x, z), z } }
 	end
-	orders[#orders + 1] = { CMD_MOVE, cmdParams, laterOptions }
+	orders[#orders + 1] = { cmdID, cmdParams }
 
 	rerouting = true
-	spGiveOrderArrayToUnit(unitID, orders)
+	if insertAt then
+		for i = 1, #orders do
+			giveInsertOrderToUnit(unitID, orders[i][1], orders[i][2], cmdOpts, insertAt + i - 1, CMD_OPT_ALT)
+		end
+	else
+		local laterOptions = cmdOpts.coded + (cmdOpts.shift and 0 or CMD_OPT_SHIFT)
+		for i = 1, #orders do
+			orders[i][3] = i == 1 and cmdOpts.coded or laterOptions
+		end
+		spGiveOrderArrayToUnit(unitID, orders)
+	end
 	rerouting = false
 
 	return false
@@ -602,7 +691,9 @@ function gadget:Initialize()
 		return
 	end
 
-	gadgetHandler:RegisterAllowCommand(CMD_MOVE)
+	for cmdID in pairs(routedOrders) do
+		gadgetHandler:RegisterAllowCommand(cmdID)
+	end
 
 	local unitFinished = gadget.UnitFinished
 	for _, unitID in ipairs(Spring.GetAllUnits()) do
