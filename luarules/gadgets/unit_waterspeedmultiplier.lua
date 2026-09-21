@@ -24,58 +24,90 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
--- Configuration
+-- Configuration ---------------------------------------------------------------
 
-local depthUpdateRate = 0.2500 ---@type number in seconds | for units with speeds variable by water depth
-local watchUpdateRate = 0.5000 ---@type number in seconds | slow watch interval for variable-speed units
+local depthUpdateRate = 0.2500 ---@type number # in seconds | for units with speeds variable by water depth
+local watchUpdateRate = 0.5000 ---@type number # in seconds | slow watch interval for variable-speed units
 
--- Globals
+local searchCellSize = 64 ---@type number # in elmos | side of a coarse planning cell
+local routePassabilityStep = 32 ---@type number # in elmos | sampling interval when a path is checked vs the direct line
+local burstClusterSize = 4 ---@type integer # in cells | orders whose goals share a square this wide form one burst
+local searchBudgetSlice = 360 ---@type integer # in expansions per frame | provisional, fixed by the synthetic tests
+local burstBudgetTotal = 1600 ---@type integer # in expansions per burst | provisional, fixed by the synthetic tests
+local routeUnitBudget = 20 ---@type integer # in units per frame | provisional, fixed by the synthetic tests
+local burstAgeMax = 5.0 ---@type number # in seconds | a burst older than this is dropped unplanned
+local routeQueueMax = 10 ---@type integer # in bursts | new bursts are dropped while this many wait
+local routeCooldown = 20.0 ---@type number # in seconds | the same order is not planned again sooner than this
+local routeBiasWeight = 1.5 ---@type number # above 1 closes a burst's field sooner at some loss of route quality
 
-local math_clamp = math.clamp
+-- Globals ---------------------------------------------------------------------
+
+local table_remove = table.remove
+
+local math_abs = math.abs
 local math_floor = math.floor
+local math_ceil = math.ceil
 local math_sqrt = math.sqrt
 local math_max = math.max
 local math_min = math.min
+local math_clamp = math.clamp
+local math_huge = math.huge
 
 local spGetUnitIsDead = Spring.GetUnitIsDead
 local spGetUnitPosition = Spring.GetUnitPosition
-local spGetUnitCommands = Spring.GetUnitCommands
+local spGetUnitTeam = Spring.GetUnitTeam
 local spGetGroundHeight = Spring.GetGroundHeight
 local spGetGroundNormal = Spring.GetGroundNormal
 local spGetMoveTypeData = Spring.GetUnitMoveTypeData
 local spSetGroundMoveTypeData = Spring.MoveCtrl.SetGroundMoveTypeData
-local spGiveOrderArrayToUnit = Spring.GiveOrderArrayToUnit
+local spGiveOrderToUnit = Spring.GiveOrderToUnit
+local spGetUnitCommandCount = Spring.GetUnitCommandCount
+local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
+local spTestMoveOrder = Spring.TestMoveOrder
+local spGetGameFrame = Spring.GetGameFrame
+local CallAsTeam = CallAsTeam
 
+local CMD_INSERT = CMD.INSERT
 local CMD_MOVE = CMD.MOVE
-local CMD_OPT_SHIFT = CMD.OPT_SHIFT
+local CMD_FIGHT = CMD.FIGHT
+local CMD_PATROL = CMD.PATROL
+local CMD_ATTACK = CMD.ATTACK
+local CMD_GUARD = CMD.GUARD
 
-local SM_CLASS_HOVER = 2
-local SM_CLASS_SHIP = 3
+local routedOrders = {
+	[CMD_MOVE] = CMD_MOVE,
+	[CMD_FIGHT] = CMD_FIGHT,
+	[CMD_PATROL] = CMD_FIGHT,
+	[CMD_ATTACK] = CMD_MOVE,
+	[CMD_GUARD] = CMD_MOVE,
+	-- TODO: various other orders, probably
+}
 
--- Setup
+local SMCLASS_HOVER = 2
+local SMCLASS_SHIP = 3
+
+-- Setup -----------------------------------------------------------------------
 
 local unitDefData = {}
-
-local function canHaveGroundMoveType(unitDef)
-	-- I think you are not supposed to be able to set a moveDef on air or immobile units,
-	-- but I think you can MoveCtrl.Enable, then MoveCtrl.SetMoveDef, to get around this.
-	return true -- so, lol
-end
 
 for defID, ud in pairs(UnitDefs) do
 	local params = ud.customParams
 
-	local speedFactorInWater = tonumber(params.speedfactorinwater or 1) or 1
-	local speedFactorAtDepth = math.abs(params.speedfactoratdepth and tonumber(params.speedfactoratdepth) or 0) * -1
+	local speedFactorInWater = tonumber(params.speedfactorinwater or 1.0) or 1.0
+	local speedFactorAtDepth = math_abs(params.speedfactoratdepth and tonumber(params.speedfactoratdepth) or 0.0) * -1
 
-	if speedFactorInWater ~= 1 and canHaveGroundMoveType(ud) then
+	if ud.moveDef and ud.moveDef.smClass and speedFactorInWater ~= 1.0 then
 		if speedFactorAtDepth > -1 then
 			speedFactorAtDepth = 0
 		end
 
 		local moveDef = ud.moveDef
+		local maxSlope = moveDef.maxSlope or 0
+		local slopeMod = moveDef.slopeMod or 0
+		local speedFactorMax = math_max(1, speedFactorInWater)
 
 		unitDefData[defID] = {
+			defID = defID,
 			speedFactorInWater = speedFactorInWater,
 			speedFactorAtDepth = speedFactorAtDepth,
 
@@ -85,19 +117,22 @@ for defID, ud in pairs(UnitDefs) do
 			dec = ud.maxDec,
 
 			moveClass = moveDef and moveDef.smClass,
-			moveDepth = moveDef and moveDef.depth or 0,
-			maxSlope = moveDef and moveDef.maxSlope or 0,
-			slopeMod = moveDef and moveDef.slopeMod or 0,
-			width = moveDef and moveDef.xsize * 8 or 0,
-			routeCosts = {},
+			moveDepth = moveDef and moveDef.depth or 0.0,
+			maxSlope = maxSlope,
+			slopeMod = slopeMod,
+			speedFactorMax = speedFactorMax,
+			worst = speedFactorMax * (1 + maxSlope * slopeMod),
+			range = ud.maxWeaponRange or 0.0,
+			routeStride = math_max(1, math_floor(moveDef and moveDef.xsize * 4 / routePassabilityStep or 1)), -- Retests every move-footprint-width.
+			halfWidth = moveDef and moveDef.xsize * 4 or 0.0,
 		}
 	end
 end
 
 local unitDepthSlowUpdate = {}
 local unitDepthFastUpdate = {}
-local slowUpdateFrames = math.round(watchUpdateRate * Game.gameSpeed)
-local fastUpdateFrames = math.round(depthUpdateRate * Game.gameSpeed)
+local slowUpdateFrames = math.round(watchUpdateRate * Game.gameSpeed, 0)
+local fastUpdateFrames = math.round(depthUpdateRate * Game.gameSpeed, 0)
 
 ---@type GroundMoveType
 local moveTypeData = {
@@ -108,27 +143,79 @@ local moveTypeData = {
 	decRate = 0,
 }
 
-local squareSize = Game.squareSize or 8.0
-do
-	local narrowest = math.huge
-	for _, unitData in pairs(unitDefData) do
-		if unitData.moveClass and unitData.width > 0 then
-			narrowest = math_min(narrowest, unitData.width)
-		end
-	end
-	if narrowest < math.huge then
-		squareSize = 2 ^ math_floor(math.log(narrowest) / math.log(2))
-	end
-end
-local gridCols = math.ceil(Game.mapSizeX / squareSize)
-local gridRows = math.ceil(Game.mapSizeZ / squareSize)
-local cellGround = {}
-local cellSlope = {}
+local cellSize = searchCellSize
+local gridCols = math_ceil(Game.mapSizeX / cellSize)
+local gridRows = math_ceil(Game.mapSizeZ / cellSize)
+local cellCount = gridCols * gridRows
+local clusterCols = math_ceil(gridCols / burstClusterSize)
+local sampleOffset = cellSize * 3 / 8 -- could be in config
 
-local routeMemo = {}
+local GROUND_BIAS = 1024
+local GROUND_SPAN = 4096
+local SLOPE_SCALE = 254
+local SLOPE_UNKNOWN = 255
+
+local terrainCode = {}
+local waterDistance = {}
+local fieldCost = {}
+local fieldParent = {}
+local fieldStamp = {}
+local startStamp = {}
+local heapPos = {}
+local heapIndex = {}
+local heapScore = {}
+local heapSize = 0
+
+local burstAgeFrames = math_floor(burstAgeMax * Game.gameSpeed)
+local cooldownFrames = math_floor(routeCooldown * Game.gameSpeed)
+
+local generation = 0
+local refreshTick = 0
+local unsettled = 0
+local boxMinCol, boxMaxCol, boxMinRow, boxMaxRow = 0, 0, 0, 0 ---@type number, number, number, number
+
+---@class RouteJob
+---@field unitID integer
+---@field gx number
+---@field gz number
+---@field goalIndex integer
+---@field dropped boolean
+---@field path integer[]|false
+
+---@class RouteBurst
+---@field key number
+---@field unitData table
+---@field frame integer
+---@field jobs RouteJob[]
+---@field started boolean
+---@field source integer
+---@field bound number
+---@field expansions integer
+---@field next integer
+
+local openBursts = {} ---@type table<integer, RouteBurst>
+local openList = {} ---@type RouteBurst[]
+local searchQueue = {} ---@type RouteBurst[]
+local rerouteQueue = {} ---@type RouteBurst[]
+local unitJob = {} ---@type table<UnitID, RouteJob>
+local plannedTag = {}
+local plannedFrame = {}
+local plannedX = {}
+local plannedZ = {}
+local plannedWaypoints = {}
 local rerouting = false
 
--- Local functions
+local stats = {
+	rejected = 0,
+	recorded = 0,
+	bursts = 0,
+	expansions = 0,
+	verified = 0,
+	inserted = 0,
+	dropped = 0,
+}
+
+-- Local functions -------------------------------------------------------------
 
 -- applies a multiplicative factor to a unit's base movement stats: speed, wanted speed, turn rate, accel, decel
 -- The base stats come from UnitDefs and are scaled proportionally
@@ -164,8 +251,8 @@ local function getUnitDepth(unitID)
 	return x and spGetGroundHeight(x, z) or 0
 end
 
----@return number factor The unit class's speed at this ground height relative to its land speed.
-local function factorAtElevation(unitData, ground)
+---@return number factor
+local function speedFactorAtGroundHeight(unitData, ground)
 	if ground >= 0 then
 		return 1
 	end
@@ -177,7 +264,7 @@ local function factorAtElevation(unitData, ground)
 end
 
 local function applySpeed(unitID, unitData, factor)
-	setMoveTypeData(unitID, unitData, factor or factorAtElevation(unitData, getUnitDepth(unitID)))
+	setMoveTypeData(unitID, unitData, factor or speedFactorAtGroundHeight(unitData, getUnitDepth(unitID)))
 end
 
 local function slowUpdate()
@@ -217,168 +304,444 @@ end
 -- Water routing ---------------------------------------------------------------
 -- We do some A* pathing in here so obligatory: -- TODO: move into a new module.
 
-local function cellGroundAt(index)
-	local ground = cellGround[index]
-	if ground then
-		return ground, cellSlope[index]
-	end
-	local half, quarter = squareSize / 2, squareSize / 4
-	local x = (index % gridCols) * squareSize + half
-	local z = math_floor(index / gridCols) * squareSize + half
-	ground = math_max(
-		spGetGroundHeight(x, z),
-		spGetGroundHeight(x - quarter, z - quarter),
-		spGetGroundHeight(x + quarter, z - quarter),
-		spGetGroundHeight(x - quarter, z + quarter),
-		spGetGroundHeight(x + quarter, z + quarter)
-	)
-	local _, _, _, slope = spGetGroundNormal(x, z)
-	cellGround[index] = ground
-	cellSlope[index] = slope or 0
-	return ground, cellSlope[index]
+---Grid cells are coarse and rolled into a compact sequence for fast accesses.
+local function posToCell(x, z)
+	return (
+		math_clamp(math_floor(z / cellSize), 0, gridRows - 1) * gridCols
+		+ math_clamp(math_floor(x / cellSize), 0, gridCols - 1)
+		+ 1
+	) ---@as integer
 end
 
----Time per elmo relative to the class's fastest medium. The cheapest cell costs 1.
-local function cellCost(unitData, index)
-	local costs = unitData.routeCosts
-	local cost = costs[index]
-	if cost ~= nil then
-		return cost
+---Position returned is the exact center so may not match the seeded position.
+local function cellToPos(index)
+	return ((index - 1) % gridCols) * cellSize + cellSize / 2,
+		math_floor((index - 1) / gridCols) * cellSize + cellSize / 2
+end
+
+---@return number ground
+---@return number slope
+local function cellTerrain(index)
+	-- This is data packing. Five heights and five slopes, take highest and steepest, packed to coded integer.
+	-- Maps can be massive and very many orders can be given. Try to produce a near-constant memory footprint.
+	local code = terrainCode[index] or 0
+
+	local groundInt = code % GROUND_SPAN
+	local slopeBucket = (code - groundInt) / GROUND_SPAN
+
+	if code == 0 then
+		local x, z = cellToPos(index)
+		local o = sampleOffset
+		local ground = math_max(
+			spGetGroundHeight(x, z),
+			spGetGroundHeight(x - o, z - o),
+			spGetGroundHeight(x + o, z - o),
+			spGetGroundHeight(x - o, z + o),
+			spGetGroundHeight(x + o, z + o)
+		)
+		groundInt = math_clamp(math_floor(ground + GROUND_BIAS), 1, GROUND_SPAN - 1) ---@as integer
+		slopeBucket = SLOPE_UNKNOWN
+		terrainCode[index] = slopeBucket * GROUND_SPAN + groundInt
 	end
-	local ground, slope = cellGroundAt(index)
-	local top = math_max(1, unitData.speedFactorInWater)
+
+	local ground = groundInt - GROUND_BIAS
+	if slopeBucket == SLOPE_UNKNOWN then
+		if ground < 0 then
+			return ground, 0
+		end
+		local x, z = cellToPos(index)
+		local o = sampleOffset
+		local _, _, _, s1 = spGetGroundNormal(x, z)
+		local _, _, _, s2 = spGetGroundNormal(x - o, z - o)
+		local _, _, _, s3 = spGetGroundNormal(x + o, z - o)
+		local _, _, _, s4 = spGetGroundNormal(x - o, z + o)
+		local _, _, _, s5 = spGetGroundNormal(x + o, z + o)
+		local slope = math_max(s1 or 0, s2 or 0, s3 or 0, s4 or 0, s5 or 0)
+		slopeBucket = math_clamp(math_floor(slope * SLOPE_SCALE + 0.5), 0, SLOPE_SCALE)
+		terrainCode[index] = slopeBucket * GROUND_SPAN + groundInt
+	end
+
+	return ground, slopeBucket / SLOPE_SCALE
+end
+
+---Time-cost per elmo traveled relative to the unit's fastest terrain, so the cheapest cell costs 1.0.
+---
+---Needs some work to cover a couple more cases. Fine for the use case of water speed > ground speeds.
+---@return number|false cost `false` when impassible
+local function terrainCost(unitData, ground, slope)
+	local speedFactorMax = unitData.speedFactorMax
 	local class = unitData.moveClass
+
 	if ground < 0 then
-		if class == SM_CLASS_SHIP then
-			cost = -ground >= unitData.moveDepth and top / factorAtElevation(unitData, ground) or false
-		elseif class == SM_CLASS_HOVER or -ground <= unitData.moveDepth then
-			cost = top / factorAtElevation(unitData, ground)
+		if class == SMCLASS_SHIP then
+			return -ground >= unitData.moveDepth and speedFactorMax / speedFactorAtGroundHeight(unitData, ground)
+				or false
+		elseif class == SMCLASS_HOVER or -ground <= unitData.moveDepth then
+			return speedFactorMax / speedFactorAtGroundHeight(unitData, ground)
 		else
-			cost = false
+			return false
 		end
 	else
-		if class == SM_CLASS_SHIP or slope > unitData.maxSlope then
-			cost = false
+		if class == SMCLASS_SHIP or slope > unitData.maxSlope then
+			return false
 		else
-			cost = top * (1 + slope * unitData.slopeMod)
+			return speedFactorMax * (1 + slope * unitData.slopeMod)
 		end
 	end
-	costs[index] = cost
-	return cost
 end
 
----Impassable cells get the worst-possible cost, same as how the engine reroutes.
----@return number
-local function segmentCost(unitData, ax, az, bx, bz)
+local function cellCost(unitData, index)
+	local ground, slope = cellTerrain(index)
+	return terrainCost(unitData, ground, slope)
+end
+
+---@return number cost
+---@return integer samples
+local function coarseLineCost(unitData, ax, az, bx, bz)
+	local worst = unitData.worst -- For impassable cells, same way the engine handles them.
 	local dx, dz = bx - ax, bz - az
-	local length = math_sqrt(dx * dx + dz * dz)
-	local steps = math_max(1, math.ceil(length / (squareSize / 2)))
-	local worst = math_max(1, unitData.speedFactorInWater) * (1 + unitData.maxSlope * unitData.slopeMod)
-	local total = 0
+	local distance = math_sqrt(dx * dx + dz * dz)
+	local steps = math_max(1, math_ceil(distance / (cellSize / 2)))
+	local total = 0.0
 	for i = 0, steps do
 		local t = i / steps
-		local col = math_clamp(math_floor((ax + dx * t) / squareSize), 0, gridCols - 1)
-		local row = math_clamp(math_floor((az + dz * t) / squareSize), 0, gridRows - 1)
-		local cost = cellCost(unitData, row * gridCols + col) or worst
-		total = total + cost * ((i == 0 or i == steps) and 0.5 or 1)
+		local cost = cellCost(unitData, posToCell(ax + dx * t, az + dz * t)) or worst
+		total = total + cost * ((i == 0 or i == steps) and 0.5 or 1.0)
 	end
-	return total * (length / steps)
+	return total * (distance / steps), steps
 end
 
-local openIndex = {}
-local openScore = {}
+---A pessimistic cost over the worst ground in a band as wide as the unit footprint.
+---The footprint may not be able to traverse some costed cells, tested on "strides".
+---@return number cost
+local function fineLineCost(unitData, ax, az, bx, bz)
+	local defID = unitData.defID
+	local worst = unitData.worst -- For impassable cells, same way the engine handles them.
+	local routeStride = unitData.routeStride
+	local halfWidth = unitData.halfWidth
+	local dx, dz = bx - ax, bz - az
 
-local function heapPush(index, score)
-	local n = #openIndex + 1
-	openIndex[n], openScore[n] = index, score
+	local distance = math_sqrt(dx * dx + dz * dz)
+	local steps = math_max(1, math_ceil(distance / routePassabilityStep))
+	local px, pz = -dz / distance * halfWidth, dx / distance * halfWidth
+
+	local passable = true
+	local total = 0.0
+
+	for i = 0, steps do
+		local t = i / steps
+		local x, z = ax + dx * t, az + dz * t
+		local ground =
+			math_max(spGetGroundHeight(x, z), spGetGroundHeight(x + px, z + pz), spGetGroundHeight(x - px, z - pz))
+		if i % routeStride == 0 then
+			passable = spTestMoveOrder(defID, x, ground, z, 0, 0, 0, true, false, false)
+		end
+		local cost = worst
+		if passable then
+			local slope = 0.0 ---@type number
+			if ground >= 0.0 then
+				local _, _, _, s1 = spGetGroundNormal(x, z)
+				local _, _, _, s2 = spGetGroundNormal(x + px, z + pz)
+				local _, _, _, s3 = spGetGroundNormal(x - px, z - pz)
+				slope = math_max(s1 or 0.0, s2 or 0.0, s3 or 0.0)
+			end
+			cost = terrainCost(unitData, ground, slope) or worst
+		end
+		total = total + cost * ((i == 0 or i == steps) and 0.5 or 1.0)
+	end
+
+	return total * (distance / steps)
+end
+
+local function heapUp(n, index, score)
 	while n > 1 do
 		local parent = math_floor(n / 2)
-		if openScore[parent] <= score then
+		local parentScore = heapScore[parent]
+		if parentScore <= score then
 			break
 		end
-		openIndex[n], openScore[n] = openIndex[parent], openScore[parent]
-		openIndex[parent], openScore[parent] = index, score
+		local parentIndex = heapIndex[parent]
+		heapIndex[n], heapScore[n] = parentIndex, parentScore
+		heapPos[parentIndex] = n
 		n = parent
 	end
+	heapIndex[n], heapScore[n] = index, score
+	heapPos[index] = n
 end
 
 local function heapPop()
-	local n = #openIndex
-	local index, score = openIndex[1], openScore[1]
-	openIndex[1], openScore[1] = openIndex[n], openScore[n]
-	openIndex[n], openScore[n] = nil, nil
-	n = n - 1
-	local i = 1
-	while true do
-		local left, right = i * 2, i * 2 + 1
-		local smallest = i
-		if left <= n and openScore[left] < openScore[smallest] then
-			smallest = left
+	local index = heapIndex[1]
+	heapPos[index] = 0
+	local n = heapSize
+	heapSize = n - 1
+	if n > 1 then
+		local lastIndex, lastScore = heapIndex[n], heapScore[n]
+		n = n - 1
+		local i = 1
+		while true do
+			local child = i * 2
+			if child > n then
+				break
+			end
+			local childScore = heapScore[child]
+			if child < n and heapScore[child + 1] < childScore then
+				child = child + 1
+				childScore = heapScore[child]
+			end
+			if childScore >= lastScore then
+				break
+			end
+			local childIndex = heapIndex[child]
+			heapIndex[i], heapScore[i] = childIndex, childScore
+			heapPos[childIndex] = i
+			i = child
 		end
-		if right <= n and openScore[right] < openScore[smallest] then
-			smallest = right
-		end
-		if smallest == i then
-			break
-		end
-		openIndex[i], openScore[i], openIndex[smallest], openScore[smallest] =
-			openIndex[smallest], openScore[smallest], openIndex[i], openScore[i]
-		i = smallest
+		heapIndex[i], heapScore[i] = lastIndex, lastScore
+		heapPos[lastIndex] = i
 	end
-	return index, score
+	return index
 end
 
+---Maximum relative length of the eight-connected path to the straight line path.
+local octileSlack = math_sqrt(4 - 2 * math_sqrt(2))
 local neighbourCol = { 1, -1, 0, 0, 1, 1, -1, -1 }
 local neighbourRow = { 0, 0, 1, -1, 1, -1, 1, -1 }
-local neighbourLength = { 1, 1, 1, 1, math_sqrt(2), math_sqrt(2), math_sqrt(2), math_sqrt(2) }
+local neighbourHalfLength = {
+	cellSize / 2,
+	cellSize / 2,
+	cellSize / 2,
+	cellSize / 2,
+	math_sqrt(2) * cellSize / 2,
+	math_sqrt(2) * cellSize / 2,
+	math_sqrt(2) * cellSize / 2,
+	math_sqrt(2) * cellSize / 2,
+}
 
----A* over the cells, bounded by the cost of the direct order, so the search
----is confined to the ellipse where an improvement _can_ exist to begin with.
----@return integer[]? path Cell indices from start to goal (or nil)
----@return number cost
-local function searchRoute(unitData, startIndex, goalIndex, bound)
-	local goalCol, goalRow = goalIndex % gridCols, math_floor(goalIndex / gridCols)
-
-	local gScore = { [startIndex] = 0 }
-	local cameFrom = {}
-	local closed = {}
-	for i = #openIndex, 1, -1 do
-		openIndex[i], openScore[i] = nil, nil
-	end
-	heapPush(startIndex, 0)
-
-	while #openIndex > 0 do
-		local index = heapPop()
-		if index == goalIndex then
-			local path = {}
-			while index do
-				path[#path + 1] = index
-				index = cameFrom[index]
-			end
-			for i = 1, math_floor(#path / 2) do
-				path[i], path[#path + 1 - i] = path[#path + 1 - i], path[i]
-			end
-			return path, gScore[goalIndex]
+---Cell count to the nearest water in steps, over eight neighbours, from every cell with any water in it.
+---This populates a heap storage with neighbors to give a fast, light cache for finding water approaches.
+local function populateWaterDistances()
+	local o = sampleOffset
+	local queued = 0
+	for index = 1, cellCount do
+		local x, z = cellToPos(index)
+		local h1 = spGetGroundHeight(x, z)
+		local h2 = spGetGroundHeight(x - o, z - o)
+		local h3 = spGetGroundHeight(x + o, z - o)
+		local h4 = spGetGroundHeight(x - o, z + o)
+		local h5 = spGetGroundHeight(x + o, z + o)
+		local ground = math_max(h1, h2, h3, h4, h5)
+		terrainCode[index] = SLOPE_UNKNOWN * GROUND_SPAN
+			+ math_clamp(math_floor(ground + GROUND_BIAS), 1, GROUND_SPAN - 1)
+		if math_min(h1, h2, h3, h4, h5) < 0 then
+			waterDistance[index] = 0
+			queued = queued + 1
+			heapIndex[queued] = index
+		else
+			waterDistance[index] = cellCount
 		end
-		if not closed[index] then
-			closed[index] = true
-			local col, row = index % gridCols, math_floor(index / gridCols)
-			local here = cellCost(unitData, index) or 0
-			for n = 1, 8 do
-				---@diagnostic disable-next-line: need-check-nil -- OK: range is 1..8
-				local ncol, nrow = col + neighbourCol[n], row + neighbourRow[n]
-				if ncol >= 0 and ncol < gridCols and nrow >= 0 and nrow < gridRows then
-					local nindex = nrow * gridCols + ncol
-					local there = cellCost(unitData, nindex)
-					if there and not closed[nindex] then
-						local tentative = gScore[index] + neighbourLength[n] * squareSize * (here + there) / 2
-						if tentative < (gScore[nindex] or math.huge) then
-							local hx, hz = (goalCol - ncol) * squareSize, (goalRow - nrow) * squareSize
-							local estimate = tentative + math_sqrt(hx * hx + hz * hz)
-							if estimate < bound then
-								gScore[nindex] = tentative
-								cameFrom[nindex] = index
-								heapPush(nindex, estimate)
+	end
+
+	local head = 1
+	while head <= queued do
+		local index = heapIndex[head]
+		head = head + 1
+		local distance = waterDistance[index] + 1
+		local col, row = (index - 1) % gridCols, math_floor((index - 1) / gridCols)
+		for n = 1, 8 do
+			---@diagnostic disable-next-line: need-check-nil -- OK: range is 1..8
+			local ncol, nrow = col + neighbourCol[n], row + neighbourRow[n]
+			if ncol >= 0 and ncol < gridCols and nrow >= 0 and nrow < gridRows then
+				local nindex = nrow * gridCols + ncol + 1
+				if waterDistance[nindex] > distance then
+					waterDistance[nindex] = distance
+					queued = queued + 1
+					heapIndex[queued] = nindex
+				end
+			end
+		end
+	end
+end
+
+---A water reroute pays land costs at both ends to reach water, so when those two
+---distances alone cover the direct distance, nothing can be gained via planning.
+---
+---This is, importantly, a constant-time operation to bound the reroute job cost.
+local function mayGainFromWater(unitData, sx, sz, gx, gz)
+	local dx, dz = gx - sx, gz - sz
+	local direct = math_sqrt(dx * dx + dz * dz)
+	if direct < 2 * cellSize then
+		return false
+	end
+	local goalIndex = posToCell(gx, gz)
+	local goalGround = spGetGroundHeight(gx, gz)
+	local goalSlope = 0.0
+	if goalGround >= 0 then
+		local _, _, _, slope = spGetGroundNormal(gx, gz)
+		goalSlope = slope or 0.0
+	end
+	if not terrainCost(unitData, goalGround, goalSlope) then
+		return false
+	end
+	local land = waterDistance[posToCell(sx, sz)] + waterDistance[goalIndex] - 2
+	return land * cellSize < direct
+end
+
+local function gridDistance(col, row)
+	local dx = math_max(boxMinCol - col, col - boxMaxCol, 0)
+	local dz = math_max(boxMinRow - row, row - boxMaxRow, 0)
+	return math_sqrt(dx * dx + dz * dz) * cellSize
+end
+
+local function isClosed(index)
+	return fieldStamp[index] == generation and heapPos[index] == 0
+end
+
+---Since reroutes are deferred/planned, the unit can move immediately along the engine's pathing.
+---We refresh the job when reaching the unit to update its route, beginning with its start cells.
+local function refreshStarts(burst)
+	refreshTick = refreshTick + 1
+	unsettled = 0
+	boxMinCol, boxMaxCol, boxMinRow, boxMaxRow = gridCols, -1, gridRows, -1
+	local jobs = burst.jobs
+	for i = 1, #jobs do
+		local job = jobs[i]
+		if job.dropped then
+			-- TODO: remove dropped jobs before here? or just let them clean up with the burst?
+			-- TODO: how hard is reusing the pool, more or less, mid-burst?
+			-- continue
+		else
+			local x, _, z = spGetUnitPosition(job.unitID)
+			if not x then
+				job.dropped = true
+			else
+				local index = posToCell(x, z)
+				if not isClosed(index) and startStamp[index] ~= refreshTick then
+					startStamp[index] = refreshTick
+					unsettled = unsettled + 1
+					local col, row = (index - 1) % gridCols, math_floor((index - 1) / gridCols)
+					boxMinCol, boxMaxCol = math_min(boxMinCol, col), math_max(boxMaxCol, col)
+					boxMinRow, boxMaxRow = math_min(boxMinRow, row), math_max(boxMaxRow, row)
+				end
+			end
+		end
+	end
+end
+
+---@return integer? samples Count of coarse samples spent, or nil for no job.
+local function startSearch(burst)
+	local jobs = burst.jobs
+	local unitData = burst.unitData
+	local count, meanX, meanZ = 0, 0.0, 0.0
+	for i = 1, #jobs do
+		local job = jobs[i]
+		if not job.dropped then
+			count = count + 1
+			meanX, meanZ = meanX + job.gx, meanZ + job.gz
+		end
+	end
+	if count == 0 then
+		return nil
+	end
+	meanX, meanZ = meanX / count, meanZ / count -- bursts search once via centroid
+
+	local source, nearest = 0, math_huge
+	local bound, samples = 0.0, 0
+	for i = 1, #jobs do
+		local job = jobs[i]
+		if not job.dropped then
+			local x, _, z = spGetUnitPosition(job.unitID)
+			if not x then
+				job.dropped = true
+			else
+				local away = (job.gx - meanX) ^ 2 + (job.gz - meanZ) ^ 2
+				if away < nearest then
+					source, nearest = job.goalIndex, away
+				end
+				local direct, steps = coarseLineCost(unitData, x, z, job.gx, job.gz)
+				samples = samples + steps
+				bound = math_max(bound, direct)
+			end
+		end
+	end
+	if source == 0 then
+		return nil
+	end
+
+	generation = generation + 1
+	heapSize = 1
+	fieldCost[source] = 0
+	fieldParent[source] = 0
+	fieldStamp[source] = generation
+	heapUp(1, source, 0)
+
+	burst.source = source
+	burst.bound = bound * octileSlack + cellSize
+	burst.expansions = 0
+	burst.started = true
+	return samples
+end
+
+---Increases the search region and sums the burst's costs until the search exhausts,
+---the field outgrows the immediate per-frame budget, or the total budget runs out.
+---@return boolean done
+local function searchSlice(burst, budget)
+	if not burst.started then
+		local samples = startSearch(burst)
+		if not samples then
+			return true
+		end
+		budget = budget - samples
+	end
+
+	refreshStarts(burst)
+	if unsettled == 0 then
+		return true
+	end
+
+	local unitData = burst.unitData
+	local bound = burst.bound
+	local expansions = burst.expansions
+	local before = expansions
+	local limit = math_min(expansions + budget, burstBudgetTotal) ---@as integer
+	local weight = routeBiasWeight -- extra added costs
+
+	while heapSize > 0 and expansions < limit do
+		expansions = expansions + 1
+		local index = heapPop()
+		if startStamp[index] == refreshTick then
+			unsettled = unsettled - 1
+			if unsettled == 0 then
+				break
+			end
+		end
+
+		---@diagnostic disable-next-line: need-check-nil -- OK: really is never nil
+		local sliceCost = fieldCost[index]
+		local cost = cellCost(unitData, index) or unitData.worst
+		local col, row = (index - 1) % gridCols, math_floor((index - 1) / gridCols)
+		for n = 1, 8 do
+			---@diagnostic disable-next-line: need-check-nil -- OK: range is 1..8
+			local ncol, nrow = col + neighbourCol[n], row + neighbourRow[n]
+			if ncol >= 0 and ncol < gridCols and nrow >= 0 and nrow < gridRows then
+				local nindex = nrow * gridCols + ncol + 1
+				local updated = fieldStamp[nindex] == generation
+				if not updated or heapPos[nindex] > 0 then
+					local neighborCost = cellCost(unitData, nindex)
+					if neighborCost then
+						---@diagnostic disable-next-line: need-check-nil -- OK: range is 1..8
+						local tentative = sliceCost + neighbourHalfLength[n] * (cost + neighborCost)
+						if not updated or tentative < fieldCost[nindex] then
+							local h = gridDistance(ncol, nrow)
+							if tentative + h <= bound then
+								fieldCost[nindex] = tentative
+								fieldParent[nindex] = index
+								if updated then
+									heapUp(heapPos[nindex], nindex, tentative + weight * h)
+								else
+									fieldStamp[nindex] = generation
+									heapSize = heapSize + 1
+									heapUp(heapSize, nindex, tentative + weight * h)
+								end
 							end
 						end
 					end
@@ -386,21 +749,52 @@ local function searchRoute(unitData, startIndex, goalIndex, bound)
 			end
 		end
 	end
-	return nil, math.huge
+
+	burst.expansions = expansions
+	stats.expansions = stats.expansions + (expansions - before) ---@as integer
+	return unsettled == 0 or heapSize == 0 or expansions >= burstBudgetTotal
 end
 
-local function center(index)
-	return (index % gridCols) * squareSize + squareSize / 2, math_floor(index / gridCols) * squareSize + squareSize / 2
+---Copies each completed job's chain out of the shared field so the next burst can reuse it.
+local function finishSearch(burst)
+	local jobs = burst.jobs
+	local any = false
+	for i = 1, #jobs do
+		local job = jobs[i]
+		if not job.dropped then
+			local x, _, z = spGetUnitPosition(job.unitID)
+			local index = x and posToCell(x, z)
+			if index and isClosed(index) then
+				local path = {}
+				while index ~= 0 do
+					path[#path + 1] = index
+					index = fieldParent[index]
+				end
+				job.path = path
+				any = true
+			else
+				job.dropped = true
+				stats.dropped = stats.dropped + 1
+			end
+		end
+	end
+	if any then
+		burst.next = 1
+		rerouteQueue[#rerouteQueue + 1] = burst
+	end
 end
 
----Corners are the furthest point a straight segment reaches for a given cost.
-local function pullWaypoints(unitData, path, sx, sz, gx, gz)
+---@return number[][] waypoints
+local function getWaypoints(unitData, path, sx, sz, gx, gz)
+	-- Build a path in a straight line and take its segment costs.
 	local costTo = { [1] = 0.0 }
 	for i = 2, #path do
-		local ax, az = center(path[i - 1])
-		local bx, bz = center(path[i])
-		costTo[i] = costTo[i - 1] + segmentCost(unitData, ax, az, bx, bz)
+		local ax, az = cellToPos(path[i - 1])
+		local bx, bz = cellToPos(path[i])
+		costTo[i] = costTo[i - 1] + coarseLineCost(unitData, ax, az, bx, bz)
 	end
+
+	-- Corners are the furthest point a straight segment reaches for a given cost.
 	local corners = {}
 	for i = 2, #path - 1 do
 		if path[i] - path[i - 1] ~= path[i + 1] - path[i] then
@@ -409,93 +803,275 @@ local function pullWaypoints(unitData, path, sx, sz, gx, gz)
 	end
 	corners[#corners + 1] = #path
 
-	local waypoints = {}
+	local waypoints = {} ---@type number[][]
 	local anchorX, anchorZ = sx, sz
-	local anchorAt = 1
-	local first = 1
-	while anchorAt < #path do
-		local chosen
-		for j = #corners, first, -1 do
-			local at = corners[j]
-			if at > anchorAt then
-				local px, pz = center(path[at])
-				if at == #path then
+	local anchorIndex = 1
+	local firstIndex = 1
+	while anchorIndex < #path do
+		local best
+		for j = #corners, firstIndex, -1 do
+			local index = corners[j]
+			if index > anchorIndex then
+				local px, pz = cellToPos(path[index])
+				if index == #path then
 					px, pz = gx, gz
 				end
-				local straight = segmentCost(unitData, anchorX, anchorZ, px, pz)
-				if straight <= costTo[at] - costTo[anchorAt] + squareSize then
-					chosen = j
+				local costStraight = coarseLineCost(unitData, anchorX, anchorZ, px, pz)
+				if costStraight <= costTo[index] - costTo[anchorIndex] + cellSize then
+					best = j
 					break
 				end
 			end
 		end
-		if not chosen then
-			chosen = first
-			while corners[chosen] <= anchorAt do
-				chosen = chosen + 1
+		if not best then
+			best = firstIndex
+			while corners[best] <= anchorIndex do
+				best = best + 1
 			end
 		end
-		anchorAt = corners[chosen]
-		first = chosen + 1
-		if anchorAt < #path then
-			anchorX, anchorZ = center(path[anchorAt])
+		anchorIndex = corners[best]
+		firstIndex = best + 1
+		if anchorIndex < #path then
+			anchorX, anchorZ = cellToPos(path[anchorIndex])
 			waypoints[#waypoints + 1] = { anchorX, anchorZ }
 		end
 	end
 	return waypoints
 end
 
----@return table[]|false waypoints Positions to visit before the goal (or `false` when not rerouting)
-local function routeWaypoints(unitData, sx, sz, gx, gz)
-	local startIndex = math_clamp(math_floor(sz / squareSize), 0, gridRows - 1) * gridCols
-		+ math_clamp(math_floor(sx / squareSize), 0, gridCols - 1)
-	local goalIndex = math_clamp(math_floor(gz / squareSize), 0, gridRows - 1) * gridCols
-		+ math_clamp(math_floor(gx / squareSize), 0, gridCols - 1)
-	if startIndex == goalIndex then
+local readAs = { read = -1 }
+local function readAsTeam(teamID, ...)
+	readAs.read = teamID or -1
+	return CallAsTeam(readAs, ...)
+end
+
+---@return number? x
+---@return number? z
+local function getOrderTargetPosition(cmdID, teamID, p1, p2, p3)
+	if not routedOrders[cmdID] then
+		return
+	end
+	if p3 then
+		return p1, p3 -- TODO: not always right, there are other command shapes
+	end
+	if p1 and not p2 then
+		local x, _, z = readAsTeam(teamID, spGetUnitPosition, p1)
+		return x, z
+	end
+end
+
+---Planning is done when the front command is the one recorded for the job (or an indistinguishable one).
+---Deferred planning means the unit can have updates, new commands, a new queue, etc, so check all of it.
+---@return boolean planned
+local function planUnitRoute(burst, job, frame)
+	local unitData = burst.unitData
+	if frame - burst.frame > burstAgeFrames then
+		stats.dropped = stats.dropped + 1
 		return false
 	end
 
-	local key = unitData.routeCosts
-	local memo = routeMemo[key]
-	if not memo then
-		memo = {}
-		routeMemo[key] = memo
-	end
-	local memoKey = startIndex * gridCols * gridRows + goalIndex
-	local known = memo[memoKey]
-	if known ~= nil then
-		return known
+	local path, goalID, unitID = job.path, job.goalIndex, job.unitID
+	if not path or spGetUnitIsDead(unitID) ~= false then
+		return false
 	end
 
-	local direct = segmentCost(unitData, sx, sz, gx, gz)
-	local path = searchRoute(unitData, startIndex, goalIndex, direct - squareSize)
-	local waypoints = false ---@as false|table
-	if path then
-		waypoints = pullWaypoints(unitData, path, sx, sz, gx, gz)
-		if #waypoints == 0 then
-			waypoints = false
+	local cmdID, cmdOpts, cmdTag, p1, p2, p3 = spGetUnitCurrentCommand(unitID)
+	if not cmdID or not p1 then
+		return false
+	end
+	local gx, gz = getOrderTargetPosition(cmdID, spGetUnitTeam(unitID), p1, p2, p3)
+	if not gx or not gz then
+		return false
+	end
+
+	local goalIndex = posToCell(gx, gz)
+	local goalCol, goalRow = (goalIndex - 1) % gridCols, math_floor((goalIndex - 1) / gridCols)
+	local jobCol, jobRow = (goalID - 1) % gridCols, math_floor((goalID - 1) / gridCols)
+	if math_abs(goalCol - jobCol) > 1 or math_abs(goalRow - jobRow) > 1 then
+		return false
+	end
+
+	local sx, _, sz = spGetUnitPosition(unitID)
+	local waypoints = getWaypoints(unitData, path, sx, sz, gx, gz)
+
+	-- ATTACK is Recoil's most special boy and causes no end of headache everywhere he goes.
+	-- Remove waypoints from the end so a target that approaches the unit won't slip you by.
+	if cmdID == CMD_ATTACK then
+		local reach = unitData.range + 200 -- 200 from leash states and generally seems fine
+		while #waypoints > 0 do
+			local last = waypoints[#waypoints]
+			if math_sqrt((last[1] - gx) ^ 2 + (last[2] - gz) ^ 2) > reach then
+				break
+			end
+			waypoints[#waypoints] = nil
 		end
 	end
-	memo[memoKey] = waypoints
-	return waypoints
+	if #waypoints == 0 then
+		return false
+	end
+
+	local routeCost = 0.0
+	local ax, az = sx, sz
+	for i = 1, #waypoints do
+		local wx, wz = waypoints[i][1], waypoints[i][2]
+		routeCost = routeCost + fineLineCost(unitData, ax, az, wx, wz)
+		ax, az = wx, wz
+	end
+	routeCost = routeCost + fineLineCost(unitData, ax, az, gx, gz)
+	stats.verified = stats.verified + 1
+	if routeCost + cellSize > fineLineCost(unitData, sx, sz, gx, gz) then
+		return false
+	end
+
+	local waypointOrder = routedOrders[cmdID]
+	local planned = {}
+	rerouting = true
+	for i = 1, #waypoints do
+		local x, z = waypoints[i][1], waypoints[i][2]
+		spGiveOrderToUnit(unitID, CMD_INSERT, { cmdTag, waypointOrder, cmdOpts, x, spGetGroundHeight(x, z), z }, 0)
+		planned[#planned + 1] = x
+		planned[#planned + 1] = z
+	end
+	rerouting = false
+	plannedTag[unitID] = cmdTag
+	plannedFrame[unitID] = frame
+	plannedX[unitID] = gx
+	plannedZ[unitID] = gz
+	plannedWaypoints[unitID] = planned
+	stats.inserted = stats.inserted + 1
+	return true
 end
 
----A queued order starts where the order before it ends, if that one has a position.
-local function positionAfterLastCommand(unitID, queued)
-	if queued then
-		local commands = spGetUnitCommands(unitID, -1)
-		for i = #commands, 1, -1 do
-			local params = commands[i].params
-			if #params >= 3 then
-				return params[1], params[3]
+---Check if a completed command was (very likely) a planned one. Perfection isn't needed here.
+local function isPlannedWaypoint(unitID, p1, p3)
+	local planned = plannedWaypoints[unitID]
+	if not planned or not p3 then
+		return false
+	end
+	for i = 1, #planned, 2 do
+		if math_abs(planned[i] - p1) < 0.5 and math_abs(planned[i + 1] - p3) < 0.5 then
+			return true
+		end
+	end
+	return false
+end
+
+local function addRerouteJob(unitID, unitData, gx, gz, frame)
+	local previous = unitJob[unitID]
+	if previous then
+		previous.dropped = true
+	end
+
+	local goalIndex = posToCell(gx, gz)
+	local cluster = math_floor(math_floor((goalIndex - 1) / gridCols) / burstClusterSize) * clusterCols
+		+ math_floor(((goalIndex - 1) % gridCols) / burstClusterSize)
+	local hash = cluster * 65536 + unitData.defID -- unique per unitDefID, clusterID
+	local burst = openBursts[hash]
+	if not burst then
+		if #openList + #searchQueue + #rerouteQueue >= routeQueueMax then
+			stats.dropped = stats.dropped + 1
+			return
+		end
+		burst = {
+			key = hash,
+			unitData = unitData,
+			frame = frame,
+			jobs = {},
+			started = false,
+			source = 0,
+			bound = 0,
+			expansions = 0,
+			next = 0,
+		}
+		openBursts[hash] = burst
+		openList[#openList + 1] = burst
+		stats.bursts = stats.bursts + 1
+	end
+
+	local job = { unitID = unitID, gx = gx, gz = gz, goalIndex = goalIndex, dropped = false, path = false } ---@type RouteJob
+	burst.jobs[#burst.jobs + 1] = job
+	unitJob[unitID] = job
+	stats.recorded = stats.recorded + 1
+end
+
+---All constant-time evaluation up to this point, with bounded time to accept or reject plans.
+local function tryAddRouting(unitID, unitData, unitTeam, cmdID, p1, p2, p3)
+	local gx, gz = getOrderTargetPosition(cmdID, unitTeam, p1, p2, p3)
+	if not gx or not gz then
+		return
+	end
+	local sx, _, sz = spGetUnitPosition(unitID)
+	if not sx then
+		return
+	end
+	if mayGainFromWater(unitData, sx, sz, gx, gz) then
+		addRerouteJob(unitID, unitData, gx, gz, spGetGameFrame())
+	else
+		stats.rejected = stats.rejected + 1
+	end
+end
+
+local function removeUnit(unitID)
+	local job = unitJob[unitID]
+	if job then
+		job.dropped = true
+		unitJob[unitID] = nil
+	end
+	plannedTag[unitID] = nil
+	plannedFrame[unitID] = nil
+	plannedX[unitID] = nil
+	plannedZ[unitID] = nil
+	plannedWaypoints[unitID] = nil
+end
+
+local function closeBursts()
+	for _, burst in ipairs(openList) do
+		openBursts[burst.key] = nil
+		searchQueue[#searchQueue + 1] = burst
+	end
+	for i = #openList, 1, -1 do
+		openList[i] = nil
+	end
+end
+
+local function runSearch(frame)
+	local burst = searchQueue[1]
+	if not burst then
+		return
+	end
+	if frame - burst.frame > burstAgeFrames then
+		table_remove(searchQueue, 1)
+		stats.dropped = stats.dropped + 1
+		return
+	end
+	if searchSlice(burst, searchBudgetSlice) then
+		table_remove(searchQueue, 1)
+		finishSearch(burst)
+	end
+end
+
+local function runReroute(frame)
+	local burst = rerouteQueue[1]
+	local planned = 0
+	while burst and planned < routeUnitBudget do
+		local job = burst.jobs[burst.next]
+		if not job then
+			table_remove(rerouteQueue, 1)
+			burst = rerouteQueue[1]
+		else
+			burst.next = burst.next + 1
+			if not job.dropped then
+				planUnitRoute(burst, job, frame)
+				planned = planned + 1
+			end
+			if unitJob[job.unitID] == job then
+				unitJob[job.unitID] = nil
 			end
 		end
 	end
-	local x, _, z = spGetUnitPosition(unitID)
-	return x, z
 end
 
--- Engine callins
+-- Engine callins --------------------------------------------------------------
 
 function gadget:GameFrame(frame)
 	if frame % slowUpdateFrames == 0 then
@@ -504,56 +1080,10 @@ function gadget:GameFrame(frame)
 	if frame % fastUpdateFrames == 0 then
 		fastUpdate()
 	end
-	if next(routeMemo) then
-		routeMemo = {}
-	end
-end
 
-function gadget:AllowCommand(
-	unitID,
-	unitDefID,
-	unitTeam,
-	cmdID,
-	cmdParams,
-	cmdOpts,
-	cmdTag,
-	playerID,
-	fromSynced,
-	fromLua
-)
-	-- Accepts only CMD.MOVE.
-	if rerouting or #cmdParams < 3 or cmdOpts.meta then
-		return true
-	end
-	local unitData = unitDefData[unitDefID]
-	if not unitData or not unitData.moveClass then
-		return true
-	end
-
-	-- Not handling any fancy inserts yet:
-	local sx, sz = positionAfterLastCommand(unitID, cmdOpts.shift)
-	if not sx then
-		return true
-	end
-	local waypoints = routeWaypoints(unitData, sx, sz, cmdParams[1], cmdParams[3])
-	if not waypoints then
-		return true
-	end
-
-	local firstOptions = cmdOpts.coded
-	local laterOptions = firstOptions + (cmdOpts.shift and 0 or CMD_OPT_SHIFT)
-	local orders = {}
-	for i = 1, #waypoints do
-		local x, z = waypoints[i][1], waypoints[i][2]
-		orders[i] = { CMD_MOVE, { x, spGetGroundHeight(x, z), z }, i == 1 and firstOptions or laterOptions }
-	end
-	orders[#orders + 1] = { CMD_MOVE, cmdParams, laterOptions }
-
-	rerouting = true
-	spGiveOrderArrayToUnit(unitID, orders)
-	rerouting = false
-
-	return false
+	closeBursts()
+	runSearch(frame)
+	runReroute(frame)
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
@@ -571,6 +1101,11 @@ end
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam)
 	unitDepthSlowUpdate[unitID] = nil
 	unitDepthFastUpdate[unitID] = nil
+	removeUnit(unitID)
+end
+
+function gadget:UnitTaken(unitID, unitDefID, unitTeam, newTeam)
+	removeUnit(unitID)
 end
 
 function gadget:UnitEnteredWater(unitID, unitDefID, unitTeam)
@@ -596,13 +1131,120 @@ function gadget:UnitLeftWater(unitID, unitDefID, unitTeam)
 	end
 end
 
+function gadget:AllowCommand(
+	unitID,
+	unitDefID,
+	unitTeam,
+	cmdID,
+	cmdParams,
+	cmdOpts,
+	cmdTag,
+	playerID,
+	fromSynced,
+	fromLua,
+	fromInsert
+)
+	if rerouting then
+		return true
+	end
+	local unitData = unitDefData[unitDefID]
+	if not unitData or not routedOrders[cmdID] then
+		return true
+	end
+
+	local isFirstCommand
+	if fromInsert then
+		if spGetUnitCommandCount(unitID) == 0 then
+			isFirstCommand = true
+		elseif fromInsert.alt then
+			isFirstCommand = cmdTag == 0
+		else
+			local _, _, inTag = spGetUnitCurrentCommand(unitID)
+			isFirstCommand = inTag == cmdTag and not fromInsert.right
+		end
+	else
+		isFirstCommand = not cmdOpts.shift or spGetUnitCommandCount(unitID) == 0
+	end
+	if isFirstCommand then
+		tryAddRouting(unitID, unitData, unitTeam, cmdID, cmdParams[1], cmdParams[2], cmdParams[3])
+	end
+	return true
+end
+
+function gadget:UnitCmdDone(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOpts, cmdTag)
+	if rerouting then
+		return
+	end
+	local unitData = unitDefData[unitDefID]
+	if not unitData then
+		return
+	end
+	local inCommand, _, inTag, p1, p2, p3 = spGetUnitCurrentCommand(unitID)
+	-- An insert to the front passes the displaced command as the done command while it is still first.
+	if not inCommand or inTag == cmdTag or not routedOrders[inCommand] then
+		return
+	end
+	if inTag == plannedTag[unitID] then
+		local gx, gz = getOrderTargetPosition(inCommand, unitTeam, p1, p2, p3)
+		if not gx or not gz then
+			return
+		end
+		local moved = math_abs(gx - plannedX[unitID]) > cellSize or math_abs(gz - plannedZ[unitID]) > cellSize
+		if not moved or spGetGameFrame() - plannedFrame[unitID] < cooldownFrames then
+			return
+		end
+	end
+	if isPlannedWaypoint(unitID, p1, p3) then
+		return
+	end
+	tryAddRouting(unitID, unitData, unitTeam, inCommand, p1, p2, p3)
+end
+
+function gadget:TerraformComplete(unitID, unitDefID, unitTeam, buildUnitID, buildUnitDefID, buildUnitTeam)
+	local x, _, z = spGetUnitPosition(buildUnitID)
+	local buildDef = UnitDefs[buildUnitDefID]
+	if not x or not buildDef then
+		return false
+	end
+	local halfX, halfZ = buildDef.xsize * 4 + cellSize, buildDef.zsize * 4 + cellSize
+	local colMin = math_clamp(math_floor((x - halfX) / cellSize), 0, gridCols - 1)
+	local colMax = math_clamp(math_floor((x + halfX) / cellSize), 0, gridCols - 1)
+	local rowMin = math_clamp(math_floor((z - halfZ) / cellSize), 0, gridRows - 1)
+	local rowMax = math_clamp(math_floor((z + halfZ) / cellSize), 0, gridRows - 1)
+	for row = rowMin, rowMax do
+		for col = colMin, colMax do
+			terrainCode[row * gridCols + col + 1] = 0
+		end
+	end
+	return false
+end
+
 function gadget:Initialize()
 	if not next(unitDefData) then
 		gadgetHandler:RemoveGadget()
 		return
 	end
 
-	gadgetHandler:RegisterAllowCommand(CMD_MOVE)
+	for i = 1, cellCount do
+		terrainCode[i] = 0
+		waterDistance[i] = 0
+		fieldCost[i] = 0
+		fieldParent[i] = 0
+		fieldStamp[i] = 0
+		startStamp[i] = 0
+		heapPos[i] = 0
+		heapIndex[i] = 0
+		heapScore[i] = 0
+	end
+	populateWaterDistances()
+	GG.WaterRoutingStats = stats
+
+	-- The engine sets two orders on Patrol routes that we can only track through UnitCmdDone.
+	for cmdID in pairs(routedOrders) do
+		if cmdID ~= CMD_PATROL then
+			gadgetHandler:RegisterAllowCommand(cmdID)
+		end
+	end
 
 	local unitFinished = gadget.UnitFinished
 	for _, unitID in ipairs(Spring.GetAllUnits()) do
