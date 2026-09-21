@@ -44,3 +44,12 @@ function gadget:UnitUnloaded(uID, uDefID, tID, transID)
 		GG.UnitAttributes.SetUnitAttribute(uID, "stealth", nil, stealthSource(transID))
 	end
 end
+
+function gadget:Initialize()
+	for _, unitID in ipairs(Spring.GetAllUnits()) do
+		local transportID = Spring.GetUnitTransporter(unitID)
+		if transportID then
+			gadget:UnitLoaded(unitID, spGetUnitDefID(unitID), nil, transportID)
+		end
+	end
+end

@@ -8,7 +8,8 @@
 ---@field mobileOnly? boolean
 ---@field builderOnly? boolean
 ---@field unitOnly? boolean
----@field state? boolean Will drop any `multiply` operations.
+---@field multiplyOnly? boolean Its baseline value is always 1.0. Will drop any `set` operations.
+---@field isUnitState? boolean Written straight through to the unit. Drops any `multiply` and any unitdef scope.
 
 ---@type table<string, UnitAttributeDefinition>
 local definitions = {
@@ -19,7 +20,7 @@ local definitions = {
 	seismicRadius = { type = "number", nonNegative = true },
 	jammerRadius = { type = "number", nonNegative = true },
 	sonarJamRadius = { type = "number", nonNegative = true },
-	health = { type = "number", unitOnly = true, state = true },
+	health = { type = "number", unitOnly = true, isUnitState = true },
 	maxHealth = { type = "number", nonNegative = true },
 	speed = { type = "number", nonNegative = true, mobileOnly = true },
 	maxWantedSpeed = { type = "number", nonNegative = true, mobileOnly = true },
@@ -37,8 +38,10 @@ local definitions = {
 	tooltip = { type = "string" },
 	maxWeaponRange = { type = "number", nonNegative = true },
 	reloadTime = { type = "number", nonNegative = true },
-	experience = { type = "number", nonNegative = true, unitOnly = true, state = true },
-	cloaked = { type = "boolean", unitOnly = true, state = true },
+	experience = { type = "number", nonNegative = true, unitOnly = true, isUnitState = true },
+	cloaked = { type = "boolean", unitOnly = true, isUnitState = true },
+	shieldMaxPower = { type = "number", nonNegative = true },
+	damage = { type = "number", nonNegative = true, multiplyOnly = true },
 }
 
 return {
