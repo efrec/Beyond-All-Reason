@@ -48,12 +48,14 @@ local math_abs = math.abs
 local math_floor = math.floor
 local math_ceil = math.ceil
 local math_sqrt = math.sqrt
+local math_pi = math.pi
 local math_max = math.max
 local math_min = math.min
 local math_clamp = math.clamp
 local math_huge = math.huge
 
 local spGetUnitIsDead = Spring.GetUnitIsDead
+local spGetUnitDefID = Spring.GetUnitDefID
 local spGetUnitPosition = Spring.GetUnitPosition
 local spGetUnitTeam = Spring.GetUnitTeam
 local spGetGroundHeight = Spring.GetGroundHeight
@@ -73,6 +75,7 @@ local CMD_FIGHT = CMD.FIGHT
 local CMD_PATROL = CMD.PATROL
 local CMD_ATTACK = CMD.ATTACK
 local CMD_GUARD = CMD.GUARD
+local CMD_REMOVE = CMD.REMOVE
 
 local routedOrders = {
 	[CMD_MOVE] = CMD_MOVE,
@@ -89,6 +92,18 @@ local SMCLASS_SHIP = 3
 -- Setup -----------------------------------------------------------------------
 
 local unitDefData = {}
+
+---An order shorter than `2 * sqrt((4r - d)d)` for turn radius `r` cannot be an improvement.
+---Find the single-cell deviation from the straight-line path per unitdef to compare against.
+local function getMinRouteLength(unitDef, speedFactorMax)
+	local turnRate = math_max(1.0, (unitDef.turnRate or 0.0) * (speedFactorMax * 0.50 + 0.50))
+	local speedPerFrame = (unitDef.speed or 0.0) * speedFactorMax / Game.gameSpeed
+	local CIRCLE_DIVS = 65536
+	local radius = speedPerFrame * (CIRCLE_DIVS / turnRate) / (2 * math_pi)
+	local across = math_min(searchCellSize, 4 * radius)
+	local minRouteLength = 2 * math_sqrt(across * (4 * radius - across))
+	return math_max(minRouteLength, searchCellSize * (1 + routeBiasWeight))
+end
 
 for defID, ud in pairs(UnitDefs) do
 	local params = ud.customParams
@@ -125,6 +140,7 @@ for defID, ud in pairs(UnitDefs) do
 			range = ud.maxWeaponRange or 0.0,
 			routeStride = math_max(1, math_floor(moveDef and moveDef.xsize * 4 / routePassabilityStep or 1)), -- Retests every move-footprint-width.
 			halfWidth = moveDef and moveDef.xsize * 4 or 0.0,
+			minRouteLength = getMinRouteLength(ud, speedFactorMax),
 		}
 	end
 end
@@ -203,6 +219,9 @@ local plannedFrame = {}
 local plannedX = {}
 local plannedZ = {}
 local plannedWaypoints = {}
+local waypointTag = {}
+local waypointIndex = {}
+local waypointRadius = {}
 local rerouting = false
 
 local stats = {
@@ -213,6 +232,7 @@ local stats = {
 	verified = 0,
 	inserted = 0,
 	dropped = 0,
+	abandoned = 0,
 }
 
 -- Local functions -------------------------------------------------------------
@@ -569,7 +589,7 @@ end
 local function mayGainFromWater(unitData, sx, sz, gx, gz)
 	local dx, dz = gx - sx, gz - sz
 	local direct = math_sqrt(dx * dx + dz * dz)
-	if direct < 2 * cellSize then
+	if direct < unitData.minRouteLength then
 		return false
 	end
 	local goalIndex = posToCell(gx, gz)
@@ -938,6 +958,14 @@ local function planUnitRoute(burst, job, frame)
 	plannedX[unitID] = gx
 	plannedZ[unitID] = gz
 	plannedWaypoints[unitID] = planned
+	local tags = {}
+	for i = 1, #waypoints do
+		local _, _, tag = spGetUnitCurrentCommand(unitID, i)
+		tags[i] = tag
+	end
+	waypointTag[unitID] = tags
+	waypointIndex[unitID] = 1
+	waypointRadius[unitID] = 2 * unitData.halfWidth * math_sqrt(#burst.jobs / math_pi) -- constant for now
 	stats.inserted = stats.inserted + 1
 	return true
 end
@@ -1022,6 +1050,9 @@ local function removeUnit(unitID)
 	plannedX[unitID] = nil
 	plannedZ[unitID] = nil
 	plannedWaypoints[unitID] = nil
+	waypointTag[unitID] = nil
+	waypointIndex[unitID] = nil
+	waypointRadius[unitID] = nil
 end
 
 local function closeBursts()
@@ -1031,6 +1062,58 @@ local function closeBursts()
 	end
 	for i = #openList, 1, -1 do
 		openList[i] = nil
+	end
+end
+
+local function trySkipWaypoint(unitID, index)
+	local tags = waypointTag[unitID]
+	local tag = tags and tags[index]
+	if not tag then
+		waypointIndex[unitID] = nil
+		return
+	end
+
+	local planned = plannedWaypoints[unitID]
+	local wx, wz = planned and planned[index * 2 - 1], planned and planned[index * 2]
+	local x, _, z = spGetUnitPosition(unitID)
+	if not x or not wx then
+		return
+	end
+
+	local dx, dz = x - wx, z - wz
+	local radius = waypointRadius[unitID] or 0.0 -- constant radius size for now, no impatience
+	if dx * dx + dz * dz >= radius * radius then
+		return
+	end
+
+	local tx, tz = planned[index * 2 + 1], planned[index * 2 + 2]
+	if not tx then
+		tx, tz = plannedX[unitID], plannedZ[unitID]
+	end
+	local unitData = tx and unitDefData[spGetUnitDefID(unitID)]
+	if not unitData then
+		return
+	end
+
+	if
+		fineLineCost(unitData, x, z, tx, tz)
+		> fineLineCost(unitData, x, z, wx, wz) + fineLineCost(unitData, wx, wz, tx, tz)
+	then
+		return -- Cutting a corner can reroute onto high-cost terrain. Avoid trying it.
+	end
+
+	local _, _, frontTag = spGetUnitCurrentCommand(unitID)
+	if frontTag == tag then
+		rerouting = true
+		spGiveOrderToUnit(unitID, CMD_REMOVE, { tag }, 0)
+		rerouting = false
+		stats.abandoned = stats.abandoned + 1
+	end
+	waypointIndex[unitID] = index + 1
+end
+local function runWaypointImpatience()
+	for unitID, index in pairs(waypointIndex) do
+		trySkipWaypoint(unitID, index)
 	end
 end
 
@@ -1084,6 +1167,9 @@ function gadget:GameFrame(frame)
 	closeBursts()
 	runSearch(frame)
 	runReroute(frame)
+	if frame % Game.gameSpeed == 0 then
+		runWaypointImpatience()
+	end
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
