@@ -278,6 +278,24 @@ local function checkPieces(unitID, unitDefID, unitRadius, mainX, mainY, mainZ, m
 	return findings
 end
 
+local function getPieceProblems(findings)
+	local pieceProblems = {}
+	if findings.radius then
+		pieceProblems[#pieceProblems + 1] =
+			format("Shots can pass through these parts: %s.", listNames(findings.radius))
+	end
+	for _, laserType in ipairs(LASER_TYPES) do
+		if findings[laserType] then
+			pieceProblems[#pieceProblems + 1] = format(
+				"%s can hit these parts and do no damage: %s.",
+				LASER_NAMES[laserType],
+				listNames(findings[laserType])
+			)
+		end
+	end
+	return pieceProblems
+end
+
 local function addLine(text, color)
 	lines[#lines + 1] = (color or COLOR_TEXT) .. text
 end
@@ -300,12 +318,13 @@ local function checkUnit(unitID)
 	elseif not moveDef or not moveDef.depth then
 		addLine("Does not move. Not checked.")
 		return
-	elseif moveDef.smClass == SPEED_CLASS.Hover then
-		addLine("Hovers. Not checked.")
-		return
+	end
+
+	local isFloating = moveDef.smClass == SPEED_CLASS.Hover or moveDef.smClass == SPEED_CLASS.Ship
+	if moveDef.smClass == SPEED_CLASS.Hover then
+		addLine("Hovers. No verdict.")
 	elseif moveDef.smClass == SPEED_CLASS.Ship then
-		addLine("Sails. Not checked.")
-		return
+		addLine("Sails. No verdict.")
 	end
 
 	local bx, by, bz, mx, my, mz = spGetUnitPosition(unitID, true)
@@ -319,6 +338,35 @@ local function checkUnit(unitID)
 	-- Measure along the unit's own axes so a unit standing on a slope reads as on flat ground.
 	local dx, dy, dz = mx - bx, my - by, mz - bz
 	local midHeight = dx * up[1] + dy * up[2] + dz * up[3]
+	local smallestRadius = getSmallestLaserRadius(unitDef)
+
+	local pieceProblems = {}
+
+	selectedUsesPieces = ignoreHits == true
+	if selectedUsesPieces then
+		-- Model space mirrors the unit's right axis.
+		local midX = -(dx * right[1] + dy * right[2] + dz * right[3])
+		local midZ = dx * front[1] + dy * front[2] + dz * front[3]
+		local findings = checkPieces(
+			unitID,
+			unitDef.id,
+			radius,
+			midX - ox,
+			midHeight + oy,
+			midZ + oz,
+			getBoundingRadius(sx * 0.5, sy * 0.5, sz * 0.5, volumeType, axis),
+			smallestRadius
+		)
+		pieceProblems = getPieceProblems(findings)
+	end
+
+	if isFloating then
+		for _, problem in ipairs(pieceProblems) do
+			addLine("Problem: " .. problem, COLOR_PROBLEM)
+		end
+		return
+	end
+
 	local hiddenDepth = midHeight + radius
 	local hitboxTop = midHeight + oy + sy * 0.5
 	local sideX = math_max(math_abs(ox) - sx * 0.5, 0)
@@ -327,7 +375,6 @@ local function checkUnit(unitID)
 
 	local walkDepth = moveDef.depth
 	local isAmphibious = walkDepth >= amphibiousDepth
-	local smallestRadius = getSmallestLaserRadius(unitDef)
 
 	local problems = {}
 
@@ -383,38 +430,6 @@ local function checkUnit(unitID)
 		if laserRadius and laserRadius > 0 and packedGap < laserRadius then
 			problems[#problems + 1] =
 				format("%s hit two of these at once when they stand side by side.", LASER_NAMES[laserType])
-		end
-	end
-
-	local pieceProblems = {}
-
-	selectedUsesPieces = ignoreHits == true
-	if selectedUsesPieces then
-		-- Model space mirrors the unit's right axis.
-		local midX = -(dx * right[1] + dy * right[2] + dz * right[3])
-		local midZ = dx * front[1] + dy * front[2] + dz * front[3]
-		local findings = checkPieces(
-			unitID,
-			unitDef.id,
-			radius,
-			midX - ox,
-			midHeight + oy,
-			midZ + oz,
-			getBoundingRadius(sx * 0.5, sy * 0.5, sz * 0.5, volumeType, axis),
-			smallestRadius
-		)
-		if findings.radius then
-			pieceProblems[#pieceProblems + 1] =
-				format("Shots can pass through these parts: %s.", listNames(findings.radius))
-		end
-		for _, laserType in ipairs(LASER_TYPES) do
-			if findings[laserType] then
-				pieceProblems[#pieceProblems + 1] = format(
-					"%s can hit these parts and do no damage: %s.",
-					LASER_NAMES[laserType],
-					listNames(findings[laserType])
-				)
-			end
 		end
 	end
 
