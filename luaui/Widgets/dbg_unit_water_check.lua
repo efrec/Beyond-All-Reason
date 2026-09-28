@@ -15,14 +15,10 @@ end
 --------------------------------------------------------------------------------
 -- Configuration ---------------------------------------------------------------
 
-local AMPHIBIOUS_DEPTH = 5000 -- Same threshold as the drowning gadget.
+local AMPHIBIOUS_MOVEDEF_NAME = "^[SMH]?A[BHT]" -- Code `A` in the naming scheme
 local UPDATE_FRAMES = 15
 
-local SPEEDMOD_HOVER = 2
-local SPEEDMOD_SHIP = 3
-
 local LASER_TYPES = { "BeamLaser", "LaserCannon", "LightningCannon" }
-
 local LASER_NAMES = {
 	BeamLaser = "Beam lasers",
 	LaserCannon = "Laser cannons",
@@ -53,6 +49,7 @@ local spGetViewGeometry = Spring.GetViewGeometry
 local spIsGUIHidden = Spring.IsGUIHidden
 
 local SQUARE_SIZE = Game.squareSize
+local SPEED_CLASS = Game.speedModClasses
 
 local vsx, vsy = spGetViewGeometry()
 local font, fontSize
@@ -62,7 +59,7 @@ local lines = {}
 
 ---@class LaserWeapon
 ---@field type string
----@field radius number Damage radius below the waterline. Zero for impact-only weapons.
+---@field radius number Damage radius below the waterline. Zero for impact-only.
 ---@field onlyTargets table<string, true>
 
 local laserWeapons = {} ---@type LaserWeapon[]
@@ -89,6 +86,13 @@ do
 				end
 			end
 		end
+	end
+end
+
+local amphibiousDepth = math.huge
+for _, moveDef in ipairs(VFS.Include("gamedata/movedefs.lua")) do
+	if moveDef.name:find(AMPHIBIOUS_MOVEDEF_NAME) and moveDef.maxwaterdepth then
+		amphibiousDepth = math_min(amphibiousDepth, moveDef.maxwaterdepth)
 	end
 end
 
@@ -149,10 +153,10 @@ local function checkUnit(unitID)
 	elseif not moveDef or not moveDef.depth then
 		addLine("Does not move. Not checked.")
 		return
-	elseif moveDef.smClass == SPEEDMOD_HOVER then
+	elseif moveDef.smClass == SPEED_CLASS.Hover then
 		addLine("Hovers. Not checked.")
 		return
-	elseif moveDef.smClass == SPEEDMOD_SHIP then
+	elseif moveDef.smClass == SPEED_CLASS.Ship then
 		addLine("Sails. Not checked.")
 		return
 	end
@@ -174,7 +178,7 @@ local function checkUnit(unitID)
 	local sideOffset = math_sqrt(sideX * sideX + sideZ * sideZ)
 
 	local walkDepth = moveDef.depth
-	local isAmphibious = walkDepth >= AMPHIBIOUS_DEPTH
+	local isAmphibious = walkDepth >= amphibiousDepth
 	local smallestRadius = getSmallestLaserRadius(unitDef)
 
 	local problems = {}
