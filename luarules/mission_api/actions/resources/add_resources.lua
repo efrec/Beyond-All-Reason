@@ -18,6 +18,14 @@ local function addResources(teamID, metal, energy)
 end
 
 return {
+	---Gives a team metal and energy at once, or takes them away.
+	---
+	---Positive amounts are added to the team's storage, and negative amounts are spent from it. Each resource is applied separately, and an omitted resource is left unchanged.
+	---@class AddResourcesAction
+	---@field teamID TeamID The team whose storage changes.
+	---@field metal? Number Metal to add, or to remove when negative.
+	---@field energy? Number Energy to add, or to remove when negative.
+	---@requiresOneOf metal energy
 	{
 		type = 'AddResources',
 		parameters = {

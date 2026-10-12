@@ -10,6 +10,14 @@ local function addResourcesPerSecond(teamID, metal, energy)
 end
 
 return {
+	---Changes a team's ongoing income by a fixed amount of metal and energy per second for the rest of the game.
+	---
+	---The income is delivered in two installments per second. Repeating the action adds to the rate already in effect, so a negative amount reduces or cancels an earlier rate; there is no other way to stop it. An omitted resource is left unchanged.
+	---@class AddResourcesPerSecondAction
+	---@field teamID TeamID The team whose income changes.
+	---@field metal? Number Metal per second to add to the team's income, or to drain from it when negative.
+	---@field energy? Number Energy per second to add to the team's income, or to drain from it when negative.
+	---@requiresOneOf metal energy
 	{
 		type = 'AddResourcesPerSecond',
 		parameters = {

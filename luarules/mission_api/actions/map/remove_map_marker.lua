@@ -9,6 +9,9 @@ local function removeMapMarker(markerName)
 end
 
 return {
+	---Erases the marker recorded under markerName. Does nothing for a name that is not recorded.
+	---@class RemoveMapMarkerAction
+	---@field markerName String The marker to erase.
 	{
 		type = 'RemoveMapMarker',
 		parameters = {

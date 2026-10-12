@@ -15,6 +15,11 @@ local function despawnUnits(unitName)
 end
 
 return {
+    ---Removes the units with a name from the game silently, without a death explosion or a wreck.
+    ---
+    ---The units count as lost for the owning team, and UnitKilled triggers watching them fire. Nothing happens when no living unit has the name.
+    ---@class DespawnUnitsAction
+    ---@field unitName UnitName The name whose units are removed.
     {
 	    type = 'DespawnUnits',
 	    parameters = {

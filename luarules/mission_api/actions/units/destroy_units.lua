@@ -14,6 +14,11 @@ local function destroyUnits(unitName)
 end
 
 return {
+    ---Kills the units with a name, with their death explosion and wreck.
+    ---
+    ---The units count as lost for the owning team, no team is credited with the kill, and UnitKilled triggers watching them fire. Nothing happens when no living unit has the name.
+    ---@class DestroyUnitsAction
+    ---@field unitName UnitName The name whose units are destroyed.
     {
 	    type = 'DestroyUnits',
 	    parameters = {

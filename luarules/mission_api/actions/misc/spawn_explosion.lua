@@ -21,6 +21,14 @@ local function spawnExplosion(weaponDefName, position, direction)
 end
 
 return {
+	---Detonates a weapon's explosion at a position, as if that weapon had hit there.
+	---
+	---The explosion uses the weapon's damage, area of effect, and crater settings, damages units, features, and the ground, and has no owner, so no team is credited with its kills.
+	---@class SpawnExplosionAction
+	---@field weaponDefName WeaponDefName The weapon whose explosion is spawned.
+	---@field position Position Where the explosion happens, in elmos. When y is omitted, the ground height at (x, z) is used.
+	---@field direction? Position The direction the explosion travels, as a vector. Always give y, because an omitted y is filled with the ground height at (x, z) as for any position.
+	---@default direction { x = 0, y = 0, z = 0 }
 	{
 		type = 'SpawnExplosion',
 		parameters = {

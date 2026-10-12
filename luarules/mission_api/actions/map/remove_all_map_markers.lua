@@ -6,6 +6,8 @@ local function removeAllMapMarkers()
 end
 
 return {
+	---Erases every marker placed by AddMapMarker.
+	---@class RemoveAllMapMarkersAction
 	{
 		type = 'RemoveAllMapMarkers',
 		parameters = {},

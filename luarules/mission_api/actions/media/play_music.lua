@@ -9,6 +9,11 @@ local function playMusic(soundfile)
 end
 
 return {
+	---Plays a music track, interrupting the track that is playing.
+	---
+	---The path is not checked when the mission loads.
+	---@class PlayMusicAction
+	---@field soundfile String The path of the music file within the game's files.
 	{
 		type = 'PlayMusic',
 		parameters = {

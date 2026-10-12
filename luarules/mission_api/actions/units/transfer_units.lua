@@ -21,6 +21,14 @@ local function transferUnits(unitName, newTeam, captured)
 end
 
 return {
+	---Gives the units with a name to another team.
+	---
+	---The units keep their names. UnitCaptured and UnitReceived triggers ignore this action unless they set ignoreMissionActions = false; then captured decides which of the two fires. Nothing happens when no unit has the name.
+	---@class TransferUnitsAction
+	---@field unitName UnitName The name whose units change hands.
+	---@field newTeam TeamID The team that receives the units.
+	---@field captured? Boolean Whether the transfer counts as a capture rather than a gift.
+	---@default captured false
 	{
 		type = 'TransferUnits',
 		parameters = {

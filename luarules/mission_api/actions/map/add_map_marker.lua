@@ -9,6 +9,15 @@ local function addMapMarker(markerName, position, markerType, label)
 end
 
 return {
+	---Places a map marker at a position, visible to every player, and records it under markerName so RemoveMapMarker can erase it.
+	---
+	---Reusing a name records the new marker and forgets the earlier one without erasing it.
+	---@class AddMapMarkerAction
+	---@field markerName String The name the marker is known by.
+	---@field position Position Where the marker goes, with x and z in elmos; y defaults to the ground height.
+	---@field markerType? String Reserved for marker styles; it currently changes nothing about the marker.
+	---@field label? String Text shown beside the marker.
+	---@declares markerName
 	{
 		type = 'AddMapMarker',
 		parameters = {

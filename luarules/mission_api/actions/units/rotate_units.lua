@@ -25,6 +25,12 @@ local function rotateUnits(unitName, direction)
 end
 
 return {
+    ---Turns the units with a name to face a direction.
+    ---
+    ---The direction is either { angle = degrees }, a compass angle with 0 facing north and 90 facing east, or a point { x, z } that each unit turns to face; a unit standing exactly on that point keeps its facing. Nothing happens when no living unit has the name.
+    ---@class RotateUnitsAction
+    ---@field unitName UnitName The name whose units turn.
+    ---@field direction Direction The facing to apply.
     {
 	    type = 'RotateUnits',
 	    parameters = {

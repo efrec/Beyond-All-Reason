@@ -32,6 +32,12 @@ local function disableUnitsControl(unitName, teamID)
 end
 
 return {
+	---Tells the campaign AI of a team that it may control the units carrying a mission unit name.
+	---
+	---Only units that exist when the action runs are affected.
+	---@class EnableUnitsControlAction
+	---@field unitName UnitName The mission unit name of the units to hand to the AI.
+	---@field teamID TeamID The AI team that receives the instruction.
 	{
 		type = "EnableUnitsControl",
 		parameters = {
@@ -40,6 +46,12 @@ return {
 		},
 		actionFunction = enableUnitsControl,
 	},
+	---Tells the campaign AI of a team to leave alone the units carrying a mission unit name.
+	---
+	---Only units that exist when the action runs are affected.
+	---@class DisableUnitsControlAction
+	---@field unitName UnitName The mission unit name of the units to take from the AI.
+	---@field teamID TeamID The AI team that receives the instruction.
 	{
 		type = "DisableUnitsControl",
 		parameters = {

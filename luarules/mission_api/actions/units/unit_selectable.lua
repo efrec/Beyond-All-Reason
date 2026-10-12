@@ -11,6 +11,12 @@ local function setSelectable(unitName, selectable)
 end
 
 return {
+	---Allows or forbids the player to select the units with a name.
+	---
+	---Unselectable units cannot be picked or given orders by the player, but they still obey orders from the mission. The setting applies to the units that have the name when the action runs; units named later are unaffected until the action runs again. Nothing happens when no unit has the name.
+	---@class UnitSelectableAction
+	---@field unitName UnitName The name whose units are affected.
+	---@field selectable Boolean true lets the player select the units, and false prevents it.
 	{
 		type = 'UnitSelectable',
 		parameters = {

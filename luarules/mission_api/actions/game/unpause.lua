@@ -4,6 +4,8 @@ local function unpause()
 end
 
 return {
+	---Ends a pause started by Pause. A pause made by a player is left alone.
+	---@class UnpauseAction
 	{
 		type = 'Unpause',
 		parameters = {},

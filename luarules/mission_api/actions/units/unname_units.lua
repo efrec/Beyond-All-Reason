@@ -6,6 +6,11 @@ local function unnameUnits(unitName)
 end
 
 return {
+	---Removes a name from every unit that has it.
+	---
+	---The units stay in the game and keep any other names they hold. Afterwards, actions and triggers that refer to the name match nothing until units are named with it again.
+	---@class UnnameUnitsAction
+	---@field unitName UnitName The name to remove.
 	{
 		type = 'UnnameUnits',
 		parameters = {

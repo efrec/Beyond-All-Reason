@@ -12,6 +12,9 @@ local function defeat(losingAllyTeamIDs)
 end
 
 return {
+	---Ends the game with the listed ally teams defeated; every other ally team wins.
+	---@class DefeatAction
+	---@field allyTeamIDs AllyTeamIDs The ally teams that lose.
 	{
 		type = 'Defeat',
 		parameters = {

@@ -10,6 +10,12 @@ local function removeBuildOption(builtDefName, builderDefName)
 end
 
 return {
+	---Adds a unit type to the build options of a builder or factory type, for its current units and for every unit of that type built later, on every team.
+	---@class AddBuildOptionAction
+	---@field builtDefName UnitDefName The unit type to add as a build option.
+	---@field builderDefName UnitDefName The builder or factory type that receives the option.
+	---@field buildMenuPosition? PositiveInteger The slot the option takes among the builder's build options, counted from 1. Build menus that sort their options ignore it.
+	---@default buildMenuPosition last
 	{
 		type = 'AddBuildOption',
 		parameters = {
@@ -19,6 +25,12 @@ return {
 		},
 		actionFunction = addBuildOption,
 	},
+	---Takes a unit type out of the build options of a builder or factory type, for its current units and for every unit of that type built later, on every team. Queued orders to build it are dropped.
+	---
+	---The option may be one the builder has by default or one added by AddBuildOption.
+	---@class RemoveBuildOptionAction
+	---@field builtDefName UnitDefName The unit type to remove as a build option.
+	---@field builderDefName UnitDefName The builder or factory type that loses the option.
 	{
 		type = 'RemoveBuildOption',
 		parameters = {

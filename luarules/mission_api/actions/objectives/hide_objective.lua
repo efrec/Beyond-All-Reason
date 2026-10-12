@@ -5,6 +5,11 @@ local function hideObjective(objectiveID)
 end
 
 return {
+	---Marks an objective as hidden so that it is not presented to the player.
+	---
+	---Hiding changes presentation only: a hidden objective still tracks progress and can still complete or fail. Nothing happens when it is already hidden. Hiding fires the objective's onHidden event trigger.
+	---@class HideObjectiveAction
+	---@field objectiveID ObjectiveID The objective to hide.
 	{
 		type = 'HideObjective',
 		parameters = {

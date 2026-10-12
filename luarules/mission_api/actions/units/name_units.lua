@@ -46,6 +46,16 @@ local function nameUnits(unitName, teamID, unitDefName, area)
 end
 
 return {
+	---Gives a name to existing units chosen by team, unit def, or area, so that later actions and triggers can refer to them.
+	---
+	---The filters combine: a teamID alone names every unit the team owns, and a unitDefName or an area narrows the selection to units matching every filter given. Only units that exist when the action runs are named; units built later are not. A unit can hold several names, and naming it does not remove names it already has.
+	---@class NameUnitsAction
+	---@field unitName UnitName The name to give the selected units.
+	---@field teamID? Number Only units owned by this team.
+	---@field unitDefName? String Only units of this unit def.
+	---@field area? Area Only units inside this area: a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.
+	---@requiresOneOf teamID unitDefName area
+	---@declares unitName
 	{
 		type = 'NameUnits',
 		parameters = {

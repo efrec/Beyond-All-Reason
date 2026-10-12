@@ -3,6 +3,8 @@ local function removeAllLines()
 end
 
 return {
+	---Erases every line drawn by DrawLines.
+	---@class RemoveAllLinesAction
 	{
 		type = 'RemoveAllLines',
 		parameters = {},

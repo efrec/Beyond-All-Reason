@@ -14,6 +14,11 @@ local function selfDestructUnits(unitName)
 end
 
 return {
+    ---Self-destructs the units with a name immediately, with their self-destruct explosion and wreck.
+    ---
+    ---The units count as lost for the owning team, no team is credited with the kill, and UnitKilled triggers watching them fire. Nothing happens when no living unit has the name.
+    ---@class SelfDestructUnitsAction
+    ---@field unitName UnitName The name whose units self-destruct.
     {
 	    type = 'SelfDestructUnits',
 	    parameters = {

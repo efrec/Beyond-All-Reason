@@ -5,6 +5,9 @@ local function removeLine(lineName)
 end
 
 return {
+	---Erases a line drawn by DrawLines. Does nothing for a name that is not drawn.
+	---@class RemoveLineAction
+	---@field lineName String The line to erase.
 	{
 		type = 'RemoveLine',
 		parameters = {

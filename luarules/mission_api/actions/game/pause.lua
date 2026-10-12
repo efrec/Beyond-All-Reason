@@ -5,6 +5,8 @@ local function pause()
 end
 
 return {
+	---Pauses the game in a way players cannot undo; only Unpause ends it. The usual pause overlay is not shown.
+	---@class PauseAction
 	{
 		type = 'Pause',
 		parameters = {},

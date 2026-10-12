@@ -6,6 +6,12 @@ local function sendMessage(messageKey, messageData)
 end
 
 return {
+	---Adds a message to the battle log for the player to read.
+	---
+	---The text is translated on the player's side, so messageKey is a translation key rather than display text. The entry is logged as a plain message, as opposed to a briefing, objective, notification, or dialogue entry.
+	---@class SendMessageAction
+	---@field messageKey String The translation key of the message text.
+	---@field messageData? Table Values substituted into the translated text, keyed by placeholder name.
 	{
 		type = 'SendMessage',
 		parameters = {

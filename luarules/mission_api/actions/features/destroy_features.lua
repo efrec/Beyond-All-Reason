@@ -13,6 +13,9 @@ local function destroyFeatures(featureName)
 end
 
 return {
+	---Destroys every feature currently carrying a mission feature name. Features that no longer exist are skipped.
+	---@class DestroyFeaturesAction
+	---@field featureName FeatureName The mission feature name of the features to destroy.
 	{
 		type = 'DestroyFeatures',
 		parameters = {

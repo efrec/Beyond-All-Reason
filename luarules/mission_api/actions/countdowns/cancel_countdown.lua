@@ -5,6 +5,9 @@ local function cancelCountdown(countdownID)
 end
 
 return {
+	---Removes a countdown without ending it, so no countdown-ended trigger fires for it.
+	---@class CancelCountdownAction
+	---@field countdownID CountdownID The countdown to remove.
 	{
 		type = 'CancelCountdown',
 		parameters = {

@@ -5,6 +5,9 @@ local function unpauseCountdown(countdownID)
 end
 
 return {
+	---Resumes a countdown paused by PauseCountdown. Does nothing when the countdown has ended or been canceled.
+	---@class UnpauseCountdownAction
+	---@field countdownID CountdownID The countdown to resume.
 	{
 		type = 'UnpauseCountdown',
 		parameters = {

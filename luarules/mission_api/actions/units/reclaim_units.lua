@@ -23,6 +23,12 @@ local function reclaimUnits(unitName, reclaimerTeam)
 end
 
 return {
+    ---Removes the units with a name as if they were reclaimed, refunding their metal cost to a team.
+    ---
+    ---Each unit's full metal cost is added to the receiving team's storage; no energy is refunded. The units leave no wreck and no explosion. UnitReclaimed triggers ignore this action unless they set ignoreMissionActions = false. Nothing happens when no living unit has the name.
+    ---@class ReclaimUnitsAction
+    ---@field unitName UnitName The name whose units are reclaimed.
+    ---@field reclaimerTeam? TeamID The team that receives the metal. When omitted, the team that owns the units receives it.
     {
 	    type = 'ReclaimUnits',
 	    parameters = {

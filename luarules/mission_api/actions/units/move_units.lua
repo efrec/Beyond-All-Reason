@@ -26,6 +26,13 @@ local function moveUnits(unitName, position, direction)
 end
 
 return {
+    ---Teleports the units with a name to a position, optionally turning them to face a direction.
+    ---
+    ---Every unit with the name is placed at the same position. The direction is either { angle = degrees }, a compass angle with 0 facing north and 90 facing east, or a point { x, z } that each unit turns to face; a unit placed exactly on that point keeps its facing. Nothing happens when no living unit has the name.
+    ---@class MoveUnitsAction
+    ---@field unitName UnitName The name whose units are moved.
+    ---@field position Position The destination in elmos. When y is omitted, the ground height at (x, z) is used.
+    ---@field direction? Direction The facing after the move. Units keep their facing when omitted.
     {
 	    type = 'MoveUnits',
 	    parameters = {
