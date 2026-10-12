@@ -24,6 +24,16 @@ local function factoryExecutes(unitID, cmdID)
 	return index ~= nil and Spring.GetUnitCmdDescs(unitID, index, index)[1].queueing == false
 end
 
+---Fires when a factory receives a rally order, that is, an order it does not carry out itself but passes on to the units it produces. Orders to produce units and orders the factory carries out itself do not count.
+---@class RallyOrderedTrigger
+---@field command Command The order to match: a command ID, or CMD.ANY for any order. Build orders never match.
+---@field unitName? UnitName Only the factory with this name.
+---@field unitDefName? UnitDefName Only factories of this unit definition.
+---@field teamID? TeamID Only factories owned by this team.
+---@field ignoreMissionActions? Boolean Whether orders issued by mission actions are ignored.
+---@default ignoreMissionActions true
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'RallyOrdered',
 	parameters = {

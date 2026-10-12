@@ -3,6 +3,13 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 -- Return value index as on https://recoilengine.org/docs/lua-api/#Spring.GetTeamResources
 local RESOURCE_PULL_INDEX = 3
 
+---Fires when a team's demand for metal, energy, or both is at or above the given amounts per second. Demand is checked once per second, and both thresholds must be met when both are given. While repeating, it fires again every second the thresholds hold.
+---@class ResourcePullTrigger
+---@field teamID TeamID The team whose demand is measured.
+---@field metal? Number The metal demand per second to reach.
+---@field energy? Number The energy demand per second to reach.
+---@requiresOneOf metal energy
+
 return {
 	type = 'ResourcePull',
 	parameters = {

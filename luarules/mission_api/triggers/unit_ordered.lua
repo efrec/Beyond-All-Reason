@@ -36,6 +36,18 @@ local function factoryLikelyExecutes(unitID, cmdID)
 	return index ~= nil and Spring.GetUnitCmdDescs(unitID, index, index)[1].queueing == false
 end
 
+---Fires when a matching unit receives an order it is likely to carry out. Orders a factory queues or passes on to the units it produces do not count; see ProductionOrdered and RallyOrdered.
+---
+---Some commands are handled before they reach the unit and never fire this trigger; validation warns about them. A unit can still refuse an order after the trigger has fired.
+---@class UnitOrderedTrigger
+---@field command Command The order to match: a command ID, a unit definition name for a build order, CMD.ANY for any order, or CMD.BUILD for any build order.
+---@field unitName? UnitName Only the unit with this name.
+---@field unitDefName? UnitDefName Only units of this unit definition.
+---@field teamID? TeamID Only units owned by this team.
+---@field ignoreMissionActions? Boolean Whether orders issued by mission actions are ignored.
+---@default ignoreMissionActions true
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitOrdered',
 	parameters = {

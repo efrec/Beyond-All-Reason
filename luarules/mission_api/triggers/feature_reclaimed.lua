@@ -1,5 +1,13 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when a feature is fully reclaimed.
+---@class FeatureReclaimedTrigger
+---@field featureName? FeatureName Only the feature with this name.
+---@field featureDefName? FeatureDefName Only features of this feature definition.
+---@field teamID? TeamID Only features reclaimed by this team.
+---@field area? Area Only features inside this area, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.
+---@requiresOneOf featureName featureDefName teamID area
+
 return {
 	type = 'FeatureReclaimed',
 	parameters = {

@@ -1,5 +1,9 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when the given team is eliminated.
+---@class TeamDestroyedTrigger
+---@field teamID Number The team to watch.
+
 return {
 	type = 'TeamDestroyed',
 	parameters = {

@@ -16,6 +16,15 @@ local function isReclaim(weaponDefID, ignoreMissionActions)
 		)
 end
 
+---Fires when a matching unit is fully reclaimed.
+---@class UnitReclaimedTrigger
+---@field unitName? UnitName Only the reclaimed unit with this name.
+---@field unitDefName? UnitDefName Only reclaimed units of this unit definition.
+---@field teamID? TeamID Only reclaimed units owned by this team.
+---@field ignoreMissionActions? Boolean Whether reclaims performed by mission actions are ignored.
+---@default ignoreMissionActions true
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitReclaimed',
 	parameters = {

@@ -5,6 +5,16 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 -- The TransferUnits action marks captures between allyTeams as gifts to comply with sharing rules.
 -- The `capturingUnits` fence is checked in addition to dispatch's synthesized `captured` argument.
 
+---Fires when a matching unit is captured by another team. Units given away are covered by UnitReceived instead.
+---@class UnitCapturedTrigger
+---@field unitName? UnitName Only the captured unit with this name.
+---@field unitDefName? UnitDefName Only captured units of this unit definition.
+---@field oldTeamID? TeamID Only units captured from this team.
+---@field newTeamID? TeamID Only units captured by this team.
+---@field ignoreMissionActions? Boolean Whether transfers made by mission actions are ignored.
+---@default ignoreMissionActions true
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitCaptured',
 	parameters = {

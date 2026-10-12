@@ -25,6 +25,13 @@ local function startConstruction(trigger, triggerID, context, buildeeID)
 	end
 end
 
+---Fires when a unit of the given definition starts being built, either as a new build frame or when the first builder matching the filters assists an existing one. Each unit under construction fires the trigger at most once, and units spawned by the mission while under construction count as started.
+---@class ConstructionStartedTrigger
+---@field unitDefName UnitDefName The unit definition being built.
+---@field teamID? TeamID Only units under construction owned by this team.
+---@field builderName? UnitName Only construction by the builder with this name.
+---@field builderDefName? UnitDefName Only construction by builders of this unit definition.
+
 return {
 	type = 'ConstructionStarted',
 	parameters = {

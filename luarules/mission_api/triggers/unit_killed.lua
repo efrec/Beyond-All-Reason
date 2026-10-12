@@ -1,5 +1,12 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when a matching unit is destroyed for any reason.
+---@class UnitKilledTrigger
+---@field unitName? UnitName Only the destroyed unit with this name.
+---@field unitDefName? UnitDefName Only destroyed units of this unit definition.
+---@field teamID? TeamID Only destroyed units owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitKilled',
 	parameters = {

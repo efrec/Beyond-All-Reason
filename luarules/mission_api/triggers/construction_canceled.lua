@@ -8,6 +8,15 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 -- Builders can die yet construction does not "cancel" - other builders can finish the unit.
 -- Builders can cancel the command, yet may resume it, or keep the command but be in a Wait.
 
+---Fires when a unit being built by a constructor is removed before it is finished, whether destroyed, canceled, or transferred to another team. Units in production at a factory are covered by ProductionCanceled instead.
+---
+---A constructor that dies or drops its build order does not cancel the construction, since another constructor can still finish the unit.
+---@class ConstructionCanceledTrigger
+---@field unitName? UnitName Only the unit under construction with this name.
+---@field unitDefName? UnitDefName Only units under construction of this unit definition.
+---@field teamID? TeamID Only units under construction owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'ConstructionCanceled',
 	parameters = {

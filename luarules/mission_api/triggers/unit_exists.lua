@@ -1,5 +1,10 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when a unit of the given definition appears, including when its construction starts, or when one is given to or captured by a team.
+---@class UnitExistsTrigger
+---@field unitDefName UnitDefName The unit definition to watch.
+---@field teamID? TeamID Only units owned by this team.
+
 return {
 	type = 'UnitExists',
 	parameters = {

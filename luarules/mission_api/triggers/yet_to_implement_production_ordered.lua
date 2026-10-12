@@ -8,6 +8,16 @@ local CMD_INSERT = CMD.INSERT
 -- For any other types of orders, unit and rally orders, see UnitOrdered and RallyOrdered.
 -- For detailed notes on what this all means, see the comments at the top of unit_ordered.
 
+---Fires when a factory receives an order to produce a unit of the given definition.
+---@class ProductionOrderedTrigger
+---@field buildDefName UnitDefName The unit definition ordered for production.
+---@field unitName? UnitName Only the factory with this name.
+---@field unitDefName? UnitDefName Only factories of this unit definition.
+---@field teamID? TeamID Only factories owned by this team.
+---@field ignoreMissionActions? Boolean Whether orders issued by mission actions are ignored.
+---@default ignoreMissionActions true
+---@unavailable Production orders cannot be observed reliably yet.
+
 return {
 	type = 'ProductionOrdered',
 	parameters = {

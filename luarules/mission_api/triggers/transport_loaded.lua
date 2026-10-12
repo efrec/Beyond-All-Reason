@@ -3,6 +3,15 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 -- Docking drones, hats, and attached turrets raise UnitLoaded as well.
 -- A transportName is checked whether it's an actual transport. A transportDefName is not.
 
+---Fires when a transport picks up a passenger. Units docking with other kinds of units count only when transportDefName names that unit definition.
+---@class TransportLoadedTrigger
+---@field transportName? UnitName Only the transport with this name.
+---@field transportDefName? UnitDefName Only transports of this unit definition.
+---@field teamID? TeamID Only transports owned by this team.
+---@field passengerName? UnitName Only the passenger with this name.
+---@field passengerDefName? UnitDefName Only passengers of this unit definition.
+---@requiresOneOf transportName transportDefName
+
 return {
 	type = 'TransportLoaded',
 	parameters = {

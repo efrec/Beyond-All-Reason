@@ -5,6 +5,16 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 -- The TransferUnits action marks its transfers between allyTeams as captures as a lazy hack;
 -- this bypasses potential modoption sharing limits but leads to the fence around the action.
 
+---Fires when a matching unit is given to another team. Captures are covered by UnitCaptured instead.
+---@class UnitReceivedTrigger
+---@field unitName? UnitName Only the given unit with this name.
+---@field unitDefName? UnitDefName Only given units of this unit definition.
+---@field oldTeamID? TeamID Only units given by this team.
+---@field newTeamID? TeamID Only units given to this team.
+---@field ignoreMissionActions? Boolean Whether transfers made by mission actions are ignored.
+---@default ignoreMissionActions true
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitReceived',
 	parameters = {

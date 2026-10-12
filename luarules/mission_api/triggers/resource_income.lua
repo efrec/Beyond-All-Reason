@@ -40,6 +40,14 @@ local function getTeamResourceIncomeForSources(teamID, resourceType, sources, co
 		 + (sources.transfer   and transferIncome   or 0)
 end
 
+---Fires when a team's income of metal, energy, or both is at or above the given amounts per second. Income is checked once per second, and both thresholds must be met when both are given. While repeating, it fires again every second the thresholds hold.
+---@class ResourceIncomeTrigger
+---@field teamID TeamID The team whose income is measured.
+---@field metal? Number The metal income per second to reach.
+---@field energy? Number The energy income per second to reach.
+---@field sources? ResourceIncomeSources Count only income from these sources: 'extractor' (metal only), 'reclaim', 'production' (all remaining income), and 'transfer' (resources shared by allies). When omitted, the team's total income counts.
+---@requiresOneOf metal energy
+
 return {
 	type = 'ResourceIncome',
 	parameters = {

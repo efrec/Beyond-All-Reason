@@ -1,5 +1,13 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when a feature is destroyed by anything other than being fully reclaimed. Fully reclaimed features are covered by FeatureReclaimed instead.
+---@class FeatureDestroyedTrigger
+---@field featureName? FeatureName Only the feature with this name.
+---@field featureDefName? FeatureDefName Only features of this feature definition.
+---@field allyTeamID? AllyTeamID Only features destroyed by this ally team.
+---@field area? Area Only features inside this area, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.
+---@requiresOneOf featureName featureDefName allyTeamID area
+
 return {
 	type = 'FeatureDestroyed',
 	parameters = {

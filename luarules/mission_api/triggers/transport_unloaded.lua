@@ -4,6 +4,15 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 -- A transportName is checked whether it's an actual transport. A transportDefName is not.
 -- A transport that dies unloads its passengers in the engine, and BAR (usually) kills them.
 
+---Fires when a transport drops off a passenger. Units undocking from other kinds of units count only when transportDefName names that unit definition, and a destroyed transport drops off its passengers as well.
+---@class TransportUnloadedTrigger
+---@field transportName? UnitName Only the transport with this name.
+---@field transportDefName? UnitDefName Only transports of this unit definition.
+---@field teamID? TeamID Only transports owned by this team.
+---@field passengerName? UnitName Only the passenger with this name.
+---@field passengerDefName? UnitDefName Only passengers of this unit definition.
+---@requiresOneOf transportName transportDefName
+
 return {
 	type = 'TransportUnloaded',
 	parameters = {

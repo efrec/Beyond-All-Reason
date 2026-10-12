@@ -2,6 +2,13 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
 -- For buildings or units placed by constructors, see ConstructionStarted.
 
+---Fires when a factory starts producing a unit of the given definition. Units placed by constructors are covered by ConstructionStarted instead.
+---@class ProductionStartedTrigger
+---@field unitDefName UnitDefName The unit definition being produced.
+---@field teamID? TeamID Only production for this team.
+---@field factoryName? UnitName Only production at the factory with this name.
+---@field factoryDefName? UnitDefName Only production at factories of this unit definition.
+
 return {
 	type = 'ProductionStarted',
 	parameters = {

@@ -3,6 +3,12 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 -- timeRemaining must be at least 1: at 0 the countdown has ended, which is
 -- CountdownFinished's job. (It is also deliberately not a Quantity - a Quantity
 -- parameter would turn this into a statistics trigger; see mission-api-instructions.md.)
+
+---Fires when the named countdown ticks down to the given number of seconds remaining.
+---@class CountdownReachedTrigger
+---@field countdownID CountdownID The countdown to watch.
+---@field timeRemaining PositiveInteger The whole seconds remaining at which to fire, at least 1; use CountdownFinished for zero.
+
 return {
 	type = 'CountdownReached',
 	parameters = {

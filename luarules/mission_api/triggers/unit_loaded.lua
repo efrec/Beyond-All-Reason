@@ -3,6 +3,15 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 -- Docking drones, hats, and attached turrets raise :UnitLoaded as well, but only transports count.
 -- If a unit is force-attached to the transport, then we have no way of knowing, so this activates.
 
+---Fires when a matching unit is loaded into a transport. Only loading into transports counts.
+---@class UnitLoadedTrigger
+---@field passengerName? UnitName Only the passenger with this name.
+---@field passengerDefName? UnitDefName Only passengers of this unit definition.
+---@field teamID? TeamID Only passengers owned by this team.
+---@field transportName? UnitName Only loading into the transport with this name.
+---@field transportDefName? UnitDefName Only loading into transports of this unit definition.
+---@requiresOneOf passengerName passengerDefName
+
 return {
 	type = 'UnitLoaded',
 	parameters = {

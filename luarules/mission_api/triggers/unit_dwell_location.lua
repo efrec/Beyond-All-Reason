@@ -1,5 +1,14 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when a matching unit has stayed inside an area for a duration. Each unit fires the trigger once per stay, and leaving the area and returning starts a new count.
+---@class UnitDwellLocationTrigger
+---@field area Area The area to watch, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.
+---@field duration Number How long the unit must stay in the area, in game frames (30 per second).
+---@field unitName? UnitName Only the unit with this name.
+---@field unitDefName? UnitDefName Only units of this unit definition.
+---@field teamID? TeamID Only units owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitDwellLocation',
 	parameters = {

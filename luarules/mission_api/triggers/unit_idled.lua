@@ -6,6 +6,13 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
 local ACTIVATION = true
 
+---Fires when a matching unit runs out of work: its order queue empties, or only brief automatic tasks remain in it.
+---@class UnitIdledTrigger
+---@field unitName? UnitName Only the unit with this name.
+---@field unitDefName? UnitDefName Only units of this unit definition.
+---@field teamID? TeamID Only units owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitIdled',
 	parameters = {

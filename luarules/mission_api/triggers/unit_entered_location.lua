@@ -1,5 +1,15 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires each time a matching unit enters an area, once per unit that enters.
+---
+---Units already inside the area when the mission starts count as entering on the first game frame.
+---@class UnitEnteredLocationTrigger
+---@field area Area The area to watch, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.
+---@field unitName? UnitName Only the unit with this name.
+---@field unitDefName? UnitDefName Only units of this unit definition.
+---@field teamID? TeamID Only units owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitEnteredLocation',
 	parameters = {

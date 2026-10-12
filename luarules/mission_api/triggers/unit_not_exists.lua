@@ -1,5 +1,12 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when a matching unit leaves a team's possession, whether destroyed, given away, or captured.
+---@class UnitNotExistsTrigger
+---@field unitName? UnitName Only the unit with this name.
+---@field unitDefName? UnitDefName Only units of this unit definition.
+---@field teamID? TeamID Only units that were owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitNotExists',
 	parameters = {

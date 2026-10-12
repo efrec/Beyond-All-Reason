@@ -5,6 +5,11 @@ local function secondsToFrames(seconds)
 	return math.floor(seconds * Game.gameSpeed + 0.5)
 end
 
+---Fires once a number of seconds after the mission starts, and again on an interval while repeating.
+---@class TimeElapsedTrigger
+---@field seconds Number Seconds after the mission starts, rounded to the nearest game frame.
+---@field interval? Number Seconds between repeats while the trigger is repeating; without it, a repeating trigger fires only once.
+
 return {
 	type = 'TimeElapsed',
 	parameters = {

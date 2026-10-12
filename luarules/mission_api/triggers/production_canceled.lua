@@ -20,6 +20,15 @@ local function matchesUnit(trigger, context, unitID, unitDefID, unitTeam)
 	return true
 end
 
+---Fires when a unit in production at a factory is removed before it is finished, whether its order is canceled, its factory is destroyed, or it is captured. Units built by constructors are covered by ConstructionCanceled instead.
+---@class ProductionCanceledTrigger
+---@field unitName? UnitName Only the unit in production with this name.
+---@field unitDefName? UnitDefName Only units in production of this unit definition.
+---@field teamID? TeamID Only units in production owned by this team.
+---@field factoryName? UnitName Only units produced by the factory with this name.
+---@field factoryDefName? UnitDefName Only units produced by factories of this unit definition.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'ProductionCanceled',
 	parameters = {

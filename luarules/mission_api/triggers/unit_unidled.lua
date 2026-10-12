@@ -6,6 +6,13 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
 local ACTIVATION = false
 
+---Fires when a matching unit gets work again: its order queue receives an order that is more than a brief automatic task.
+---@class UnitUnidledTrigger
+---@field unitName? UnitName Only the unit with this name.
+---@field unitDefName? UnitDefName Only units of this unit definition.
+---@field teamID? TeamID Only units owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitUnidled',
 	parameters = {

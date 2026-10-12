@@ -26,6 +26,16 @@ local function matchesUnit(parameters, context, unitID, unitDefID)
 	return true
 end
 
+---Fires when a matching unit drops out of the watched sensors of other ally teams: no longer seen, on radar, or heard by seismic detectors. A unit held by several of the watched sensors is lost only when it leaves all of them, and a destroyed unit does not count as lost.
+---@class UnitUndetectedTrigger
+---@field unitName? UnitName Only the lost unit with this name.
+---@field unitDefName? UnitDefName Only lost units of this unit definition.
+---@field owningTeamID? TeamID Only lost units owned by this team.
+---@field sensorAllyTeam? AllyTeamID Only loss from this ally team's sensors. When omitted, the sensors of every ally team other than the unit's own count, and Gaia's sensors are excluded.
+---@field sensorTypes? SensorTypes The sensors that count: 'vision', 'radar', 'seismic', or any combination. When omitted, every sensor counts.
+---@default sensorTypes { 'vision', 'radar', 'seismic' }
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitUndetected',
 	parameters = {

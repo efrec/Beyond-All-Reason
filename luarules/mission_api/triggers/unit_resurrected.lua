@@ -1,5 +1,12 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when a unit is resurrected from a wreck.
+---@class UnitResurrectedTrigger
+---@field unitDefName? UnitDefName Only resurrected units of this unit definition.
+---@field teamID? TeamID Only resurrected units owned by this team.
+---@field featureName? FeatureName Only resurrection of the wreck with this name.
+---@requiresOneOf featureName unitDefName
+
 return {
 	type = 'UnitResurrected',
 	parameters = {

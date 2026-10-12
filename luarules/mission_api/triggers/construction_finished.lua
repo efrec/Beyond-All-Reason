@@ -1,5 +1,12 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when a unit that was under construction is completed. Units that enter the mission already complete do not count.
+---@class ConstructionFinishedTrigger
+---@field unitName? UnitName Only the completed unit with this name.
+---@field unitDefName? UnitDefName Only completed units of this unit definition.
+---@field teamID? TeamID Only completed units owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'ConstructionFinished',
 	parameters = {

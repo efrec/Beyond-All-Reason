@@ -25,6 +25,16 @@ local function matchesUnit(parameters, context, unitID, unitDefID)
 	return true
 end
 
+---Fires when a matching unit comes into the watched sensors of another ally team: seen, on radar, or heard by seismic detectors. A unit already inside the watched sensors is not detected again until it has dropped out of all of them.
+---@class UnitDetectedTrigger
+---@field unitName? UnitName Only the detected unit with this name.
+---@field unitDefName? UnitDefName Only detected units of this unit definition.
+---@field owningTeamID? TeamID Only detected units owned by this team.
+---@field sensorAllyTeam? AllyTeamID Only detection by this ally team's sensors. When omitted, the sensors of every ally team other than the unit's own count, and Gaia's sensors are excluded.
+---@field sensorTypes? SensorTypes The sensors that count: 'vision', 'radar', 'seismic', or any combination. When omitted, every sensor counts.
+---@default sensorTypes { 'vision', 'radar', 'seismic' }
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitDetected',
 	parameters = {

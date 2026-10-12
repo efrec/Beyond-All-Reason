@@ -10,6 +10,14 @@ local function getUnitStates(context, triggerID)
 	return unitStates
 end
 
+---Fires when the build progress of a matching unit under construction reaches a fraction of completion. Each unit can fire the trigger only once, and units that are already complete when first checked do not count.
+---@class ConstructionProgressTrigger
+---@field progress Fraction The build progress to reach, from 0 to 1.
+---@field unitName? UnitName Only the unit under construction with this name.
+---@field unitDefName? UnitDefName Only units under construction of this unit definition.
+---@field teamID? TeamID Only units under construction owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'ConstructionProgress',
 	parameters = {

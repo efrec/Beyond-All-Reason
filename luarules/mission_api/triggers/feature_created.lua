@@ -1,5 +1,11 @@
 local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 
+---Fires when a feature, such as a wreck or a map prop, appears.
+---@class FeatureCreatedTrigger
+---@field featureDefName? FeatureDefName Only features of this feature definition.
+---@field area? Area Only features inside this area, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.
+---@requiresOneOf featureDefName area
+
 return {
 	type = 'FeatureCreated',
 	parameters = {

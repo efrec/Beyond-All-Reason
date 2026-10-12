@@ -9,6 +9,13 @@ local function canHaveAttacker(weaponDefID)
 	return weaponDefID >= 0 or weaponDefID == DAMAGETYPE_CRUSHED or weaponDefID < DAMAGETYPE_KILLED_BY_LUA
 end
 
+---Fires each time a matching unit is damaged by an enemy. Damage with no identifiable enemy attacker, such as from allies, from the explosions of dying units, or from the environment, does not count.
+---@class UnitAttackedTrigger
+---@field unitName? UnitName Only the damaged unit with this name.
+---@field unitDefName? UnitDefName Only damaged units of this unit definition.
+---@field teamID? TeamID Only damaged units owned by this team.
+---@requiresOneOf unitName unitDefName
+
 return {
 	type = 'UnitAttacked',
 	parameters = {

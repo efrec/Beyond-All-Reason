@@ -3,6 +3,13 @@ local ParameterTypes = GG['MissionAPI'].Modules.ParameterTypes.Types
 -- Return value index as on https://recoilengine.org/docs/lua-api/#Spring.GetTeamResources
 local CURRENT_RESOURCE_LEVEL_INDEX = 1
 
+---Fires when a team has at least the given amounts of metal, energy, or both in storage. Storage is checked every game frame, and both thresholds must be met when both are given. While repeating, it fires again every game frame the thresholds hold.
+---@class ResourceStoredTrigger
+---@field teamID TeamID The team whose storage is measured.
+---@field metal? Number The stored metal to reach.
+---@field energy? Number The stored energy to reach.
+---@requiresOneOf metal energy
+
 return {
 	type = 'ResourceStored',
 	parameters = {
