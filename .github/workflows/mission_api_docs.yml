@@ -1,0 +1,77 @@
+name: Mission API Docs
+
+on:
+  pull_request:
+    paths:
+      - "luarules/mission_api/**"
+      - "tools/mission_api/**"
+      - ".github/workflows/mission_api_docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EMMYLUA_DOC_CLI_VERSION: 0.25.1
+
+jobs:
+  mission_api_docs:
+    name: mission_api_docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # git describe needs the tags and the history behind the merge commit.
+          fetch-depth: 0
+
+      - name: Install emmylua_doc_cli
+        run: |
+          set -euo pipefail
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64)  ASSET=emmylua_doc_cli-linux-x64.tar.gz ;;
+            aarch64) ASSET=emmylua_doc_cli-linux-aarch64-glibc.2.17.tar.gz ;;
+            *) echo "unsupported arch for emmylua_doc_cli: $ARCH" >&2; exit 1 ;;
+          esac
+          URL="https://github.com/EmmyLuaLs/emmylua-analyzer-rust/releases/download/${EMMYLUA_DOC_CLI_VERSION}/${ASSET}"
+          curl -fsSL "$URL" | sudo tar xz -C /usr/local/bin
+          sudo chmod +x /usr/local/bin/emmylua_doc_cli
+          /usr/local/bin/emmylua_doc_cli --version
+
+      - name: Install Lua 5.1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lua5.1
+
+      - name: Build the catalog and docs
+        env:
+          EMMYLUA_DOC_CLI: /usr/local/bin/emmylua_doc_cli
+          LUA: lua5.1
+        run: bash tools/mission_api/build_docs.sh
+
+      - name: Check the committed outputs
+        run: |
+          set -euo pipefail
+          status=0
+
+          if ! git ls-files --error-unmatch luarules/mission_api/mission_api.json > /dev/null 2>&1; then
+            echo "::error title=Mission API catalog is not committed::Commit luarules/mission_api/mission_api.json after running tools/mission_api/build_docs.sh."
+            status=1
+          fi
+
+          # The game version is the commit hash, so it differs on every commit by design.
+          if ! git diff --exit-code -I '^  "gameVersion": ' -- luarules/mission_api/mission_api.json; then
+            echo "::error title=Mission API catalog is stale::luarules/mission_api/mission_api.json differs from the annotations. Run tools/mission_api/build_docs.sh and commit the result."
+            status=1
+          fi
+
+          if [ -n "$(git status --porcelain -- doc/mission_api)" ]; then
+            git status --porcelain -- doc/mission_api
+            git diff -- doc/mission_api
+            echo "::error title=Mission API docs are stale::doc/mission_api differs from the regenerated pages. Run tools/mission_api/build_docs.sh and commit the result."
+            status=1
+          fi
+
+          exit $status

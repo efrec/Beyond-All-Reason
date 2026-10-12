@@ -1,0 +1,3367 @@
+{
+  "actions": {
+    "ActivateObjective": {
+      "category": "objectives",
+      "declares": [],
+      "description": "Makes an objective active so that it can progress and complete.\n\nNothing happens when the objective is already active or already completed, or when the objective is restricted to stages that do not include the current stage. Activating clears an earlier cancellation and fires the objective's onActivated event trigger.",
+      "parameters": [
+        {
+          "description": "The objective to activate.",
+          "name": "objectiveID",
+          "required": true,
+          "type": "ObjectiveID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "AddBuildOption": {
+      "category": "build_options",
+      "declares": [],
+      "description": "Adds a unit type to the build options of a builder or factory type, for its current units and for every unit of that type built later, on every team.",
+      "parameters": [
+        {
+          "description": "The unit type to add as a build option.",
+          "name": "builtDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "The builder or factory type that receives the option.",
+          "name": "builderDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "default": "last",
+          "description": "The slot the option takes among the builder's build options, counted from 1. Build menus that sort their options ignore it.",
+          "name": "buildMenuPosition",
+          "required": false,
+          "type": "PositiveInteger"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "AddCountdown": {
+      "category": "countdowns",
+      "declares": [
+        "countdownID"
+      ],
+      "description": "Starts a countdown that runs down one second at a time and ends when it reaches zero. Countdown triggers and the other countdown actions refer to it by its countdownID.\n\nAdding a countdown with the ID of a running one replaces it.",
+      "parameters": [
+        {
+          "description": "The name the countdown is known by.",
+          "name": "countdownID",
+          "required": true,
+          "type": "CountdownID"
+        },
+        {
+          "description": "The duration in seconds, rounded to whole seconds.",
+          "name": "seconds",
+          "required": true,
+          "type": "Quantity"
+        },
+        {
+          "default": "true",
+          "description": "Whether the countdown is meant to be shown to the player. Displayed countdowns tick together on whole seconds and hold their time through their first tick; others time their duration exactly from when they are added.",
+          "name": "displayed",
+          "required": false,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "AddMapMarker": {
+      "category": "map",
+      "declares": [
+        "markerName"
+      ],
+      "description": "Places a map marker at a position, visible to every player, and records it under markerName so RemoveMapMarker can erase it.\n\nReusing a name records the new marker and forgets the earlier one without erasing it.",
+      "parameters": [
+        {
+          "description": "The name the marker is known by.",
+          "name": "markerName",
+          "required": true,
+          "type": "String"
+        },
+        {
+          "description": "Where the marker goes, with x and z in elmos; y defaults to the ground height.",
+          "name": "position",
+          "required": true,
+          "type": "Position"
+        },
+        {
+          "description": "Reserved for marker styles; it currently changes nothing about the marker.",
+          "name": "markerType",
+          "required": false,
+          "type": "String"
+        },
+        {
+          "description": "Text shown beside the marker.",
+          "name": "label",
+          "required": false,
+          "type": "String"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "AddResources": {
+      "category": "resources",
+      "declares": [],
+      "description": "Gives a team metal and energy at once, or takes them away.\n\nPositive amounts are added to the team's storage, and negative amounts are spent from it. Each resource is applied separately, and an omitted resource is left unchanged.",
+      "parameters": [
+        {
+          "description": "The team whose storage changes.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "Metal to add, or to remove when negative.",
+          "name": "metal",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "Energy to add, or to remove when negative.",
+          "name": "energy",
+          "required": false,
+          "type": "Number"
+        }
+      ],
+      "requiresOneOf": [
+        "metal",
+        "energy"
+      ]
+    },
+    "AddResourcesPerSecond": {
+      "category": "resources",
+      "declares": [],
+      "description": "Changes a team's ongoing income by a fixed amount of metal and energy per second for the rest of the game.\n\nThe income is delivered in two installments per second. Repeating the action adds to the rate already in effect, so a negative amount reduces or cancels an earlier rate; there is no other way to stop it. An omitted resource is left unchanged.",
+      "parameters": [
+        {
+          "description": "The team whose income changes.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "Metal per second to add to the team's income, or to drain from it when negative.",
+          "name": "metal",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "Energy per second to add to the team's income, or to drain from it when negative.",
+          "name": "energy",
+          "required": false,
+          "type": "Number"
+        }
+      ],
+      "requiresOneOf": [
+        "metal",
+        "energy"
+      ]
+    },
+    "AddTime": {
+      "category": "countdowns",
+      "declares": [],
+      "description": "Adds seconds to the remaining time of a countdown. Does nothing when the countdown has ended or been canceled.",
+      "parameters": [
+        {
+          "description": "The countdown to lengthen.",
+          "name": "countdownID",
+          "required": true,
+          "type": "CountdownID"
+        },
+        {
+          "description": "The seconds to add; the result is rounded to whole seconds.",
+          "name": "seconds",
+          "required": true,
+          "type": "Quantity"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "AddUnitMarker": {
+      "category": "map",
+      "declares": [],
+      "description": "Draws a marker above every unit matching the filters, stacked above any markers the unit already has. A unit holds at most one marker of each markerType.\n\nOnly units that exist when the action runs are marked, and a marker disappears with its unit. A teamID on its own matches no units.",
+      "parameters": [
+        {
+          "description": "Only units carrying this mission unit name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units of this type.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "default": "every team",
+          "description": "Only units of this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "default": "untyped",
+          "description": "A label for the marker, so RemoveUnitMarker can remove it on its own.",
+          "name": "markerType",
+          "required": false,
+          "type": "String"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "CancelCountdown": {
+      "category": "countdowns",
+      "declares": [],
+      "description": "Removes a countdown without ending it, so no countdown-ended trigger fires for it.",
+      "parameters": [
+        {
+          "description": "The countdown to remove.",
+          "name": "countdownID",
+          "required": true,
+          "type": "CountdownID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "CancelObjective": {
+      "category": "objectives",
+      "declares": [],
+      "description": "Cancels an objective, deactivating it without completing or failing it.\n\nNothing happens when the objective is already completed or already canceled. Canceling fires the objective's onCanceled event trigger. A canceled objective can be activated again with ActivateObjective.",
+      "parameters": [
+        {
+          "description": "The objective to cancel.",
+          "name": "objectiveID",
+          "required": true,
+          "type": "ObjectiveID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "ChangeStage": {
+      "category": "objectives",
+      "declares": [],
+      "description": "Moves the mission to another stage.\n\nObjectives listed by the current stage that are not completed are canceled, except those also listed by the new stage, which continue unchanged. Every other objective listed by the new stage is activated. Changing to the stage that is already current changes nothing.",
+      "parameters": [
+        {
+          "description": "The stage to make current.",
+          "name": "stageID",
+          "required": true,
+          "type": "StageID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "CompleteObjective": {
+      "category": "objectives",
+      "declares": [],
+      "description": "Completes an objective as a success, regardless of its own trigger.\n\nNothing happens when the objective is already completed or failed. Completing fires the objective's onCompleted event trigger and then, unless that trigger changed the stage, advances to the objective's nextStage once every objective of the current stage sharing that nextStage is complete. A completed objective cannot be activated again.",
+      "parameters": [
+        {
+          "description": "The objective to complete.",
+          "name": "objectiveID",
+          "required": true,
+          "type": "ObjectiveID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "CreateFeatures": {
+      "category": "features",
+      "declares": [
+        "featureLoadout"
+      ],
+      "description": "Spawns features, such as wrecks, rocks, and trees, from a feature loadout. Each entry names a feature definition and a position in elmos; the height is taken from the ground. An entry with a featureName creates that mission feature name for other actions and triggers to refer to.",
+      "parameters": [
+        {
+          "description": "The features to spawn, each with featureDefName, x, z, and optionally facing and featureName.",
+          "name": "featureLoadout",
+          "required": true,
+          "type": "FeatureLoadout"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "Custom": {
+      "category": "misc",
+      "declares": [],
+      "description": "Runs a Lua function written in the mission script.\n\nThe function is called with no arguments, and its return value is ignored. Use it for behavior that no other action provides.",
+      "parameters": [
+        {
+          "description": "The function to call.",
+          "name": "function",
+          "required": true,
+          "type": "Function"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "Defeat": {
+      "category": "game",
+      "declares": [],
+      "description": "Ends the game with the listed ally teams defeated; every other ally team wins.",
+      "parameters": [
+        {
+          "description": "The ally teams that lose.",
+          "name": "allyTeamIDs",
+          "required": true,
+          "type": "AllyTeamIDs"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "DespawnUnits": {
+      "category": "units",
+      "declares": [],
+      "description": "Removes the units with a name from the game silently, without a death explosion or a wreck.\n\nThe units count as lost for the owning team, and UnitKilled triggers watching them fire. Nothing happens when no living unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units are removed.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "DestroyFeatures": {
+      "category": "features",
+      "declares": [],
+      "description": "Destroys every feature currently carrying a mission feature name. Features that no longer exist are skipped.",
+      "parameters": [
+        {
+          "description": "The mission feature name of the features to destroy.",
+          "name": "featureName",
+          "required": true,
+          "type": "FeatureName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "DestroyUnits": {
+      "category": "units",
+      "declares": [],
+      "description": "Kills the units with a name, with their death explosion and wreck.\n\nThe units count as lost for the owning team, no team is credited with the kill, and UnitKilled triggers watching them fire. Nothing happens when no living unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units are destroyed.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "DisableBuildOption": {
+      "category": "build_options",
+      "declares": [],
+      "description": "Grays out a unit type in the build menus of a team so it cannot be built, either for every builder of the team or for one builder or factory type only.\n\nThe block applies to the team's current and future builders and stays until EnableBuildOption lifts it.",
+      "parameters": [
+        {
+          "description": "The unit type that can no longer be built.",
+          "name": "builtDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "default": "every builder of the team",
+          "description": "Limits the block to this builder or factory type.",
+          "name": "builderDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "The team whose build menus are affected.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "DisableTrigger": {
+      "category": "misc",
+      "declares": [],
+      "description": "Turns a trigger off so that it stops firing until an EnableTrigger action turns it back on.\n\nA disabled trigger ignores its events entirely, so an event that happens while it is disabled is missed rather than held. Disabling does not reset the trigger's repeat count.",
+      "parameters": [
+        {
+          "description": "The trigger to disable.",
+          "name": "triggerID",
+          "required": true,
+          "type": "TriggerID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "DisableUnitDef": {
+      "category": "campaign_ai",
+      "declares": [],
+      "description": "Stops the campaign AI of a team from building a unit type.\n\nThis only instructs the AI; the build option itself stays available, so use DisableBuildOption to gray it out as well.",
+      "parameters": [
+        {
+          "description": "The unit type the AI must not build.",
+          "name": "unitDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "The AI team that receives the instruction.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "DisableUnitsControl": {
+      "category": "campaign_ai",
+      "declares": [],
+      "description": "Tells the campaign AI of a team to leave alone the units carrying a mission unit name.\n\nOnly units that exist when the action runs are affected.",
+      "parameters": [
+        {
+          "description": "The mission unit name of the units to take from the AI.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "The AI team that receives the instruction.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "DrawLines": {
+      "category": "map",
+      "declares": [
+        "lineName"
+      ],
+      "description": "Draws a line through the positions in order, visible to every player, and records it under lineName. Drawing again with the same name replaces the earlier line.",
+      "parameters": [
+        {
+          "description": "At least two positions, with x and z in elmos; y defaults to the ground height.",
+          "name": "positions",
+          "required": true,
+          "type": "Positions"
+        },
+        {
+          "description": "The name the line is known by.",
+          "name": "lineName",
+          "required": true,
+          "type": "String"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "EnableBuildOption": {
+      "category": "build_options",
+      "declares": [],
+      "description": "Lifts a block placed by DisableBuildOption. The builderDefName must match the one the block was placed with: a team-wide block is lifted only by a team-wide enable.\n\nBlocks the game places for its own reasons, such as water or wind restrictions, are not affected.",
+      "parameters": [
+        {
+          "description": "The unit type to make buildable again.",
+          "name": "builtDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "default": "every builder of the team",
+          "description": "The builder or factory type the block was placed for.",
+          "name": "builderDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "The team whose build menus are affected.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "EnableTrigger": {
+      "category": "misc",
+      "declares": [],
+      "description": "Turns a trigger on so that it fires when its event next happens.\n\nEnabling does not reset a trigger that has already fired: a non-repeating trigger that fired once stays spent, and a repeating trigger keeps its count against maxRepeats. Use this to start triggers authored with active = false.",
+      "parameters": [
+        {
+          "description": "The trigger to enable.",
+          "name": "triggerID",
+          "required": true,
+          "type": "TriggerID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "EnableUnitDef": {
+      "category": "campaign_ai",
+      "declares": [],
+      "description": "Allows the campaign AI of a team to build a unit type.\n\nThis only instructs the AI; it does not change which build options exist.",
+      "parameters": [
+        {
+          "description": "The unit type the AI may build.",
+          "name": "unitDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "The AI team that receives the instruction.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "EnableUnitsControl": {
+      "category": "campaign_ai",
+      "declares": [],
+      "description": "Tells the campaign AI of a team that it may control the units carrying a mission unit name.\n\nOnly units that exist when the action runs are affected.",
+      "parameters": [
+        {
+          "description": "The mission unit name of the units to hand to the AI.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "The AI team that receives the instruction.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "FailObjective": {
+      "category": "objectives",
+      "declares": [],
+      "description": "Marks an objective as failed.\n\nNothing happens when the objective is already completed or failed. Failing fires the objective's onFailed event trigger and then, unless that trigger changed the stage, advances to the objective's nextStage under the same conditions as completion. A failed objective counts as finished for stage advancement and cannot be activated again.",
+      "parameters": [
+        {
+          "description": "The objective to fail.",
+          "name": "objectiveID",
+          "required": true,
+          "type": "ObjectiveID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "HideObjective": {
+      "category": "objectives",
+      "declares": [],
+      "description": "Marks an objective as hidden so that it is not presented to the player.\n\nHiding changes presentation only: a hidden objective still tracks progress and can still complete or fail. Nothing happens when it is already hidden. Hiding fires the objective's onHidden event trigger.",
+      "parameters": [
+        {
+          "description": "The objective to hide.",
+          "name": "objectiveID",
+          "required": true,
+          "type": "ObjectiveID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "IssueOrders": {
+      "category": "units",
+      "declares": [],
+      "description": "Gives the units with a name a list of orders, as if the player had issued them.\n\nEvery unit with the name receives the whole list. Each order is { command, params, options }: command is a command ID, or a unit def name for a build order; params are the command's numbers, such as { x, y, z } for a move or { x, y, z, radius } for an area command; and options are any of 'shift', 'alt', 'ctrl', 'right', and 'meta'. Add 'shift' to queue an order behind the previous ones; without it, the order replaces the unit's current queue. Where a command targets a unit or feature, params may be { unitName = '...' } or { featureName = '...' } instead, and the order is repeated for every unit or feature with that name, with the copies queued behind the first. UnitOrdered and RallyOrdered triggers ignore these orders unless they set ignoreMissionActions = false. Nothing happens when no unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units receive the orders.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "The orders to give, in list order.",
+          "name": "orders",
+          "required": true,
+          "type": "Orders"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "MoveUnits": {
+      "category": "units",
+      "declares": [],
+      "description": "Teleports the units with a name to a position, optionally turning them to face a direction.\n\nEvery unit with the name is placed at the same position. The direction is either { angle = degrees }, a compass angle with 0 facing north and 90 facing east, or a point { x, z } that each unit turns to face; a unit placed exactly on that point keeps its facing. Nothing happens when no living unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units are moved.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "The destination in elmos. When y is omitted, the ground height at (x, z) is used.",
+          "name": "position",
+          "required": true,
+          "type": "Position"
+        },
+        {
+          "description": "The facing after the move. Units keep their facing when omitted.",
+          "name": "direction",
+          "required": false,
+          "type": "Direction"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "NameUnits": {
+      "category": "units",
+      "declares": [
+        "unitName"
+      ],
+      "description": "Gives a name to existing units chosen by team, unit def, or area, so that later actions and triggers can refer to them.\n\nThe filters combine: a teamID alone names every unit the team owns, and a unitDefName or an area narrows the selection to units matching every filter given. Only units that exist when the action runs are named; units built later are not. A unit can hold several names, and naming it does not remove names it already has.",
+      "parameters": [
+        {
+          "description": "The name to give the selected units.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "Only units of this unit def.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "String"
+        },
+        {
+          "description": "Only units inside this area: a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.",
+          "name": "area",
+          "required": false,
+          "type": "Area"
+        }
+      ],
+      "requiresOneOf": [
+        "teamID",
+        "unitDefName",
+        "area"
+      ]
+    },
+    "Pause": {
+      "category": "game",
+      "declares": [],
+      "description": "Pauses the game in a way players cannot undo; only Unpause ends it. The usual pause overlay is not shown.",
+      "parameters": [],
+      "requiresOneOf": []
+    },
+    "PauseCountdown": {
+      "category": "countdowns",
+      "declares": [],
+      "description": "Freezes the remaining time of a countdown until UnpauseCountdown resumes it. Does nothing when the countdown has ended or been canceled.",
+      "parameters": [
+        {
+          "description": "The countdown to pause.",
+          "name": "countdownID",
+          "required": true,
+          "type": "CountdownID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "PlayMusic": {
+      "category": "media",
+      "declares": [],
+      "description": "Plays a music track, interrupting the track that is playing.\n\nThe path is not checked when the mission loads.",
+      "parameters": [
+        {
+          "description": "The path of the music file within the game's files.",
+          "name": "soundfile",
+          "required": true,
+          "type": "String"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "PlaySound": {
+      "category": "media",
+      "declares": [],
+      "description": "Plays a sound once, either right away or queued behind other queued sounds so that they do not overlap.\n\nWhile a queued sound plays, the game's spoken notifications are held back for its length.",
+      "parameters": [
+        {
+          "description": "The path of a .wav file within the game's files; checked when the mission loads.",
+          "name": "soundfile",
+          "required": true,
+          "type": "SoundFile"
+        },
+        {
+          "default": "1",
+          "description": "The playback volume, where 1 is full volume.",
+          "name": "volume",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "Plays the sound from this point in the world, with x and z in elmos and y defaulting to the ground height, instead of everywhere.",
+          "name": "position",
+          "required": false,
+          "type": "Position"
+        },
+        {
+          "default": "false",
+          "description": "Whether to queue the sound after the queued sounds before it; false plays it immediately, over anything else.",
+          "name": "enqueue",
+          "required": false,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "ReclaimUnits": {
+      "category": "units",
+      "declares": [],
+      "description": "Removes the units with a name as if they were reclaimed, refunding their metal cost to a team.\n\nEach unit's full metal cost is added to the receiving team's storage; no energy is refunded. The units leave no wreck and no explosion. UnitReclaimed triggers ignore this action unless they set ignoreMissionActions = false. Nothing happens when no living unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units are reclaimed.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "The team that receives the metal. When omitted, the team that owns the units receives it.",
+          "name": "reclaimerTeam",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "RemoveAllLines": {
+      "category": "map",
+      "declares": [],
+      "description": "Erases every line drawn by DrawLines.",
+      "parameters": [],
+      "requiresOneOf": []
+    },
+    "RemoveAllMapMarkers": {
+      "category": "map",
+      "declares": [],
+      "description": "Erases every marker placed by AddMapMarker.",
+      "parameters": [],
+      "requiresOneOf": []
+    },
+    "RemoveBuildOption": {
+      "category": "build_options",
+      "declares": [],
+      "description": "Takes a unit type out of the build options of a builder or factory type, for its current units and for every unit of that type built later, on every team. Queued orders to build it are dropped.\n\nThe option may be one the builder has by default or one added by AddBuildOption.",
+      "parameters": [
+        {
+          "description": "The unit type to remove as a build option.",
+          "name": "builtDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "The builder or factory type that loses the option.",
+          "name": "builderDefName",
+          "required": true,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "RemoveLine": {
+      "category": "map",
+      "declares": [],
+      "description": "Erases a line drawn by DrawLines. Does nothing for a name that is not drawn.",
+      "parameters": [
+        {
+          "description": "The line to erase.",
+          "name": "lineName",
+          "required": true,
+          "type": "String"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "RemoveMapMarker": {
+      "category": "map",
+      "declares": [],
+      "description": "Erases the marker recorded under markerName. Does nothing for a name that is not recorded.",
+      "parameters": [
+        {
+          "description": "The marker to erase.",
+          "name": "markerName",
+          "required": true,
+          "type": "String"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "RemoveTime": {
+      "category": "countdowns",
+      "declares": [],
+      "description": "Takes seconds off the remaining time of a countdown. The remaining time never goes below zero, and a countdown left at zero ends on its next tick. Does nothing when the countdown has ended or been canceled.",
+      "parameters": [
+        {
+          "description": "The countdown to shorten.",
+          "name": "countdownID",
+          "required": true,
+          "type": "CountdownID"
+        },
+        {
+          "description": "The seconds to remove; the result is rounded to whole seconds.",
+          "name": "seconds",
+          "required": true,
+          "type": "Quantity"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "RemoveUnitMarker": {
+      "category": "map",
+      "declares": [],
+      "description": "Removes markers from every unit matching the filters.\n\nA teamID on its own matches no units.",
+      "parameters": [
+        {
+          "description": "Only units carrying this mission unit name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units of this type.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "default": "every team",
+          "description": "Only units of this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "default": "every marker of the unit",
+          "description": "Remove only the marker of this type.",
+          "name": "markerType",
+          "required": false,
+          "type": "String"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "RotateUnits": {
+      "category": "units",
+      "declares": [],
+      "description": "Turns the units with a name to face a direction.\n\nThe direction is either { angle = degrees }, a compass angle with 0 facing north and 90 facing east, or a point { x, z } that each unit turns to face; a unit standing exactly on that point keeps its facing. Nothing happens when no living unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units turn.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "The facing to apply.",
+          "name": "direction",
+          "required": true,
+          "type": "Direction"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "SelfDestructUnits": {
+      "category": "units",
+      "declares": [],
+      "description": "Self-destructs the units with a name immediately, with their self-destruct explosion and wreck.\n\nThe units count as lost for the owning team, no team is credited with the kill, and UnitKilled triggers watching them fire. Nothing happens when no living unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units self-destruct.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "SendMessage": {
+      "category": "misc",
+      "declares": [],
+      "description": "Adds a message to the battle log for the player to read.\n\nThe text is translated on the player's side, so messageKey is a translation key rather than display text. The entry is logged as a plain message, as opposed to a briefing, objective, notification, or dialogue entry.",
+      "parameters": [
+        {
+          "description": "The translation key of the message text.",
+          "name": "messageKey",
+          "required": true,
+          "type": "String"
+        },
+        {
+          "description": "Values substituted into the translated text, keyed by placeholder name.",
+          "name": "messageData",
+          "required": false,
+          "type": "Table"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "SetTime": {
+      "category": "countdowns",
+      "declares": [],
+      "description": "Sets the remaining time of a countdown and restarts its ticking from now. Does nothing when the countdown has ended or been canceled.",
+      "parameters": [
+        {
+          "description": "The countdown to change.",
+          "name": "countdownID",
+          "required": true,
+          "type": "CountdownID"
+        },
+        {
+          "description": "The new remaining time in seconds, rounded to whole seconds.",
+          "name": "seconds",
+          "required": true,
+          "type": "Quantity"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "ShowObjective": {
+      "category": "objectives",
+      "declares": [],
+      "description": "Clears an objective's hidden mark so that it is presented to the player again.\n\nNothing happens when the objective is not hidden. Showing fires the objective's onShown event trigger.",
+      "parameters": [
+        {
+          "description": "The objective to show.",
+          "name": "objectiveID",
+          "required": true,
+          "type": "ObjectiveID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "SpawnExplosion": {
+      "category": "misc",
+      "declares": [],
+      "description": "Detonates a weapon's explosion at a position, as if that weapon had hit there.\n\nThe explosion uses the weapon's damage, area of effect, and crater settings, damages units, features, and the ground, and has no owner, so no team is credited with its kills.",
+      "parameters": [
+        {
+          "description": "The weapon whose explosion is spawned.",
+          "name": "weaponDefName",
+          "required": true,
+          "type": "WeaponDefName"
+        },
+        {
+          "description": "Where the explosion happens, in elmos. When y is omitted, the ground height at (x, z) is used.",
+          "name": "position",
+          "required": true,
+          "type": "Position"
+        },
+        {
+          "default": "{ x = 0, y = 0, z = 0 }",
+          "description": "The direction the explosion travels, as a vector. Always give y, because an omitted y is filled with the ground height at (x, z) as for any position.",
+          "name": "direction",
+          "required": false,
+          "type": "Position"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "SpawnUnits": {
+      "category": "units",
+      "declares": [
+        "unitLoadout"
+      ],
+      "description": "Creates units from a loadout, placing them on the map finished or under construction.\n\nEach loadout entry gives unitDefName, x, z, and team, and may give y, facing (0 to 3, or n, e, s, w, or the full compass word; south when omitted), unitName, construction (true to spawn as an unfinished build), quantity with spacing (the units are arranged in a grid around x and z, with spacing elmos between footprints), neutral, and orders in the same form as IssueOrders. Entries with a unitName create that name, and every unit of the entry gets it. UnitOrdered and RallyOrdered triggers ignore the entry orders unless they set ignoreMissionActions = false.",
+      "parameters": [
+        {
+          "description": "The units to create, one entry per unit def and position.",
+          "name": "unitLoadout",
+          "required": true,
+          "type": "UnitLoadout"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "TransferUnits": {
+      "category": "units",
+      "declares": [],
+      "description": "Gives the units with a name to another team.\n\nThe units keep their names. UnitCaptured and UnitReceived triggers ignore this action unless they set ignoreMissionActions = false; then captured decides which of the two fires. Nothing happens when no unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units change hands.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "The team that receives the units.",
+          "name": "newTeam",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "default": "false",
+          "description": "Whether the transfer counts as a capture rather than a gift.",
+          "name": "captured",
+          "required": false,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "UnitSelectable": {
+      "category": "units",
+      "declares": [],
+      "description": "Allows or forbids the player to select the units with a name.\n\nUnselectable units cannot be picked or given orders by the player, but they still obey orders from the mission. The setting applies to the units that have the name when the action runs; units named later are unaffected until the action runs again. Nothing happens when no unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units are affected.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "true lets the player select the units, and false prevents it.",
+          "name": "selectable",
+          "required": true,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "UnitTargetable": {
+      "category": "units",
+      "declares": [],
+      "description": "Allows or forbids enemies to target the units with a name.\n\nUntargetable units are not fired on automatically and cannot be given a direct attack order, though ground and area attacks can still hit them. The setting applies to the units that have the name when the action runs; units named later are unaffected until the action runs again. Nothing happens when no unit has the name.",
+      "parameters": [
+        {
+          "description": "The name whose units are affected.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        },
+        {
+          "description": "true lets enemies target the units, and false protects them.",
+          "name": "targetable",
+          "required": true,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "UnnameUnits": {
+      "category": "units",
+      "declares": [],
+      "description": "Removes a name from every unit that has it.\n\nThe units stay in the game and keep any other names they hold. Afterwards, actions and triggers that refer to the name match nothing until units are named with it again.",
+      "parameters": [
+        {
+          "description": "The name to remove.",
+          "name": "unitName",
+          "required": true,
+          "type": "UnitName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "Unpause": {
+      "category": "game",
+      "declares": [],
+      "description": "Ends a pause started by Pause. A pause made by a player is left alone.",
+      "parameters": [],
+      "requiresOneOf": []
+    },
+    "UnpauseCountdown": {
+      "category": "countdowns",
+      "declares": [],
+      "description": "Resumes a countdown paused by PauseCountdown. Does nothing when the countdown has ended or been canceled.",
+      "parameters": [
+        {
+          "description": "The countdown to resume.",
+          "name": "countdownID",
+          "required": true,
+          "type": "CountdownID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "UpdateObjective": {
+      "category": "objectives",
+      "declares": [],
+      "description": "Advances an objective by one step of progress.\n\nOnly an active, unfinished objective advances. The objective completes when its progress reaches its amount, or immediately when it has no amount; otherwise its onProgress event trigger fires. Objectives whose trigger has a quantity track their own progress and are not meant to be advanced this way.",
+      "parameters": [
+        {
+          "description": "The objective to advance.",
+          "name": "objectiveID",
+          "required": true,
+          "type": "ObjectiveID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "Victory": {
+      "category": "game",
+      "declares": [],
+      "description": "Ends the game with the listed ally teams as the winners.",
+      "parameters": [
+        {
+          "description": "The ally teams that win.",
+          "name": "allyTeamIDs",
+          "required": true,
+          "type": "AllyTeamIDs"
+        }
+      ],
+      "requiresOneOf": []
+    }
+  },
+  "formatVersion": 1,
+  "gameVersion": "35fd8a710d-dirty",
+  "mission": {
+    "DifficultiesWrapper": {
+      "description": "A value that depends on the difficulty. Any trigger parameter, action parameter, or objective field other than trigger may be written as { difficulties = { <difficultyName> = <value>, ... } } in place of a plain value. The wrapper replaces the whole value. It cannot be used for a field inside a compound value, such as one entry of a loadout or one field of an area, so the whole parameter is given per difficulty instead. The mission uses the value for the current difficulty, else the value for the nearest easier difficulty given, else the value for the easiest difficulty given.",
+      "fields": [
+        {
+          "description": "The value for each difficulty, keyed by difficulty name. At least one entry is required, and every name must be a known difficulty.",
+          "name": "difficulties",
+          "required": true,
+          "type": "table<Difficulty,any>"
+        }
+      ]
+    },
+    "MissionAction": {
+      "description": "An action. It is run by the triggers that list its ID.",
+      "fields": [
+        {
+          "description": "The name of the action type.",
+          "name": "type",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "description": "The action's parameters, as described by its type. Each parameter may be given per difficulty with a DifficultiesWrapper.",
+          "name": "parameters",
+          "required": false,
+          "type": "table"
+        }
+      ]
+    },
+    "MissionFile": {
+      "description": "A mission. A mission file is a Lua file that returns one of these tables. Every part is optional, but a mission needs at least one trigger to do anything.",
+      "fields": [
+        {
+          "description": "The stage the mission starts in. Required when any stages are declared.",
+          "name": "InitialStage",
+          "required": false,
+          "type": "StageID"
+        },
+        {
+          "description": "The stages of the mission, keyed by stage ID.",
+          "name": "Stages",
+          "required": false,
+          "type": "table<StageID,MissionStage>"
+        },
+        {
+          "description": "The objectives of the mission, keyed by objective ID.",
+          "name": "Objectives",
+          "required": false,
+          "type": "table<ObjectiveID,MissionObjective>"
+        },
+        {
+          "description": "The triggers of the mission, keyed by trigger ID. IDs starting with two underscores are reserved.",
+          "name": "Triggers",
+          "required": false,
+          "type": "table<TriggerID,MissionTrigger>"
+        },
+        {
+          "description": "The actions of the mission, keyed by action ID. IDs starting with two underscores are reserved. Every action must be used by at least one trigger.",
+          "name": "Actions",
+          "required": false,
+          "type": "table<string,MissionAction>"
+        },
+        {
+          "description": "Units placed on the map before the game starts.",
+          "name": "UnitLoadout",
+          "required": false,
+          "type": "UnitLoadout"
+        },
+        {
+          "description": "Features placed on the map before the game starts.",
+          "name": "FeatureLoadout",
+          "required": false,
+          "type": "FeatureLoadout"
+        }
+      ]
+    },
+    "MissionObjective": {
+      "description": "An objective for the player. It completes when its trigger fires enough times, or when an action completes it. Each field except trigger may be given per difficulty with a DifficultiesWrapper.",
+      "fields": [
+        {
+          "description": "The translation key of the objective's text.",
+          "name": "textKey",
+          "required": true,
+          "type": "String"
+        },
+        {
+          "description": "The condition that advances the objective. Without one, the objective only changes through actions.",
+          "name": "trigger",
+          "required": false,
+          "type": "ObjectiveTrigger"
+        },
+        {
+          "description": "How much the objective needs to complete. For a counting trigger, the count to reach, where zero means none left. For any other trigger, how many times it must fire. Without an amount, the objective completes the first time.",
+          "name": "amount",
+          "required": false,
+          "type": "Quantity"
+        },
+        {
+          "description": "The stage to move to once this objective is complete, and every other objective of the current stage with the same next stage is complete too.",
+          "name": "nextStage",
+          "required": false,
+          "type": "StageID"
+        },
+        {
+          "description": "Reserved. It has no effect.",
+          "name": "coop",
+          "required": false,
+          "type": "Boolean"
+        },
+        {
+          "description": "Whether the objective starts hidden from the player.",
+          "name": "hidden",
+          "required": false,
+          "type": "Boolean"
+        },
+        {
+          "description": "An Event trigger that fires when the objective becomes active.",
+          "name": "onActivated",
+          "required": false,
+          "type": "TriggerID"
+        },
+        {
+          "description": "An Event trigger that fires when the objective is canceled.",
+          "name": "onCanceled",
+          "required": false,
+          "type": "TriggerID"
+        },
+        {
+          "description": "An Event trigger that fires when the objective advances without completing.",
+          "name": "onProgress",
+          "required": false,
+          "type": "TriggerID"
+        },
+        {
+          "description": "An Event trigger that fires when the objective completes. It runs before the move to the next stage.",
+          "name": "onCompleted",
+          "required": false,
+          "type": "TriggerID"
+        },
+        {
+          "description": "An Event trigger that fires when the objective fails. It runs before the move to the next stage.",
+          "name": "onFailed",
+          "required": false,
+          "type": "TriggerID"
+        },
+        {
+          "description": "An Event trigger that fires when the objective is hidden.",
+          "name": "onHidden",
+          "required": false,
+          "type": "TriggerID"
+        },
+        {
+          "description": "An Event trigger that fires when the objective is shown.",
+          "name": "onShown",
+          "required": false,
+          "type": "TriggerID"
+        }
+      ]
+    },
+    "MissionStage": {
+      "description": "A stage of the mission. Entering a stage activates the objectives it lists, and leaving it cancels those that did not finish. An objective listed by both the old and the new stage carries over untouched.",
+      "fields": [
+        {
+          "description": "The objectives that are active during this stage.",
+          "name": "objectives",
+          "required": true,
+          "type": "ObjectiveID[]"
+        }
+      ]
+    },
+    "MissionTrigger": {
+      "description": "A trigger. When its condition is met and its settings allow it, it runs its actions in order.",
+      "fields": [
+        {
+          "description": "The name of the trigger type.",
+          "name": "type",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "description": "The trigger's parameters, as described by its type. Each parameter may be given per difficulty with a DifficultiesWrapper.",
+          "name": "parameters",
+          "required": false,
+          "type": "table"
+        },
+        {
+          "description": "When the trigger is allowed to fire.",
+          "name": "settings",
+          "required": false,
+          "type": "TriggerSettings"
+        },
+        {
+          "description": "The IDs of the actions to run, in order. At least one is required.",
+          "name": "actions",
+          "required": true,
+          "type": "string[]"
+        }
+      ]
+    },
+    "ObjectiveTrigger": {
+      "description": "The condition that advances an objective. It is a trigger with a type and parameters only, so it has no settings and no actions of its own. A counting trigger, one with a quantity parameter, counts toward the objective's amount instead, so its quantity is ignored.",
+      "fields": [
+        {
+          "description": "The name of the trigger type.",
+          "name": "type",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "description": "The trigger's parameters, as described by its type.",
+          "name": "parameters",
+          "required": false,
+          "type": "table"
+        }
+      ]
+    },
+    "TriggerSettings": {
+      "description": "The settings that decide whether a trigger may fire. Every setting is optional.",
+      "fields": [
+        {
+          "description": "Triggers that must have fired before this one may fire.",
+          "name": "prerequisites",
+          "required": false,
+          "type": "TriggerID[]"
+        },
+        {
+          "description": "Whether the trigger may fire more than once.",
+          "name": "repeating",
+          "required": false,
+          "type": "Boolean"
+        },
+        {
+          "description": "How many more times a repeating trigger may fire after its first time. Allowed only when repeating is true. Without it, a repeating trigger fires without limit.",
+          "name": "maxRepeats",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "The difficulties on which the trigger may fire. Without it, or with an empty list, the trigger may fire on every difficulty.",
+          "name": "difficulties",
+          "required": false,
+          "type": "Difficulty[]"
+        },
+        {
+          "description": "Reserved. It has no effect.",
+          "name": "coop",
+          "required": false,
+          "type": "Boolean"
+        },
+        {
+          "description": "Whether the trigger starts enabled. A disabled trigger may be enabled by an action.",
+          "name": "active",
+          "required": false,
+          "type": "Boolean"
+        },
+        {
+          "description": "The stages during which the trigger may fire. Without it, or with an empty list, the trigger may fire during any stage.",
+          "name": "stages",
+          "required": false,
+          "type": "StageID[]"
+        }
+      ]
+    }
+  },
+  "triggers": {
+    "ConstructionCanceled": {
+      "declares": [],
+      "description": "Fires when a unit being built by a constructor is removed before it is finished, whether destroyed, canceled, or transferred to another team. Units in production at a factory are covered by ProductionCanceled instead.\n\nA constructor that dies or drops its build order does not cancel the construction, since another constructor can still finish the unit.",
+      "parameters": [
+        {
+          "description": "Only the unit under construction with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units under construction of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units under construction owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "ConstructionFinished": {
+      "declares": [],
+      "description": "Fires when a unit that was under construction is completed. Units that enter the mission already complete do not count.",
+      "parameters": [
+        {
+          "description": "Only the completed unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only completed units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only completed units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "ConstructionProgress": {
+      "declares": [],
+      "description": "Fires when the build progress of a matching unit under construction reaches a fraction of completion. Each unit can fire the trigger only once, and units that are already complete when first checked do not count.",
+      "parameters": [
+        {
+          "description": "The build progress to reach, from 0 to 1.",
+          "name": "progress",
+          "required": true,
+          "type": "Fraction"
+        },
+        {
+          "description": "Only the unit under construction with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units under construction of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units under construction owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "ConstructionStarted": {
+      "declares": [],
+      "description": "Fires when a unit of the given definition starts being built, either as a new build frame or when the first builder matching the filters assists an existing one. Each unit under construction fires the trigger at most once, and units spawned by the mission while under construction count as started.",
+      "parameters": [
+        {
+          "description": "The unit definition being built.",
+          "name": "unitDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units under construction owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only construction by the builder with this name.",
+          "name": "builderName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only construction by builders of this unit definition.",
+          "name": "builderDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "CountdownFinished": {
+      "declares": [],
+      "description": "Fires when the named countdown reaches zero.",
+      "parameters": [
+        {
+          "description": "The countdown to watch.",
+          "name": "countdownID",
+          "required": true,
+          "type": "CountdownID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "CountdownReached": {
+      "declares": [],
+      "description": "Fires when the named countdown ticks down to the given number of seconds remaining.",
+      "parameters": [
+        {
+          "description": "The countdown to watch.",
+          "name": "countdownID",
+          "required": true,
+          "type": "CountdownID"
+        },
+        {
+          "description": "The whole seconds remaining at which to fire, at least 1; use CountdownFinished for zero.",
+          "name": "timeRemaining",
+          "required": true,
+          "type": "PositiveInteger"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "Event": {
+      "declares": [],
+      "description": "Fires only when an objective names it in one of its events (onActivated, onProgress, onCompleted, or onCanceled). It has no parameters and never fires on its own.",
+      "parameters": [],
+      "requiresOneOf": []
+    },
+    "FeatureCreated": {
+      "declares": [],
+      "description": "Fires when a feature, such as a wreck or a map prop, appears.",
+      "parameters": [
+        {
+          "description": "Only features of this feature definition.",
+          "name": "featureDefName",
+          "required": false,
+          "type": "FeatureDefName"
+        },
+        {
+          "description": "Only features inside this area, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.",
+          "name": "area",
+          "required": false,
+          "type": "Area"
+        }
+      ],
+      "requiresOneOf": [
+        "featureDefName",
+        "area"
+      ]
+    },
+    "FeatureDestroyed": {
+      "declares": [],
+      "description": "Fires when a feature is destroyed by anything other than being fully reclaimed. Fully reclaimed features are covered by FeatureReclaimed instead.",
+      "parameters": [
+        {
+          "description": "Only the feature with this name.",
+          "name": "featureName",
+          "required": false,
+          "type": "FeatureName"
+        },
+        {
+          "description": "Only features of this feature definition.",
+          "name": "featureDefName",
+          "required": false,
+          "type": "FeatureDefName"
+        },
+        {
+          "description": "Only features destroyed by this ally team.",
+          "name": "allyTeamID",
+          "required": false,
+          "type": "AllyTeamID"
+        },
+        {
+          "description": "Only features inside this area, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.",
+          "name": "area",
+          "required": false,
+          "type": "Area"
+        }
+      ],
+      "requiresOneOf": [
+        "featureName",
+        "featureDefName",
+        "allyTeamID",
+        "area"
+      ]
+    },
+    "FeatureReclaimed": {
+      "declares": [],
+      "description": "Fires when a feature is fully reclaimed.",
+      "parameters": [
+        {
+          "description": "Only the feature with this name.",
+          "name": "featureName",
+          "required": false,
+          "type": "FeatureName"
+        },
+        {
+          "description": "Only features of this feature definition.",
+          "name": "featureDefName",
+          "required": false,
+          "type": "FeatureDefName"
+        },
+        {
+          "description": "Only features reclaimed by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only features inside this area, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.",
+          "name": "area",
+          "required": false,
+          "type": "Area"
+        }
+      ],
+      "requiresOneOf": [
+        "featureName",
+        "featureDefName",
+        "teamID",
+        "area"
+      ]
+    },
+    "MissionStarted": {
+      "declares": [],
+      "description": "Fires once when the mission starts, after the starting units are placed and the first stage is active, and before any interactive gameplay.\n\nSome effects of the mission setup may not have taken place yet when it fires.",
+      "parameters": [],
+      "requiresOneOf": []
+    },
+    "ProductionCanceled": {
+      "declares": [],
+      "description": "Fires when a unit in production at a factory is removed before it is finished, whether its order is canceled, its factory is destroyed, or it is captured. Units built by constructors are covered by ConstructionCanceled instead.",
+      "parameters": [
+        {
+          "description": "Only the unit in production with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units in production of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units in production owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only units produced by the factory with this name.",
+          "name": "factoryName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units produced by factories of this unit definition.",
+          "name": "factoryDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "ProductionOrdered": {
+      "available": false,
+      "declares": [],
+      "description": "Fires when a factory receives an order to produce a unit of the given definition.",
+      "parameters": [
+        {
+          "description": "The unit definition ordered for production.",
+          "name": "buildDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only the factory with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only factories of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only factories owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "default": "true",
+          "description": "Whether orders issued by mission actions are ignored.",
+          "name": "ignoreMissionActions",
+          "required": false,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": [],
+      "unavailableReason": "Production orders cannot be observed reliably yet."
+    },
+    "ProductionStarted": {
+      "declares": [],
+      "description": "Fires when a factory starts producing a unit of the given definition. Units placed by constructors are covered by ConstructionStarted instead.",
+      "parameters": [
+        {
+          "description": "The unit definition being produced.",
+          "name": "unitDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only production for this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only production at the factory with this name.",
+          "name": "factoryName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only production at factories of this unit definition.",
+          "name": "factoryDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "RallyOrdered": {
+      "declares": [],
+      "description": "Fires when a factory receives a rally order, that is, an order it does not carry out itself but passes on to the units it produces. Orders to produce units and orders the factory carries out itself do not count.",
+      "parameters": [
+        {
+          "description": "The order to match: a command ID, or CMD.ANY for any order. Build orders never match.",
+          "name": "command",
+          "required": true,
+          "type": "Command"
+        },
+        {
+          "description": "Only the factory with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only factories of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only factories owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "default": "true",
+          "description": "Whether orders issued by mission actions are ignored.",
+          "name": "ignoreMissionActions",
+          "required": false,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "ResourceIncome": {
+      "declares": [],
+      "description": "Fires when a team's income of metal, energy, or both is at or above the given amounts per second. Income is checked once per second, and both thresholds must be met when both are given. While repeating, it fires again every second the thresholds hold.",
+      "parameters": [
+        {
+          "description": "The team whose income is measured.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "The metal income per second to reach.",
+          "name": "metal",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "The energy income per second to reach.",
+          "name": "energy",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "Count only income from these sources: 'extractor' (metal only), 'reclaim', 'production' (all remaining income), and 'transfer' (resources shared by allies). When omitted, the team's total income counts.",
+          "name": "sources",
+          "required": false,
+          "type": "ResourceIncomeSources"
+        }
+      ],
+      "requiresOneOf": [
+        "metal",
+        "energy"
+      ]
+    },
+    "ResourcePull": {
+      "declares": [],
+      "description": "Fires when a team's demand for metal, energy, or both is at or above the given amounts per second. Demand is checked once per second, and both thresholds must be met when both are given. While repeating, it fires again every second the thresholds hold.",
+      "parameters": [
+        {
+          "description": "The team whose demand is measured.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "The metal demand per second to reach.",
+          "name": "metal",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "The energy demand per second to reach.",
+          "name": "energy",
+          "required": false,
+          "type": "Number"
+        }
+      ],
+      "requiresOneOf": [
+        "metal",
+        "energy"
+      ]
+    },
+    "ResourceStored": {
+      "declares": [],
+      "description": "Fires when a team has at least the given amounts of metal, energy, or both in storage. Storage is checked every game frame, and both thresholds must be met when both are given. While repeating, it fires again every game frame the thresholds hold.",
+      "parameters": [
+        {
+          "description": "The team whose storage is measured.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "The stored metal to reach.",
+          "name": "metal",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "The stored energy to reach.",
+          "name": "energy",
+          "required": false,
+          "type": "Number"
+        }
+      ],
+      "requiresOneOf": [
+        "metal",
+        "energy"
+      ]
+    },
+    "TeamDestroyed": {
+      "declares": [],
+      "description": "Fires when the given team is eliminated.",
+      "parameters": [
+        {
+          "description": "The team to watch.",
+          "name": "teamID",
+          "required": true,
+          "type": "Number"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "TimeElapsed": {
+      "declares": [],
+      "description": "Fires once a number of seconds after the mission starts, and again on an interval while repeating.",
+      "parameters": [
+        {
+          "description": "Seconds after the mission starts, rounded to the nearest game frame.",
+          "name": "seconds",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "Seconds between repeats while the trigger is repeating; without it, a repeating trigger fires only once.",
+          "name": "interval",
+          "required": false,
+          "type": "Number"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "TotalUnitsBuilt": {
+      "declares": [],
+      "description": "Fires when the number of units a team has completed since the mission started reaches the quantity, and again at every further multiple of it while repeating. Units spawned by the mission and the team's starting units do not count.\n\nAs an objective's trigger, the running count is the objective's progress, the objective's amount is the target, and quantity is ignored.",
+      "parameters": [
+        {
+          "description": "The team whose completed units are counted.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "Count at which to fire; while repeating, it fires again at every further multiple of this count.",
+          "name": "quantity",
+          "required": true,
+          "type": "Quantity"
+        },
+        {
+          "description": "Count only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "TotalUnitsCaptured": {
+      "declares": [],
+      "description": "Fires when the number of units a team has captured since the mission started reaches the quantity, and again at every further multiple of it while repeating.\n\nAs an objective's trigger, the running count is the objective's progress, the objective's amount is the target, and quantity is ignored.",
+      "parameters": [
+        {
+          "description": "The team that captures the units.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "Count at which to fire; while repeating, it fires again at every further multiple of this count.",
+          "name": "quantity",
+          "required": true,
+          "type": "Quantity"
+        },
+        {
+          "description": "Count only the unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Count only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "TotalUnitsKilled": {
+      "declares": [],
+      "description": "Fires when the number of enemy units a team has destroyed since the mission started reaches the quantity, and again at every further multiple of it while repeating. Destroyed allied units do not count.\n\nAs an objective's trigger, the running count is the objective's progress, the objective's amount is the target, and quantity is ignored.",
+      "parameters": [
+        {
+          "description": "The team that destroys the units.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "Count at which to fire; while repeating, it fires again at every further multiple of this count.",
+          "name": "quantity",
+          "required": true,
+          "type": "Quantity"
+        },
+        {
+          "description": "Count only the destroyed unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Count only destroyed units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "TotalUnitsLost": {
+      "declares": [],
+      "description": "Fires when the number of units a team has lost since the mission started, destroyed for any reason, reaches the quantity, and again at every further multiple of it while repeating.\n\nAs an objective's trigger, the running count is the objective's progress, the objective's amount is the target, and quantity is ignored.",
+      "parameters": [
+        {
+          "description": "The team that loses the units.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "Count at which to fire; while repeating, it fires again at every further multiple of this count.",
+          "name": "quantity",
+          "required": true,
+          "type": "Quantity"
+        },
+        {
+          "description": "Count only the lost unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Count only lost units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "TransportLoaded": {
+      "declares": [],
+      "description": "Fires when a transport picks up a passenger. Units docking with other kinds of units count only when transportDefName names that unit definition.",
+      "parameters": [
+        {
+          "description": "Only the transport with this name.",
+          "name": "transportName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only transports of this unit definition.",
+          "name": "transportDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only transports owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only the passenger with this name.",
+          "name": "passengerName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only passengers of this unit definition.",
+          "name": "passengerDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": [
+        "transportName",
+        "transportDefName"
+      ]
+    },
+    "TransportUnloaded": {
+      "declares": [],
+      "description": "Fires when a transport drops off a passenger. Units undocking from other kinds of units count only when transportDefName names that unit definition, and a destroyed transport drops off its passengers as well.",
+      "parameters": [
+        {
+          "description": "Only the transport with this name.",
+          "name": "transportName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only transports of this unit definition.",
+          "name": "transportDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only transports owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only the passenger with this name.",
+          "name": "passengerName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only passengers of this unit definition.",
+          "name": "passengerDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": [
+        "transportName",
+        "transportDefName"
+      ]
+    },
+    "UnitAttacked": {
+      "declares": [],
+      "description": "Fires each time a matching unit is damaged by an enemy. Damage with no identifiable enemy attacker, such as from allies, from the explosions of dying units, or from the environment, does not count.",
+      "parameters": [
+        {
+          "description": "Only the damaged unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only damaged units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only damaged units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitCaptured": {
+      "declares": [],
+      "description": "Fires when a matching unit is captured by another team. Units given away are covered by UnitReceived instead.",
+      "parameters": [
+        {
+          "description": "Only the captured unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only captured units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units captured from this team.",
+          "name": "oldTeamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only units captured by this team.",
+          "name": "newTeamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "default": "true",
+          "description": "Whether transfers made by mission actions are ignored.",
+          "name": "ignoreMissionActions",
+          "required": false,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitDetected": {
+      "declares": [],
+      "description": "Fires when a matching unit comes into the watched sensors of another ally team: seen, on radar, or heard by seismic detectors. A unit already inside the watched sensors is not detected again until it has dropped out of all of them.",
+      "parameters": [
+        {
+          "description": "Only the detected unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only detected units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only detected units owned by this team.",
+          "name": "owningTeamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only detection by this ally team's sensors. When omitted, the sensors of every ally team other than the unit's own count, and Gaia's sensors are excluded.",
+          "name": "sensorAllyTeam",
+          "required": false,
+          "type": "AllyTeamID"
+        },
+        {
+          "default": "{ 'vision', 'radar', 'seismic' }",
+          "description": "The sensors that count: 'vision', 'radar', 'seismic', or any combination. When omitted, every sensor counts.",
+          "name": "sensorTypes",
+          "required": false,
+          "type": "SensorTypes"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitDwellLocation": {
+      "declares": [],
+      "description": "Fires when a matching unit has stayed inside an area for a duration. Each unit fires the trigger once per stay, and leaving the area and returning starts a new count.",
+      "parameters": [
+        {
+          "description": "The area to watch, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.",
+          "name": "area",
+          "required": true,
+          "type": "Area"
+        },
+        {
+          "description": "How long the unit must stay in the area, in game frames (30 per second).",
+          "name": "duration",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "Only the unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitEnteredLocation": {
+      "declares": [],
+      "description": "Fires each time a matching unit enters an area, once per unit that enters.\n\nUnits already inside the area when the mission starts count as entering on the first game frame.",
+      "parameters": [
+        {
+          "description": "The area to watch, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.",
+          "name": "area",
+          "required": true,
+          "type": "Area"
+        },
+        {
+          "description": "Only the unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitExists": {
+      "declares": [],
+      "description": "Fires when a unit of the given definition appears, including when its construction starts, or when one is given to or captured by a team.",
+      "parameters": [
+        {
+          "description": "The unit definition to watch.",
+          "name": "unitDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": []
+    },
+    "UnitIdled": {
+      "declares": [],
+      "description": "Fires when a matching unit runs out of work: its order queue empties, or only brief automatic tasks remain in it.",
+      "parameters": [
+        {
+          "description": "Only the unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitKilled": {
+      "declares": [],
+      "description": "Fires when a matching unit is destroyed for any reason.",
+      "parameters": [
+        {
+          "description": "Only the destroyed unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only destroyed units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only destroyed units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitLeftLocation": {
+      "declares": [],
+      "description": "Fires each time a matching unit leaves an area, once per unit that leaves.",
+      "parameters": [
+        {
+          "description": "The area to watch, a rectangle { x1, z1, x2, z2 } or a circle { x, z, radius }, in elmos.",
+          "name": "area",
+          "required": true,
+          "type": "Area"
+        },
+        {
+          "description": "Only the unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitLoaded": {
+      "declares": [],
+      "description": "Fires when a matching unit is loaded into a transport. Only loading into transports counts.",
+      "parameters": [
+        {
+          "description": "Only the passenger with this name.",
+          "name": "passengerName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only passengers of this unit definition.",
+          "name": "passengerDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only passengers owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only loading into the transport with this name.",
+          "name": "transportName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only loading into transports of this unit definition.",
+          "name": "transportDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": [
+        "passengerName",
+        "passengerDefName"
+      ]
+    },
+    "UnitNotExists": {
+      "declares": [],
+      "description": "Fires when a matching unit leaves a team's possession, whether destroyed, given away, or captured.",
+      "parameters": [
+        {
+          "description": "Only the unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units that were owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitOrdered": {
+      "declares": [],
+      "description": "Fires when a matching unit receives an order it is likely to carry out. Orders a factory queues or passes on to the units it produces do not count; see ProductionOrdered and RallyOrdered.\n\nSome commands are handled before they reach the unit and never fire this trigger; validation warns about them. A unit can still refuse an order after the trigger has fired.",
+      "parameters": [
+        {
+          "description": "The order to match: a command ID, a unit definition name for a build order, CMD.ANY for any order, or CMD.BUILD for any build order.",
+          "name": "command",
+          "required": true,
+          "type": "Command"
+        },
+        {
+          "description": "Only the unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "default": "true",
+          "description": "Whether orders issued by mission actions are ignored.",
+          "name": "ignoreMissionActions",
+          "required": false,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitReceived": {
+      "declares": [],
+      "description": "Fires when a matching unit is given to another team. Captures are covered by UnitCaptured instead.",
+      "parameters": [
+        {
+          "description": "Only the given unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only given units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units given by this team.",
+          "name": "oldTeamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only units given to this team.",
+          "name": "newTeamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "default": "true",
+          "description": "Whether transfers made by mission actions are ignored.",
+          "name": "ignoreMissionActions",
+          "required": false,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitReclaimed": {
+      "declares": [],
+      "description": "Fires when a matching unit is fully reclaimed.",
+      "parameters": [
+        {
+          "description": "Only the reclaimed unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only reclaimed units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only reclaimed units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "default": "true",
+          "description": "Whether reclaims performed by mission actions are ignored.",
+          "name": "ignoreMissionActions",
+          "required": false,
+          "type": "Boolean"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitResurrected": {
+      "declares": [],
+      "description": "Fires when a unit is resurrected from a wreck.",
+      "parameters": [
+        {
+          "description": "Only resurrected units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only resurrected units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only resurrection of the wreck with this name.",
+          "name": "featureName",
+          "required": false,
+          "type": "FeatureName"
+        }
+      ],
+      "requiresOneOf": [
+        "featureName",
+        "unitDefName"
+      ]
+    },
+    "UnitUndetected": {
+      "declares": [],
+      "description": "Fires when a matching unit drops out of the watched sensors of other ally teams: no longer seen, on radar, or heard by seismic detectors. A unit held by several of the watched sensors is lost only when it leaves all of them, and a destroyed unit does not count as lost.",
+      "parameters": [
+        {
+          "description": "Only the lost unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only lost units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only lost units owned by this team.",
+          "name": "owningTeamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only loss from this ally team's sensors. When omitted, the sensors of every ally team other than the unit's own count, and Gaia's sensors are excluded.",
+          "name": "sensorAllyTeam",
+          "required": false,
+          "type": "AllyTeamID"
+        },
+        {
+          "default": "{ 'vision', 'radar', 'seismic' }",
+          "description": "The sensors that count: 'vision', 'radar', 'seismic', or any combination. When omitted, every sensor counts.",
+          "name": "sensorTypes",
+          "required": false,
+          "type": "SensorTypes"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitUnidled": {
+      "declares": [],
+      "description": "Fires when a matching unit gets work again: its order queue receives an order that is more than a brief automatic task.",
+      "parameters": [
+        {
+          "description": "Only the unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only units owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitUnloaded": {
+      "declares": [],
+      "description": "Fires when a matching unit is unloaded from a transport. Only unloading from transports counts, and a destroyed transport unloads its passengers as well.",
+      "parameters": [
+        {
+          "description": "Only the passenger with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only passengers of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "Only passengers owned by this team.",
+          "name": "teamID",
+          "required": false,
+          "type": "TeamID"
+        },
+        {
+          "description": "Only unloading from the transport with this name.",
+          "name": "transportName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Only unloading from transports of this unit definition.",
+          "name": "transportDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": [
+        "unitName",
+        "unitDefName"
+      ]
+    },
+    "UnitsOwned": {
+      "declares": [],
+      "description": "Fires when the number of matching units a team owns rises to the quantity, and again at every further multiple of it while repeating, or, with a quantity of 0, when the count falls to zero. Units count from the moment their construction starts, and units given to or captured by the team count as well.\n\nAs an objective's trigger, the running count is the objective's progress, the objective's amount is the target, and quantity is ignored.",
+      "parameters": [
+        {
+          "description": "The team whose units are counted.",
+          "name": "teamID",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "Count at which to fire; while repeating, it fires again at every further multiple of this count. A quantity of 0 fires when the team has none left.",
+          "name": "quantity",
+          "required": true,
+          "type": "Quantity"
+        },
+        {
+          "description": "Count only the unit with this name.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Count only units of this unit definition.",
+          "name": "unitDefName",
+          "required": false,
+          "type": "UnitDefName"
+        }
+      ],
+      "requiresOneOf": []
+    }
+  },
+  "types": {
+    "AllyTeamID": {
+      "description": "The ID of an ally team in the game.",
+      "jsonType": "integer",
+      "kind": "reference",
+      "references": "engine.AllyTeams"
+    },
+    "AllyTeamIDs": {
+      "description": "A list of at least one ally team ID.",
+      "itemType": "AllyTeamID",
+      "kind": "list"
+    },
+    "Area": {
+      "description": "A region of the map, given either as a rectangle or as a circle.",
+      "kind": "union",
+      "oneOf": [
+        "AreaCircle",
+        "AreaRectangle"
+      ],
+      "pick": "area"
+    },
+    "AreaCircle": {
+      "description": "A circle on the map, in elmos.",
+      "fields": [
+        {
+          "description": "The east-west coordinate of the center, in elmos.",
+          "name": "x",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The north-south coordinate of the center, in elmos.",
+          "name": "z",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The radius, in elmos.",
+          "name": "radius",
+          "required": true,
+          "type": "Number"
+        }
+      ],
+      "kind": "record"
+    },
+    "AreaRectangle": {
+      "description": "A rectangle on the map, in elmos. The first corner must lie west and north of the second, so x1 is less than x2, and z1 is less than z2.",
+      "fields": [
+        {
+          "description": "The west edge, in elmos.",
+          "name": "x1",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The north edge, in elmos.",
+          "name": "z1",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The east edge, in elmos. Must be greater than x1.",
+          "name": "x2",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The south edge, in elmos. Must be greater than z1.",
+          "name": "z2",
+          "required": true,
+          "type": "Number"
+        }
+      ],
+      "kind": "record"
+    },
+    "Boolean": {
+      "description": "A true or false value.",
+      "jsonType": "boolean",
+      "kind": "scalar"
+    },
+    "Command": {
+      "description": "A command that units can receive: a command ID from CMD or GameCMD, or the name of a unit definition, which stands for the order to build that unit. CMD.ANY matches every command, and CMD.BUILD matches every build order.",
+      "jsonType": [
+        "integer",
+        "string"
+      ],
+      "kind": "scalar",
+      "panel": true
+    },
+    "CountdownID": {
+      "description": "The ID of a countdown. A countdown exists once an action adds it.",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "mission.countdowns"
+    },
+    "Difficulty": {
+      "description": "The name of a difficulty, as defined in difficulties.json. Higher difficulty values are harder.",
+      "jsonType": "string",
+      "kind": "enum",
+      "values": [
+        {
+          "label": "Story",
+          "value": "Story"
+        },
+        {
+          "label": "Easy",
+          "value": "Easy"
+        },
+        {
+          "label": "Medium",
+          "value": "Medium"
+        },
+        {
+          "label": "Hard",
+          "value": "Hard"
+        }
+      ]
+    },
+    "Direction": {
+      "description": "The way units face, given either as a compass angle or as a point to face toward, never both.",
+      "kind": "union",
+      "oneOf": [
+        "DirectionAngle",
+        "DirectionVector"
+      ]
+    },
+    "DirectionAngle": {
+      "description": "A heading given as a compass angle in degrees, measured clockwise from north, so 0 faces north, 90 faces east, 180 faces south, and 270 faces west.",
+      "fields": [
+        {
+          "description": "The compass angle, in degrees.",
+          "name": "angle",
+          "required": true,
+          "type": "Number"
+        }
+      ],
+      "kind": "record"
+    },
+    "DirectionVector": {
+      "description": "A heading given as a point on the map. The affected units turn to face toward that point.",
+      "fields": [
+        {
+          "description": "The east-west coordinate of the point faced, in elmos.",
+          "name": "x",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The north-south coordinate of the point faced, in elmos.",
+          "name": "z",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "An optional height, in elmos. Defaults to the terrain height at (x, z).",
+          "name": "y",
+          "required": false,
+          "type": "Number"
+        }
+      ],
+      "kind": "record"
+    },
+    "Facing": {
+      "description": "The direction a placed unit or feature faces. It is written as a compass letter, a compass word, or a number. The numbers start at south and go counterclockwise.",
+      "jsonType": [
+        "integer",
+        "string"
+      ],
+      "kind": "enum",
+      "values": [
+        {
+          "label": "0",
+          "value": 0
+        },
+        {
+          "label": "1",
+          "value": 1
+        },
+        {
+          "label": "2",
+          "value": 2
+        },
+        {
+          "label": "3",
+          "value": 3
+        },
+        {
+          "label": "e",
+          "value": "e"
+        },
+        {
+          "label": "east",
+          "value": "east"
+        },
+        {
+          "label": "n",
+          "value": "n"
+        },
+        {
+          "label": "north",
+          "value": "north"
+        },
+        {
+          "label": "s",
+          "value": "s"
+        },
+        {
+          "label": "south",
+          "value": "south"
+        },
+        {
+          "label": "w",
+          "value": "w"
+        },
+        {
+          "label": "west",
+          "value": "west"
+        }
+      ]
+    },
+    "FeatureDefName": {
+      "description": "The internal name of a feature definition, such as \"armcom_dead\".",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "engine.FeatureDefNames"
+    },
+    "FeatureLoadout": {
+      "description": "Features to place on the map, as a list of features.",
+      "itemType": "FeatureLoadoutEntry",
+      "kind": "list",
+      "panel": true
+    },
+    "FeatureLoadoutEntry": {
+      "description": "One feature to place on the map, such as a wreck or a rock.",
+      "fields": [
+        {
+          "description": "The feature definition to place.",
+          "name": "featureDefName",
+          "required": true,
+          "type": "FeatureDefName"
+        },
+        {
+          "description": "The east-west coordinate of the placement, in elmos.",
+          "name": "x",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The north-south coordinate of the placement, in elmos.",
+          "name": "z",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "Accepted but not used. Features are placed at the terrain height.",
+          "name": "y",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "The direction the feature faces. Defaults to south.",
+          "name": "facing",
+          "required": false,
+          "type": "Facing"
+        },
+        {
+          "description": "A name for the feature, so that triggers and actions can refer to it.",
+          "name": "featureName",
+          "required": false,
+          "type": "FeatureName"
+        }
+      ],
+      "kind": "record"
+    },
+    "FeatureName": {
+      "description": "A name given to one or more features by the mission. Features get names when they are placed by a loadout or created by an action.",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "mission.featureNames"
+    },
+    "Fraction": {
+      "bounds": {
+        "max": 1,
+        "min": 0
+      },
+      "description": "A proportion between zero and one, inclusive.",
+      "jsonType": "number",
+      "kind": "scalar"
+    },
+    "Function": {
+      "description": "A Lua function. It runs inside the mission with no arguments.",
+      "jsonType": "function",
+      "kind": "scalar",
+      "panel": true
+    },
+    "MessageType": {
+      "description": "The kind of a message shown to the player, which decides how the message is presented.",
+      "jsonType": "string",
+      "kind": "enum",
+      "values": [
+        {
+          "label": "Briefing",
+          "value": "Briefing"
+        },
+        {
+          "label": "Message",
+          "value": "Message"
+        },
+        {
+          "label": "Objective",
+          "value": "Objective"
+        },
+        {
+          "label": "Notification",
+          "value": "Notification"
+        },
+        {
+          "label": "Dialogue",
+          "value": "Dialogue"
+        }
+      ]
+    },
+    "Number": {
+      "description": "A numeric value, whole or fractional.",
+      "jsonType": "number",
+      "kind": "scalar"
+    },
+    "ObjectiveID": {
+      "description": "The ID of an objective declared in the mission.",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "mission.objectives"
+    },
+    "Order": {
+      "description": "One order for a unit, written as an array: the command, its parameters, and its options.\nThe command is a command ID from CMD or GameCMD, or the name of a unit definition to build.\nThe parameters depend on the command. Movement and attack commands take three numbers { x, y, z }. Area commands take four numbers { x, y, z, radius }. Build orders take { x, y, z } with an optional facing as a fourth number, or nothing for a factory. Commands that act on a unit or a feature may instead take { unitName = \"name\" } or { featureName = \"name\" }, which applies the order to every unit or feature with that name. State commands take a single number.\nThe options are an optional list of modifier names: \"right\", \"alt\", \"ctrl\", \"shift\", or \"meta\".",
+      "fields": [
+        {
+          "description": "The command: a command ID, or the name of a unit definition to build.",
+          "name": "[1]",
+          "required": true,
+          "type": "(integer|string)"
+        },
+        {
+          "description": "The command's parameters: an array of numbers, or a table naming a unit or a feature.",
+          "name": "[2]",
+          "required": false,
+          "type": "table"
+        },
+        {
+          "description": "The order's modifier options, if any.",
+          "name": "[3]",
+          "required": false,
+          "type": "string[]"
+        }
+      ],
+      "kind": "record"
+    },
+    "Orders": {
+      "description": "A list of at least one order, issued to units in sequence.",
+      "itemType": "Order",
+      "kind": "list",
+      "panel": true
+    },
+    "Position": {
+      "description": "A location on the map, in elmos. The height defaults to the terrain height at that point.",
+      "fields": [
+        {
+          "description": "The east-west coordinate, in elmos.",
+          "name": "x",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The north-south coordinate, in elmos.",
+          "name": "z",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The height, in elmos. Defaults to the terrain height at (x, z).",
+          "name": "y",
+          "required": false,
+          "type": "Number"
+        }
+      ],
+      "kind": "record",
+      "pick": "point"
+    },
+    "Positions": {
+      "description": "A list of at least two map positions, in order.",
+      "itemType": "Position",
+      "kind": "list",
+      "pick": "points"
+    },
+    "PositiveInteger": {
+      "bounds": {
+        "min": 1
+      },
+      "description": "A whole number greater than zero.",
+      "jsonType": "integer",
+      "kind": "scalar"
+    },
+    "Quantity": {
+      "bounds": {
+        "min": 0
+      },
+      "description": "A count or an amount that is zero or more.",
+      "jsonType": "number",
+      "kind": "scalar"
+    },
+    "ResourceIncomeSources": {
+      "description": "The kinds of resource income to count, as a list of names. An empty list counts every kind.",
+      "jsonType": "string",
+      "kind": "enum",
+      "multiple": true,
+      "values": [
+        {
+          "label": "extractor",
+          "value": "extractor"
+        },
+        {
+          "label": "production",
+          "value": "production"
+        },
+        {
+          "label": "reclaim",
+          "value": "reclaim"
+        },
+        {
+          "label": "transfer",
+          "value": "transfer"
+        }
+      ]
+    },
+    "SensorTypes": {
+      "description": "The kinds of sensor that count as detecting a unit, as a list of names. An empty list counts every kind.",
+      "jsonType": "string",
+      "kind": "enum",
+      "multiple": true,
+      "values": [
+        {
+          "label": "vision",
+          "value": "vision"
+        },
+        {
+          "label": "radar",
+          "value": "radar"
+        },
+        {
+          "label": "seismic",
+          "value": "seismic"
+        }
+      ]
+    },
+    "SoundFile": {
+      "description": "The path of a .wav sound file inside the game's or the map's files.",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "engine.VFS"
+    },
+    "StageID": {
+      "description": "The ID of a stage declared in the mission.",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "mission.stages"
+    },
+    "String": {
+      "description": "A text value.",
+      "jsonType": "string",
+      "kind": "scalar"
+    },
+    "Table": {
+      "description": "Any Lua table. The action or trigger that takes it describes its contents.",
+      "jsonType": "object",
+      "kind": "scalar",
+      "panel": true
+    },
+    "TeamID": {
+      "description": "The ID of a team in the game.",
+      "jsonType": "integer",
+      "kind": "reference",
+      "references": "engine.Teams"
+    },
+    "TriggerID": {
+      "description": "The ID of a trigger declared in the mission.",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "mission.triggers"
+    },
+    "UnitDefName": {
+      "description": "The internal name of a unit definition, such as \"armcom\".",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "engine.UnitDefNames"
+    },
+    "UnitLoadout": {
+      "description": "Units to place on the map, as a list of unit groups.",
+      "itemType": "UnitLoadoutEntry",
+      "kind": "list",
+      "panel": true
+    },
+    "UnitLoadoutEntry": {
+      "description": "One group of units to place on the map. One unit is placed at the position, or several copies are arranged in a grid around it.",
+      "fields": [
+        {
+          "description": "The unit definition to place.",
+          "name": "unitDefName",
+          "required": true,
+          "type": "UnitDefName"
+        },
+        {
+          "description": "The east-west coordinate of the placement, in elmos.",
+          "name": "x",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The north-south coordinate of the placement, in elmos.",
+          "name": "z",
+          "required": true,
+          "type": "Number"
+        },
+        {
+          "description": "The height, in elmos. Defaults to the terrain height at (x, z).",
+          "name": "y",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "The team that owns the units.",
+          "name": "team",
+          "required": true,
+          "type": "TeamID"
+        },
+        {
+          "description": "The direction the units face. Defaults to south.",
+          "name": "facing",
+          "required": false,
+          "type": "Facing"
+        },
+        {
+          "description": "A name for the units, so that triggers and actions can refer to them.",
+          "name": "unitName",
+          "required": false,
+          "type": "UnitName"
+        },
+        {
+          "description": "Whether the units are placed unfinished, still to be built.",
+          "name": "construction",
+          "required": false,
+          "type": "Boolean"
+        },
+        {
+          "description": "How many units to place. Defaults to one. Several units are arranged in a grid centered on the position.",
+          "name": "quantity",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "Extra distance between units in the grid, in elmos. Defaults to zero.",
+          "name": "spacing",
+          "required": false,
+          "type": "Number"
+        },
+        {
+          "description": "Whether the units are neutral, so that no team attacks them automatically.",
+          "name": "neutral",
+          "required": false,
+          "type": "Boolean"
+        },
+        {
+          "description": "Orders given to each unit as soon as it is placed.",
+          "name": "orders",
+          "required": false,
+          "type": "Orders"
+        }
+      ],
+      "kind": "record"
+    },
+    "UnitName": {
+      "description": "A name given to one or more units by the mission. Units get names when they are placed by a loadout, spawned by an action, or named by an action.",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "mission.unitNames"
+    },
+    "WeaponDefName": {
+      "description": "The internal name of a weapon definition.",
+      "jsonType": "string",
+      "kind": "reference",
+      "references": "engine.WeaponDefNames"
+    }
+  }
+}
