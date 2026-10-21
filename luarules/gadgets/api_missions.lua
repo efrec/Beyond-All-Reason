@@ -59,14 +59,14 @@ local function loadMission(gameSetup)
 
 	-- TODO: refactor loaders after merging loadouts
 	local parameterProcessing = VFS.Include("luarules/mission_api/parameter_processing.lua")
-	GG["MissionAPI"].Modules.Variables.ResolveReferences(
+	parameterProcessing.ProcessActionParameters(GG["MissionAPI"].Actions)
+	parameterProcessing.ProcessTriggerParameters(GG["MissionAPI"].Triggers)
+	GG["MissionAPI"].Modules.Variables.AddLookups(
 		GG["MissionAPI"].Triggers,
 		GG["MissionAPI"].Actions,
 		GG["MissionAPI"].Objectives,
 		parameterProcessing.ProcessValue
 	)
-	parameterProcessing.ProcessActionParameters(GG["MissionAPI"].Actions)
-	parameterProcessing.ProcessTriggerParameters(GG["MissionAPI"].Triggers)
 end
 
 function gadget:Initialize()

@@ -2,6 +2,7 @@ local actionDefinitions = GG["MissionAPI"].ActionDefinitions
 local actionFunctions = actionDefinitions.Functions
 local parameterSchema = actionDefinitions.Parameters
 local actions = GG["MissionAPI"].Actions
+local refreshLookups = GG["MissionAPI"].Modules.Variables.RefreshLookups
 
 -- unpack() does not handle optional parameters, as it cannot pass a value as nil
 local function unpackActionParameters(actionId, i)
@@ -20,6 +21,7 @@ local function invoke(actionId)
 	local type = actions[actionId].type
 	local actionFunction = actionFunctions[type]
 
+	refreshLookups(actions[actionId].parameters)
 	actionFunction(unpackActionParameters(actionId))
 end
 

@@ -4,6 +4,15 @@
 
 local stageChanges = 0
 
+local refreshLookups = GG["MissionAPI"].Modules.Variables.RefreshLookups
+
+-- Objective fields can read variables, so an objective is brought up to date wherever it is read.
+local function getObjective(objectiveID)
+	local objective = GG["MissionAPI"].Objectives[objectiveID]
+	refreshLookups(objective)
+	return objective
+end
+
 local function activateEventTrigger(triggerID)
 	if not triggerID then
 		return
@@ -42,7 +51,7 @@ local function setObjectiveActive(objectiveID, active)
 end
 
 local function activateObjective(objectiveID)
-	local objective = GG["MissionAPI"].Objectives[objectiveID]
+	local objective = getObjective(objectiveID)
 	if objective.active or objective.completed then
 		return
 	end
@@ -58,7 +67,7 @@ local function activateObjective(objectiveID)
 end
 
 local function cancelObjective(objectiveID)
-	local objective = GG["MissionAPI"].Objectives[objectiveID]
+	local objective = getObjective(objectiveID)
 	if objective.completed or objective.canceled then
 		return
 	end
@@ -71,7 +80,7 @@ end
 
 -- `hidden` is an override by the mission author for presentation state.
 local function hideObjective(objectiveID)
-	local objective = GG["MissionAPI"].Objectives[objectiveID]
+	local objective = getObjective(objectiveID)
 	if objective.hidden then
 		return
 	end
@@ -82,7 +91,7 @@ local function hideObjective(objectiveID)
 end
 
 local function showObjective(objectiveID)
-	local objective = GG["MissionAPI"].Objectives[objectiveID]
+	local objective = getObjective(objectiveID)
 	if not objective.hidden then
 		return
 	end
@@ -177,7 +186,7 @@ local function tryAdvanceStage(objective)
 	end
 
 	for _, otherObjectiveID in pairs(currentStage.objectives) do
-		local otherObjective = GG["MissionAPI"].Objectives[otherObjectiveID]
+		local otherObjective = getObjective(otherObjectiveID)
 		if otherObjective.nextStage == nextStage and not otherObjective.completed then
 			return
 		end
@@ -197,7 +206,7 @@ local function runExitRoutes(objective, eventTriggerID)
 end
 
 local function failObjective(objectiveID)
-	local objective = GG["MissionAPI"].Objectives[objectiveID]
+	local objective = getObjective(objectiveID)
 	if objective.completed then
 		return
 	end
@@ -210,7 +219,7 @@ local function failObjective(objectiveID)
 end
 
 local function completeObjective(objectiveID)
-	local objective = GG["MissionAPI"].Objectives[objectiveID]
+	local objective = getObjective(objectiveID)
 	if objective.completed then
 		return
 	end
@@ -229,7 +238,7 @@ end
 
 --- One step of progress, for objectives without a managed count.
 local function updateObjective(objectiveID)
-	local objective = GG["MissionAPI"].Objectives[objectiveID]
+	local objective = getObjective(objectiveID)
 	if objective.completed or not objective.active then
 		return
 	end
@@ -252,6 +261,8 @@ local function updateObjectiveProgress(
 	direction,
 	managedObjMetadata
 )
+	refreshLookups(managedObjMetadata)
+	refreshLookups(managedObjMetadata.parameters)
 	if eventTeamID ~= managedObjMetadata.parameters.teamID then
 		return
 	end
@@ -274,7 +285,7 @@ local function updateObjectiveProgress(
 		return
 	end
 
-	local objective = GG["MissionAPI"].Objectives[objectiveID]
+	local objective = getObjective(objectiveID)
 	if objective.completed or not objective.active then
 		return
 	end

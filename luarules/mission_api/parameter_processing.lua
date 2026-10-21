@@ -9,6 +9,7 @@ local enumSets = GG["MissionAPI"].Modules.ParameterTypes.EnumSets
 local actionDefinitions = GG["MissionAPI"].ActionDefinitions
 local actionsSchemaParameters = actionDefinitions.Parameters
 local triggersSchemaParameters = GG["MissionAPI"].TriggerDefinitions.Parameters
+local hasVariableReference = GG["MissionAPI"].Modules.Variables.HasVariableReference
 
 ----------------------------------------------------------------
 --- Parameter processors:
@@ -104,7 +105,8 @@ local function processParameters(actionsOrTriggers, schemaParameters)
 		local schema = schemaParameters[actionOrTrigger.type] or {}
 		for _, parameter in ipairs(schema) do
 			local value = parameters[parameter.name]
-			if value ~= nil then
+			-- A value that references a variable is processed whenever it is resolved.
+			if value ~= nil and not hasVariableReference(value) then
 				parameters[parameter.name] = processValue(parameter.type, value)
 			end
 		end
