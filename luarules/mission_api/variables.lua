@@ -1,14 +1,17 @@
 ---
 --- Mission variables, and the parameters that read them.
 ---
---- Parameters and fields in mission scripts can receive values like { variable = <key> }.
---- References resolve in-place after difficulties do (so cannot use difficulty as a name).
---- Action and trigger paramters are re-resolved whenever their variables are written into,
---- so trigger and action code receive plain values. Objective fields populate only at init.
+--- Parameters and fields in mission scripts can receive values like { variable = <key> }, including
+--- inside table parameters. Such a field reads GG.MissionAPI.Variables[key] each time it is read, so
+--- writing a variable is a plain assignment. An unset variable reads as nil, like an omitted field.
+--- References resolve after difficulties do (so cannot use difficulty as a name).
 ---
 
-local referencingParameters = {} ---@type table<string, { parameters:table, name:string, type:string, raw:any }?>
-local processParameterValue ---@type (fun(parameterType:string, value:any):any)?
+local objectiveFields = VFS.Include("luarules/mission_api/objectives_schema.lua").Settings
+
+-- Each table with fields that reference variables, by table, as { [field] = { raw = <value>, type = <parameter type> } }.
+local lookupsByTable = setmetatable({}, { __mode = "k" })
+local processValue ---@type fun(parameterType:string, value:any):any
 
 local function isVariableReference(value)
 	return type(value) == "table" and value.variable ~= nil
@@ -69,102 +72,89 @@ local function substituteKnownValues(value)
 	return substituted, areKnown
 end
 
-local function registerParameters(parameters, schema, registered)
-	if parameters == nil or registered[parameters] then
+local function readLookup(values, field)
+	local lookup = lookupsByTable[values][field]
+	if lookup == nil then
+		return nil
+	end
+	local value = resolveValue(lookup.raw)
+	if value ~= nil and lookup.type ~= nil then
+		value = processValue(lookup.type, value)
+	end
+	return value
+end
+
+local lookupMetatable = { __index = readLookup }
+
+--- Moves each listed field that references a variable into a lookup. The other fields stay as
+--- they are, so only reading a field that references a variable pays for the lookup.
+---@param fields table<string, string|false> each field to check, with its parameter type or false
+local function addLookups(values, fields)
+	if values == nil or lookupsByTable[values] ~= nil then
 		return
 	end
-	registered[parameters] = true
-
-	for _, parameter in ipairs(schema or {}) do
-		local value = parameters[parameter.name]
+	local fieldLookups
+	for field, fieldType in pairs(fields) do
+		local value = values[field]
 		if hasVariableReference(value) then
-			local reference = {
-				parameters = parameters,
-				name = parameter.name,
-				type = parameter.type,
-				raw = value,
-			}
-			callOnVariableKeys(value, function(key)
-				local references = table.ensureTable(referencingParameters, key)
-				if references[#references] ~= reference then
-					references[#references + 1] = reference
-				end
-			end)
-			parameters[parameter.name] = resolveValue(value)
+			fieldLookups = fieldLookups or {}
+			fieldLookups[field] = { raw = value, type = fieldType or nil }
 		end
 	end
+	if fieldLookups == nil then
+		return
+	end
+	for field in pairs(fieldLookups) do
+		values[field] = nil
+	end
+	lookupsByTable[values] = fieldLookups
+	setmetatable(values, lookupMetatable)
 end
 
---- Objective fields resolve once. objectives_loader ran before validation, when amount was not
---- resolvable yet, so the maxRepeats it derives from amount is filled in here for synthesized triggers.
-local function resolveObjectiveFields(objectives, triggers)
-	for objectiveID, objective in pairs(objectives) do
-		local amountIsReference = hasVariableReference(objective.amount)
-		for fieldName, value in pairs(objective) do
-			if fieldName ~= "trigger" and hasVariableReference(value) then
-				objective[fieldName] = resolveValue(value)
-			end
-		end
-
-		if amountIsReference and type(objective.amount) == "number" then
-			local triggerID = GG["MissionAPI"].ObjectiveTriggers[objectiveID]
-			local trigger = triggerID and triggers[triggerID]
-			if trigger then
-				trigger.settings.maxRepeats = objective.amount > 1 and (objective.amount - 1) or nil
-			end
-		end
+local function addParameterLookups(parameters, schema)
+	local fields = {}
+	for _, parameter in ipairs(schema or {}) do
+		fields[parameter.name] = parameter.type
 	end
-
-	for _, managedObjectives in pairs(GG["MissionAPI"].ManagedObjectives) do
-		for _, metadata in ipairs(managedObjectives) do
-			if hasVariableReference(metadata.amount) then
-				metadata.amount = resolveValue(metadata.amount)
-			end
-			if hasVariableReference(metadata.nextStage) then
-				metadata.nextStage = resolveValue(metadata.nextStage)
-			end
-		end
-	end
+	addLookups(parameters, fields)
 end
 
---- Resolves every reference in validated triggers, actions, and objectives, after difficulties.
---- processValue(parameterType, value) is rerun on each write within parameter_processing.
-local function resolveReferences(triggers, actions, objectives, processValue)
-	processParameterValue = processValue
+--- Whether the field reads a variable, which may be unset when this is asked.
+local function hasLookup(values, field)
+	local fieldLookups = lookupsByTable[values]
+	return fieldLookups ~= nil and fieldLookups[field] ~= nil
+end
 
-	local registered = {}
+--- Moves every reference in triggers, actions, and objectives into a lookup, after difficulties
+--- and parameter processing. processValue(parameterType, value) processes each value it reads.
+local function addAllLookups(triggers, actions, objectives, processParameterValue)
+	processValue = processParameterValue
+
 	local triggerSchema = GG["MissionAPI"].TriggerDefinitions.Parameters
 	for _, trigger in pairs(triggers) do
-		registerParameters(trigger.parameters, triggerSchema[trigger.type], registered)
+		addParameterLookups(trigger.parameters, triggerSchema[trigger.type])
 	end
 	local actionSchema = GG["MissionAPI"].ActionDefinitions.Parameters
 	for _, action in pairs(actions) do
-		registerParameters(action.parameters, actionSchema[action.type], registered)
+		addParameterLookups(action.parameters, actionSchema[action.type])
+	end
+
+	local fields = {}
+	for field in pairs(objectiveFields) do
+		if field ~= "trigger" then
+			fields[field] = false
+		end
 	end
 	for _, objective in pairs(objectives) do
-		local trigger = objective.trigger
-		if type(trigger) == "table" then
-			registerParameters(trigger.parameters, triggerSchema[trigger.type], registered)
+		if type(objective.trigger) == "table" then
+			addParameterLookups(objective.trigger.parameters, triggerSchema[objective.trigger.type])
 		end
+		addLookups(objective, fields)
 	end
-
-	resolveObjectiveFields(objectives, triggers)
-end
-
-local function getVariable(key)
-	return GG["MissionAPI"].Variables[key]
-end
-
---- Write to the variable and rebuild action and trigger parameters that reference it.
-local function setVariable(key, value)
-	GG["MissionAPI"].Variables[key] = value
-
-	for _, reference in ipairs(referencingParameters[key] or {}) do
-		local resolved = resolveValue(reference.raw)
-		if resolved ~= nil and processParameterValue then
-			resolved = processParameterValue(reference.type, resolved)
+	for _, managedObjectives in pairs(GG["MissionAPI"].ManagedObjectives) do
+		for _, metadata in ipairs(managedObjectives) do
+			addLookups(metadata, { amount = false, nextStage = false })
 		end
-		reference.parameters[reference.name] = resolved
 	end
 end
 
@@ -173,7 +163,6 @@ return {
 	HasVariableReference = hasVariableReference,
 	CallOnVariableKeys = callOnVariableKeys,
 	SubstituteKnownValues = substituteKnownValues,
-	ResolveReferences = resolveReferences,
-	Get = getVariable,
-	Set = setVariable,
+	AddLookups = addAllLookups,
+	HasLookup = hasLookup,
 }

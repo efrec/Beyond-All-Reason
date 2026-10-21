@@ -162,10 +162,13 @@ local function newDetectionUpdate(fireOnDetection, matchesUnit)
 		local sensorAllyTeam = parameters.sensorAllyTeam
 		local latched = table.ensureTable(latches, triggerID)
 
+		-- sensorTypes can read a variable, so the mask is rebuilt whenever it changes.
+		local sensorTypes = parameters.sensorTypes
 		local levelMask = trigger.levelMask
-		if not levelMask then
-			levelMask = compileLevelMask(parameters.sensorTypes)
+		if not levelMask or trigger.levelMaskSensorTypes ~= sensorTypes then
+			levelMask = compileLevelMask(sensorTypes)
 			trigger.levelMask = levelMask
+			trigger.levelMaskSensorTypes = sensorTypes
 		end
 
 		for unitID in pairs(dirtyUnits) do

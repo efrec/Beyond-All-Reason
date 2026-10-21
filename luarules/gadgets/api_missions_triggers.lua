@@ -307,10 +307,16 @@ function gadget:Initialize()
 	end)
 
 	-- We tell apart factory and constructor ownership via the build owner map.
+	-- A parameter that reads a variable may be unset now and set later, so it counts as given.
+	local hasLookup = GG["MissionAPI"].Modules.Variables.HasLookup
+	local function hasParameter(parameters, name)
+		return parameters[name] ~= nil or hasLookup(parameters, name)
+	end
 	needsBuildOwnerMap = table.any(triggers, function(trigger)
+		local parameters = trigger.parameters
 		return (trigger.type == triggerTypes.ConstructionCanceled or trigger.type == triggerTypes.ProductionCanceled)
-			or (trigger.parameters and (trigger.parameters.builderName or trigger.parameters.builderDefName))
-			or (trigger.parameters and (trigger.parameters.factoryName or trigger.parameters.factoryDefName))
+			or (parameters and (hasParameter(parameters, "builderName") or hasParameter(parameters, "builderDefName")))
+			or (parameters and (hasParameter(parameters, "factoryName") or hasParameter(parameters, "factoryDefName")))
 	end)
 
 	if not table.any(triggers, function(trigger)
