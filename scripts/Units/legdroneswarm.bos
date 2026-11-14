@@ -132,7 +132,7 @@ Reform()
 Orbit()
 {
 	set-signal-mask SIGNAL_MOTION;
-	if (Rand(0, 1)) orbitDirection = 0 - 1;
+	orbitDirection = 2 * Rand(0, 1) - 1;
 	while (TRUE) {
 		spin orbit around y-axis speed ORBIT_SPEED * orbitDirection accelerate ORBIT_REVERSAL_ACCELERATION;
 		spin station1 around y-axis speed (0 - ORBIT_SPEED) * orbitDirection accelerate ORBIT_REVERSAL_ACCELERATION;
@@ -408,6 +408,7 @@ Deactivate()
 StartMotion()
 {
 	signal SIGNAL_MOTION;
+	set-signal-mask SIGNAL_MOTION; // pass the mask to the threads
 	start-script Orbit();
 	start-script Bob1();
 	start-script Bob2();
@@ -419,6 +420,7 @@ StartMotion()
 	start-script Weave3();
 	start-script Weave4();
 	start-script Bank();
+	set-signal-mask 0; // and then drop the mask
 }
 
 #define STOP_DRONE(n) \
@@ -443,6 +445,9 @@ StopMotion()
 	bankRoll = 0;
 	extremeDrone = 0;
 	call-script Reform();
+	if (!restored) {
+		call-script RestoreDrones();
+	}
 }
 
 Docked(customparam, dockpiece, carrierarg1, carrierarg2, carrierarg3)
@@ -604,18 +609,23 @@ HitByWeapon(forward, right)
 	turnRate##n = DRONE_RESTORE_PER_FRAME; \
 	turn drone##n to y-axis <0> speed DRONE_RESTORE_SPEED;
 
-RestoreWhenIdle()
+RestoreDrones()
 {
 	var frame, turned, reach;
+	frame = get GAME_FRAME;
+	RESTORE_DRONE(1, frame)
+	RESTORE_DRONE(2, frame)
+	RESTORE_DRONE(3, frame)
+	RESTORE_DRONE(4, frame)
+	restored = TRUE;
+}
+
+RestoreWhenIdle()
+{
 	while (TRUE) {
 		sleep 500;
-		frame = get GAME_FRAME;
-		if (!restored && frame - lastAimFrame > RESTORE_DELAY_FRAMES) {
-			RESTORE_DRONE(1, frame)
-			RESTORE_DRONE(2, frame)
-			RESTORE_DRONE(3, frame)
-			RESTORE_DRONE(4, frame)
-			restored = TRUE;
+		if (!restored && (get GAME_FRAME) - lastAimFrame > RESTORE_DELAY_FRAMES) {
+			call-script RestoreDrones();
 		}
 	}
 }
