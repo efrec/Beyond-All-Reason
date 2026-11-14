@@ -1,5 +1,10 @@
 #include "../recoil_common_includes.h"
 
+#define ONE_FRAME           32
+#define HEADING_WRAP(angle) ((((angle) + 688128) % 65536) - 32768)
+#define PACKED_X(xz)        (((xz) & 0xffff0000) / 0x00010000)
+#define PACKED_Z(xz)        ((xz) & 0x0000ffff)
+
 // An empty base piece connected to four arms that connect to four drone bodies (each with detailed subpieces).
 // Per drone: arm, tip, station, body, mesh. Weapon n belongs to drone n. The arm has a piece collision volume.
 piece  base, orbit,
@@ -18,10 +23,7 @@ static-var docked, droneCount, orbitDirection, alive1, alive2, alive3, alive4,
            bankPitch, bankRoll, flareYaw, flarePitch, firstPairShotFrame,
            hitAngle, hitFrame, extremeDrone;
 
-#define ONE_FRAME           32
-#define HEADING_WRAP(angle) ((((angle) + 688128) % 65536) - 32768)
-#define PACKED_X(xz)        (((xz) & 0xffff0000) / 0x00010000)
-#define PACKED_Z(xz)        ((xz) & 0x0000ffff)
+#define SIGNAL_MOTION SIGNAL_CUSTOM // all threads for undocked, self-powered motion
 
 // Orbit. Drones revolve once per ten seconds, reversing after 0.5 to 2.0 revolutions.
 #define ORBIT_SPEED                 <36>
@@ -52,7 +54,7 @@ static-var docked, droneCount, orbitDirection, alive1, alive2, alive3, alive4,
 #define WEAVE_LEG_TIME_MIN     1500
 #define WEAVE_LEG_TIME_MAX     2000
 #define WEAVE_TILT_SPEED       <4>
-#define WEAVE_LINEAR_PER_ANGLE 400  // a full sideways leg leans the drone 1.8 degrees
+#define WEAVE_LINEAR_PER_ANGLE 400 // a full sideways leg leans the drone 1.8 degrees
 
 // Traversal bank. Full tilt at the unit's acceleration rate, like the engine roll for hover gunships.
 #define BANK_LIMIT                <29>
@@ -61,7 +63,7 @@ static-var docked, droneCount, orbitDirection, alive1, alive2, alive3, alive4,
 #define BANK_DEADBAND             <0.5>
 #define BANK_PER_ACCELERATION(a)  ((a) * 227 / 1000)
 #define ACCELERATION_LIMIT        60000
-#define TRAVEL_SAMPLE_MIN_SQUARED 9  // elmos moved before a travel direction is taken (over three frames)
+#define TRAVEL_SAMPLE_MIN_SQUARED 9 // elmos moved before a travel direction is taken (over three frames)
 
 // Hardcoded values. Light drones don't have full tweakable customization. We expect some unit behaviors.
 #define DRONE_AIM_SPEED          <400>
@@ -70,11 +72,12 @@ static-var docked, droneCount, orbitDirection, alive1, alive2, alive3, alive4,
 #define DRONE_RESTORE_PER_FRAME  <4>
 #define RESTORE_DELAY_FRAMES     90
 #define SECOND_PAIR_DELAY_FRAMES 2
-#define LINE_OF_FIRE_HALF_WIDTH  5  // elmos, a drone's hit volume plus the whole-elmo positions
+#define LINE_OF_FIRE_HALF_WIDTH  5 // elmos, a drone's hit volume plus the whole-elmo positions
 #define LINE_OF_FIRE_HALF_HEIGHT 4
-#define STEEPEST_CHECKED_SHOT    64  // kilocosine of the pitch; steeper shots pass over or under the others
+#define STEEPEST_CHECKED_SHOT    64 // kilocosine of the pitch; steeper shots pass over or under the others
 #define HIT_MEMORY_FRAMES        3
-#define MARK_FRAMES              90  // the mark moves to the next drone every three seconds
+#define MARK_FRAMES              90 // the mark moves to the next drone every three seconds
+#define DOCK_SETTLE_SPEED        [6]
 
 // Formation ------------------------------------------------------------------------------------------------------
 
@@ -82,19 +85,20 @@ static-var docked, droneCount, orbitDirection, alive1, alive2, alive3, alive4,
 	if (alive##n) { \
 		if (rank == 0) anchor = stationAngle; \
 		yaw = HEADING_WRAP(anchor + rank * step - stationAngle); \
+		if (docked) yaw = 0; \
 		turn arm##n to y-axis yaw speed REFORM_TURN_SPEED; \
 		turn tip##n to y-axis (0 - yaw) speed REFORM_TURN_SPEED; \
 		rank = rank + 1; \
-		if (droneCount > 1) { show arm##n; } \
+		if (droneCount > 1 || docked) { show arm##n; } \
 	} \
-	if (!alive##n || droneCount == 1) { hide arm##n; }
+	if (!alive##n || (droneCount == 1 && !docked)) { hide arm##n; }
 
 // Drones lean in the direction they travel around the swarm's center.
 LeanIntoOrbit()
 {
 	var lean;
 	lean = ORBIT_LEAN * orbitDirection;
-	if (droneCount == 1) lean = 0;
+	if (droneCount == 1 || docked) lean = 0;
 	turn arm1 to z-axis lean speed ORBIT_LEAN_SPEED;
 	turn arm2 to x-axis 0 - lean speed ORBIT_LEAN_SPEED;
 	turn arm3 to z-axis 0 - lean speed ORBIT_LEAN_SPEED;
@@ -111,6 +115,7 @@ Reform()
 	if (droneCount == 3) { step = <120>; slide = SLIDE_AT_THREE; }
 	if (droneCount == 2) { step = <180>; slide = SLIDE_AT_TWO; }
 	if (droneCount == 1) { slide = SLIDE_AT_ONE; }
+	if (docked) slide = [0];
 	anchor = 0;
 	rank = 0;
 	REFORM_DRONE(1, <0>)
@@ -126,6 +131,7 @@ Reform()
 
 Orbit()
 {
+	set-signal-mask SIGNAL_MOTION;
 	if (Rand(0, 1)) orbitDirection = 0 - 1;
 	while (TRUE) {
 		spin orbit around y-axis speed ORBIT_SPEED * orbitDirection accelerate ORBIT_REVERSAL_ACCELERATION;
@@ -146,6 +152,7 @@ Orbit()
 Bob##n() \
 { \
 	var top, rise, halfPeriod; \
+	set-signal-mask SIGNAL_MOTION; \
 	sleep Rand(0, 2 * BOB_HALF_PERIOD_MAX); \
 	while (TRUE) { \
 		top = BOB_HEIGHT; \
@@ -175,6 +182,7 @@ BOB_THREAD(4)
 
 ExtremeSlot()
 {
+	set-signal-mask SIGNAL_MOTION;
 	while (TRUE) {
 		sleep Rand(EXTREME_SLOT_SLEEP_MIN, EXTREME_SLOT_SLEEP_MAX);
 		extremeDrone = Rand(1, 4);
@@ -193,6 +201,7 @@ ExtremeSlot()
 Weave##n() \
 { \
 	var sideways, lengthways, lastSideways, lastLengthways, legTime; \
+	set-signal-mask SIGNAL_MOTION; \
 	lastSideways = 0; \
 	lastLengthways = 0; \
 	sleep Rand(0, WEAVE_LEG_TIME_MAX); \
@@ -226,6 +235,7 @@ Bank()
 	var speed, lastSpeed, heading, lastHeading, along, across, slip, sampledSlip, sine, cosine;
 	var position, position1, position2, position3, movedX, movedZ;
 	var pitch, roll, commandedPitch, commandedRoll;
+	set-signal-mask SIGNAL_MOTION;
 	lastSpeed = get CURRENT_SPEED;
 	lastHeading = get HEADING;
 	position1 = get UNIT_XZ;
@@ -352,17 +362,9 @@ Create()
 
 	SLEEP_UNTIL_UNITFINISHED;
 
-	start-script Orbit();
-	start-script Bob1();
-	start-script Bob2();
-	start-script Bob3();
-	start-script Bob4();
-	start-script ExtremeSlot();
-	start-script Weave1();
-	start-script Weave2();
-	start-script Weave3();
-	start-script Weave4();
-	start-script Bank();
+	if (!docked) {
+		call-script StartMotion();
+	}
 	start-script RestoreWhenIdle();
 	start-script HealthWatch();
 }
@@ -403,9 +405,50 @@ Deactivate()
 	SPIN_DOWN_DRONE(4)
 }
 
+StartMotion()
+{
+	signal SIGNAL_MOTION;
+	start-script Orbit();
+	start-script Bob1();
+	start-script Bob2();
+	start-script Bob3();
+	start-script Bob4();
+	start-script ExtremeSlot();
+	start-script Weave1();
+	start-script Weave2();
+	start-script Weave3();
+	start-script Weave4();
+	start-script Bank();
+}
+
+#define STOP_DRONE(n) \
+	stop-spin station##n around y-axis; \
+	move body##n to x-axis [0] speed DOCK_SETTLE_SPEED; \
+	move body##n to y-axis [0] speed DOCK_SETTLE_SPEED; \
+	move body##n to z-axis [0] speed DOCK_SETTLE_SPEED; \
+	turn body##n to x-axis <0> speed BANK_SPEED; \
+	turn body##n to z-axis <0> speed BANK_SPEED; \
+	turn station##n to x-axis <0> speed WEAVE_TILT_SPEED; \
+	turn station##n to z-axis <0> speed WEAVE_TILT_SPEED;
+
+StopMotion()
+{
+	signal SIGNAL_MOTION;
+	stop-spin orbit around y-axis;
+	STOP_DRONE(1)
+	STOP_DRONE(2)
+	STOP_DRONE(3)
+	STOP_DRONE(4)
+	bankPitch = 0;
+	bankRoll = 0;
+	extremeDrone = 0;
+	call-script Reform();
+}
+
 Docked(customparam, dockpiece, carrierarg1, carrierarg2, carrierarg3)
 {
 	docked = 1;
+	call-script StopMotion();
 	if (customparam == 1) {
 		turn base to y-axis carrierarg1 now;
 		spin base around y-axis speed <10> accelerate <1>;
@@ -418,6 +461,8 @@ Undocked(customparam, dockpiece)
 	docked = 0;
 	stop-spin base around y-axis;
 	turn base to y-axis <0> speed <600>;
+	call-script Reform();
+	call-script StartMotion();
 	return 1;
 }
 
