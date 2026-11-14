@@ -578,6 +578,17 @@ staticPieceCollisionVolume.legkeres = {
 	[0] = { 58, 22, 68, 0, -6, 1, 2, 0 },
 	[2] = { 44, 19, 48, 0, 9.5, 2, 2, 0 },
 }
+-- Four drones around an empty center. Each arm carries a thin connector that reaches just past the center.
+staticPieceCollisionVolume.legdrone = {
+	[2] = { 3, 3, 12.7, 0, 2, 5.35, 2, 2 },
+	[6] = { 9.2, 6.5, 9.2, 0, 1.2, 0, 0, 1 },
+	[15] = { 12.7, 3, 3, 5.35, 2, 0, 2, 2 },
+	[19] = { 9.2, 6.5, 9.2, 0, 1.2, 0, 0, 1 },
+	[28] = { 3, 3, 12.7, 0, 2, -5.35, 2, 2 },
+	[32] = { 9.2, 6.5, 9.2, 0, 1.2, 0, 0, 1 },
+	[41] = { 12.7, 3, 3, -5.35, 2, 0, 2, 2 },
+	[45] = { 9.2, 6.5, 9.2, 0, 1.2, 0, 0, 1 },
+}
 
 -- Processing collision volumes ------------------------------------------------
 
@@ -624,6 +635,7 @@ end
 -- Copies have to come after the shift to prevent double-shifting them.
 -- TODO: copied collision volumes should be declarative
 
+staticPieceCollisionVolume.babylegdrone = staticPieceCollisionVolume.legdrone
 staticPieceCollisionVolume.corgolt4 = staticPieceCollisionVolume.corgol
 staticPieceCollisionVolume.corhalab = staticPieceCollisionVolume.corhal
 staticPieceCollisionVolume.leggatet3 = staticPieceCollisionVolume.leggat

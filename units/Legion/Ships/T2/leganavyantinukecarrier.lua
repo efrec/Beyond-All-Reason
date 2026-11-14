@@ -226,7 +226,7 @@ return {
 					-- dronesusestockpile = true,
 					dronedocktime = 2,
 					droneairtime = 60, --"60 90",
-					droneammo = 12, --"9 0",
+					droneammo = 24, --"9 0",
 				},
 			},
 		},

@@ -1,0 +1,730 @@
+#include "../recoil_common_includes.h"
+
+// An empty base piece connected to four arms that connect to four drone bodies (each with detailed subpieces).
+// Per drone: arm, tip, station, body, mesh. Weapon n belongs to drone n. The arm has a piece collision volume.
+piece  base, orbit,
+       arm1, tip1, station1, body1, drone1, lwing1, rwing1, bwing1, lblades1, rblades1, bblades1, lflare1, rflare1,
+       arm2, tip2, station2, body2, drone2, lwing2, rwing2, bwing2, lblades2, rblades2, bblades2, lflare2, rflare2,
+       arm3, tip3, station3, body3, drone3, lwing3, rwing3, bwing3, lblades3, rblades3, bblades3, lflare3, rflare3,
+       arm4, tip4, station4, body4, drone4, lwing4, rwing4, bwing4, lblades4, rblades4, bblades4, lflare4, rflare4;
+
+static-var docked, droneCount, orbitDirection, alive1, alive2, alive3, alive4,
+           rightFlare1, rightFlare2, rightFlare3, rightFlare4,
+           aimHeading1, aimHeading2, aimHeading3, aimHeading4,
+           aimPitch1, aimPitch2, aimPitch3, aimPitch4,
+           droneYaw1, droneYaw2, droneYaw3, droneYaw4,
+           turnRate1, turnRate2, turnRate3, turnRate4,
+           turnFrame1, turnFrame2, turnFrame3, turnFrame4, lastAimFrame, restored,
+           bankPitch, bankRoll, flareYaw, flarePitch, firstPairShotFrame,
+           hitAngle, hitFrame, extremeDrone;
+
+#define ONE_FRAME           32
+#define HEADING_WRAP(angle) ((((angle) + 688128) % 65536) - 32768)
+#define PACKED_X(xz)        (((xz) & 0xffff0000) / 0x00010000)
+#define PACKED_Z(xz)        ((xz) & 0x0000ffff)
+
+// Orbit. Drones revolve once per ten seconds, reversing after 0.5 to 2.0 revolutions.
+#define ORBIT_SPEED                 <36>
+#define ORBIT_REVERSAL_ACCELERATION <2.4> // per frame, so a reversal takes one second
+#define ORBIT_LEAN                  <3>
+#define ORBIT_LEAN_SPEED            <6>
+#define ORBIT_REVERSAL_SLEEP_MIN    5000
+#define ORBIT_REVERSAL_SLEEP_MAX    20000
+
+// Lost models. How far each tip moves toward the center, from the four-drone station.
+#define SLIDE_AT_THREE     [2.14]
+#define SLIDE_AT_TWO       [3.42]
+#define SLIDE_AT_ONE       [11.69]
+#define REFORM_SLIDE_SPEED [12]
+#define REFORM_TURN_SPEED  <90>
+
+// Bobbing. Up and down motion, with an "extreme" position for one drone at a time.
+#define BOB_HEIGHT             [3.0]
+#define BOB_EXTREME_HEIGHT     [5.0]
+#define BOB_HALF_PERIOD_MIN    800
+#define BOB_HALF_PERIOD_MAX    1200
+#define EXTREME_SLOT_SLEEP_MIN 1000
+#define EXTREME_SLOT_SLEEP_MAX 3000
+
+// Weaving. Gives the appearance of randomness and floatiness to the drone motion.
+#define WEAVE_SIDEWAYS         [1.0]
+#define WEAVE_LENGTHWAYS       [0.8]
+#define WEAVE_LEG_TIME_MIN     1500
+#define WEAVE_LEG_TIME_MAX     2000
+#define WEAVE_TILT_SPEED       <4>
+#define WEAVE_LINEAR_PER_ANGLE 400  // a full sideways leg leans the drone 1.8 degrees
+
+// Traversal bank. Full tilt at the unit's acceleration rate, like the engine roll for hover gunships.
+#define BANK_LIMIT                <29>
+#define BANK_SPEED                <120>
+#define BANK_SPEED_PER_FRAME      <4>
+#define BANK_DEADBAND             <0.5>
+#define BANK_PER_ACCELERATION(a)  ((a) * 227 / 1000)
+#define ACCELERATION_LIMIT        60000
+#define TRAVEL_SAMPLE_MIN_SQUARED 9  // elmos moved before a travel direction is taken (over three frames)
+
+// Hardcoded values. Light drones don't have full tweakable customization. We expect some unit behaviors.
+#define DRONE_AIM_SPEED          <400>
+#define DRONE_AIM_PER_FRAME      <13.33>
+#define DRONE_RESTORE_SPEED      <120>
+#define DRONE_RESTORE_PER_FRAME  <4>
+#define RESTORE_DELAY_FRAMES     90
+#define SECOND_PAIR_DELAY_FRAMES 2
+#define LINE_OF_FIRE_HALF_WIDTH  5  // elmos, a drone's hit volume plus the whole-elmo positions
+#define LINE_OF_FIRE_HALF_HEIGHT 4
+#define STEEPEST_CHECKED_SHOT    64  // kilocosine of the pitch; steeper shots pass over or under the others
+#define HIT_MEMORY_FRAMES        3
+#define MARK_FRAMES              90  // the mark moves to the next drone every three seconds
+
+// Formation ------------------------------------------------------------------------------------------------------
+
+#define REFORM_DRONE(n, stationAngle) \
+	if (alive##n) { \
+		if (rank == 0) anchor = stationAngle; \
+		yaw = HEADING_WRAP(anchor + rank * step - stationAngle); \
+		turn arm##n to y-axis yaw speed REFORM_TURN_SPEED; \
+		turn tip##n to y-axis (0 - yaw) speed REFORM_TURN_SPEED; \
+		rank = rank + 1; \
+		if (droneCount > 1) { show arm##n; } \
+	} \
+	if (!alive##n || droneCount == 1) { hide arm##n; }
+
+// Drones lean in the direction they travel around the swarm's center.
+LeanIntoOrbit()
+{
+	var lean;
+	lean = ORBIT_LEAN * orbitDirection;
+	if (droneCount == 1) lean = 0;
+	turn arm1 to z-axis lean speed ORBIT_LEAN_SPEED;
+	turn arm2 to x-axis 0 - lean speed ORBIT_LEAN_SPEED;
+	turn arm3 to z-axis 0 - lean speed ORBIT_LEAN_SPEED;
+	turn arm4 to x-axis lean speed ORBIT_LEAN_SPEED;
+}
+
+// Redistribute surviving drones around the swarm's center.
+// Gives a square, triangle, pair, and then a single drone.
+Reform()
+{
+	var step, slide, anchor, rank, yaw;
+	step = <90>;
+	slide = [0];
+	if (droneCount == 3) { step = <120>; slide = SLIDE_AT_THREE; }
+	if (droneCount == 2) { step = <180>; slide = SLIDE_AT_TWO; }
+	if (droneCount == 1) { slide = SLIDE_AT_ONE; }
+	anchor = 0;
+	rank = 0;
+	REFORM_DRONE(1, <0>)
+	REFORM_DRONE(2, <90>)
+	REFORM_DRONE(3, <180>)
+	REFORM_DRONE(4, <270>)
+	move tip1 to z-axis [0] - slide speed REFORM_SLIDE_SPEED;
+	move tip2 to x-axis slide speed REFORM_SLIDE_SPEED;
+	move tip3 to z-axis slide speed REFORM_SLIDE_SPEED;
+	move tip4 to x-axis [0] - slide speed REFORM_SLIDE_SPEED;
+	call-script LeanIntoOrbit();
+}
+
+Orbit()
+{
+	if (Rand(0, 1)) orbitDirection = 0 - 1;
+	while (TRUE) {
+		spin orbit around y-axis speed ORBIT_SPEED * orbitDirection accelerate ORBIT_REVERSAL_ACCELERATION;
+		spin station1 around y-axis speed (0 - ORBIT_SPEED) * orbitDirection accelerate ORBIT_REVERSAL_ACCELERATION;
+		spin station2 around y-axis speed (0 - ORBIT_SPEED) * orbitDirection accelerate ORBIT_REVERSAL_ACCELERATION;
+		spin station3 around y-axis speed (0 - ORBIT_SPEED) * orbitDirection accelerate ORBIT_REVERSAL_ACCELERATION;
+		spin station4 around y-axis speed (0 - ORBIT_SPEED) * orbitDirection accelerate ORBIT_REVERSAL_ACCELERATION;
+		call-script LeanIntoOrbit();
+		sleep Rand(ORBIT_REVERSAL_SLEEP_MIN, ORBIT_REVERSAL_SLEEP_MAX);
+		orbitDirection = 0 - orbitDirection;
+	}
+}
+
+// Bob and weave --------------------------------------------------------------------------------------------------
+
+// The motion helps to open up lines of fire. They do avoid shooting through one another.
+#define BOB_THREAD(n) \
+Bob##n() \
+{ \
+	var top, rise, halfPeriod; \
+	sleep Rand(0, 2 * BOB_HALF_PERIOD_MAX); \
+	while (TRUE) { \
+		top = BOB_HEIGHT; \
+		if (extremeDrone == n) top = BOB_EXTREME_HEIGHT; \
+		rise = top + BOB_HEIGHT; \
+		halfPeriod = Rand(BOB_HALF_PERIOD_MIN, BOB_HALF_PERIOD_MAX) * rise / (2 * BOB_HEIGHT); \
+		move body##n to y-axis top - rise * 3 / 4 speed rise * 750 / halfPeriod; \
+		sleep halfPeriod / 3 - ONE_FRAME; \
+		move body##n to y-axis top - rise / 4 speed rise * 1500 / halfPeriod; \
+		sleep halfPeriod / 3 - ONE_FRAME; \
+		move body##n to y-axis top speed rise * 750 / halfPeriod; \
+		sleep halfPeriod / 3 - ONE_FRAME; \
+		move body##n to y-axis top - rise / 4 speed rise * 750 / halfPeriod; \
+		sleep halfPeriod / 3 - ONE_FRAME; \
+		move body##n to y-axis top - rise * 3 / 4 speed rise * 1500 / halfPeriod; \
+		sleep halfPeriod / 3 - ONE_FRAME; \
+		move body##n to y-axis top - rise speed rise * 750 / halfPeriod; \
+		sleep halfPeriod / 3 - ONE_FRAME; \
+		if (top == BOB_EXTREME_HEIGHT) extremeDrone = 0; \
+	} \
+}
+
+BOB_THREAD(1)
+BOB_THREAD(2)
+BOB_THREAD(3)
+BOB_THREAD(4)
+
+ExtremeSlot()
+{
+	while (TRUE) {
+		sleep Rand(EXTREME_SLOT_SLEEP_MIN, EXTREME_SLOT_SLEEP_MAX);
+		extremeDrone = Rand(1, 4);
+		if (extremeDrone == 1 && !alive1) extremeDrone = 0;
+		if (extremeDrone == 2 && !alive2) extremeDrone = 0;
+		if (extremeDrone == 3 && !alive3) extremeDrone = 0;
+		if (extremeDrone == 4 && !alive4) extremeDrone = 0;
+		while (extremeDrone) {
+			sleep 200;
+		}
+	}
+}
+
+// Drift to a new spot near its station. Adds a slight lean in the weave direction.
+#define WEAVE_THREAD(n) \
+Weave##n() \
+{ \
+	var sideways, lengthways, lastSideways, lastLengthways, legTime; \
+	lastSideways = 0; \
+	lastLengthways = 0; \
+	sleep Rand(0, WEAVE_LEG_TIME_MAX); \
+	while (TRUE) { \
+		legTime = Rand(WEAVE_LEG_TIME_MIN, WEAVE_LEG_TIME_MAX); \
+		sideways = Rand(0 - WEAVE_SIDEWAYS, WEAVE_SIDEWAYS); \
+		lengthways = Rand(0 - WEAVE_LENGTHWAYS, WEAVE_LENGTHWAYS); \
+		move body##n to x-axis sideways speed (get ABS(sideways - lastSideways)) / legTime * 1000; \
+		move body##n to z-axis lengthways speed (get ABS(lengthways - lastLengthways)) / legTime * 1000; \
+		turn station##n to z-axis (lastSideways - sideways) / WEAVE_LINEAR_PER_ANGLE speed WEAVE_TILT_SPEED; \
+		turn station##n to x-axis (lengthways - lastLengthways) / WEAVE_LINEAR_PER_ANGLE speed WEAVE_TILT_SPEED; \
+		sleep legTime / 2; \
+		turn station##n to z-axis <0> speed WEAVE_TILT_SPEED; \
+		turn station##n to x-axis <0> speed WEAVE_TILT_SPEED; \
+		sleep legTime / 2; \
+		lastSideways = sideways; \
+		lastLengthways = lengthways; \
+	} \
+}
+
+WEAVE_THREAD(1)
+WEAVE_THREAD(2)
+WEAVE_THREAD(3)
+WEAVE_THREAD(4)
+
+// Banking --------------------------------------------------------------------------------------------------------
+
+// Get a smoothed direction of acceleration/travel and use it to give a fake gunship-tilt.
+Bank()
+{
+	var speed, lastSpeed, heading, lastHeading, along, across, slip, sampledSlip, sine, cosine;
+	var position, position1, position2, position3, movedX, movedZ;
+	var pitch, roll, commandedPitch, commandedRoll;
+	lastSpeed = get CURRENT_SPEED;
+	lastHeading = get HEADING;
+	position1 = get UNIT_XZ;
+	position2 = position1;
+	position3 = position1;
+	slip = 0;
+	commandedPitch = 0;
+	commandedRoll = 0;
+	while (TRUE) {
+		speed = get CURRENT_SPEED;
+		heading = get HEADING;
+		position = get UNIT_XZ;
+
+		movedX = PACKED_X(position) - PACKED_X(position3);
+		movedZ = PACKED_Z(position) - PACKED_Z(position3);
+		sampledSlip = 0;
+		if (movedX * movedX + movedZ * movedZ >= TRAVEL_SAMPLE_MIN_SQUARED) {
+			sampledSlip = HEADING_WRAP((get ATAN(movedX, movedZ)) - heading);
+		}
+		slip = slip + HEADING_WRAP(sampledSlip - slip) / 3;
+
+		// Acceleration along the direction of travel, and across it from turning.
+		along = speed - lastSpeed;
+		across = (speed / 64) * HEADING_WRAP(heading - lastHeading) / 163;
+		if (along > ACCELERATION_LIMIT) along = ACCELERATION_LIMIT;
+		if (along < 0 - ACCELERATION_LIMIT) along = 0 - ACCELERATION_LIMIT;
+		if (across > ACCELERATION_LIMIT) across = ACCELERATION_LIMIT;
+		if (across < 0 - ACCELERATION_LIMIT) across = 0 - ACCELERATION_LIMIT;
+
+		sine = get KSIN(slip);
+		cosine = get KCOS(slip);
+		pitch = BANK_PER_ACCELERATION((along * cosine - across * sine) / 1024);
+		roll = BANK_PER_ACCELERATION((along * sine + across * cosine) / 1024);
+		if (pitch > BANK_LIMIT) pitch = BANK_LIMIT;
+		if (pitch < 0 - BANK_LIMIT) pitch = 0 - BANK_LIMIT;
+		if (roll > BANK_LIMIT) roll = BANK_LIMIT;
+		if (roll < 0 - BANK_LIMIT) roll = 0 - BANK_LIMIT;
+
+		if ((get ABS(pitch - commandedPitch)) > BANK_DEADBAND) {
+			turn body1 to x-axis pitch speed BANK_SPEED;
+			turn body2 to x-axis pitch speed BANK_SPEED;
+			turn body3 to x-axis pitch speed BANK_SPEED;
+			turn body4 to x-axis pitch speed BANK_SPEED;
+			commandedPitch = pitch;
+		}
+		if ((get ABS(roll - commandedRoll)) > BANK_DEADBAND) {
+			turn body1 to z-axis roll speed BANK_SPEED;
+			turn body2 to z-axis roll speed BANK_SPEED;
+			turn body3 to z-axis roll speed BANK_SPEED;
+			turn body4 to z-axis roll speed BANK_SPEED;
+			commandedRoll = roll;
+		}
+
+		// The weapons aim through this. Records where the bodies currently are and their commanded tilt at BANK_SPEED.
+		if (bankPitch < commandedPitch - BANK_SPEED_PER_FRAME) bankPitch = bankPitch + BANK_SPEED_PER_FRAME;
+		else if (bankPitch > commandedPitch + BANK_SPEED_PER_FRAME) bankPitch = bankPitch - BANK_SPEED_PER_FRAME;
+		else bankPitch = commandedPitch;
+		if (bankRoll < commandedRoll - BANK_SPEED_PER_FRAME) bankRoll = bankRoll + BANK_SPEED_PER_FRAME;
+		else if (bankRoll > commandedRoll + BANK_SPEED_PER_FRAME) bankRoll = bankRoll - BANK_SPEED_PER_FRAME;
+		else bankRoll = commandedRoll;
+
+		lastSpeed = speed;
+		lastHeading = heading;
+		position3 = position2;
+		position2 = position1;
+		position1 = position;
+		sleep ONE_FRAME;
+	}
+}
+
+// Unit state -----------------------------------------------------------------------------------------------------
+
+Create()
+{
+	docked = 0;
+	droneCount = 4;
+	orbitDirection = 1;
+	alive1 = 1;
+	alive2 = 1;
+	alive3 = 1;
+	alive4 = 1;
+	rightFlare1 = 0;
+	rightFlare2 = 0;
+	rightFlare3 = 0;
+	rightFlare4 = 0;
+	aimHeading1 = 0;
+	aimHeading2 = 0;
+	aimHeading3 = 0;
+	aimHeading4 = 0;
+	aimPitch1 = 0;
+	aimPitch2 = 0;
+	aimPitch3 = 0;
+	aimPitch4 = 0;
+	droneYaw1 = 0;
+	droneYaw2 = 0;
+	droneYaw3 = 0;
+	droneYaw4 = 0;
+	turnRate1 = 0;
+	turnRate2 = 0;
+	turnRate3 = 0;
+	turnRate4 = 0;
+	turnFrame1 = 0;
+	turnFrame2 = 0;
+	turnFrame3 = 0;
+	turnFrame4 = 0;
+	lastAimFrame = 0;
+	restored = TRUE;
+	bankPitch = 0;
+	bankRoll = 0;
+	flareYaw = 0;
+	flarePitch = 0;
+	firstPairShotFrame = 0;
+	hitAngle = 0;
+	hitFrame = 0 - 1000;
+	extremeDrone = 0;
+	hide lflare1;
+	hide rflare1;
+	hide lflare2;
+	hide rflare2;
+	hide lflare3;
+	hide rflare3;
+	hide lflare4;
+	hide rflare4;
+
+	SLEEP_UNTIL_UNITFINISHED;
+
+	start-script Orbit();
+	start-script Bob1();
+	start-script Bob2();
+	start-script Bob3();
+	start-script Bob4();
+	start-script ExtremeSlot();
+	start-script Weave1();
+	start-script Weave2();
+	start-script Weave3();
+	start-script Weave4();
+	start-script Bank();
+	start-script RestoreWhenIdle();
+	start-script HealthWatch();
+}
+
+#define SPIN_UP_DRONE(n) \
+	spin lblades##n around y-axis speed <-800>; \
+	spin rblades##n around y-axis speed <-800>; \
+	spin bblades##n around y-axis speed <-800>; \
+	turn lwing##n to y-axis <-15> speed <60>; \
+	turn rwing##n to y-axis <15> speed <60>; \
+	turn lwing##n to z-axis <-15> speed <60>; \
+	turn rwing##n to z-axis <15> speed <60>; \
+	turn bwing##n to x-axis <15> speed <60>;
+
+#define SPIN_DOWN_DRONE(n) \
+	stop-spin lblades##n around y-axis decelerate <100>; \
+	stop-spin rblades##n around y-axis decelerate <100>; \
+	stop-spin bblades##n around y-axis decelerate <100>; \
+	turn lwing##n to y-axis <0> speed <10>; \
+	turn rwing##n to y-axis <0> speed <10>; \
+	turn lwing##n to z-axis <45> speed <30>; \
+	turn rwing##n to z-axis <-45> speed <30>; \
+	turn bwing##n to x-axis <-45> speed <30>;
+
+Activate()
+{
+	SPIN_UP_DRONE(1)
+	SPIN_UP_DRONE(2)
+	SPIN_UP_DRONE(3)
+	SPIN_UP_DRONE(4)
+}
+
+Deactivate()
+{
+	SPIN_DOWN_DRONE(1)
+	SPIN_DOWN_DRONE(2)
+	SPIN_DOWN_DRONE(3)
+	SPIN_DOWN_DRONE(4)
+}
+
+Docked(customparam, dockpiece, carrierarg1, carrierarg2, carrierarg3)
+{
+	docked = 1;
+	if (customparam == 1) {
+		turn base to y-axis carrierarg1 now;
+		spin base around y-axis speed <10> accelerate <1>;
+		return 1;
+	}
+}
+
+Undocked(customparam, dockpiece)
+{
+	docked = 0;
+	stop-spin base around y-axis;
+	turn base to y-axis <0> speed <600>;
+	return 1;
+}
+
+// Losing and regaining drones ------------------------------------------------------------------------------------
+
+#define HIDE_DRONE(n) \
+	hide drone##n; \
+	hide lwing##n; \
+	hide rwing##n; \
+	hide bwing##n; \
+	hide lblades##n; \
+	hide rblades##n; \
+	hide bblades##n;
+
+#define SHOW_DRONE(n) \
+	show drone##n; \
+	show lwing##n; \
+	show rwing##n; \
+	show bwing##n; \
+	show lblades##n; \
+	show rblades##n; \
+	show bblades##n;
+
+// The drone standing closest to where the last hit came from.
+// A bit of a hack. A weapon with no impulse doesn't show up.
+#define ATTACKER_SIDE_CANDIDATE(n) \
+	if (alive##n) { \
+		tipPosition = get PIECE_XZ(tip##n); \
+		tipAngle = get ATAN(PACKED_X(tipPosition) - PACKED_X(unitPosition), PACKED_Z(tipPosition) - PACKED_Z(unitPosition)); \
+		offSide = get ABS(HEADING_WRAP(tipAngle - hitAngle)); \
+		if (offSide < leastOffSide) { \
+			leastOffSide = offSide; \
+			victim = n; \
+		} \
+	}
+
+#define DESTROY_DRONE(n) \
+	if (victim == n) { \
+		emit-sfx DETO_W5 from drone##n; \
+		explode drone##n type FALL | SMOKE | FIRE | NOHEATCLOUD; \
+		explode lwing##n type FALL | NOHEATCLOUD; \
+		explode rwing##n type FALL | NOHEATCLOUD; \
+		explode bwing##n type FALL | NOHEATCLOUD; \
+		HIDE_DRONE(n) \
+		alive##n = 0; \
+	}
+
+LoseDrone()
+{
+	var victim, mark, unitPosition, tipPosition, tipAngle, offSide, leastOffSide;
+	victim = 0;
+	if ((get GAME_FRAME) - hitFrame <= HIT_MEMORY_FRAMES) {
+		unitPosition = get UNIT_XZ;
+		leastOffSide = 65536;
+		ATTACKER_SIDE_CANDIDATE(1) // Try to lose the drone closest to the attacker first.
+		ATTACKER_SIDE_CANDIDATE(2)
+		ATTACKER_SIDE_CANDIDATE(3)
+		ATTACKER_SIDE_CANDIDATE(4)
+	}
+	mark = (get GAME_FRAME) / MARK_FRAMES % 4 + 1;
+	while (victim == 0) {
+		if (mark == 1 && alive1) victim = 1;
+		if (mark == 2 && alive2) victim = 2;
+		if (mark == 3 && alive3) victim = 3;
+		if (mark == 4 && alive4) victim = 4;
+		mark = mark % 4 + 1;
+	}
+	DESTROY_DRONE(1)
+	DESTROY_DRONE(2)
+	DESTROY_DRONE(3)
+	DESTROY_DRONE(4)
+	droneCount = droneCount - 1;
+	call-script Reform();
+}
+
+RegainDrone()
+{
+	if (!alive1) {
+		SHOW_DRONE(1)
+		alive1 = 1;
+	}
+	else if (!alive2) {
+		SHOW_DRONE(2)
+		alive2 = 1;
+	}
+	else if (!alive3) {
+		SHOW_DRONE(3)
+		alive3 = 1;
+	}
+	else {
+		SHOW_DRONE(4)
+		alive4 = 1;
+	}
+	droneCount = droneCount + 1;
+	call-script Reform();
+}
+
+HealthWatch()
+{
+	var wanted;
+	while (TRUE) {
+		wanted = (get HEALTH) / 25 + 1;
+		if (wanted < 1) wanted = 1;
+		if (wanted > 4) wanted = 4;
+		while (droneCount > wanted) {
+			call-script LoseDrone();
+		}
+		while (droneCount < wanted) {
+			call-script RegainDrone();
+		}
+		sleep 2 * ONE_FRAME;
+	}
+}
+
+HitByWeapon(forward, right)
+{
+	if (forward || right) {
+		hitAngle = (get ATAN(0 - right, forward)) + (get HEADING);
+		hitFrame = get GAME_FRAME;
+	}
+}
+
+// Weapons --------------------------------------------------------------------------------------------------------
+// Drones block shooting through one another. When a drone dies, its weapon is disabled.
+// Drones in opposite station positions share a target, so e.g. weapon 3 is slaved to 1.
+// Weapon 5 is the death weapon, only ever used to kill each drone with an explosion.
+
+#define FOLLOW_DRONE_YAW(n, frame) \
+	turned = HEADING_WRAP(aimHeading##n - droneYaw##n); \
+	reach = turnRate##n * (frame - turnFrame##n); \
+	if (turned > reach) turned = reach; \
+	if (turned < 0 - reach) turned = 0 - reach; \
+	droneYaw##n = droneYaw##n + turned; \
+	turnFrame##n = frame;
+
+#define RESTORE_DRONE(n, frame) \
+	FOLLOW_DRONE_YAW(n, frame) \
+	aimHeading##n = 0; \
+	turnRate##n = DRONE_RESTORE_PER_FRAME; \
+	turn drone##n to y-axis <0> speed DRONE_RESTORE_SPEED;
+
+RestoreWhenIdle()
+{
+	var frame, turned, reach;
+	while (TRUE) {
+		sleep 500;
+		frame = get GAME_FRAME;
+		if (!restored && frame - lastAimFrame > RESTORE_DELAY_FRAMES) {
+			RESTORE_DRONE(1, frame)
+			RESTORE_DRONE(2, frame)
+			RESTORE_DRONE(3, frame)
+			RESTORE_DRONE(4, frame)
+			restored = TRUE;
+		}
+	}
+}
+
+// In the local reference frame of the drone, how to point the weapon flare toward a target.
+PointFlare(heading, pitch)
+{
+	var left, up, ahead, leveled, level;
+	left = (get KSIN(heading)) * (get KCOS(pitch)) / 1024;
+	up = get KSIN(pitch);
+	ahead = (get KCOS(heading)) * (get KCOS(pitch)) / 1024;
+	leveled = (up * (get KCOS(bankPitch)) + ahead * (get KSIN(bankPitch))) / 1024;
+	ahead = (ahead * (get KCOS(bankPitch)) - up * (get KSIN(bankPitch))) / 1024;
+	up = (left * (get KSIN(bankRoll)) + leveled * (get KCOS(bankRoll))) / 1024;
+	left = (left * (get KCOS(bankRoll)) - leveled * (get KSIN(bankRoll))) / 1024;
+	leveled = (left * (get KCOS(heading)) - ahead * (get KSIN(heading))) / 1024;
+	ahead = (left * (get KSIN(heading)) + ahead * (get KCOS(heading))) / 1024;
+	level = get HYPOT(leveled, ahead);
+	flareYaw = get ATAN(leveled, ahead);
+	flarePitch = 0 - (get ATAN(up, level));
+}
+
+// Blocks the shot when another drone in the swarm is along the line of fire. Works well.
+#define CHECK_DRONE_IN_LINE_OF_FIRE(other) \
+	if (alive##other) { \
+		position = get PIECE_XZ(drone##other); \
+		aheadX = PACKED_X(position) - PACKED_X(muzzle); \
+		aheadZ = PACKED_Z(position) - PACKED_Z(muzzle); \
+		distance = get HYPOT(aheadX, aheadZ); \
+		offLine = HEADING_WRAP((get ATAN(aheadX, aheadZ)) - shotHeading); \
+		along = distance * (get KCOS(offLine)) / 1024; \
+		aside = get ABS(distance * (get KSIN(offLine)) / 1024); \
+		above = ((get PIECE_Y(drone##other)) - height) / [1] - along * shotRise / 1024; \
+		if (along > 0 && aside < LINE_OF_FIRE_HALF_WIDTH && (get ABS(above)) < LINE_OF_FIRE_HALF_HEIGHT) block = 1; \
+	}
+
+#define DRONE_WEAPON(n, heldBack, other1, other2, other3) \
+AimFromWeapon##n(pieceIndex) \
+{ \
+	pieceIndex = base; \
+} \
+ \
+QueryWeapon##n(pieceIndex) \
+{ \
+	if (rightFlare##n) { pieceIndex = rflare##n; } \
+	else { pieceIndex = lflare##n; } \
+} \
+ \
+AimWeapon##n(heading, pitch) \
+{ \
+	var frame, turned, reach; \
+	if (docked || !alive##n) return (0); \
+	frame = get GAME_FRAME; \
+	FOLLOW_DRONE_YAW(n, frame) \
+	lastAimFrame = frame; \
+	restored = FALSE; \
+	aimHeading##n = heading; \
+	aimPitch##n = pitch; \
+	turnRate##n = DRONE_AIM_PER_FRAME; \
+	turned = HEADING_WRAP(heading - droneYaw##n); \
+	if (turned > DRONE_AIM_PER_FRAME || turned < 0 - DRONE_AIM_PER_FRAME) { \
+		turn drone##n to y-axis heading speed DRONE_AIM_SPEED; \
+		return (0); \
+	} \
+	turn drone##n to y-axis heading speed DRONE_AIM_SPEED; \
+	turn drone##n to y-axis heading now; \
+	droneYaw##n = heading; \
+	return (1); \
+} \
+ \
+BlockShot##n(targetID, block, userTarget) \
+{ \
+	var muzzle, height, shotHeading, shotRise, cosine, position, aheadX, aheadZ, distance, offLine, along, aside, above; \
+	block = heldBack; \
+	cosine = get KCOS(aimPitch##n); \
+	if (!block && cosine > STEEPEST_CHECKED_SHOT) { \
+		muzzle = get PIECE_XZ(drone##n); \
+		height = get PIECE_Y(drone##n); \
+		shotHeading = (get HEADING) + aimHeading##n; \
+		shotRise = (get KSIN(aimPitch##n)) * 1024 / cosine; \
+		CHECK_DRONE_IN_LINE_OF_FIRE(other1) \
+		CHECK_DRONE_IN_LINE_OF_FIRE(other2) \
+		CHECK_DRONE_IN_LINE_OF_FIRE(other3) \
+	} \
+} \
+ \
+Shot##n(zero) \
+{ \
+	rightFlare##n = !rightFlare##n; \
+	call-script PointFlare(aimHeading##n, aimPitch##n); \
+	if (rightFlare##n) { \
+		turn rflare##n to y-axis flareYaw now; \
+		turn rflare##n to x-axis flarePitch now; \
+		emit-sfx 1024 + 0 from rflare##n; \
+	} \
+	else { \
+		turn lflare##n to y-axis flareYaw now; \
+		turn lflare##n to x-axis flarePitch now; \
+		emit-sfx 1024 + 0 from lflare##n; \
+	} \
+}
+
+// The weapon pairs fire at different times, so one volley is two bursts, then two more bursts.
+#define NOT_HELD_BACK          0
+#define HELD_BEHIND_FIRST_PAIR ((get GAME_FRAME) - firstPairShotFrame < SECOND_PAIR_DELAY_FRAMES)
+
+DRONE_WEAPON(1, NOT_HELD_BACK, 2, 3, 4)
+DRONE_WEAPON(2, HELD_BEHIND_FIRST_PAIR, 1, 3, 4)
+DRONE_WEAPON(3, NOT_HELD_BACK, 1, 2, 4)
+DRONE_WEAPON(4, HELD_BEHIND_FIRST_PAIR, 1, 2, 3)
+
+FireWeapon1()
+{
+	firstPairShotFrame = get GAME_FRAME;
+}
+
+FireWeapon3()
+{
+	firstPairShotFrame = get GAME_FRAME;
+}
+
+// Death ----------------------------------------------------------------------------------------------------------
+
+#define SCATTER_DRONE(n) \
+	if (alive##n) { \
+		if (explodedOne) { emit-sfx DETO_W5 from drone##n; } \
+		explodedOne = TRUE; \
+		explode drone##n type BITMAPONLY | NOHEATCLOUD; \
+		explode lwing##n type wingExplosion; \
+		explode rwing##n type wingExplosion; \
+		explode bwing##n type wingExplosion; \
+		if (severity > 25) wingExplosion = FALL | NOHEATCLOUD; \
+	}
+
+Killed(severity, corpsetype)
+{
+	var wingExplosion, explodedOne;
+	explodedOne = FALSE;
+	corpsetype = 3;
+	wingExplosion = EXPLODE_ON_HIT | FIRE | FALL | NOHEATCLOUD;
+	if (severity <= 99) {
+		wingExplosion = EXPLODE_ON_HIT | SMOKE | FALL | NOHEATCLOUD;
+	}
+	if (severity <= 50) {
+		corpsetype = 2;
+		wingExplosion = FIRE | SMOKE | FALL | NOHEATCLOUD;
+	}
+	if (severity <= 25) {
+		corpsetype = 1;
+		wingExplosion = BITMAPONLY | NOHEATCLOUD;
+	}
+	SCATTER_DRONE(1)
+	SCATTER_DRONE(2)
+	SCATTER_DRONE(3)
+	SCATTER_DRONE(4)
+	return corpsetype;
+}

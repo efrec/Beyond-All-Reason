@@ -184,7 +184,7 @@ return {
 					-- cobundockparam = 1,
 					dronedocktime = 2,
 					droneairtime = 60,
-					droneammo = 9,
+					droneammo = 18,
 					weapons_group = 1,
 				},
 			},

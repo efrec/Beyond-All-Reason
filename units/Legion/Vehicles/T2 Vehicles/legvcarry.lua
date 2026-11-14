@@ -164,7 +164,7 @@ return {
 					cobundockparam = 1,
 					droneairtime = 60,
 					dronedocktime = 3,
-					droneammo = 12,
+					droneammo = 24,
 					turretspeedx = 45,
 					turretspeedy = 80,
 				},

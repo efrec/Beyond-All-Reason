@@ -158,7 +158,7 @@ return {
 					cobundockparam = 1,
 					dronedocktime = 3,
 					droneairtime = 60,
-					droneammo = 12,
+					droneammo = 24,
 				},
 			},
 		},
