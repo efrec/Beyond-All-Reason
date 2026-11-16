@@ -17,6 +17,22 @@ local function init(dependencies)
 	activateTrigger = dependencies.activateTrigger
 end
 
+local function updateTriggerCount(trigger, triggerID, direction)
+	statisticsTriggerCounts[triggerID] = (statisticsTriggerCounts[triggerID] or 0) + direction
+
+	-- quantity > 0: fire each time the count crosses a milestone (quantity, 2*quantity, ...), and only when incrementing.
+	-- quantity == 0 is a special case: fire only when count reaches 0
+	local quantity = trigger.parameters.quantity
+	if quantity > 0 and direction > 0 then
+		local nextThreshold = (trigger.repeatCount + 1) * quantity
+		if statisticsTriggerCounts[triggerID] >= nextThreshold then
+			activateTrigger(trigger)
+		end
+	elseif quantity == 0 and statisticsTriggerCounts[triggerID] == 0 then
+		activateTrigger(trigger)
+	end
+end
+
 local function updateUnitStatistics(conditionType, teamID, unitDefName, unitNames, direction)
 	unitNames = unitNames or {}
 
@@ -31,19 +47,7 @@ local function updateUnitStatistics(conditionType, teamID, unitDefName, unitName
 			return
 		end
 
-		statisticsTriggerCounts[triggerID] = (statisticsTriggerCounts[triggerID] or 0) + direction
-
-		-- quantity > 0: fire each time the count crosses a milestone (quantity, 2*quantity, ...), and only when incrementing.
-		-- quantity == 0 is a special case: fire only when count reaches 0
-		local quantity = trigger.parameters.quantity
-		if quantity > 0 and direction > 0 then
-			local nextThreshold = (trigger.repeatCount + 1) * quantity
-			if statisticsTriggerCounts[triggerID] >= nextThreshold then
-				activateTrigger(trigger)
-			end
-		elseif quantity == 0 and statisticsTriggerCounts[triggerID] == 0 then
-			activateTrigger(trigger)
-		end
+		updateTriggerCount(trigger, triggerID, direction)
 	end)
 
 	-- Update managed objectives:
