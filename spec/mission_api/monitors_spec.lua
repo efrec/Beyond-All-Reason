@@ -267,6 +267,17 @@ describe("mission_api.monitors", function()
 			assert.are.same({ 102 }, members())
 		end)
 
+		it("leaves out a unit killed during UnitTaken's dispatch", function()
+			addArmy()
+			monitors.OnUnitRemoved(103)
+			units[103].dead = true
+			units[103].teamID = 0
+
+			monitors.OnUnitAdded(103)
+
+			assert.are.same({ 102 }, members())
+		end)
+
 		it(
 			"does not count a leave by naming during UnitTaken's dispatch, as MetaUnitRemoved uncounted the unit",
 			function()

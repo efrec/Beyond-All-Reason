@@ -192,8 +192,8 @@ end
 ---Settles a unit given to a new team, and holds back counting its joins and leaves until
 ---ReleaseUnitCount, since MetaUnitAdded counts the unit with every name it holds once its triggers have run.
 local function onUnitAdded(unitID)
-	-- Still held from MetaUnitRemoved, so the unit is changing team.
-	if uncountedUnits[unitID] then
+	-- Still held from MetaUnitRemoved, so the unit is changing team. One killed in UnitTaken's dispatch stays out.
+	if uncountedUnits[unitID] and spGetUnitIsDead(unitID) == false then
 		local isFinished = not spGetUnitIsBeingBuilt(unitID)
 		for _, monitor in pairs(monitors) do
 			settleMembership(monitor, unitID, isFinished)
