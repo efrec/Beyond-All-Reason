@@ -7,6 +7,8 @@ local trackedUnitNames = GG["MissionAPI"].trackedUnitNames
 local trackedFeatureIDs = GG["MissionAPI"].trackedFeatureIDs
 local trackedFeatureNames = GG["MissionAPI"].trackedFeatureNames
 
+local unitNameChangedHandler ---@type function?
+
 local function trackEntity(name, ID, trackedIDs, trackedNames)
 	if not name or not ID then
 		return
@@ -29,6 +31,21 @@ end
 
 local function doesEntityHaveName(ID, name, trackedIDs)
 	return (trackedIDs[name] or {})[ID] == true
+end
+
+local function untrackEntity(name, ID, trackedIDs, trackedNames)
+	if not doesEntityHaveName(ID, name, trackedIDs) then
+		return
+	end
+
+	trackedIDs[name][ID] = nil
+	if next(trackedIDs[name]) == nil then
+		trackedIDs[name] = nil
+	end
+	trackedNames[ID][name] = nil
+	if next(trackedNames[ID]) == nil then
+		trackedNames[ID] = nil
+	end
 end
 
 local function untrackID(ID, trackedIDs, trackedNames)
@@ -64,8 +81,23 @@ end
 --- Unit tracking:
 ----------------------------------------------------------------
 
+---Calls handler(unitID, name) after a unit is given a name or has one taken, except when it is destroyed.
+local function setUnitNameChangedHandler(handler)
+	unitNameChangedHandler = handler
+end
+
 local function trackUnit(name, unitID)
 	trackEntity(name, unitID, trackedUnitIDs, trackedUnitNames)
+	if unitNameChangedHandler and name and unitID then
+		unitNameChangedHandler(unitID, name)
+	end
+end
+
+local function untrackUnit(name, unitID)
+	untrackEntity(name, unitID, trackedUnitIDs, trackedUnitNames)
+	if unitNameChangedHandler then
+		unitNameChangedHandler(unitID, name)
+	end
 end
 
 local function isUnitIDUntracked(unitID)
@@ -85,7 +117,16 @@ local function untrackUnitID(unitID)
 end
 
 local function untrackUnitName(name)
+	if unitNameChangedHandler == nil or isUnitNameUntracked(name) then
+		untrackName(name, trackedUnitIDs, trackedUnitNames)
+		return
+	end
+
+	local unitIDs = table.keys(trackedUnitIDs[name])
 	untrackName(name, trackedUnitIDs, trackedUnitNames)
+	for i = 1, #unitIDs do
+		unitNameChangedHandler(unitIDs[i], name)
+	end
 end
 
 ----------------------------------------------------------------
@@ -118,7 +159,9 @@ end
 
 return {
 	-- Unit tracking
+	SetUnitNameChangedHandler = setUnitNameChangedHandler,
 	TrackUnit = trackUnit,
+	UntrackUnit = untrackUnit,
 	IsUnitIDUntracked = isUnitIDUntracked,
 	IsUnitNameUntracked = isUnitNameUntracked,
 	DoesUnitHaveName = doesUnitHaveName,

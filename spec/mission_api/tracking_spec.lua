@@ -232,6 +232,76 @@ describe("mission_api.tracking", function()
 		end)
 	end)
 
+	describe("UntrackUnit", function()
+		it("takes the name from the unit and keeps its other names", function()
+			seedUnit("alpha", 1)
+			seedUnit("beta", 1)
+			tracking.UntrackUnit("alpha", 1)
+			assert.is_nil(unitIDs["alpha"])
+			assert.are.same({ beta = true }, unitNames[1])
+		end)
+
+		it("keeps the name on other units", function()
+			seedUnit("squad", 1)
+			seedUnit("squad", 2)
+			tracking.UntrackUnit("squad", 1)
+			assert.is_nil(unitNames[1])
+			assert.are.same({ [2] = true }, unitIDs["squad"])
+		end)
+
+		it("is a no-op for a unit without the name", function()
+			seedUnit("squad", 2)
+			tracking.UntrackUnit("squad", 1)
+			assert.are.same({ [2] = true }, unitIDs["squad"])
+		end)
+	end)
+
+	describe("SetUnitNameChangedHandler", function()
+		local changes
+
+		before_each(function()
+			changes = {}
+			tracking.SetUnitNameChangedHandler(function(unitID, name)
+				changes[#changes + 1] =
+					{ unitID = unitID, name = name, hasName = unitIDs[name] ~= nil and unitIDs[name][unitID] == true }
+			end)
+		end)
+
+		after_each(function()
+			tracking.SetUnitNameChangedHandler(nil)
+		end)
+
+		it("reports a name given, after the unit holds it", function()
+			tracking.TrackUnit("alpha", 1)
+			assert.are.same({ { unitID = 1, name = "alpha", hasName = true } }, changes)
+		end)
+
+		it("reports a name taken from one unit, after the unit lost it", function()
+			seedUnit("alpha", 1)
+			tracking.UntrackUnit("alpha", 1)
+			assert.are.same({ { unitID = 1, name = "alpha", hasName = false } }, changes)
+		end)
+
+		it("reports a name taken from every unit, once per unit", function()
+			seedUnit("squad", 1)
+			seedUnit("squad", 2)
+			tracking.UntrackUnitName("squad")
+			table.sort(changes, function(a, b)
+				return a.unitID < b.unitID
+			end)
+			assert.are.same({
+				{ unitID = 1, name = "squad", hasName = false },
+				{ unitID = 2, name = "squad", hasName = false },
+			}, changes)
+		end)
+
+		it("does not report the names of a destroyed unit", function()
+			seedUnit("alpha", 1)
+			tracking.UntrackUnitID(1)
+			assert.are.same({}, changes)
+		end)
+	end)
+
 	-- ── Feature tracking ──────────────────────────────────────────────────────
 
 	describe("TrackFeature", function()
