@@ -1580,6 +1580,13 @@ describe("mission_api.validation.parameter_validators", function()
 			)
 		end)
 
+		it("refuses a filter under a key, which the list would skip", function()
+			V.assertMessage(
+				validateExcept({ { unitName = "commander" }, extra = { unitName = "commander" } }),
+				"Unit filters must be a list, got key: extra. Action: a, Parameter: except"
+			)
+		end)
+
 		it("refuses a filter in the list that differs by difficulty", function()
 			V.assertMessage(
 				validateExcept({ { difficulties = { Easy = { unitName = "commander" } } } }),

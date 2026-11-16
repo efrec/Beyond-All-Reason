@@ -1189,7 +1189,23 @@ local function registerUnitFilterValidators(parameterValidators, context)
 	end
 
 	parameterValidators[Types.UnitFilter] = validateUnitFilter
-	parameterValidators[Types.UnitFilters] = getListValidator(validateUnitFilter)
+
+	-- The runtime reads the list with ipairs, so a filter under any other key would be skipped.
+	local validateUnitFilterList = getListValidator(validateUnitFilter)
+	parameterValidators[Types.UnitFilters] = function(unitFilters)
+		local results = validateUnitFilterList(unitFilters)
+		if type(unitFilters) ~= "table" then
+			return results
+		end
+
+		local count = #unitFilters
+		for key in pairs(unitFilters) do
+			if not (type(key) == "number" and key >= 1 and key <= count and key % 1 == 0) then
+				addResult(results, "Unit filters must be a list, got key: " .. tostring(key))
+			end
+		end
+		return results
+	end
 end
 
 --------------------------------------------------------------------------------
