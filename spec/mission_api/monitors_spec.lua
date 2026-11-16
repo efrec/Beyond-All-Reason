@@ -499,6 +499,21 @@ describe("mission_api.monitors", function()
 			assert.are.same({ 102 }, members())
 		end)
 
+		it("lets a trigger fired while a monitor is removed add it again", function()
+			units[104] = { unitDefID = PAWN, teamID = 0 }
+			addArmy()
+			-- Registered after two members joined, so the count reaches 0 when the first of three leaves.
+			unitsOwnedTriggers.armyLow = unitsOwned({ teamName = 0, unitName = "army", quantity = 0 })
+			unitsOwnedTriggers.armyLow.runActions = addArmy
+			units[105] = { unitDefID = PAWN, teamID = 0 }
+			monitors.OnUnitFinished(105)
+
+			monitors.RemoveMonitor("army")
+
+			assert.is_not_nil(missionApi.monitors.army)
+			assert.are.same({ 102, 104, 105 }, members())
+		end)
+
 		it("leaves a UnitsOwned count by type alone", function()
 			unitsOwnedTriggers.pawns = unitsOwned({ teamName = 0, unitDefName = "armpw", quantity = 1 })
 

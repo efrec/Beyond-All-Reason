@@ -168,18 +168,24 @@ local function removeMonitor(unitName)
 	end
 	monitors[unitName] = nil
 
+	-- Every member loses the name before any is counted, so a trigger that adds the monitor again starts clean.
 	local unitIDs = unitQuery.MatchingUnits(unitName)
+	local leavers = {}
 	for i = 1, #unitIDs do
-		-- A trigger activated by an earlier count may have added the monitor again, settling every unit.
-		if monitors[unitName] ~= nil then
-			return
-		end
 		local unitID = unitIDs[i]
 		tracking.UntrackMonitorUnit(unitName, unitID)
-		-- A dying member was uncounted with its names already.
-		if spGetUnitIsDead(unitID) == false then
-			countMembershipChange(unitName, unitID, -1)
+		-- A dying member was uncounted with its names already, and the MetaUnit call-ins count one between teams.
+		if spGetUnitIsDead(unitID) == false and not uncountedUnits[unitID] then
+			leavers[#leavers + 1] = {
+				teamID = spGetUnitTeam(unitID),
+				unitDefName = UnitDefs[spGetUnitDefID(unitID)].name,
+			}
 		end
+	end
+
+	for i = 1, #leavers do
+		local leaver = leavers[i]
+		statistics.UpdateUnitNameCount(unitsOwnedType, leaver.teamID, leaver.unitDefName, unitName, -1)
 	end
 end
 
