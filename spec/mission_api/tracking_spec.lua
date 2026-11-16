@@ -154,6 +154,19 @@ describe("mission_api.tracking", function()
 			local result = tracking.DoesUnitHaveName(unitID, otherName)
 			assert.is_false(result)
 		end)
+
+		-- Monitors and triggers ask it for every unit they settle or filter.
+		it("allocates nothing for a name no unit holds", function()
+			collectgarbage("stop")
+			local kilobytesBefore = collectgarbage("count")
+			for unitID = 1, 1000 do
+				tracking.DoesUnitHaveName(unitID, "nobody")
+			end
+			local kilobytesAllocated = collectgarbage("count") - kilobytesBefore
+			collectgarbage("restart")
+
+			assert.is_true(kilobytesAllocated < 1.0, kilobytesAllocated .. " KB allocated")
+		end)
 	end)
 
 	describe("UntrackUnitID", function()

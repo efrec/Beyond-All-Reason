@@ -31,7 +31,7 @@ local function isNameUntracked(name, trackedIDs)
 end
 
 local function doesEntityHaveName(ID, name, trackedIDs)
-	return (trackedIDs[name] or {})[ID] == true
+	return trackedIDs[name] ~= nil and trackedIDs[name][ID] == true
 end
 
 local function untrackEntity(name, ID, trackedIDs, trackedNames)
