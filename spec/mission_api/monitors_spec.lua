@@ -198,10 +198,12 @@ describe("mission_api.monitors", function()
 			addArmy()
 			units[104] = { unitDefID = COMMANDER, teamID = 0 }
 			missionApi.nameOfUnitBeingSpawned = "commander"
+			missionApi.unitIDBeingSpawned = 104
 
 			monitors.OnUnitFinished(104)
 
 			missionApi.nameOfUnitBeingSpawned = nil
+			missionApi.unitIDBeingSpawned = nil
 			assert.are.same({ 102 }, members())
 		end)
 	end)

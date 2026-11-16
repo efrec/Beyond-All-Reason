@@ -26,6 +26,7 @@ describe("mission_api.unit_query", function()
 
 	after_each(function()
 		missionApi.nameOfUnitBeingSpawned = nil
+		missionApi.unitIDBeingSpawned = nil
 	end)
 
 	describe("DoesUnitMatchFilter", function()
@@ -53,7 +54,14 @@ describe("mission_api.unit_query", function()
 
 		it("treats a unit being spawned as holding its loadout name", function()
 			missionApi.nameOfUnitBeingSpawned = "pawn"
+			missionApi.unitIDBeingSpawned = 101
 			assert.is_true(unitQuery.DoesUnitMatchFilter(101, { unitName = "pawn" }))
+		end)
+
+		it("treats no other unit as holding the loadout name while one is spawned", function()
+			missionApi.nameOfUnitBeingSpawned = "pawn"
+			missionApi.unitIDBeingSpawned = 101
+			assert.is_false(unitQuery.DoesUnitMatchFilter(100, { unitName = "pawn" }))
 		end)
 	end)
 end)

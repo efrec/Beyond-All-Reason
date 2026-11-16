@@ -92,8 +92,8 @@ local function doesUnitMatchFilter(unitID, unitFilter)
 	local unitName = unitFilter.unitName
 	if
 		unitName
-		and unitName ~= GG["MissionAPI"].nameOfUnitBeingSpawned
 		and not tracking.DoesUnitHaveName(unitID, unitName)
+		and not (unitID == GG["MissionAPI"].unitIDBeingSpawned and unitName == GG["MissionAPI"].nameOfUnitBeingSpawned)
 	then
 		return false
 	end
