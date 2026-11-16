@@ -108,22 +108,6 @@ describe("mission_api.monitors", function()
 			assert.are.same({ 102 }, members())
 		end)
 
-		it("settles every member before counting any", function()
-			units[104] = { unitDefID = PAWN, teamID = 0 }
-			local membersAtFirstCount
-			monitors.Init({
-				statistics = {
-					UpdateUnitNameCount = function()
-						membersAtFirstCount = membersAtFirstCount or members()
-					end,
-				},
-			})
-
-			addArmy()
-
-			assert.are.same({ 102, 104 }, membersAtFirstCount)
-		end)
-
 		it("replaces the rule of a monitor with the same name", function()
 			addArmy()
 			counts = {}
@@ -466,6 +450,9 @@ describe("mission_api.monitors", function()
 				activateTrigger = function(trigger)
 					activated[#activated + 1] = trigger
 					trigger.repeatCount = trigger.repeatCount + 1
+					if trigger.runActions then
+						trigger.runActions()
+					end
 					return true
 				end,
 			})
@@ -488,6 +475,28 @@ describe("mission_api.monitors", function()
 			units[104].beingBuilt = true
 			monitors.OnUnitReverseBuilt(104)
 			assert.are.same({ unitsOwnedTriggers.armyGone }, activated)
+		end)
+
+		it("counts each change before an activation it causes can change the unit again", function()
+			-- Whichever monitor counts the new unit first names it as an exception to both.
+			local function nameRecruitCommander()
+				tracking.TrackUnit("commander", 104)
+			end
+			unitsOwnedTriggers.armyRaised = unitsOwned({ teamName = 0, unitName = "army", quantity = 2 })
+			unitsOwnedTriggers.armyRaised.runActions = nameRecruitCommander
+			unitsOwnedTriggers.guardRaised = unitsOwned({ teamName = 0, unitName = "guard", quantity = 2 })
+			unitsOwnedTriggers.guardRaised.runActions = nameRecruitCommander
+			unitsOwnedTriggers.armyGone = unitsOwned({ teamName = 0, unitName = "army", quantity = 0 })
+			unitsOwnedTriggers.guardGone = unitsOwned({ teamName = 0, unitName = "guard", quantity = 0 })
+			addArmy()
+			monitors.AddMonitor("guard", { teamName = 0 }, { { unitName = "commander" }, { unitName = "pawn7" } })
+			units[104] = { unitDefID = PAWN, teamID = 0 }
+
+			monitors.OnUnitFinished(104)
+
+			assert.is_false(table.contains(activated, unitsOwnedTriggers.armyGone))
+			assert.is_false(table.contains(activated, unitsOwnedTriggers.guardGone))
+			assert.are.same({ 102 }, members())
 		end)
 
 		it("leaves a UnitsOwned count by type alone", function()

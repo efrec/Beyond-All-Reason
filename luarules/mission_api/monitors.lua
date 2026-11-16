@@ -72,58 +72,48 @@ local function rejectsMonitor(unitName, ruleUnitNames)
 	return monitors[unitName] == nil and not tracking.IsUnitNameUntracked(unitName)
 end
 
--- The team and unit def are read now, as an activation counted before this one may transfer the unit.
-local function recordMembershipChange(changes, unitName, unitID, direction)
+local function countMembershipChange(unitName, unitID, direction)
 	if direction == 0 or uncountedUnits[unitID] then
 		return
 	end
 
-	changes[#changes + 1] = {
-		unitName = unitName,
-		teamID = spGetUnitTeam(unitID),
-		unitDefName = UnitDefs[spGetUnitDefID(unitID)].name,
-		direction = direction,
-	}
+	local unitDefName = UnitDefs[spGetUnitDefID(unitID)].name
+	statistics.UpdateUnitNameCount(unitsOwnedType, spGetUnitTeam(unitID), unitDefName, unitName, direction)
 end
 
--- Counting can activate triggers whose actions change units, so it runs once membership is settled.
-local function countMembershipChanges(changes)
-	for i = 1, #changes do
-		local change = changes[i]
-		statistics.UpdateUnitNameCount(
-			unitsOwnedType,
-			change.teamID,
-			change.unitDefName,
-			change.unitName,
-			change.direction
-		)
+-- Counting can activate triggers whose actions add or remove monitors, so a pass walks a copy of them.
+local function copyMonitors()
+	local copied = {}
+	for _, monitor in pairs(monitors) do
+		copied[#copied + 1] = monitor
 	end
+	return copied
 end
 
-local function settleUnitInEveryMonitor(unitID, isFinished)
-	local changes = {}
-	for unitName, monitor in pairs(monitors) do
-		recordMembershipChange(changes, unitName, unitID, settleMembership(monitor, unitID, isFinished))
-	end
-	countMembershipChanges(changes)
-end
-
+-- Each change is counted as soon as it is settled, so the count always matches the names held.
 -- A dying unit was uncounted with its names already, and loses them all once its death call-ins end.
-local function onUnitNameChanged(unitID, name)
-	if spGetUnitIsDead(unitID) ~= false then
-		return
-	end
-
-	local changes
-	for unitName, monitor in pairs(monitors) do
-		if monitor.ruleUnitNames[name] then
-			changes = changes or {}
-			local isFinished = not spGetUnitIsBeingBuilt(unitID)
-			recordMembershipChange(changes, unitName, unitID, settleMembership(monitor, unitID, isFinished))
+local function settleUnitInEveryMonitor(unitID, isFinished)
+	local monitorsAtStart = copyMonitors()
+	for i = 1, #monitorsAtStart do
+		local monitor = monitorsAtStart[i]
+		if monitors[monitor.unitName] == monitor and spGetUnitIsDead(unitID) == false then
+			countMembershipChange(monitor.unitName, unitID, settleMembership(monitor, unitID, isFinished))
 		end
 	end
-	if changes then
-		countMembershipChanges(changes)
+end
+
+local function onUnitNameChanged(unitID, name)
+	local monitorsAtStart = copyMonitors()
+	for i = 1, #monitorsAtStart do
+		local monitor = monitorsAtStart[i]
+		if
+			monitor.ruleUnitNames[name]
+			and monitors[monitor.unitName] == monitor
+			and spGetUnitIsDead(unitID) == false
+		then
+			local isFinished = not spGetUnitIsBeingBuilt(unitID)
+			countMembershipChange(monitor.unitName, unitID, settleMembership(monitor, unitID, isFinished))
+		end
 	end
 end
 
@@ -157,17 +147,19 @@ local function addMonitor(unitName, filter, except)
 	local monitor = { unitName = unitName, filter = filter, except = except, ruleUnitNames = ruleUnitNames }
 	monitors[unitName] = monitor
 
-	local changes = {}
 	local unitIDs = spGetAllUnits()
 	for i = 1, #unitIDs do
+		-- A trigger activated by an earlier count may have replaced or removed this monitor.
+		if monitors[unitName] ~= monitor then
+			return
+		end
 		local unitID = unitIDs[i]
 		-- A unit that died this frame is still listed, and was uncounted with its names already.
 		if spGetUnitIsDead(unitID) == false then
 			local isFinished = not spGetUnitIsBeingBuilt(unitID)
-			recordMembershipChange(changes, unitName, unitID, settleMembership(monitor, unitID, isFinished))
+			countMembershipChange(unitName, unitID, settleMembership(monitor, unitID, isFinished))
 		end
 	end
-	countMembershipChanges(changes)
 end
 
 local function removeMonitor(unitName)
@@ -176,17 +168,19 @@ local function removeMonitor(unitName)
 	end
 	monitors[unitName] = nil
 
-	local changes = {}
 	local unitIDs = unitQuery.MatchingUnits(unitName)
 	for i = 1, #unitIDs do
+		-- A trigger activated by an earlier count may have added the monitor again, settling every unit.
+		if monitors[unitName] ~= nil then
+			return
+		end
 		local unitID = unitIDs[i]
 		tracking.UntrackMonitorUnit(unitName, unitID)
 		-- A dying member was uncounted with its names already.
 		if spGetUnitIsDead(unitID) == false then
-			recordMembershipChange(changes, unitName, unitID, -1)
+			countMembershipChange(unitName, unitID, -1)
 		end
 	end
-	countMembershipChanges(changes)
 end
 
 local function onUnitFinished(unitID)
