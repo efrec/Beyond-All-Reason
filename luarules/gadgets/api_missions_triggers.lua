@@ -297,7 +297,9 @@ function gadget:MetaUnitAdded(unitID, unitDefID, unitTeam)
 		unitsChangingTeam[unitID] = nil
 		monitors.OnUnitTeamChanged(unitID)
 	end
+	monitors.OnUnitAdded(unitID)
 	dispatchConditionCallin("MetaUnitAdded", unitID, unitDefID, unitTeam)
+	monitors.ReleaseUnitCount(unitID)
 
 	local unitDefName = UnitDefs[unitDefID].name
 	local unitNames = table.copy(trackedUnitNames[unitID] or {})

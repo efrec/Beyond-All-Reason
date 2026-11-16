@@ -7,6 +7,8 @@
 --- before it dispatches that call-in's triggers, so they see the membership after the change.
 --- A member keeps the name through the dispatch of UnitDestroyed and of UnitTaken, so UnitKilled
 --- and UnitCaptured see the membership the unit had.
+--- MetaUnitAdded's dispatch is bracketed by OnUnitAdded and ReleaseUnitCount, so a change made
+--- during it is counted once, by MetaUnitAdded.
 ---
 
 local monitors = GG["MissionAPI"].monitors
@@ -21,6 +23,8 @@ local spGetUnitTeam = Spring.GetUnitTeam
 
 local statistics
 local unitsOwnedType
+
+local uncountedUnits = {} ---@type table<integer, true?>
 
 local function matchesRule(monitor, unitID)
 	local doesUnitMatchFilter = unitQuery.DoesUnitMatchFilter
@@ -55,7 +59,7 @@ end
 
 -- The team and unit def are read now, as an activation counted before this one may transfer the unit.
 local function recordMembershipChange(changes, unitName, unitID, direction)
-	if direction == 0 then
+	if direction == 0 or uncountedUnits[unitID] then
 		return
 	end
 
@@ -180,12 +184,21 @@ end
 
 ---Settles a unit given to its new team, uncounted: it was uncounted with its old names when it
 ---left its old team, and is counted with its new names once this returns.
----@param unitID integer
 local function onUnitTeamChanged(unitID)
 	local isFinished = not spGetUnitIsBeingBuilt(unitID)
 	for _, monitor in pairs(monitors) do
 		settleMembership(monitor, unitID, isFinished)
 	end
+end
+
+---Holds back counting a unit's joins and leaves until ReleaseUnitCount, since MetaUnitAdded counts the unit
+---with every name it holds once its triggers have run.
+local function onUnitAdded(unitID)
+	uncountedUnits[unitID] = true
+end
+
+local function releaseUnitCount(unitID)
+	uncountedUnits[unitID] = nil
 end
 
 return {
@@ -195,4 +208,6 @@ return {
 	OnUnitFinished = onUnitFinished,
 	OnUnitReverseBuilt = onUnitReverseBuilt,
 	OnUnitTeamChanged = onUnitTeamChanged,
+	OnUnitAdded = onUnitAdded,
+	ReleaseUnitCount = releaseUnitCount,
 }

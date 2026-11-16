@@ -252,6 +252,30 @@ describe("mission_api.monitors", function()
 		end)
 	end)
 
+	describe("a unit being added", function()
+		it("joins uncounted during MetaUnitAdded's dispatch, which counts it with its names after", function()
+			units[104] = { unitDefID = PAWN, teamID = 0 }
+			monitors.OnUnitAdded(104)
+
+			addArmy()
+
+			assert.are.same({ 102, 104 }, members())
+			assert.are.same({ count(0, "armpw", 1) }, counts)
+		end)
+
+		it("is counted again once released", function()
+			units[104] = { unitDefID = PAWN, teamID = 0 }
+			monitors.OnUnitAdded(104)
+			addArmy()
+			monitors.ReleaseUnitCount(104)
+			counts = {}
+
+			tracking.TrackUnit("pawn7", 104)
+
+			assert.are.same({ count(0, "armpw", -1) }, counts)
+		end)
+	end)
+
 	describe("a member's death", function()
 		it("keeps the name through UnitDestroyed's dispatch, so UnitKilled on the monitor fires", function()
 			local unitKilled = MissionSpecEnv.include(env, "luarules/mission_api/conditions/unit_killed.lua")
