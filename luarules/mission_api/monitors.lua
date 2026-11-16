@@ -51,11 +51,25 @@ local function settleMembership(monitor, unitID, isFinished)
 	end
 
 	if shouldBeMember then
-		tracking.TrackUnit(monitor.unitName, unitID)
+		tracking.TrackMonitorUnit(monitor.unitName, unitID)
 		return 1
 	end
-	tracking.UntrackUnit(monitor.unitName, unitID)
+	tracking.UntrackMonitorUnit(monitor.unitName, unitID)
 	return -1
+end
+
+local function rejectsMonitor(unitName, ruleUnitNames)
+	for ruleUnitName in pairs(ruleUnitNames) do
+		if ruleUnitName == unitName or monitors[ruleUnitName] then
+			return true
+		end
+	end
+	for otherUnitName, otherMonitor in pairs(monitors) do
+		if otherUnitName ~= unitName and otherMonitor.ruleUnitNames[unitName] then
+			return true
+		end
+	end
+	return monitors[unitName] == nil and not tracking.IsUnitNameUntracked(unitName)
 end
 
 -- The team and unit def are read now, as an activation counted before this one may transfer the unit.
@@ -123,7 +137,8 @@ local function init(dependencies)
 	tracking.SetUnitNameChangedHandler(onUnitNameChanged)
 end
 
----Adding a monitor under a name already in use replaces its rule.
+---Adding a monitor under a name already in use replaces its rule. A monitor whose rule names a monitor,
+---whose name a monitor's rule uses, or whose name units already hold from elsewhere is not added.
 local function addMonitor(unitName, filter, except)
 	except = except or {}
 	local ruleUnitNames = {}
@@ -134,6 +149,9 @@ local function addMonitor(unitName, filter, except)
 		if except[i].unitName then
 			ruleUnitNames[except[i].unitName] = true
 		end
+	end
+	if rejectsMonitor(unitName, ruleUnitNames) then
+		return
 	end
 
 	local monitor = { unitName = unitName, filter = filter, except = except, ruleUnitNames = ruleUnitNames }
@@ -162,7 +180,7 @@ local function removeMonitor(unitName)
 	local unitIDs = unitQuery.MatchingUnits(unitName)
 	for i = 1, #unitIDs do
 		local unitID = unitIDs[i]
-		tracking.UntrackUnit(unitName, unitID)
+		tracking.UntrackMonitorUnit(unitName, unitID)
 		-- A dying member was uncounted with its names already.
 		if spGetUnitIsDead(unitID) == false then
 			recordMembershipChange(changes, unitName, unitID, -1)

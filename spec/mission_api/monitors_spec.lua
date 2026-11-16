@@ -135,6 +135,30 @@ describe("mission_api.monitors", function()
 		end)
 	end)
 
+	describe("a name only the monitor gives", function()
+		it("refuses a monitor whose rule names a monitor", function()
+			addArmy()
+
+			monitors.AddMonitor("veterans", { unitName = "army" })
+
+			assert.is_nil(missionApi.monitors.veterans)
+		end)
+
+		it("refuses a monitor whose name a monitor's rule uses", function()
+			monitors.AddMonitor("army", { teamName = 0 }, { { unitName = "reserve" } })
+
+			monitors.AddMonitor("reserve", { teamName = 1 })
+
+			assert.is_nil(missionApi.monitors.reserve)
+		end)
+
+		it("refuses a monitor whose name units already hold", function()
+			monitors.AddMonitor("commander", { teamName = 0 })
+
+			assert.is_nil(missionApi.monitors.commander)
+		end)
+	end)
+
 	describe("RemoveMonitor", function()
 		it("takes the name from every member, counted", function()
 			addArmy()

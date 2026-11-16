@@ -319,7 +319,7 @@ function MB:Build(installed)
 	local trackedFeatureNames = refill(installed.trackedFeatureNames, {})
 	local monitors = refill(installed.monitors, {})
 
-	-- tracking.lua binds these four tables when it loads, so each build loads its own onto them.
+	-- tracking.lua binds these tables when it loads, so each build loads its own onto them.
 	local tracking = SpecEnv.include(
 		SpecEnv.new({
 			GG = {
@@ -328,6 +328,7 @@ function MB:Build(installed)
 					trackedUnitNames = trackedUnitNames,
 					trackedFeatureIDs = trackedFeatureIDs,
 					trackedFeatureNames = trackedFeatureNames,
+					monitors = monitors,
 				},
 			},
 		}),

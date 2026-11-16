@@ -6,6 +6,7 @@ local trackedUnitIDs = GG["MissionAPI"].trackedUnitIDs
 local trackedUnitNames = GG["MissionAPI"].trackedUnitNames
 local trackedFeatureIDs = GG["MissionAPI"].trackedFeatureIDs
 local trackedFeatureNames = GG["MissionAPI"].trackedFeatureNames
+local monitors = GG["MissionAPI"].monitors
 
 local unitNameChangedHandler ---@type function?
 
@@ -81,23 +82,32 @@ end
 --- Unit tracking:
 ----------------------------------------------------------------
 
----Calls handler(unitID, name) after a unit is given a name or has one taken, except when it is destroyed.
+---Calls handler(unitID, name) after a unit is given a name or has one taken, except a monitor's name, and
+---except when the unit is destroyed.
 local function setUnitNameChangedHandler(handler)
 	unitNameChangedHandler = handler
 end
 
+---Refuses a monitor's name.
 local function trackUnit(name, unitID)
+	if monitors[name] then
+		return
+	end
+
 	trackEntity(name, unitID, trackedUnitIDs, trackedUnitNames)
 	if unitNameChangedHandler and name and unitID then
 		unitNameChangedHandler(unitID, name)
 	end
 end
 
-local function untrackUnit(name, unitID)
+---For monitors.lua alone, which gives its monitor's name.
+local function trackMonitorUnit(name, unitID)
+	trackEntity(name, unitID, trackedUnitIDs, trackedUnitNames)
+end
+
+---For monitors.lua alone, which takes its monitor's name.
+local function untrackMonitorUnit(name, unitID)
 	untrackEntity(name, unitID, trackedUnitIDs, trackedUnitNames)
-	if unitNameChangedHandler then
-		unitNameChangedHandler(unitID, name)
-	end
 end
 
 local function isUnitIDUntracked(unitID)
@@ -116,7 +126,11 @@ local function untrackUnitID(unitID)
 	untrackID(unitID, trackedUnitIDs, trackedUnitNames)
 end
 
+---Refuses a monitor's name.
 local function untrackUnitName(name)
+	if monitors[name] then
+		return
+	end
 	if unitNameChangedHandler == nil or isUnitNameUntracked(name) then
 		untrackName(name, trackedUnitIDs, trackedUnitNames)
 		return
@@ -161,7 +175,8 @@ return {
 	-- Unit tracking
 	SetUnitNameChangedHandler = setUnitNameChangedHandler,
 	TrackUnit = trackUnit,
-	UntrackUnit = untrackUnit,
+	TrackMonitorUnit = trackMonitorUnit,
+	UntrackMonitorUnit = untrackMonitorUnit,
 	IsUnitIDUntracked = isUnitIDUntracked,
 	IsUnitNameUntracked = isUnitNameUntracked,
 	DoesUnitHaveName = doesUnitHaveName,

@@ -1,4 +1,4 @@
--- tracking.lua captures the four table references as upvalues at load time,
+-- tracking.lua captures these table references as upvalues at load time,
 -- so they must exist in GG['MissionAPI'] *before* VFS.Include is called.
 -- We keep the same table objects alive for the whole test run and wipe their
 -- contents in before_each so every test starts from a clean slate.
@@ -11,11 +11,14 @@ local featureIDs = {}
 GG["MissionAPI"].trackedFeatureIDs = featureIDs
 local featureNames = {}
 GG["MissionAPI"].trackedFeatureNames = featureNames
+local monitors = {}
+GG["MissionAPI"].monitors = monitors
 
 local tracking = VFS.Include("luarules/mission_api/tracking.lua")
+local MissionSpecEnv = require("mission_api.spec_helper")
 
 local function clearTracked()
-	for _, table in ipairs({ unitIDs, unitNames, featureIDs, featureNames }) do
+	for _, table in ipairs({ unitIDs, unitNames, featureIDs, featureNames, monitors }) do
 		for key in pairs(table) do
 			table[key] = nil
 		end
@@ -232,11 +235,11 @@ describe("mission_api.tracking", function()
 		end)
 	end)
 
-	describe("UntrackUnit", function()
+	describe("UntrackMonitorUnit", function()
 		it("takes the name from the unit and keeps its other names", function()
 			seedUnit("alpha", 1)
 			seedUnit("beta", 1)
-			tracking.UntrackUnit("alpha", 1)
+			tracking.UntrackMonitorUnit("alpha", 1)
 			assert.is_nil(unitIDs["alpha"])
 			assert.are.same({ beta = true }, unitNames[1])
 		end)
@@ -244,15 +247,37 @@ describe("mission_api.tracking", function()
 		it("keeps the name on other units", function()
 			seedUnit("squad", 1)
 			seedUnit("squad", 2)
-			tracking.UntrackUnit("squad", 1)
+			tracking.UntrackMonitorUnit("squad", 1)
 			assert.is_nil(unitNames[1])
 			assert.are.same({ [2] = true }, unitIDs["squad"])
 		end)
 
 		it("is a no-op for a unit without the name", function()
 			seedUnit("squad", 2)
-			tracking.UntrackUnit("squad", 1)
+			tracking.UntrackMonitorUnit("squad", 1)
 			assert.are.same({ [2] = true }, unitIDs["squad"])
+		end)
+	end)
+
+	describe("a monitor's name", function()
+		before_each(function()
+			monitors["army"] = {}
+		end)
+
+		it("is refused to TrackUnit", function()
+			tracking.TrackUnit("army", 1)
+			assert.is_nil(unitIDs["army"])
+		end)
+
+		it("is refused to UntrackUnitName", function()
+			seedUnit("army", 1)
+			tracking.UntrackUnitName("army")
+			assert.are.same({ [1] = true }, unitIDs["army"])
+		end)
+
+		it("is given by TrackMonitorUnit", function()
+			tracking.TrackMonitorUnit("army", 1)
+			assert.are.same({ [1] = true }, unitIDs["army"])
 		end)
 	end)
 
@@ -276,12 +301,6 @@ describe("mission_api.tracking", function()
 			assert.are.same({ { unitID = 1, name = "alpha", hasName = true } }, changes)
 		end)
 
-		it("reports a name taken from one unit, after the unit lost it", function()
-			seedUnit("alpha", 1)
-			tracking.UntrackUnit("alpha", 1)
-			assert.are.same({ { unitID = 1, name = "alpha", hasName = false } }, changes)
-		end)
-
 		it("reports a name taken from every unit, once per unit", function()
 			seedUnit("squad", 1)
 			seedUnit("squad", 2)
@@ -293,6 +312,12 @@ describe("mission_api.tracking", function()
 				{ unitID = 1, name = "squad", hasName = false },
 				{ unitID = 2, name = "squad", hasName = false },
 			}, changes)
+		end)
+
+		it("does not report a monitor's own name", function()
+			tracking.TrackMonitorUnit("army", 1)
+			tracking.UntrackMonitorUnit("army", 1)
+			assert.are.same({}, changes)
 		end)
 
 		it("does not report the names of a destroyed unit", function()
