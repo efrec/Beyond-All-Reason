@@ -10,6 +10,7 @@ local schemaUtils = VFS.Include("luarules/mission_api/schema_utils.lua")
 local getTypesWithParameterType = schemaUtils.GetTypesWithParameterType
 local getParameterNamesWithType = schemaUtils.GetParameterNamesWithType
 local cameraKeyframeSchema = VFS.Include("luarules/mission_api/camera_keyframe_schema.lua")
+local unitFilterFields = VFS.Include("luarules/mission_api/unit_filter_schema.lua").UnitFilterFields
 
 --------------------------------------------------------------------------------
 -- Shared helpers
@@ -30,6 +31,32 @@ end
 local function describeSources(sources)
 	table.sort(sources)
 	return table.concat(sources, ", ")
+end
+
+--- Every unit filter an action's parameters hold, each labeled by where it is, e.g. "except[2]".
+--- @param filterParameterNames table<integer, string[]> names of the UnitFilter parameters, per action type
+--- @param filterListParameterNames table<integer, string[]> names of the UnitFilters parameters, per action type
+local function unitFiltersOf(context, filterParameterNames, filterListParameterNames, action, parameters)
+	local unitFilters, labels = {}, {}
+	for _, parameterName in ipairs(filterParameterNames[action.type] or {}) do
+		for _, unitFilter in ipairs(context.PossibleValues(parameters[parameterName])) do
+			if type(unitFilter) == "table" then
+				unitFilters[#unitFilters + 1] = unitFilter
+				labels[#labels + 1] = parameterName
+			end
+		end
+	end
+	for _, parameterName in ipairs(filterListParameterNames[action.type] or {}) do
+		for _, list in ipairs(context.PossibleValues(parameters[parameterName])) do
+			for index, unitFilter in ipairs(type(list) == "table" and list or {}) do
+				if type(unitFilter) == "table" then
+					unitFilters[#unitFilters + 1] = unitFilter
+					labels[#labels + 1] = parameterName .. "[" .. index .. "]"
+				end
+			end
+		end
+	end
+	return unitFilters, labels
 end
 
 --- A name nothing creates can never match, so unlike the unreferenced case below it is
@@ -267,6 +294,29 @@ local function collectKeyframeNames(context, nameFields, parameterNames, actionI
 	end
 end
 
+--- The unit filter fields holding a name of this type.
+local function unitFilterFieldsOfType(nameType)
+	local fields = {}
+	for _, field in ipairs(unitFilterFields) do
+		if field.type == nameType then
+			fields[#fields + 1] = field.name
+		end
+	end
+	return fields
+end
+
+--- A unit filter refers to the names it asks a unit about.
+local function collectUnitFilterNames(nameFields, unitFilters, labels, actionID, referencedNames)
+	for index, unitFilter in ipairs(unitFilters) do
+		for _, field in ipairs(nameFields) do
+			local name = unitFilter[field]
+			if type(name) == "string" then
+				recordSource(referencedNames, name, "action " .. actionID .. " (" .. labels[index] .. ")")
+			end
+		end
+	end
+end
+
 --- Records every distinct name held by the entity's parameters of this kind. A trigger
 --- can name several units at once, e.g. a passenger and the transport carrying it.
 local function collectParameterNames(context, parameterNames, parameters, source, referencedNames)
@@ -290,6 +340,9 @@ local function collectActionNames(context, nameKind, createdNames, referencedNam
 	end
 	local keyframeParameterNames = getParameterNamesWithType(context.ActionParameters, context.Types.CameraKeyframes)
 	local keyframeNameFields = keyframeFieldsOfType(nameKind.nameType)
+	local filterParameterNames = getParameterNamesWithType(context.ActionParameters, context.Types.UnitFilter)
+	local filterListParameterNames = getParameterNamesWithType(context.ActionParameters, context.Types.UnitFilters)
+	local unitFilterNameFields = unitFilterFieldsOfType(nameKind.nameType)
 
 	for actionID, action in pairs(context.Actions) do
 		local parameters = parametersOf(action)
@@ -310,6 +363,9 @@ local function collectActionNames(context, nameKind, createdNames, referencedNam
 					referencedNames
 				)
 			end
+			local unitFilters, labels =
+				unitFiltersOf(context, filterParameterNames, filterListParameterNames, action, parameters)
+			collectUnitFilterNames(unitFilterNameFields, unitFilters, labels, actionID, referencedNames)
 
 			if nameKind.creatingActionTypes[action.type] then
 				for _, name in ipairs(context.PossibleValues(parameters[nameKind.nameKey])) do
@@ -380,6 +436,86 @@ local function validateNameReferences(context, report, nameKind)
 
 	reportUncreatedNames(report, nameKind.label, createdNames, referencedNames)
 	reportUnreferencedNames(report, nameKind.label, createdNames, referencedNames)
+end
+
+--------------------------------------------------------------------------------
+-- Monitor names
+--------------------------------------------------------------------------------
+
+--- Only a monitor gives or takes its name, so its membership stays what its rule says. A monitor's
+--- rule may not name a monitor, since a monitor changes its members' names and could feed on itself.
+local function validateMonitorNames(context, report)
+	local actionTypes = context.ActionTypes
+	local monitorNames = {}
+	for _, action in pairs(context.Actions) do
+		local parameters = parametersOf(action)
+		if parameters and action.type == actionTypes.MonitorUnits then
+			for _, name in ipairs(context.PossibleValues(parameters.unitName)) do
+				if type(name) == "string" then
+					monitorNames[name] = true
+				end
+			end
+		end
+	end
+	if next(monitorNames) == nil then
+		return
+	end
+
+	local function reportOtherNaming(name, source)
+		if monitorNames[name] then
+			report.Error(
+				SECTION,
+				"Unit name",
+				name,
+				"Unit name is given by a monitor, so nothing else may give or take it",
+				"In: " .. source
+			)
+		end
+	end
+
+	for index, entry in ipairs(context.UnitLoadout) do
+		if type(entry) == "table" then
+			reportOtherNaming(entry.unitName, "UnitLoadout[" .. index .. "]")
+		end
+	end
+
+	local filterParameterNames = getParameterNamesWithType(context.ActionParameters, context.Types.UnitFilter)
+	local filterListParameterNames = getParameterNamesWithType(context.ActionParameters, context.Types.UnitFilters)
+	for actionID, action in pairs(context.Actions) do
+		local parameters = parametersOf(action)
+		if parameters then
+			if action.type == actionTypes.NameUnits or action.type == actionTypes.UnnameUnits then
+				for _, name in ipairs(context.PossibleValues(parameters.unitName)) do
+					reportOtherNaming(name, "action " .. actionID)
+				end
+			elseif action.type == actionTypes.SpawnUnits then
+				for _, entries in ipairs(context.PossibleValues(parameters.unitLoadout)) do
+					for index, entry in ipairs(type(entries) == "table" and entries or {}) do
+						if type(entry) == "table" then
+							reportOtherNaming(
+								entry.unitName,
+								"action " .. actionID .. " (unitLoadout[" .. index .. "])"
+							)
+						end
+					end
+				end
+			end
+
+			local unitFilters, labels =
+				unitFiltersOf(context, filterParameterNames, filterListParameterNames, action, parameters)
+			for index, unitFilter in ipairs(unitFilters) do
+				if monitorNames[unitFilter.unitName] then
+					report.Error(
+						SECTION,
+						"Unit name",
+						unitFilter.unitName,
+						"A monitor's rule cannot name a monitor",
+						"In: action " .. actionID .. " (" .. labels[index] .. ")"
+					)
+				end
+			end
+		end
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -573,8 +709,13 @@ local function validate(context, report)
 		loadoutLabel = "UnitLoadout",
 		loadoutParameter = "unitLoadout",
 		loadoutActionType = actionTypes.SpawnUnits,
-		creatingActionTypes = { [actionTypes.SpawnUnits] = true, [actionTypes.NameUnits] = true },
+		creatingActionTypes = {
+			[actionTypes.SpawnUnits] = true,
+			[actionTypes.NameUnits] = true,
+			[actionTypes.MonitorUnits] = true,
+		},
 	})
+	validateMonitorNames(context, report)
 
 	validateNameReferences(context, report, {
 		label = "Feature name",

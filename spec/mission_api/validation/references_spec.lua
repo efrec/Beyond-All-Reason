@@ -251,6 +251,123 @@ describe("mission_api.validation.references", function()
 		)
 	end)
 
+	describe("monitor names", function()
+		local function monitorUnits(unitName, filter, except)
+			return {
+				type = V.actionTypes.MonitorUnits,
+				parameters = { unitName = unitName, filter = filter, except = except },
+			}
+		end
+
+		--- A mission whose trigger 't' runs every action given, and whose trigger 'kill' refers to 'army'.
+		local function monitorMission(actions)
+			local actionIDs = {}
+			for actionID in pairs(actions) do
+				actionIDs[#actionIDs + 1] = actionID
+			end
+			table.sort(actionIDs)
+			local mission = V.mission()
+				:WithTrigger(
+					"t",
+					{ type = V.conditionTypes.TimeElapsed, parameters = { seconds = 1 }, actions = actionIDs }
+				)
+				:WithTrigger("kill", {
+					type = V.conditionTypes.UnitKilled,
+					parameters = { unitName = "army" },
+					actions = { "ok" },
+				})
+				:WithAction("ok", { type = V.actionTypes.SendMessage, parameters = { messageKey = "ok" } })
+			for actionID, action in pairs(actions) do
+				mission:WithAction(actionID, action)
+			end
+			return mission
+		end
+
+		it("counts MonitorUnits as creating its name, and its filters as referring to names", function()
+			V.assertValid(V.validate(monitorMission({
+				spawn = spawnUnits("commander"),
+				monitor = monitorUnits("army", { teamName = "player" }, { { unitName = "commander" } }),
+			})))
+		end)
+
+		it("warns about a name a filter refers to that nothing creates", function()
+			local result = V.validate(monitorMission({
+				monitor = monitorUnits("army", { teamName = "player" }, { { unitName = "pawn7" } }),
+			}))
+
+			V.assertMessage(
+				result,
+				"Unit name is referenced, but never created. Unit name: pawn7, Referenced in: action monitor (except[1])"
+			)
+		end)
+
+		it("counts UnmonitorUnits as referring to the name", function()
+			local result = V.validate(V.mission()
+				:WithTrigger("t", {
+					type = V.conditionTypes.TimeElapsed,
+					parameters = { seconds = 1 },
+					actions = { "monitor", "unmonitor" },
+				})
+				:WithAction("monitor", monitorUnits("army", { teamName = "player" }))
+				:WithAction("unmonitor", { type = V.actionTypes.UnmonitorUnits, parameters = { unitName = "army" } }))
+
+			V.assertValid(result)
+		end)
+
+		it("refuses a monitor's name in NameUnits and UnnameUnits", function()
+			local result = V.validate(monitorMission({
+				monitor = monitorUnits("army", { teamName = "player" }),
+				name = { type = V.actionTypes.NameUnits, parameters = { unitName = "army", teamName = "player" } },
+				unname = { type = V.actionTypes.UnnameUnits, parameters = { unitName = "army" } },
+			}))
+
+			V.assertMessage(
+				result,
+				"Unit name is given by a monitor, so nothing else may give or take it. Unit name: army, In: action name"
+			)
+			V.assertMessage(
+				result,
+				"Unit name is given by a monitor, so nothing else may give or take it. Unit name: army, In: action unname"
+			)
+			assert.is_false(result.ok)
+		end)
+
+		it("refuses a monitor's name in a loadout", function()
+			local result = V.validate(monitorMission({
+				monitor = monitorUnits("army", { teamName = "player" }),
+				spawn = spawnUnits("army"),
+			}):WithUnitLoadout({
+				{ unitDefName = "armwar", position = { x = 0, z = 0 }, teamName = "player", unitName = "army" },
+			}))
+
+			V.assertMessage(
+				result,
+				"Unit name is given by a monitor, so nothing else may give or take it. Unit name: army, In: action spawn (unitLoadout[1])"
+			)
+			V.assertMessage(
+				result,
+				"Unit name is given by a monitor, so nothing else may give or take it. Unit name: army, In: UnitLoadout[1]"
+			)
+		end)
+
+		it("refuses a monitor's rule naming a monitor", function()
+			local result = V.validate(monitorMission({
+				monitor = monitorUnits("army", { teamName = "player" }),
+				veterans = monitorUnits("veterans", { unitName = "army" }, { { unitName = "veterans" } }),
+			}))
+
+			V.assertMessage(
+				result,
+				"A monitor's rule cannot name a monitor. Unit name: army, In: action veterans (filter)"
+			)
+			V.assertMessage(
+				result,
+				"A monitor's rule cannot name a monitor. Unit name: veterans, In: action veterans (except[1])"
+			)
+			assert.is_false(result.ok)
+		end)
+	end)
+
 	describe("map marker names", function()
 		-- A marker left standing for the rest of the mission is ordinary, so only the
 		-- removing side is checked.

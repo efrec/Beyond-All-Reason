@@ -1513,4 +1513,78 @@ describe("mission_api.validation.parameter_validators", function()
 			assert.is_true(result.ok)
 		end)
 	end)
+
+	describe("UnitFilter", function()
+		local function validateFilter(filter)
+			return V.validateAction({
+				type = V.actionTypes.MonitorUnits,
+				parameters = { unitName = "army", filter = filter },
+			})
+		end
+
+		it("passes for a filter giving every field", function()
+			local result = validateFilter({ unitName = "commander", unitDefName = "armwar", teamName = "player" })
+
+			V.assertNoMessageContaining(result, "Parameter: filter")
+		end)
+
+		it("validates each field by its type", function()
+			local result = validateFilter({ unitDefName = "nosuchunit", teamName = "nosuchteam" })
+
+			V.assertMessage(result, "Invalid unitDefName: nosuchunit. Action: a, Parameter: filter.unitDefName")
+			V.assertMessage(result, "Invalid teamName: nosuchteam. Action: a, Parameter: filter.teamName")
+		end)
+
+		it("refuses an empty filter", function()
+			V.assertMessage(
+				validateFilter({}),
+				"Unit filter is empty, give at least one of: 'unitName', 'unitDefName', 'teamName'. Action: a, Parameter: filter"
+			)
+		end)
+
+		it("refuses an unknown field", function()
+			V.assertMessage(
+				validateFilter({ teamName = "player", unitname = "commander" }),
+				"Unknown unit filter field 'unitname'. Action: a, Parameter: filter"
+			)
+		end)
+
+		it("refuses a field that differs by difficulty", function()
+			V.assertMessage(
+				validateFilter({ teamName = { difficulties = { Easy = "player" } } }),
+				"Unit filter field cannot differ by difficulty, give the whole filter per difficulty. Action: a, Parameter: filter.teamName"
+			)
+		end)
+
+		it("allows the whole filter to differ by difficulty", function()
+			local result = validateFilter({
+				difficulties = { Easy = { teamName = "player" }, Hard = { unitDefName = "armwar" } },
+			})
+
+			V.assertNoMessageContaining(result, "Parameter: filter")
+		end)
+	end)
+
+	describe("UnitFilters", function()
+		local function validateExcept(except)
+			return V.validateAction({
+				type = V.actionTypes.MonitorUnits,
+				parameters = { unitName = "army", filter = { teamName = "player" }, except = except },
+			})
+		end
+
+		it("validates every filter, naming its index", function()
+			V.assertMessage(
+				validateExcept({ { unitName = "commander" }, {} }),
+				"Unit filter is empty, give at least one of: 'unitName', 'unitDefName', 'teamName'. Action: a, Parameter: except[2]"
+			)
+		end)
+
+		it("refuses a filter in the list that differs by difficulty", function()
+			V.assertMessage(
+				validateExcept({ { difficulties = { Easy = { unitName = "commander" } } } }),
+				"Unit filter in a list cannot differ by difficulty, give the whole list per difficulty. Action: a, Parameter: except[1]"
+			)
+		end)
+	end)
 end)
