@@ -23,6 +23,7 @@ end, math.huge)
 ---@field trackedUnitNames table<number, table<string, boolean>>
 ---@field trackedFeatureIDs table<string, table<number, boolean>>
 ---@field trackedFeatureNames table<number, table<string, boolean>>
+---@field monitors table<string, table>
 ---@field markerNames table
 ---@field lineNames table<string, table[]>
 ---@field soundFiles table<string, number>
@@ -316,6 +317,7 @@ function MB:Build(installed)
 	local trackedUnitNames = refill(installed.trackedUnitNames, {})
 	local trackedFeatureIDs = refill(installed.trackedFeatureIDs, {})
 	local trackedFeatureNames = refill(installed.trackedFeatureNames, {})
+	local monitors = refill(installed.monitors, {})
 
 	-- tracking.lua binds these four tables when it loads, so each build loads its own onto them.
 	local tracking = SpecEnv.include(
@@ -501,6 +503,7 @@ function MB:Build(installed)
 		trackedUnitNames = trackedUnitNames,
 		trackedFeatureIDs = trackedFeatureIDs,
 		trackedFeatureNames = trackedFeatureNames,
+		monitors = monitors,
 		markerNames = self.markerNames,
 		lineNames = self.lineNames,
 		soundFiles = self.soundFiles,

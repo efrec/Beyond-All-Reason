@@ -27,6 +27,7 @@ local needsBuildStartSet = false
 
 local actionsDispatcher
 local statistics
+local monitors
 local countdowns
 local detectionLevels
 local seismicContacts
@@ -58,6 +59,7 @@ local detections = {}
 local detectionCount = 0
 local undetectedUnits = {}
 local capturedUnits = {}
+local unitsChangingTeam = {}
 
 ----------------------------------------------------------------
 --- Trigger Functions:
@@ -290,6 +292,11 @@ function gadget:MetaUnitAdded(unitID, unitDefID, unitTeam)
 		mapi.unitIDBeingSpawned = unitID
 	end
 
+	-- UnitTaken is too early: the engine changes the team after it.
+	if unitsChangingTeam[unitID] then
+		unitsChangingTeam[unitID] = nil
+		monitors.OnUnitTeamChanged(unitID)
+	end
 	dispatchConditionCallin("MetaUnitAdded", unitID, unitDefID, unitTeam)
 
 	local unitDefName = UnitDefs[unitDefID].name
@@ -319,6 +326,7 @@ end
 
 function gadget:UnitTaken(unitID, unitDefID, oldTeam, newTeam)
 	dispatchConditionCallin("UnitTaken", unitID, unitDefID, oldTeam, newTeam, capturedUnits[unitID] == true)
+	unitsChangingTeam[unitID] = true
 
 	local unitDefName = UnitDefs[unitDefID].name
 	local unitNames = trackedUnitNames[unitID] or {}
@@ -365,6 +373,7 @@ function gadget:UnitBuildStepPost(unitID)
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
+	monitors.OnUnitFinished(unitID)
 	dispatchConditionCallin("UnitFinished", unitID, unitDefID, unitTeam)
 
 	buildFrameOwners[unitID] = nil
@@ -382,6 +391,10 @@ function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 
 	local unitDefName = UnitDefs[unitDefID].name
 	statistics.Increment(conditionTypes.TotalUnitsBuilt, unitTeam, unitDefName)
+end
+
+function gadget:UnitReverseBuilt(unitID, unitDefID, unitTeam)
+	monitors.OnUnitReverseBuilt(unitID)
 end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
@@ -558,6 +571,8 @@ function gadget:Initialize()
 
 	statistics = VFS.Include("luarules/mission_api/statistics.lua")
 	statistics.Init({ processTriggersOfType = processTriggersOfType, activateTrigger = activateTrigger })
+	monitors = GG["MissionAPI"].Modules.Monitors
+	monitors.Init({ statistics = statistics })
 	-- TODO: Resolve flat globals vs imports vs the DI pattern (above).
 	GG["MissionAPI"].ActivateTrigger = activateTrigger
 

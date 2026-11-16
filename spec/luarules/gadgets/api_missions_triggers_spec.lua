@@ -99,6 +99,7 @@ describe("api_missions_triggers loadout names", function()
 			:WithTrigger("twoOutposts", unitsOwned("outpost", 2))
 			:WithModule("SeismicContacts", { UpdateInterval = 15 })
 			:Install(env)
+		missionApi.Modules.Monitors = MissionSpecEnv.include(env, "luarules/mission_api/monitors.lua")
 
 		---@diagnostic disable -- return_overload doesn't work here, emmylua has no idea what our lua builtins are
 		local chunk = assert(loadfile(GADGET_PATH))
