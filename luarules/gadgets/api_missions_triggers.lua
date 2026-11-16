@@ -59,7 +59,6 @@ local detections = {}
 local detectionCount = 0
 local undetectedUnits = {}
 local capturedUnits = {}
-local unitsChangingTeam = {}
 
 ----------------------------------------------------------------
 --- Trigger Functions:
@@ -292,11 +291,6 @@ function gadget:MetaUnitAdded(unitID, unitDefID, unitTeam)
 		mapi.unitIDBeingSpawned = unitID
 	end
 
-	-- UnitTaken is too early: the engine changes the team after it.
-	if unitsChangingTeam[unitID] then
-		unitsChangingTeam[unitID] = nil
-		monitors.OnUnitTeamChanged(unitID)
-	end
 	monitors.OnUnitAdded(unitID)
 	dispatchConditionCallin("MetaUnitAdded", unitID, unitDefID, unitTeam)
 	monitors.ReleaseUnitCount(unitID)
@@ -312,9 +306,11 @@ end
 
 function gadget:MetaUnitRemoved(unitID, unitDefID, unitTeam)
 	dispatchConditionCallin("MetaUnitRemoved", unitID, unitDefID, unitTeam)
+	monitors.OnUnitRemoved(unitID)
 
 	local unitDefName = UnitDefs[unitDefID].name
-	local unitNames = trackedUnitNames[unitID] or {}
+	-- A trigger activated by the count may change the unit's names.
+	local unitNames = table.copy(trackedUnitNames[unitID] or {})
 	statistics.Decrement(conditionTypes.UnitsOwned, unitTeam, unitDefName, unitNames)
 
 	-- Don't untrack unit here, as other call-ins run after this one (UnitDestroyed, UnitTaken, ...)
@@ -328,7 +324,6 @@ end
 
 function gadget:UnitTaken(unitID, unitDefID, oldTeam, newTeam)
 	dispatchConditionCallin("UnitTaken", unitID, unitDefID, oldTeam, newTeam, capturedUnits[unitID] == true)
-	unitsChangingTeam[unitID] = true
 
 	local unitDefName = UnitDefs[unitDefID].name
 	local unitNames = trackedUnitNames[unitID] or {}

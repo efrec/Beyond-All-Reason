@@ -3,12 +3,13 @@
 --- finished, matches the monitor's unit filter, and matches none of its exceptions. Members
 --- hold the monitor's name as a unit name, which only the monitor gives or takes.
 ---
---- The triggers gadget calls OnUnitFinished, and OnUnitTeamChanged at the start of MetaUnitAdded,
---- before it dispatches that call-in's triggers, so they see the membership after the change.
---- A member keeps the name through the dispatch of UnitDestroyed and of UnitTaken, so UnitKilled
---- and UnitCaptured see the membership the unit had.
---- MetaUnitAdded's dispatch is bracketed by OnUnitAdded and ReleaseUnitCount, so a change made
---- during it is counted once, by MetaUnitAdded.
+--- The triggers gadget calls OnUnitFinished, and OnUnitAdded at the start of MetaUnitAdded, before
+--- it dispatches that call-in's triggers, so they see the membership after the change. A member
+--- keeps the name through the dispatch of UnitDestroyed and of UnitTaken, so UnitKilled and
+--- UnitCaptured see the membership the unit had.
+--- The gadget calls OnUnitRemoved after MetaUnitRemoved's dispatch and before its Decrement, and
+--- ReleaseUnitCount after MetaUnitAdded's dispatch and before its Increment. Between the two, the
+--- MetaUnit call-ins count the unit, so a change made then is counted once.
 ---
 
 local monitors = GG["MissionAPI"].monitors
@@ -182,18 +183,22 @@ local function onUnitReverseBuilt(unitID)
 	end
 end
 
----Settles a unit given to its new team, uncounted: it was uncounted with its old names when it
----left its old team, and is counted with its new names once this returns.
-local function onUnitTeamChanged(unitID)
-	local isFinished = not spGetUnitIsBeingBuilt(unitID)
-	for _, monitor in pairs(monitors) do
-		settleMembership(monitor, unitID, isFinished)
-	end
+---Holds back counting the joins and leaves of a unit that leaves its team alive, until ReleaseUnitCount,
+---since MetaUnitRemoved uncounts it with the names it holds then.
+local function onUnitRemoved(unitID)
+	uncountedUnits[unitID] = spGetUnitIsDead(unitID) == false or nil
 end
 
----Holds back counting a unit's joins and leaves until ReleaseUnitCount, since MetaUnitAdded counts the unit
----with every name it holds once its triggers have run.
+---Settles a unit given to a new team, and holds back counting its joins and leaves until
+---ReleaseUnitCount, since MetaUnitAdded counts the unit with every name it holds once its triggers have run.
 local function onUnitAdded(unitID)
+	-- Still held from MetaUnitRemoved, so the unit is changing team.
+	if uncountedUnits[unitID] then
+		local isFinished = not spGetUnitIsBeingBuilt(unitID)
+		for _, monitor in pairs(monitors) do
+			settleMembership(monitor, unitID, isFinished)
+		end
+	end
 	uncountedUnits[unitID] = true
 end
 
@@ -207,7 +212,7 @@ return {
 	RemoveMonitor = removeMonitor,
 	OnUnitFinished = onUnitFinished,
 	OnUnitReverseBuilt = onUnitReverseBuilt,
-	OnUnitTeamChanged = onUnitTeamChanged,
+	OnUnitRemoved = onUnitRemoved,
 	OnUnitAdded = onUnitAdded,
 	ReleaseUnitCount = releaseUnitCount,
 }

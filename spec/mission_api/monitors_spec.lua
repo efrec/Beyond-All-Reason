@@ -219,13 +219,19 @@ describe("mission_api.monitors", function()
 		end)
 	end)
 
-	describe("OnUnitTeamChanged", function()
+	describe("a unit changing team", function()
+		-- The order of the MetaUnit call-ins in a transfer, with the engine's team change between them.
+		local function transfer(unitID, teamID)
+			monitors.OnUnitRemoved(unitID)
+			units[unitID].teamID = teamID
+			monitors.OnUnitAdded(unitID)
+		end
+
 		it("joins a unit given to the monitored team, uncounted", function()
 			addArmy()
 			counts = {}
-			units[103].teamID = 0
 
-			monitors.OnUnitTeamChanged(103)
+			transfer(103, 0)
 
 			assert.are.same({ 102, 103 }, members())
 			assert.are.same({}, counts)
@@ -234,19 +240,73 @@ describe("mission_api.monitors", function()
 		it("takes out a member given to another team, uncounted", function()
 			addArmy()
 			counts = {}
-			units[102].teamID = 1
 
-			monitors.OnUnitTeamChanged(102)
+			transfer(102, 1)
 
 			assert.are.same({}, members())
 			assert.are.same({}, counts)
 		end)
 
+		it("keeps the name until MetaUnitAdded, so UnitTaken's triggers see the old membership", function()
+			addArmy()
+
+			monitors.OnUnitRemoved(102)
+			units[102].teamID = 1
+
+			assert.are.same({ 102 }, members())
+		end)
+
 		it("leaves a build frame out", function()
 			addArmy()
-			units[103] = { unitDefID = PAWN, teamID = 0, beingBuilt = true }
+			units[103].beingBuilt = true
 
-			monitors.OnUnitTeamChanged(103)
+			transfer(103, 0)
+
+			assert.are.same({ 102 }, members())
+		end)
+
+		it(
+			"does not count a leave by naming during UnitTaken's dispatch, as MetaUnitRemoved uncounted the unit",
+			function()
+				addArmy()
+				counts = {}
+				monitors.OnUnitRemoved(102)
+
+				tracking.TrackUnit("commander", 102)
+
+				assert.are.same({}, members())
+				assert.are.same({}, counts)
+			end
+		)
+
+		it("does not count a monitor removed during UnitTaken's dispatch", function()
+			addArmy()
+			counts = {}
+			monitors.OnUnitRemoved(102)
+
+			monitors.RemoveMonitor("army")
+
+			assert.are.same({}, counts)
+		end)
+
+		it("holds nothing back for a unit removed by its death", function()
+			addArmy()
+			counts = {}
+			units[102].dead = true
+			monitors.OnUnitRemoved(102)
+			-- Alive again only so that a hold, if any, would show in the count.
+			units[102].dead = nil
+
+			tracking.TrackUnit("commander", 102)
+
+			assert.are.same({ count(0, "armpw", -1) }, counts)
+		end)
+
+		it("leaves a unit created on its team to be settled when it finishes", function()
+			addArmy()
+			units[104] = { unitDefID = PAWN, teamID = 0 }
+
+			monitors.OnUnitAdded(104)
 
 			assert.are.same({ 102 }, members())
 		end)
