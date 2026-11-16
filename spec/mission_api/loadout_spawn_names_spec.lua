@@ -72,6 +72,15 @@ describe("mission_api.loadout spawned unit names", function()
 		assert.is_nil(GG["MissionAPI"].spawnedUnitIsBeingBuilt)
 	end)
 
+	it("spawns a unit without a name a monitor owns", function()
+		GG["MissionAPI"].monitors.army = {}
+
+		loadout.SpawnUnitLoadout({ bot({ unitName = "army" }) })
+
+		GG["MissionAPI"].monitors.army = nil
+		assert.are.same({}, seenAtCreate[lastUnitID])
+	end)
+
 	it("keeps them for the outer unit when units spawn inside its CreateUnit", function()
 		nestedSpawn = function()
 			loadout.SpawnUnitLoadout({ bot({ unitName = "Wave" }) })
