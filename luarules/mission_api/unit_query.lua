@@ -85,7 +85,27 @@ local function doesUnitMatch(unitID, unitName, unitDefName)
 	return true
 end
 
+---Whether the unit holds every fact the unit filter gives. The caller can pass the unit's def and team.
+---@param unitID UnitID
+---@return boolean
+local function doesUnitMatchFilter(unitID, unitFilter)
+	local unitName = unitFilter.unitName
+	if
+		unitName
+		and unitName ~= GG["MissionAPI"].nameOfUnitBeingSpawned
+		and not tracking.DoesUnitHaveName(unitID, unitName)
+	then
+		return false
+	end
+	if not doesUnitMatch(unitID, nil, unitFilter.unitDefName) then
+		return false
+	end
+	local teamID = unitFilter.teamName
+	return teamID == nil or spGetUnitTeam(unitID) == teamID
+end
+
 return {
 	MatchingUnits = matchingUnits,
 	DoesUnitMatch = doesUnitMatch,
+	DoesUnitMatchFilter = doesUnitMatchFilter,
 }
