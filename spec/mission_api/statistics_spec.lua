@@ -173,4 +173,60 @@ describe("mission_api.statistics", function()
 		assert.are.equal("armwar", objectiveUpdate.unitDefName)
 		assert.are.equal(1, objectiveUpdate.direction)
 	end)
+
+	describe("UpdateUnitNameCount", function()
+		it("counts a unit under the name for a trigger filtering on it", function()
+			triggers.nameCounted = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 2, unitName = "army" })
+
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			assert.are.equal(0, #activated)
+
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			assert.are.equal(1, #activated)
+		end)
+
+		it("fires a quantity 0 trigger when the last named unit is uncounted", function()
+			triggers.nameEmptied = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 0, unitName = "army" })
+
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", -1)
+			assert.are.same({ triggers.nameEmptied }, activated)
+		end)
+
+		it("leaves triggers without that name alone", function()
+			triggers.typeOnly = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 1 })
+			triggers.otherName = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 1, unitName = "boss" })
+
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			assert.are.equal(0, #activated)
+		end)
+
+		it("filters by teamName and unitDefName", function()
+			triggers.nameOtherTeam = makeTrigger(CONDITION_TYPE, { teamName = 5, quantity = 1, unitName = "army" })
+			triggers.nameOtherDef =
+				makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 1, unitName = "army", unitDefName = "armcom" })
+
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			assert.are.equal(0, #activated)
+		end)
+
+		it("updates only the managed objectives filtering on that name", function()
+			local named = { objectiveID = "named", parameters = { unitName = "army" } }
+			local typeOnly = { objectiveID = "typeOnly", parameters = {} }
+			GG["MissionAPI"].ManagedObjectives[CONDITION_TYPE] = { named, typeOnly }
+
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", -1)
+
+			assert.are.same({
+				{
+					objectiveID = "named",
+					teamID = 0,
+					unitDefName = "armwar",
+					unitNames = { army = true },
+					direction = -1,
+					managedObjective = named,
+				},
+			}, objectiveUpdates)
+		end)
+	end)
 end)

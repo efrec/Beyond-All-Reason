@@ -63,6 +63,34 @@ local function updateUnitStatistics(conditionType, teamID, unitDefName, unitName
 	end
 end
 
+--- Counts a unit that gained or lost one name while it stays on its team.
+local function updateUnitNameCount(conditionType, teamID, unitDefName, unitName, direction)
+	processTriggersOfType(conditionType, function(trigger, triggerID)
+		if trigger.parameters.unitName ~= unitName or teamID ~= trigger.parameters.teamName then
+			return
+		end
+		if trigger.parameters.unitDefName and unitDefName ~= trigger.parameters.unitDefName then
+			return
+		end
+
+		updateTriggerCount(trigger, triggerID, direction)
+	end)
+
+	local unitNames = { [unitName] = true }
+	for _, managedObjective in ipairs(GG["MissionAPI"].ManagedObjectives[conditionType] or {}) do
+		if managedObjective.parameters.unitName == unitName then
+			GG["MissionAPI"].Modules.Objectives.UpdateObjectiveProgress(
+				managedObjective.objectiveID,
+				teamID,
+				unitDefName,
+				unitNames,
+				direction,
+				managedObjective
+			)
+		end
+	end
+end
+
 local function increment(conditionType, teamID, unitDefName, unitNames)
 	updateUnitStatistics(conditionType, teamID, unitDefName, unitNames, 1)
 end
@@ -75,4 +103,5 @@ return {
 	Init = init,
 	Increment = increment,
 	Decrement = decrement,
+	UpdateUnitNameCount = updateUnitNameCount,
 }
