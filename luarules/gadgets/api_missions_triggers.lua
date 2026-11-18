@@ -309,8 +309,9 @@ function gadget:MetaUnitRemoved(unitID, unitDefID, unitTeam)
 	monitors.OnUnitRemoved(unitID)
 
 	local unitDefName = UnitDefs[unitDefID].name
-	-- A trigger activated by the count may change the unit's names.
-	local unitNames = table.copy(trackedUnitNames[unitID] or {})
+	-- A trigger activated by the count may change the unit's names, so a unit that has some passes a copy.
+	local names = trackedUnitNames[unitID]
+	local unitNames = names and table.copy(names)
 	statistics.Decrement(conditionTypes.UnitsOwned, unitTeam, unitDefName, unitNames)
 
 	-- Don't untrack unit here, as other call-ins run after this one (UnitDestroyed, UnitTaken, ...)
