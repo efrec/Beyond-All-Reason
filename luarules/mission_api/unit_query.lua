@@ -88,20 +88,22 @@ end
 ---Whether the unit holds every fact the unit filter gives. The caller can pass the unit's def and team.
 ---@param unitID UnitID
 ---@return boolean
-local function doesUnitMatchFilter(unitID, unitFilter)
+local function doesUnitMatchFilter(unitID, unitFilter, unitDefID, teamID)
+	local filterTeamID = unitFilter.teamName
+	if filterTeamID ~= nil and (teamID or spGetUnitTeam(unitID)) ~= filterTeamID then
+		return false
+	end
+	local unitDefName = unitFilter.unitDefName
+	if unitDefName ~= nil then
+		local unitDef = UnitDefNames[unitDefName]
+		if unitDef == nil or (unitDefID or spGetUnitDefID(unitID)) ~= unitDef.id then
+			return false
+		end
+	end
 	local unitName = unitFilter.unitName
-	if
-		unitName
-		and not tracking.DoesUnitHaveName(unitID, unitName)
-		and not (unitID == GG["MissionAPI"].unitIDBeingSpawned and unitName == GG["MissionAPI"].nameOfUnitBeingSpawned)
-	then
-		return false
-	end
-	if not doesUnitMatch(unitID, nil, unitFilter.unitDefName) then
-		return false
-	end
-	local teamID = unitFilter.teamName
-	return teamID == nil or spGetUnitTeam(unitID) == teamID
+	return unitName == nil
+		or tracking.DoesUnitHaveName(unitID, unitName)
+		or (unitID == GG["MissionAPI"].unitIDBeingSpawned and unitName == GG["MissionAPI"].nameOfUnitBeingSpawned)
 end
 
 return {
