@@ -85,9 +85,13 @@ local function doesUnitMatch(unitID, unitName, unitDefName)
 	return true
 end
 
+---Whether the unit holds the name. A unit being spawned already holds its loadout name.
+local function doesUnitHoldName(unitID, unitName)
+	return tracking.DoesUnitHaveName(unitID, unitName)
+		or (unitID == GG["MissionAPI"].unitIDBeingSpawned and unitName == GG["MissionAPI"].nameOfUnitBeingSpawned)
+end
+
 ---Whether the unit holds every fact the unit filter gives. The caller can pass the unit's def and team.
----@param unitID UnitID
----@return boolean
 local function doesUnitMatchFilter(unitID, unitFilter, unitDefID, teamID)
 	local filterTeamID = unitFilter.teamName
 	if filterTeamID ~= nil and (teamID or spGetUnitTeam(unitID)) ~= filterTeamID then
@@ -101,13 +105,12 @@ local function doesUnitMatchFilter(unitID, unitFilter, unitDefID, teamID)
 		end
 	end
 	local unitName = unitFilter.unitName
-	return unitName == nil
-		or tracking.DoesUnitHaveName(unitID, unitName)
-		or (unitID == GG["MissionAPI"].unitIDBeingSpawned and unitName == GG["MissionAPI"].nameOfUnitBeingSpawned)
+	return unitName == nil or doesUnitHoldName(unitID, unitName)
 end
 
 return {
 	MatchingUnits = matchingUnits,
 	DoesUnitMatch = doesUnitMatch,
+	DoesUnitHoldName = doesUnitHoldName,
 	DoesUnitMatchFilter = doesUnitMatchFilter,
 }

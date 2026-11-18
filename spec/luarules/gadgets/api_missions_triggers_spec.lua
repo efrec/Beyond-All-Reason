@@ -78,6 +78,16 @@ local env = MissionSpecEnv.new({
 			table.sort(unitIDs)
 			return unitIDs
 		end,
+		GetTeamUnits = function(teamID)
+			local unitIDs = {}
+			for unitID, unit in pairs(units) do
+				if unit.teamID == teamID then
+					unitIDs[#unitIDs + 1] = unitID
+				end
+			end
+			table.sort(unitIDs)
+			return unitIDs
+		end,
 		GetUnitDefID = function(unitID)
 			return units[unitID].unitDefID
 		end,

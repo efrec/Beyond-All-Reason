@@ -18,6 +18,16 @@ env.Spring.GetAllUnits = function()
 	table.sort(unitIDs)
 	return unitIDs
 end
+env.Spring.GetTeamUnits = function(teamID)
+	local unitIDs = {}
+	for unitID, unit in pairs(units) do
+		if unit.teamID == teamID then
+			unitIDs[#unitIDs + 1] = unitID
+		end
+	end
+	table.sort(unitIDs)
+	return unitIDs
+end
 env.Spring.GetUnitDefID = function(unitID)
 	return units[unitID].unitDefID
 end
@@ -47,6 +57,7 @@ describe("mission_api.monitors", function()
 				direction = direction,
 			}
 		end,
+		ActivateHeldTriggers = function() end,
 	}
 
 	local function count(teamID, unitDefName, direction)
@@ -117,6 +128,24 @@ describe("mission_api.monitors", function()
 			assert.are.same({ 100 }, members())
 			assert.are.same({ count(0, "armcom", 1), count(0, "armpw", -1) }, counts)
 		end)
+
+		it("leaves a monitor empty when a variable left an exception without fields", function()
+			monitors.AddMonitor("army", { teamName = 0 }, { {} })
+
+			assert.are.same({}, members())
+		end)
+
+		it("joins the unit being spawned under the name its rule asks for", function()
+			units[104] = { unitDefID = PAWN, teamID = 0 }
+			missionApi.nameOfUnitBeingSpawned = "boss"
+			missionApi.unitIDBeingSpawned = 104
+
+			monitors.AddMonitor("army", { unitName = "boss" })
+
+			missionApi.nameOfUnitBeingSpawned = nil
+			missionApi.unitIDBeingSpawned = nil
+			assert.are.same({ 104 }, members())
+		end)
 	end)
 
 	describe("a name only the monitor gives", function()
@@ -159,7 +188,7 @@ describe("mission_api.monitors", function()
 			monitors.RemoveMonitor("army")
 			units[104] = { unitDefID = PAWN, teamID = 0 }
 
-			monitors.OnUnitFinished(104)
+			monitors.OnUnitFinished(104, units[104].unitDefID)
 
 			assert.are.same({}, members())
 		end)
@@ -186,10 +215,30 @@ describe("mission_api.monitors", function()
 			counts = {}
 			units[104] = { unitDefID = PAWN, teamID = 0 }
 
-			monitors.OnUnitFinished(104)
+			monitors.OnUnitFinished(104, units[104].unitDefID)
 
 			assert.are.same({ 102, 104 }, members())
 			assert.are.same({ count(0, "armpw", 1) }, counts)
+		end)
+
+		it("joins a unit by the team it is on, when a gadget gave it away before this one heard of it", function()
+			addArmy()
+			monitors.AddMonitor("raiders", { teamName = 1 })
+			units[104] = { unitDefID = PAWN, teamID = 1 }
+
+			monitors.OnUnitFinished(104, PAWN)
+
+			assert.are.same({ 102 }, members())
+			assert.is_true(tracking.DoesUnitHaveName(104, "raiders"))
+		end)
+
+		it("leaves out a unit that a gadget destroyed before this one heard of it", function()
+			addArmy()
+			units[104] = { unitDefID = PAWN, teamID = 0, dead = true }
+
+			monitors.OnUnitFinished(104, PAWN)
+
+			assert.are.same({ 102 }, members())
 		end)
 
 		it("leaves out a unit matching an exception", function()
@@ -197,7 +246,7 @@ describe("mission_api.monitors", function()
 			units[104] = { unitDefID = PAWN, teamID = 0 }
 			tracking.TrackUnit("pawn7", 104)
 
-			monitors.OnUnitFinished(104)
+			monitors.OnUnitFinished(104, units[104].unitDefID)
 
 			assert.are.same({ 102 }, members())
 		end)
@@ -208,7 +257,7 @@ describe("mission_api.monitors", function()
 			missionApi.nameOfUnitBeingSpawned = "commander"
 			missionApi.unitIDBeingSpawned = 104
 
-			monitors.OnUnitFinished(104)
+			monitors.OnUnitFinished(104, units[104].unitDefID)
 
 			missionApi.nameOfUnitBeingSpawned = nil
 			missionApi.unitIDBeingSpawned = nil
@@ -222,7 +271,7 @@ describe("mission_api.monitors", function()
 			counts = {}
 			units[102].beingBuilt = true
 
-			monitors.OnUnitReverseBuilt(102)
+			monitors.OnUnitReverseBuilt(102, units[102].unitDefID)
 
 			assert.are.same({}, members())
 			assert.are.same({ count(0, "armpw", -1) }, counts)
@@ -232,9 +281,9 @@ describe("mission_api.monitors", function()
 	describe("a unit changing team", function()
 		-- The order of the MetaUnit call-ins in a transfer, with the engine's team change between them.
 		local function transfer(unitID, teamID)
-			monitors.OnUnitRemoved(unitID)
+			monitors.OnUnitRemoved(unitID, units[unitID].unitDefID, units[unitID].teamID)
 			units[unitID].teamID = teamID
-			monitors.OnUnitAdded(unitID)
+			monitors.OnUnitAdded(unitID, units[unitID].unitDefID, units[unitID].teamID)
 		end
 
 		it("joins a unit given to the monitored team, uncounted", function()
@@ -260,7 +309,7 @@ describe("mission_api.monitors", function()
 		it("keeps the name until MetaUnitAdded, so UnitTaken's triggers see the old membership", function()
 			addArmy()
 
-			monitors.OnUnitRemoved(102)
+			monitors.OnUnitRemoved(102, units[102].unitDefID, units[102].teamID)
 			units[102].teamID = 1
 
 			assert.are.same({ 102 }, members())
@@ -277,11 +326,11 @@ describe("mission_api.monitors", function()
 
 		it("leaves out a unit killed during UnitTaken's dispatch", function()
 			addArmy()
-			monitors.OnUnitRemoved(103)
+			monitors.OnUnitRemoved(103, units[103].unitDefID, units[103].teamID)
 			units[103].dead = true
 			units[103].teamID = 0
 
-			monitors.OnUnitAdded(103)
+			monitors.OnUnitAdded(103, units[103].unitDefID, units[103].teamID)
 
 			assert.are.same({ 102 }, members())
 		end)
@@ -291,7 +340,7 @@ describe("mission_api.monitors", function()
 			function()
 				addArmy()
 				counts = {}
-				monitors.OnUnitRemoved(102)
+				monitors.OnUnitRemoved(102, units[102].unitDefID, units[102].teamID)
 
 				tracking.TrackUnit("commander", 102)
 
@@ -303,31 +352,53 @@ describe("mission_api.monitors", function()
 		it("does not count a monitor removed during UnitTaken's dispatch", function()
 			addArmy()
 			counts = {}
-			monitors.OnUnitRemoved(102)
+			monitors.OnUnitRemoved(102, units[102].unitDefID, units[102].teamID)
 
 			monitors.RemoveMonitor("army")
 
 			assert.are.same({}, counts)
 		end)
 
-		it("holds nothing back for a unit removed by its death", function()
+		it("counts a monitor removed while a member's death is still to be uncounted", function()
 			addArmy()
 			counts = {}
 			units[102].dead = true
-			monitors.OnUnitRemoved(102)
-			-- Alive again only so that a hold, if any, would show in the count.
-			units[102].dead = nil
 
-			tracking.TrackUnit("commander", 102)
+			monitors.RemoveMonitor("army")
 
 			assert.are.same({ count(0, "armpw", -1) }, counts)
+		end)
+
+		it("does not count a monitor removed once MetaUnitRemoved uncounted a dying member", function()
+			addArmy()
+			counts = {}
+			units[102].dead = true
+			monitors.OnUnitRemoved(102, units[102].unitDefID, units[102].teamID)
+
+			monitors.RemoveMonitor("army")
+
+			assert.are.same({}, counts)
+		end)
+
+		it("counts a new unit under the ID of one that died", function()
+			addArmy()
+			units[102].dead = true
+			monitors.OnUnitRemoved(102, units[102].unitDefID, units[102].teamID)
+			tracking.UntrackUnitID(102)
+			monitors.OnUnitDestroyed(102)
+			counts = {}
+			units[102] = { unitDefID = PAWN, teamID = 0 }
+
+			monitors.OnUnitFinished(102, PAWN)
+
+			assert.are.same({ count(0, "armpw", 1) }, counts)
 		end)
 
 		it("leaves a unit created on its team to be settled when it finishes", function()
 			addArmy()
 			units[104] = { unitDefID = PAWN, teamID = 0 }
 
-			monitors.OnUnitAdded(104)
+			monitors.OnUnitAdded(104, units[104].unitDefID, units[104].teamID)
 
 			assert.are.same({ 102 }, members())
 		end)
@@ -336,7 +407,7 @@ describe("mission_api.monitors", function()
 	describe("a unit being added", function()
 		it("joins uncounted during MetaUnitAdded's dispatch, which counts it with its names after", function()
 			units[104] = { unitDefID = PAWN, teamID = 0 }
-			monitors.OnUnitAdded(104)
+			monitors.OnUnitAdded(104, units[104].unitDefID, units[104].teamID)
 
 			addArmy()
 
@@ -346,7 +417,7 @@ describe("mission_api.monitors", function()
 
 		it("is counted again once released", function()
 			units[104] = { unitDefID = PAWN, teamID = 0 }
-			monitors.OnUnitAdded(104)
+			monitors.OnUnitAdded(104, units[104].unitDefID, units[104].teamID)
 			addArmy()
 			monitors.ReleaseUnitCount(104)
 			counts = {}
@@ -467,18 +538,18 @@ describe("mission_api.monitors", function()
 			unitsOwnedTriggers.armyGone = unitsOwned({ teamName = 0, unitName = "army", quantity = 0 })
 			addArmy()
 			units[104] = { unitDefID = PAWN, teamID = 0 }
-			monitors.OnUnitFinished(104)
+			monitors.OnUnitFinished(104, units[104].unitDefID)
 
 			tracking.TrackUnit("commander", 102)
 			assert.are.same({}, activated)
 
 			units[104].beingBuilt = true
-			monitors.OnUnitReverseBuilt(104)
+			monitors.OnUnitReverseBuilt(104, units[104].unitDefID)
 			assert.are.same({ unitsOwnedTriggers.armyGone }, activated)
 		end)
 
-		it("counts each change before an activation it causes can change the unit again", function()
-			-- Whichever monitor counts the new unit first names it as an exception to both.
+		it("settles a unit in every monitor before an activation can change the unit again", function()
+			-- Each activation names the new unit as an exception to both monitors.
 			local function nameRecruitCommander()
 				tracking.TrackUnit("commander", 104)
 			end
@@ -492,26 +563,35 @@ describe("mission_api.monitors", function()
 			monitors.AddMonitor("guard", { teamName = 0 }, { { unitName = "commander" }, { unitName = "pawn7" } })
 			units[104] = { unitDefID = PAWN, teamID = 0 }
 
-			monitors.OnUnitFinished(104)
+			monitors.OnUnitFinished(104, units[104].unitDefID)
 
 			assert.is_false(table.contains(activated, unitsOwnedTriggers.armyGone))
 			assert.is_false(table.contains(activated, unitsOwnedTriggers.guardGone))
 			assert.are.same({ 102 }, members())
 		end)
 
-		it("lets a trigger fired while a monitor is removed add it again", function()
+		it("lets a trigger fired by a monitor's removal add it again", function()
 			units[104] = { unitDefID = PAWN, teamID = 0 }
+			unitsOwnedTriggers.armyGone = unitsOwned({ teamName = 0, unitName = "army", quantity = 0 })
+			unitsOwnedTriggers.armyGone.runActions = addArmy
 			addArmy()
-			-- Registered after two members joined, so the count reaches 0 when the first of three leaves.
-			unitsOwnedTriggers.armyLow = unitsOwned({ teamName = 0, unitName = "army", quantity = 0 })
-			unitsOwnedTriggers.armyLow.runActions = addArmy
-			units[105] = { unitDefID = PAWN, teamID = 0 }
-			monitors.OnUnitFinished(105)
 
 			monitors.RemoveMonitor("army")
 
+			assert.are.same({ unitsOwnedTriggers.armyGone }, activated)
 			assert.is_not_nil(missionApi.monitors.army)
-			assert.are.same({ 102, 104, 105 }, members())
+			assert.are.same({ 102, 104 }, members())
+		end)
+
+		it("activates nothing for a count that a pass moved away from again", function()
+			unitsOwnedTriggers.armyGone = unitsOwned({ teamName = 0, unitName = "army", quantity = 0 })
+			addArmy()
+
+			-- The old rule's only member leaves, and the commander joins, in one pass.
+			monitors.AddMonitor("army", { unitName = "commander" })
+
+			assert.are.same({}, activated)
+			assert.are.same({ 100 }, members())
 		end)
 
 		it("leaves a UnitsOwned count by type alone", function()

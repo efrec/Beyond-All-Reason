@@ -101,13 +101,44 @@ local function trackUnit(name, unitID)
 end
 
 ---For monitors.lua alone, which gives its monitor's name.
+---@return boolean given false when the unit already held the name
 local function trackMonitorUnit(name, unitID)
-	trackEntity(name, unitID, trackedUnitIDs, trackedUnitNames)
+	local unitIDs = trackedUnitIDs[name]
+	if unitIDs == nil then
+		unitIDs = {}
+		trackedUnitIDs[name] = unitIDs
+	elseif unitIDs[unitID] then
+		return false
+	end
+	unitIDs[unitID] = true
+
+	local names = trackedUnitNames[unitID]
+	if names == nil then
+		names = {}
+		trackedUnitNames[unitID] = names
+	end
+	names[name] = true
+	return true
 end
 
 ---For monitors.lua alone, which takes its monitor's name.
+---@return boolean taken false when the unit did not hold the name
 local function untrackMonitorUnit(name, unitID)
-	untrackEntity(name, unitID, trackedUnitIDs, trackedUnitNames)
+	local unitIDs = trackedUnitIDs[name]
+	if unitIDs == nil or not unitIDs[unitID] then
+		return false
+	end
+	unitIDs[unitID] = nil
+	if next(unitIDs) == nil then
+		trackedUnitIDs[name] = nil
+	end
+
+	local names = trackedUnitNames[unitID]
+	names[name] = nil
+	if next(names) == nil then
+		trackedUnitNames[unitID] = nil
+	end
+	return true
 end
 
 local function isUnitIDUntracked(unitID)

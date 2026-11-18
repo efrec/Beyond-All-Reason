@@ -179,17 +179,69 @@ describe("mission_api.statistics", function()
 			triggers.nameCounted = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 2, unitName = "army" })
 
 			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			statistics.ActivateHeldTriggers()
 			assert.are.equal(0, #activated)
 
 			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			statistics.ActivateHeldTriggers()
 			assert.are.equal(1, #activated)
+		end)
+
+		it("holds a trigger its count reached until ActivateHeldTriggers", function()
+			triggers.nameHeld = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 1, unitName = "army" })
+
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			assert.are.equal(0, #activated)
+
+			statistics.ActivateHeldTriggers()
+			assert.are.same({ triggers.nameHeld }, activated)
+
+			statistics.ActivateHeldTriggers()
+			assert.are.equal(1, #activated)
+		end)
+
+		it("activates a repeating trigger once for each milestone its count passed", function()
+			triggers.nameMilestones = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 2, unitName = "army" })
+
+			for _ = 1, 5 do
+				statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			end
+			statistics.ActivateHeldTriggers()
+
+			assert.are.same({ triggers.nameMilestones, triggers.nameMilestones }, activated)
+		end)
+
+		it("activates nothing for a count that moved away again before ActivateHeldTriggers", function()
+			triggers.namePassing = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 0, unitName = "army" })
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			statistics.ActivateHeldTriggers()
+
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", -1)
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			statistics.ActivateHeldTriggers()
+
+			assert.are.equal(0, #activated)
+		end)
+
+		it("follows a variable that changes the name a trigger counts", function()
+			triggers.nameChanging = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 1, unitName = "boss" })
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+
+			triggers.nameChanging.parameters.unitName = "army"
+			GG["MissionAPI"].parameterVersion = 1
+			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			statistics.ActivateHeldTriggers()
+
+			assert.are.same({ triggers.nameChanging }, activated)
 		end)
 
 		it("fires a quantity 0 trigger when the last named unit is uncounted", function()
 			triggers.nameEmptied = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 0, unitName = "army" })
 
 			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			statistics.ActivateHeldTriggers()
 			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", -1)
+			statistics.ActivateHeldTriggers()
 			assert.are.same({ triggers.nameEmptied }, activated)
 		end)
 
@@ -198,6 +250,7 @@ describe("mission_api.statistics", function()
 			triggers.otherName = makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 1, unitName = "boss" })
 
 			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			statistics.ActivateHeldTriggers()
 			assert.are.equal(0, #activated)
 		end)
 
@@ -207,6 +260,7 @@ describe("mission_api.statistics", function()
 				makeTrigger(CONDITION_TYPE, { teamName = 0, quantity = 1, unitName = "army", unitDefName = "armcom" })
 
 			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", 1)
+			statistics.ActivateHeldTriggers()
 			assert.are.equal(0, #activated)
 		end)
 
@@ -216,6 +270,8 @@ describe("mission_api.statistics", function()
 			GG["MissionAPI"].ManagedObjectives[CONDITION_TYPE] = { named, typeOnly }
 
 			statistics.UpdateUnitNameCount(CONDITION_TYPE, 0, "armwar", "army", -1)
+			assert.are.same({}, objectiveUpdates)
+			statistics.ActivateHeldTriggers()
 
 			assert.are.same({
 				{

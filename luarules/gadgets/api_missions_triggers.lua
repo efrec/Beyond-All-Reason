@@ -291,7 +291,7 @@ function gadget:MetaUnitAdded(unitID, unitDefID, unitTeam)
 		mapi.unitIDBeingSpawned = unitID
 	end
 
-	monitors.OnUnitAdded(unitID)
+	monitors.OnUnitAdded(unitID, unitDefID, unitTeam)
 	dispatchConditionCallin("MetaUnitAdded", unitID, unitDefID, unitTeam)
 	monitors.ReleaseUnitCount(unitID)
 
@@ -306,7 +306,7 @@ end
 
 function gadget:MetaUnitRemoved(unitID, unitDefID, unitTeam)
 	dispatchConditionCallin("MetaUnitRemoved", unitID, unitDefID, unitTeam)
-	monitors.OnUnitRemoved(unitID)
+	monitors.OnUnitRemoved(unitID, unitDefID, unitTeam)
 
 	local unitDefName = UnitDefs[unitDefID].name
 	-- A trigger activated by the count may change the unit's names, so a unit that has some passes a copy.
@@ -371,7 +371,7 @@ function gadget:UnitBuildStepPost(unitID)
 end
 
 function gadget:UnitFinished(unitID, unitDefID, unitTeam)
-	monitors.OnUnitFinished(unitID)
+	monitors.OnUnitFinished(unitID, unitDefID)
 	dispatchConditionCallin("UnitFinished", unitID, unitDefID, unitTeam)
 
 	buildFrameOwners[unitID] = nil
@@ -392,7 +392,7 @@ function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 end
 
 function gadget:UnitReverseBuilt(unitID, unitDefID, unitTeam)
-	monitors.OnUnitReverseBuilt(unitID)
+	monitors.OnUnitReverseBuilt(unitID, unitDefID)
 end
 
 function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerDefID, attackerTeam, weaponDefID)
@@ -425,6 +425,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, unitTeam, attackerID, attackerD
 	-- TODO: Will become a general method for informing presentation layer that a unit is gone.
 	GG["MissionAPI"].Modules.UnitMarkers.RemoveUnitMarkers(unitID)
 	untrackUnitID(unitID)
+	monitors.OnUnitDestroyed(unitID)
 end
 
 function gadget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag)
