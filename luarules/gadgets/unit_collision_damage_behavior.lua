@@ -17,6 +17,7 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 --customparams.fall_damage_multiplier = <number> a multiplier that's applied to defaultDamageMultiplier which affects the amount of damage taken from falling/collisions.
+--customparams.needs_hit_direction = "true" keeps the hit direction from weapons to pass to the unit's script, even when the impulse is zero or negligible.
 
 --the multiplier by which default engine ground/object collision damage is multiplied. change this value to reduce the amount of fall/collision damage taken for all units. Chosen empirically.
 local fallDamageMagnificationFactor = 14
@@ -32,6 +33,9 @@ local maxImpulseMultiplier = 5.5
 
 --to save performance and reduce unit hesitation from nominal impulse, impulse values below (minImpulseMultiplier * mass) returns 0 impulse.
 local minImpulseMultiplier = 0.01
+
+-- The impulse multiplier for units with needs_hit_direction; the value must be nonzero.
+local dirImpulseMultiplier = 0.005
 
 -- elmo/s, converted to elmo/frame. If a unit is launched via explosion faster than this, it is instantly slowed. If unit speed/gameSpeed is greater or canFly = true, speed/gameSpeed is used instead.
 local velocityCap = 330 / Game.gameSpeed
@@ -70,6 +74,7 @@ local unitInertiaCheckFlags = {}
 local fallingKillQueue = {}
 local launchedUnits = {}
 local fallingUnits = {}
+local keepsHitDirection = {}
 
 local gameFrame = 0
 local velocityWatchFrames = 300 / Game.gameSpeed
@@ -94,6 +99,9 @@ for unitDefID, unitDef in ipairs(UnitDefs) do
 	unitsMaxImpulse[unitDefID] = unitDef.mass * maxImpulseMultiplier
 	unitsMinImpulse[unitDefID] = unitDef.mass * minImpulseMultiplier
 	unitMasses[unitDefID] = unitDef.mass
+	if unitDef.customParams.needs_hit_direction then
+		keepsHitDirection[unitDefID] = true
+	end
 end
 
 for name, weaponDefID in pairs(Game.envDamageTypes) do
@@ -132,18 +140,18 @@ for weaponDefID, wDef in ipairs(WeaponDefs) do
 end
 
 local function getImpulseMultiplier(unitDefID, weaponDefID, damage)
-	local impulseBoost = 0
-	local impulseFactor = 1
+	local impulseBoost = 0.0
+	local impulseFactor = 1.0
 	if weaponDefID and weaponDefIDImpulses[weaponDefID] then
-		impulseBoost = weaponDefIDImpulses[weaponDefID].impulseBoost or 0
-		impulseFactor = weaponDefIDImpulses[weaponDefID].impulseFactor or 1
+		impulseBoost = weaponDefIDImpulses[weaponDefID].impulseBoost or 0.0
+		impulseFactor = weaponDefIDImpulses[weaponDefID].impulseFactor or 1.0
 	end
 	local impulse = (damage + impulseBoost) * impulseFactor
 	local impulseMultiplier
 	if impulse < unitsMinImpulse[unitDefID] then
-		impulseMultiplier = 0
+		impulseMultiplier = 0.0
 	else
-		impulseMultiplier = mathMin(unitsMaxImpulse[unitDefID] / impulse, 1) -- negative impulse values are not capped.
+		impulseMultiplier = mathMin(unitsMaxImpulse[unitDefID] / impulse, 1.0) -- negative impulse values are not capped.
 	end
 	return impulseMultiplier
 end
@@ -191,11 +199,14 @@ function gadget:UnitPreDamaged(
 	attackerTeam
 )
 	if not weaponDefIgnored[weaponDefID] and weaponDefID >= 0 then --this section handles limiting maximum impulse
-		local impulseMultiplier = 1
+		local impulseMultiplier = 1.0
 		impulseMultiplier = getImpulseMultiplier(unitDefID, weaponDefID, damage)
 		if not unitInertiaCheckFlags[unitID] and impulseMultiplier ~= 0 then
 			unitInertiaCheckFlags[unitID] =
 				{ expirationFrame = gameFrame + velocityWatchFrames, velocityCap = unitDefData[unitDefID].velocityCap }
+		end
+		if impulseMultiplier == 0 and keepsHitDirection[unitDefID] then
+			impulseMultiplier = dirImpulseMultiplier
 		end
 		return damage, impulseMultiplier
 	elseif
@@ -205,6 +216,8 @@ function gadget:UnitPreDamaged(
 		local healthRatioMultiplier, health = massToHealthRatioMultiplier(unitID, unitDefID)
 		damage = preventOverkillDamage(unitID, damage, health, healthRatioMultiplier)
 		return damage, 0
+	elseif weaponDefID >= 0 and keepsHitDirection[unitDefID] then
+		return damage, dirImpulseMultiplier
 	else
 		return damage, 0
 	end
