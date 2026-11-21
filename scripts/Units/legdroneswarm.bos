@@ -7,21 +7,26 @@
 
 // An empty base piece connected to four arms that connect to four drone bodies (each with detailed subpieces).
 // Per drone: arm, tip, station, body, mesh. Weapon n belongs to drone n. The arm has a piece collision volume.
-piece  base, orbit,
-       arm1, tip1, station1, body1, drone1, lwing1, rwing1, bwing1, lblades1, rblades1, bblades1, lflare1, rflare1,
-       arm2, tip2, station2, body2, drone2, lwing2, rwing2, bwing2, lblades2, rblades2, bblades2, lflare2, rflare2,
-       arm3, tip3, station3, body3, drone3, lwing3, rwing3, bwing3, lblades3, rblades3, bblades3, lflare3, rflare3,
-       arm4, tip4, station4, body4, drone4, lwing4, rwing4, bwing4, lblades4, rblades4, bblades4, lflare4, rflare4;
+piece base, orbit,
+	arm1, tip1, station1, body1, drone1, lwing1, rwing1, bwing1, lblades1, rblades1, bblades1, lflare1, rflare1,
+	arm2, tip2, station2, body2, drone2, lwing2, rwing2, bwing2, lblades2, rblades2, bblades2, lflare2, rflare2,
+	arm3, tip3, station3, body3, drone3, lwing3, rwing3, bwing3, lblades3, rblades3, bblades3, lflare3, rflare3,
+	arm4, tip4, station4, body4, drone4, lwing4, rwing4, bwing4, lblades4, rblades4, bblades4, lflare4, rflare4;
 
-static-var docked, droneCount, orbitDirection, alive1, alive2, alive3, alive4,
-           rightFlare1, rightFlare2, rightFlare3, rightFlare4,
-           aimHeading1, aimHeading2, aimHeading3, aimHeading4,
-           aimPitch1, aimPitch2, aimPitch3, aimPitch4,
-           droneYaw1, droneYaw2, droneYaw3, droneYaw4,
-           turnRate1, turnRate2, turnRate3, turnRate4,
-           turnFrame1, turnFrame2, turnFrame3, turnFrame4, lastAimFrame, restored,
-           bankPitch, bankRoll, flareYaw, flarePitch, firstPairShotFrame,
-           hitAngle, hitFrame, extremeDrone;
+static-var droneCount, extremeDrone,
+	alive1, alive2, alive3, alive4,
+	rightFlare1, rightFlare2, rightFlare3, rightFlare4,
+	aimHeading1, aimHeading2, aimHeading3, aimHeading4,
+	aimPitch1, aimPitch2, aimPitch3, aimPitch4,
+	droneYaw1, droneYaw2, droneYaw3, droneYaw4,
+	turnRate1, turnRate2, turnRate3, turnRate4,
+	turnFrame1, turnFrame2, turnFrame3, turnFrame4,
+	orbitDirection,
+	lastAimFrame, firstPairShotFrame,
+	restored, docked,
+	bankPitch, bankRoll,
+	flareYaw, flarePitch,
+	hitAngle, hitFrame;
 
 #define SIGNAL_MOTION SIGNAL_CUSTOM // all threads for undocked, self-powered motion
 
@@ -41,16 +46,16 @@ static-var docked, droneCount, orbitDirection, alive1, alive2, alive3, alive4,
 #define REFORM_TURN_SPEED  <90>
 
 // Bobbing. Up and down motion, with an "extreme" position for one drone at a time.
-#define BOB_HEIGHT             [3.0]
-#define BOB_EXTREME_HEIGHT     [5.0]
+#define BOB_HEIGHT             [4.0]
+#define BOB_EXTREME_HEIGHT     [6.0]
 #define BOB_HALF_PERIOD_MIN    800
 #define BOB_HALF_PERIOD_MAX    1200
 #define EXTREME_SLOT_SLEEP_MIN 1000
 #define EXTREME_SLOT_SLEEP_MAX 3000
 
 // Weaving. Gives the appearance of randomness and floatiness to the drone motion.
-#define WEAVE_SIDEWAYS         [1.0]
-#define WEAVE_LENGTHWAYS       [0.8]
+#define WEAVE_SIDEWAYS         [8.0]
+#define WEAVE_LENGTHWAYS       [1.2]
 #define WEAVE_LEG_TIME_MIN     1500
 #define WEAVE_LEG_TIME_MAX     2000
 #define WEAVE_TILT_SPEED       <4>
@@ -74,7 +79,7 @@ static-var docked, droneCount, orbitDirection, alive1, alive2, alive3, alive4,
 #define SECOND_PAIR_DELAY_FRAMES 2
 #define LINE_OF_FIRE_HALF_WIDTH  5 // elmos, a drone's hit volume plus the whole-elmo positions
 #define LINE_OF_FIRE_HALF_HEIGHT 4
-#define STEEPEST_CHECKED_SHOT    64 // kilocosine of the pitch; steeper shots pass over or under the others
+#define STEEPEST_CHECKED_SHOT    69 // kilocosine of the pitch; steeper shots pass over or under the others
 #define HIT_MEMORY_FRAMES        3
 #define MARK_FRAMES              90 // the mark moves to the next drone every three seconds
 #define DOCK_SETTLE_SPEED        [6]
@@ -568,18 +573,29 @@ RegainDrone()
 
 HealthWatch()
 {
-	var wanted;
+	var health, wanted;
 	while (TRUE) {
-		wanted = (get HEALTH) / 25 + 1;
-		if (wanted < 1) wanted = 1;
-		if (wanted > 4) wanted = 4;
+		health = (get HEALTH); // slight bias toward losing drones:
+		if (health > 85) {
+			wanted = 4;
+		}
+		else if (health > 60) {
+			wanted = 3;
+		}
+		else if (health > 30) {
+			wanted = 2;
+		}
+		else {
+			wanted = 1;
+		}
 		while (droneCount > wanted) {
 			call-script LoseDrone();
 		}
+		// TODO: Regaining drones should be through build/stockpile.
 		while (droneCount < wanted) {
 			call-script RegainDrone();
 		}
-		sleep 2 * ONE_FRAME;
+		sleep ONE_FRAME;
 	}
 }
 
