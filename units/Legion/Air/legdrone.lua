@@ -43,6 +43,7 @@ return {
 			unitgroup = "weapon",
 			crashable = 0,
 			drone = 1,
+			needs_hit_direction = true,
 			nohealthbars = 1,
 			reaimtime = 1,
 		},
